@@ -217,7 +217,7 @@ export interface UsageData {
 }
 
 export async function getCurrentUsage(): Promise<UsageData> {
-  const response = await fetch(`${API_BASE_URL}/usage/current`, {
+  const response = await fetch(`${import.meta.env.VITE_API_URL}/usage/current`, {
     headers: {
       'x-user-id': localStorage.getItem('userId') || 'demo-user',
       'x-plan': localStorage.getItem('plan') || 'free',
