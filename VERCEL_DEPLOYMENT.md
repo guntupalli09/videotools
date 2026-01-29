@@ -24,15 +24,11 @@ Ensure your project is in a GitHub repo and push the latest changes.
 1. Go to [vercel.com](https://vercel.com) and sign in (GitHub).
 2. Click **Add New** → **Project**.
 3. Import your **I love Video** repo.
-4. Vercel will detect the config from `vercel.json` (root = `client`, Vite build).
 
 ### 1.3 Configure the Vercel project
 
-- **Root Directory:** Set to **client** (Project Settings → General → Root Directory). The repo includes a `vercel.json` at the repo root that points the build to the client; if you deploy from the repo root, set Root Directory to `client` in the dashboard.
-- **Framework Preset:** Vite (auto if `vercel.json` is used).
-- **Build Command:** `npm run build`
-- **Output Directory:** `dist`
-- **Install Command:** `npm install`
+- **Root Directory:** Set to **client** in the **Dashboard only** (Project Settings → General → Root Directory). `rootDirectory` is **not** valid in `vercel.json`—it only exists in the Vercel Dashboard.
+- After setting Root Directory to `client`, the repo’s `vercel.json` (build command + output directory) applies to that root. Framework Preset can stay Vite; Build Command `npm run build`, Output Directory `dist`.
 
 ### 1.4 Set frontend environment variables
 
