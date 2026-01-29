@@ -9,6 +9,7 @@ export default function Pricing() {
         mode: 'subscription',
         plan,
         returnToPath: '/',
+        frontendOrigin: window.location.origin,
       })
       trackEvent('payment_completed', {
         type: 'subscription_checkout_started',

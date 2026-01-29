@@ -472,6 +472,7 @@ export default function VideoToSubtitles() {
               const { url } = await createCheckoutSession({
                 mode: 'payment',
                 returnToPath: window.location.pathname,
+                frontendOrigin: window.location.origin,
               })
               trackEvent('payment_completed', { type: 'overage_checkout_started' })
               window.location.href = url

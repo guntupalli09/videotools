@@ -7,6 +7,7 @@ interface CheckoutParams {
   plan?: BillingPlan
   returnToPath?: string
   email?: string
+  frontendOrigin?: string
 }
 
 export async function createCheckoutSession(params: CheckoutParams): Promise<{ url: string }> {

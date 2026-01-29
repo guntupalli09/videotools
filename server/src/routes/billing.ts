@@ -13,14 +13,20 @@ interface CheckoutRequestBody {
   email?: string
   // Optional: reuse existing Stripe customer when known
   stripeCustomerId?: string
+  // Optional: frontend origin (e.g. https://your-app.vercel.app) so we don't hard-code BASE_URL
+  frontendOrigin?: string
 }
 
 router.post('/checkout', async (req: Request, res: Response) => {
   try {
-    const { mode, plan, returnToPath, email, stripeCustomerId } =
+    const { mode, plan, returnToPath, email, stripeCustomerId, frontendOrigin } =
       req.body as CheckoutRequestBody
 
-    const baseUrl = process.env.BASE_URL || 'http://localhost:3000'
+    const envOrigin =
+      process.env.VERCEL_URL && process.env.VERCEL_URL.length > 0
+        ? `https://${process.env.VERCEL_URL}`
+        : process.env.BASE_URL
+    const baseUrl = frontendOrigin || envOrigin || 'http://localhost:3000'
     const normalizedPath =
       typeof returnToPath === 'string' && returnToPath.startsWith('/')
         ? returnToPath
