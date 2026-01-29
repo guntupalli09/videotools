@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+import { API_BASE } from './apiBase'
 
 export interface UploadResponse {
   jobId: string
@@ -42,7 +42,7 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
     formData.append('additionalLanguages', JSON.stringify(options.additionalLanguages))
   }
 
-  const response = await fetch(`${API_BASE_URL}/upload`, {
+  const response = await fetch(`${API_BASE}/upload`, {
     method: 'POST',
     body: formData,
     headers: {
@@ -67,7 +67,7 @@ export async function uploadFromURL(url: string, options: UploadOptions): Promis
   if (options.format) formData.append('format', options.format)
   if (options.language) formData.append('language', options.language)
 
-  const response = await fetch(`${API_BASE_URL}/upload`, {
+  const response = await fetch(`${API_BASE}/upload`, {
     method: 'POST',
     body: formData,
     headers: {
@@ -101,7 +101,7 @@ export async function uploadDualFiles(
     formData.append('trimmedEnd', options.trimmedEnd.toString())
   }
 
-  const response = await fetch(`${API_BASE_URL}/upload/dual`, {
+  const response = await fetch(`${API_BASE}/upload/dual`, {
     method: 'POST',
     body: formData,
     headers: {
@@ -119,7 +119,7 @@ export async function uploadDualFiles(
 }
 
 export async function getJobStatus(jobId: string): Promise<JobStatus> {
-  const response = await fetch(`${API_BASE_URL}/job/${jobId}`)
+  const response = await fetch(`${API_BASE}/job/${jobId}`)
 
   if (!response.ok) {
     throw new Error('Failed to get job status')
@@ -151,7 +151,7 @@ export async function uploadBatch(
     formData.append('additionalLanguages', JSON.stringify(additionalLanguages))
   }
 
-  const response = await fetch(`${API_BASE_URL}/batch/upload`, {
+  const response = await fetch(`${API_BASE}/batch/upload`, {
     method: 'POST',
     body: formData,
     headers: {
@@ -182,7 +182,7 @@ export interface BatchStatus {
 }
 
 export async function getBatchStatus(batchId: string): Promise<BatchStatus> {
-  const response = await fetch(`${API_BASE_URL}/batch/${batchId}/status`)
+  const response = await fetch(`${API_BASE}/batch/${batchId}/status`)
 
   if (!response.ok) {
     throw new Error('Failed to get batch status')
@@ -192,7 +192,7 @@ export async function getBatchStatus(batchId: string): Promise<BatchStatus> {
 }
 
 export function getBatchDownloadUrl(batchId: string): string {
-  return `${API_BASE_URL}/batch/${batchId}/download`
+  return `${API_BASE}/batch/${batchId}/download`
 }
 
 // Usage APIs
@@ -217,7 +217,7 @@ export interface UsageData {
 }
 
 export async function getCurrentUsage(): Promise<UsageData> {
-  const response = await fetch(`${import.meta.env.VITE_API_URL}/usage/current`, {
+  const response = await fetch(`${API_BASE}/usage/current`, {
     headers: {
       'x-user-id': localStorage.getItem('userId') || 'demo-user',
       'x-plan': localStorage.getItem('plan') || 'free',

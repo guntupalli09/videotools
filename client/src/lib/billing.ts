@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+import { API_BASE } from './apiBase'
 
 export type BillingPlan = 'basic' | 'pro' | 'agency'
 
@@ -11,7 +11,7 @@ interface CheckoutParams {
 }
 
 export async function createCheckoutSession(params: CheckoutParams): Promise<{ url: string }> {
-  const response = await fetch(`${API_BASE_URL}/billing/checkout`, {
+  const response = await fetch(`${API_BASE}/billing/checkout`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
