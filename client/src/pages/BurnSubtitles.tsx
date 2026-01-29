@@ -9,7 +9,7 @@ import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
 import VideoTrimmer from '../components/VideoTrimmer'
 import { getUsage, getLimit, checkLimit, incrementUsage } from '../lib/usage'
-import { uploadDualFiles, getJobStatus } from '../lib/api'
+import { uploadDualFiles, getJobStatus, BACKEND_TOOL_TYPES } from '../lib/api'
 import toast from 'react-hot-toast'
 import { Minimize2 } from 'lucide-react'
 
@@ -51,7 +51,7 @@ export default function BurnSubtitles() {
       setStatus('processing')
       setProgress(0)
 
-      const response = await uploadDualFiles(videoFile, subtitleFile, 'burn-subtitles', {
+      const response = await uploadDualFiles(videoFile, subtitleFile, BACKEND_TOOL_TYPES.BURN_SUBTITLES, {
         trimmedStart: trimStart ?? undefined,
         trimmedEnd: trimEnd ?? undefined,
       })

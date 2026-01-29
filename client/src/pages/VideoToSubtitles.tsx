@@ -11,7 +11,7 @@ import VideoTrimmer from '../components/VideoTrimmer'
 import LanguageSelector from '../components/LanguageSelector'
 import SubtitleEditor, { SubtitleRow } from '../components/SubtitleEditor'
 import { getUsage, getLimit, checkLimit, incrementUsage } from '../lib/usage'
-import { uploadFile, uploadFromURL, getJobStatus, getCurrentUsage } from '../lib/api'
+import { uploadFile, uploadFromURL, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES } from '../lib/api'
 import { createCheckoutSession } from '../lib/billing'
 import { trackEvent } from '../lib/analytics'
 import toast from 'react-hot-toast'
@@ -118,7 +118,7 @@ export default function VideoToSubtitles() {
       let response
       if (tab === 'upload' && selectedFile) {
         response = await uploadFile(selectedFile, {
-          toolType: 'video-to-subtitles',
+          toolType: BACKEND_TOOL_TYPES.VIDEO_TO_SUBTITLES,
           format,
           language: language || undefined,
           trimmedStart: trimStart ?? undefined,
@@ -134,7 +134,7 @@ export default function VideoToSubtitles() {
           return
         }
         response = await uploadFromURL(url, {
-          toolType: 'video-to-subtitles',
+          toolType: BACKEND_TOOL_TYPES.VIDEO_TO_SUBTITLES,
           format,
           language: language || undefined,
         })

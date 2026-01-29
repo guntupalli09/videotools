@@ -9,7 +9,7 @@ import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
 import SubtitleEditor, { SubtitleRow } from '../components/SubtitleEditor'
 import { getUsage, getLimit, checkLimit, incrementUsage } from '../lib/usage'
-import { uploadFile, getJobStatus } from '../lib/api'
+import { uploadFile, getJobStatus, BACKEND_TOOL_TYPES } from '../lib/api'
 import toast from 'react-hot-toast'
 import { Film, Wrench } from 'lucide-react'
 
@@ -81,7 +81,7 @@ export default function TranslateSubtitles() {
 
       if (tab === 'upload' && selectedFile) {
         response = await uploadFile(selectedFile, {
-          toolType: 'translate-subtitles',
+          toolType: BACKEND_TOOL_TYPES.TRANSLATE_SUBTITLES,
           targetLanguage,
         })
       } else if (tab === 'paste' && pastedText.trim()) {

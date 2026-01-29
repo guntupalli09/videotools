@@ -8,7 +8,7 @@ import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import UsageDisplay from '../components/UsageDisplay'
 import SubtitleEditor, { SubtitleRow } from '../components/SubtitleEditor'
 import { getUsage, getLimit, incrementUsage } from '../lib/usage'
-import { uploadFile, getJobStatus } from '../lib/api'
+import { uploadFile, getJobStatus, BACKEND_TOOL_TYPES } from '../lib/api'
 import toast from 'react-hot-toast'
 import { Film, Languages } from 'lucide-react'
 
@@ -76,7 +76,7 @@ export default function FixSubtitles() {
 
       // Upload and process to detect issues
       const response = await uploadFile(selectedFile, {
-        toolType: 'fix-subtitles',
+        toolType: BACKEND_TOOL_TYPES.FIX_SUBTITLES,
       })
 
       const pollInterval = setInterval(async () => {
@@ -115,7 +115,7 @@ export default function FixSubtitles() {
       setProgress(0)
 
       const response = await uploadFile(selectedFile, {
-        toolType: 'fix-subtitles',
+        toolType: BACKEND_TOOL_TYPES.FIX_SUBTITLES,
       })
 
       const pollInterval = setInterval(async () => {

@@ -1,5 +1,17 @@
 import { API_BASE } from './apiBase'
 
+/** Backend-supported toolType values. Match server/src/routes/upload.ts and workers/videoProcessor.ts exactly. Do not invent names. */
+export const BACKEND_TOOL_TYPES = {
+  VIDEO_TO_TRANSCRIPT: 'video-to-transcript',
+  VIDEO_TO_SUBTITLES: 'video-to-subtitles',
+  TRANSLATE_SUBTITLES: 'translate-subtitles',
+  FIX_SUBTITLES: 'fix-subtitles',
+  BURN_SUBTITLES: 'burn-subtitles',
+  COMPRESS_VIDEO: 'compress-video',
+} as const
+
+export type BackendToolType = (typeof BACKEND_TOOL_TYPES)[keyof typeof BACKEND_TOOL_TYPES]
+
 export interface UploadResponse {
   jobId: string
   status: 'queued'
@@ -16,7 +28,7 @@ export interface JobStatus {
 }
 
 export interface UploadOptions {
-  toolType: string
+  toolType: BackendToolType
   url?: string
   format?: 'srt' | 'vtt'
   language?: string
@@ -89,7 +101,7 @@ export async function uploadFromURL(url: string, options: UploadOptions): Promis
 export async function uploadDualFiles(
   videoFile: File,
   subtitleFile: File,
-  toolType: string,
+  toolType: BackendToolType,
   options?: { trimmedStart?: number; trimmedEnd?: number }
 ): Promise<UploadResponse> {
   const formData = new FormData()

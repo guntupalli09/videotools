@@ -9,7 +9,7 @@ import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
 import VideoTrimmer from '../components/VideoTrimmer'
 import { getUsage, getLimit, checkLimit, incrementUsage } from '../lib/usage'
-import { uploadFile, uploadFromURL, getJobStatus, getCurrentUsage } from '../lib/api'
+import { uploadFile, uploadFromURL, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES } from '../lib/api'
 import { trackEvent } from '../lib/analytics'
 import toast from 'react-hot-toast'
 import { Subtitles } from 'lucide-react'
@@ -71,7 +71,7 @@ export default function VideoToTranscript() {
       let response
       if (tab === 'upload' && selectedFile) {
         response = await uploadFile(selectedFile, {
-          toolType: 'video-to-transcript',
+          toolType: BACKEND_TOOL_TYPES.VIDEO_TO_TRANSCRIPT,
           trimmedStart: trimStart ?? undefined,
           trimmedEnd: trimEnd ?? undefined,
         })
@@ -84,7 +84,7 @@ export default function VideoToTranscript() {
           setStatus('idle')
           return
         }
-        response = await uploadFromURL(url, { toolType: 'video-to-transcript' })
+        response = await uploadFromURL(url, { toolType: BACKEND_TOOL_TYPES.VIDEO_TO_TRANSCRIPT })
       } else {
         toast.error('Please select a file or enter a URL')
         setStatus('idle')
