@@ -1,4 +1,4 @@
-import { fileTypeFromFile } from 'file-type'
+import { fromFile as fileTypeFromFile } from 'file-type'
 
 const ALLOWED_MIME_TYPES = [
   'video/mp4',
