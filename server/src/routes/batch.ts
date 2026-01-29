@@ -1,0 +1,277 @@
+import express, { Request, Response } from 'express'
+import multer from 'multer'
+import path from 'path'
+import fs from 'fs'
+import { v4 as uuidv4 } from 'uuid'
+import { getVideoDuration } from '../services/ffmpeg'
+import { validateFileSize, validateFileType } from '../utils/fileValidation'
+import { BatchJob, saveBatch, getBatchById } from '../models/BatchJob'
+import { getUser, saveUser, PlanType, User } from '../models/User'
+import { getPlanLimits, enforceBatchLimits, getJobPriority } from '../utils/limits'
+import { fileQueue } from '../workers/videoProcessor'
+import { getAuthFromRequest } from '../utils/auth'
+
+const router = express.Router()
+
+// Shared temp directory (same as upload.ts)
+const tempDir = process.env.TEMP_FILE_PATH || path.join(process.cwd(), 'temp')
+if (!fs.existsSync(tempDir)) {
+  fs.mkdirSync(tempDir, { recursive: true })
+}
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, tempDir)
+  },
+  filename: (_req, file, cb) => {
+    const uniqueName = `${uuidv4()}-${file.originalname}`
+    cb(null, uniqueName)
+  },
+})
+
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 * 1024, // 10GB (plan enforcement happens after upload)
+  },
+})
+
+function getOrCreateDemoUser(req: Request): User {
+  const auth = getAuthFromRequest(req)
+  const headerUserId = (req.headers['x-user-id'] as string) || 'demo-user'
+  const headerPlan = (req.headers['x-plan'] as string) as PlanType | undefined
+
+  const userId = auth?.userId || headerUserId
+  let user = getUser(userId)
+
+  if (!user) {
+    const plan: PlanType =
+      auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency')
+        ? auth.plan
+        : headerPlan === 'basic' || headerPlan === 'pro' || headerPlan === 'agency'
+        ? headerPlan
+        : 'free'
+    const limits = getPlanLimits(plan)
+    const now = new Date()
+    const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+
+    user = {
+      id: userId,
+      email: `${userId}@example.com`,
+      passwordHash: '',
+      plan,
+      stripeCustomerId: '',
+      subscriptionId: '',
+      paymentMethodId: undefined,
+      usageThisMonth: {
+        totalMinutes: 0,
+        videoCount: 0,
+        batchCount: 0,
+        languageCount: 0,
+        translatedMinutes: 0,
+        resetDate,
+      },
+      limits,
+      overagesThisMonth: {
+        minutes: 0,
+        languages: 0,
+        batches: 0,
+        totalCharge: 0,
+      },
+      createdAt: now,
+      updatedAt: now,
+    }
+
+    saveUser(user)
+  }
+
+  return user
+}
+
+// POST /api/batch/upload
+router.post(
+  '/upload',
+  upload.array('files'),
+  async (req: Request, res: Response) => {
+    const user = getOrCreateDemoUser(req)
+
+    try {
+      const files = req.files as Express.Multer.File[]
+      const { primaryLanguage, additionalLanguages } = req.body
+
+      if (!files || files.length === 0) {
+        return res.status(400).json({ message: 'No files uploaded' })
+      }
+
+      // Basic plan enforcement: batch not available
+      if (!user.limits.batchEnabled) {
+        // Free: NO BATCH (disabled), Basic: NO BATCH with upgrade prompt
+        return res.status(403).json({ message: 'Batch processing not available for this plan' })
+      }
+
+      // Validate each file and collect durations
+      const videoMeta: { path: string; originalName: string; duration: number }[] = []
+
+      for (const file of files) {
+        if (file.size > user.limits.maxFileSize) {
+          fs.unlinkSync(file.path)
+          return res.status(400).json({ message: `File exceeds plan limit. Upgrade for larger files.` })
+        }
+
+        const typeError = await validateFileType(file.path)
+        if (typeError) {
+          fs.unlinkSync(file.path)
+          return res.status(400).json({ message: typeError })
+        }
+
+        const duration = await getVideoDuration(file.path)
+        videoMeta.push({
+          path: file.path,
+          originalName: file.originalname,
+          duration,
+        })
+      }
+
+      const batchesToday = user.usageThisMonth.batchCount
+      const batchCheck = await enforceBatchLimits(
+        user,
+        videoMeta.map((v) => ({ duration: v.duration })),
+        batchesToday
+      )
+
+      if (!batchCheck.allowed) {
+        const statusCode =
+          batchCheck.reason === 'BATCH_NOT_AVAILABLE' ? 403 : 400
+        return res.status(statusCode).json({ message: batchCheck.reason })
+      }
+
+      const totalDurationSeconds = videoMeta.reduce(
+        (sum, v) => sum + v.duration,
+        0
+      )
+      const estimatedDurationMinutes = Math.ceil(totalDurationSeconds / 60)
+
+      const batchId = uuidv4()
+      const now = new Date()
+
+      const batch: BatchJob = {
+        id: batchId,
+        userId: user.id,
+        totalVideos: videoMeta.length,
+        totalDuration: totalDurationSeconds,
+        processedVideos: 0,
+        failedVideos: 0,
+        status: 'queued',
+        zipPath: undefined,
+        zipSize: undefined,
+        errors: [],
+        createdAt: now,
+        completedAt: undefined,
+        expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+      }
+
+      saveBatch(batch)
+
+      // Track batch usage count; minute charging happens per video jobs
+      user.usageThisMonth.batchCount += 1
+      user.updatedAt = new Date()
+      saveUser(user)
+
+      // Queue individual video jobs for batch processing
+      const additionalLangs = Array.isArray(additionalLanguages) 
+        ? additionalLanguages 
+        : (additionalLanguages ? JSON.parse(additionalLanguages) : [])
+      
+      for (let i = 0; i < videoMeta.length; i++) {
+        const video = videoMeta[i]
+        await fileQueue.add({
+          toolType: 'batch-video-to-subtitles',
+          filePath: video.path,
+          originalName: video.originalName,
+          fileSize: fs.statSync(video.path).size,
+          userId: user.id,
+          plan: user.plan,
+          batchId,
+          batchPosition: i + 1,
+          batchTotal: videoMeta.length,
+          options: {
+            format: 'srt',
+            language: primaryLanguage || 'en',
+            additionalLanguages: additionalLangs,
+          },
+        }, {
+          priority: getJobPriority(user.plan),
+        })
+      }
+
+      // Update batch status to processing
+      batch.status = 'processing'
+      saveBatch(batch)
+
+      res.json({
+        batchId,
+        totalVideos: videoMeta.length,
+        estimatedDuration: estimatedDurationMinutes,
+        estimatedMinutes: estimatedDurationMinutes,
+        primaryLanguage: primaryLanguage || 'en',
+        additionalLanguages: additionalLangs,
+        status: 'queued',
+      })
+    } catch (error: any) {
+      console.error('Batch upload error:', error)
+      res.status(500).json({ message: error.message || 'Batch upload failed' })
+    }
+  }
+)
+
+// GET /api/batch/:batchId/status
+router.get('/:batchId/status', (req: Request, res: Response) => {
+  const { batchId } = req.params
+  const batch = getBatchById(batchId)
+
+  if (!batch) {
+    return res.status(404).json({ message: 'Batch not found' })
+  }
+
+  const completed = batch.processedVideos
+  const failed = batch.failedVideos
+  const total = batch.totalVideos
+  const percentage = total === 0 ? 0 : Math.round((completed / total) * 100)
+
+  res.json({
+    batchId: batch.id,
+    status: batch.status,
+    progress: {
+      total,
+      completed,
+      failed,
+      percentage,
+    },
+    estimatedTimeRemaining: 0,
+    errors: batch.errors,
+  })
+})
+
+// GET /api/batch/:batchId/download
+router.get('/:batchId/download', (req: Request, res: Response) => {
+  const { batchId } = req.params
+  const batch = getBatchById(batchId)
+
+  if (!batch) {
+    return res.status(404).json({ message: 'Batch not found' })
+  }
+
+  if (!batch.zipPath || !fs.existsSync(batch.zipPath)) {
+    return res.status(404).json({ message: 'ZIP file not ready yet' })
+  }
+
+  const filename = `batch_${batchId}.zip`
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+  res.setHeader('Content-Type', 'application/zip')
+
+  const fileStream = fs.createReadStream(batch.zipPath)
+  fileStream.pipe(res)
+})
+
+export default router
+

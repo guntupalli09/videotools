@@ -1,0 +1,6 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+
+# Optional: point to sitemap when you have one (e.g. after deploying)
+# Sitemap: https://yoursite.com/sitemap.xml

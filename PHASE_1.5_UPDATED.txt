@@ -1,0 +1,1140 @@
+You are building PHASE 1.5 ONLY of a browser-based video utility platform.
+
+This is mp4tosrt.com — "I Love PDF for video"
+PHASE 1.5 = SAFE REVENUE SCALING
+Phase 0 (foundation) and Phase 1 (core tools) are complete.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+GOAL OF PHASE 1.5
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Add high-demand features that drive revenue WITHOUT:
+- Unlimited usage (everything is metered)
+- Abuse vulnerabilities (strict limits enforced)
+- Scope creep (no features outside this spec)
+- Infrastructure blowups (queue limits, concurrency caps)
+
+This phase introduces tiered pricing with usage-based metering.
+Every feature must respect plan limits and prevent abuse.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BEFORE YOU WRITE ANY CODE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Summarize in bullet points EXACTLY what you will build in Phase 1.5.
+2. Summarize in bullet points EXACTLY what you will NOT build.
+3. WAIT for my explicit approval before writing code.
+
+Do not proceed until approved.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 1.5 FEATURES (BUILD ONLY THESE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FEATURE 1 — BATCH PROCESSING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+What: Allow multiple video uploads in one job, output single ZIP file
+
+Implementation:
+- User uploads multiple videos (drag-drop multiple files)
+- Each video is queued as separate job internally (use existing Bull queue)
+- Jobs process in parallel (respect concurrency limits)
+- When all complete, generate single ZIP containing all SRT files
+- Download ZIP file
+
+Batch Limits by Plan:
+- Free tier: NO BATCH (disabled, grayed out)
+- Basic ($19/month): NO BATCH (upgrade prompt shown)
+- Pro ($49/month): Max 20 videos per batch
+- Agency ($149/month): Max 100 videos per batch
+
+Safety Limits (CRITICAL):
+- Max total duration per batch:
+  * Pro: 60 minutes total across all videos
+  * Agency: 300 minutes total across all videos
+- Max concurrent batches:
+  * Pro: 1 batch at a time
+  * Agency: 3 batches at a time
+- Batch cooldown:
+  * Pro: Max 3 batch jobs per day
+  * Agency: Max 10 batch jobs per day
+- Batch expiration: 24 hours (auto-cancel if not completed)
+
+Error Handling:
+- If some videos fail (invalid format, too large, etc.):
+  * Continue processing remaining videos
+  * Include successful SRT files in ZIP
+  * Add error_log.txt listing failed videos with reasons
+  * User charged only for successful videos
+
+UI Flow:
+1. Upload page shows: "Upload multiple videos" (if Pro/Agency)
+2. Drag-drop multiple files or select multiple
+3. Show list of uploaded files with sizes
+4. "Process Batch" button (shows total duration estimate)
+5. Processing page: Progress for entire batch (e.g., "12/20 videos complete")
+6. Success page: "Download ZIP" button with file count
+
+File Naming in ZIP:
+- video1.srt
+- video2.srt
+- etc.
+- OR preserve original names: my_video.srt, another_video.srt
+
+Route: /batch-process (new page, only accessible to Pro/Agency)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FEATURE 2 — VIDEO TRIMMING (PRE-PROCESSING)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+What: Allow users to select start/end timestamps before transcription
+
+Implementation:
+- After file upload, show video preview player
+- User can drag timeline sliders to select start/end time
+- Display: "Selected: 02:30 to 05:45 (3 minutes 15 seconds)"
+- Only trimmed segment is processed (reduces cost + improves UX)
+- Trimming uses FFmpeg to extract segment before Whisper API call
+
+Availability:
+- Free tier: YES (helps reduce their usage AND your costs)
+- All paid tiers: YES
+- This is a win-win feature (reduces compute for everyone)
+
+Metering:
+- Only trimmed duration counts toward monthly minute limits
+- Example: 60-minute video trimmed to 5 minutes = 5 minutes of usage
+
+UI Flow:
+1. User uploads video
+2. Video preview player appears with timeline
+3. Drag start/end handles to select segment
+4. Button: "Process Selected Segment (3:15)"
+5. Alternative button: "Process Entire Video (60:00)"
+6. Processing uses only selected duration
+
+Technical Implementation:
+```javascript
+// Use FFmpeg to extract segment
+ffmpeg(inputPath)
+  .setStartTime(startTime) // e.g., "02:30"
+  .setDuration(duration)   // e.g., "03:15"
+  .save(trimmedPath);
+
+// Then process trimmed file
+await transcribe(trimmedPath);
+```
+
+Available on: All tool pages that accept video input
+- /video-to-transcript
+- /video-to-subtitles
+- /burn-subtitles (trim before burning)
+- /compress-video (trim before compressing)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FEATURE 3 — SUBTITLE EDITING (TEXT-ONLY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+What: After transcription, allow editing subtitle text before download
+
+Implementation:
+- After subtitle generation, show editable list view
+- Each entry: [start time] [end time] [subtitle text]
+- Text is editable (click to edit, inline textarea)
+- Timestamps are READ-ONLY (no editing)
+- NO video player synchronization
+- NO waveform editor
+- NO timeline scrubber
+- NO adding new entries
+- NO deleting entries
+- JUST text editing
+
+Constraints (CRITICAL - Prevent Abuse):
+- User CANNOT add new subtitle entries
+- User CANNOT delete subtitle entries
+- User CANNOT change timestamps
+- User CAN ONLY edit existing text
+- Reason: Prevents creating full subtitles from scratch without using AI
+
+Availability:
+- Free tier: Read-only preview (can view but not edit)
+- Basic tier: Editing enabled
+- Pro tier: Editing enabled
+- Agency tier: Editing enabled
+
+Editing does NOT trigger new API calls:
+- User edits text locally
+- Changes saved in memory
+- Download exports edited version
+- No additional charges
+
+UI Design:
+```
+┌────────────────────────────────────────────┐
+│ Subtitle Editor                            │
+├────────────────────────────────────────────┤
+│ Entry 1                                    │
+│ 00:00:00.000 → 00:00:03.500               │
+│ [Hello and welcome to this video]          │ ← Editable
+│                                            │
+│ Entry 2                                    │
+│ 00:00:03.500 → 00:00:07.200               │
+│ [Today we're going to learn about...]     │ ← Editable
+│                                            │
+│ Entry 3                                    │
+│ 00:00:07.200 → 00:00:10.800               │
+│ [subtitle processing and editing]          │ ← Editable
+├────────────────────────────────────────────┤
+│ [Download Edited Subtitles]                │
+└────────────────────────────────────────────┘
+```
+
+Implementation Notes:
+- Store edited subtitles in component state (React)
+- Export edited version on download
+- Option: "Revert to original" button
+- Changes are client-side only (not persisted server-side)
+
+Available on:
+- /video-to-subtitles (after generation)
+- /translate-subtitles (after translation)
+- /fix-subtitles (after fixing)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FEATURE 4 — MULTI-LANGUAGE SUBTITLES (CAPPED)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+What: Generate subtitles in multiple languages from one video upload
+
+Implementation:
+- User uploads video once
+- Selects multiple target languages (checkboxes)
+- System generates:
+  1. Primary transcription (e.g., English) using Whisper
+  2. Translations for each selected language using GPT-4o-mini
+- Output: Multiple SRT files, one per language
+- Download as ZIP file
+
+Available Languages:
+- English (en)
+- Spanish (es)
+- French (fr)
+- German (de)
+- Portuguese (pt)
+- Arabic (ar)
+- Hindi (hi)
+- Japanese (ja)
+- Korean (ko)
+- Chinese Simplified (zh)
+- Italian (it)
+- Russian (ru)
+
+Language Limits by Plan:
+- Free tier: 1 language only (no selection, forced to primary)
+- Basic ($19/month): 1 language (primary transcription only)
+- Pro ($49/month): Up to 5 languages per video
+- Agency ($149/month): Up to 10 languages per video
+
+Metering (CRITICAL):
+Multi-language usage is calculated as:
+- Primary transcription: Counts as video duration (e.g., 10 minutes)
+- Each additional translation: Counts as 0.5x video duration
+- Example: 10-minute video in 5 languages:
+  * English transcription: 10 minutes
+  * 4 additional translations: 4 × 5 minutes = 20 minutes
+  * Total usage: 30 minutes deducted from monthly limit
+
+Why 0.5x multiplier:
+- Whisper API cost: ~$0.006/minute
+- GPT-4o-mini translation: ~$0.002/minute equivalent
+- Translation is cheaper than transcription
+- 0.5x is fair to user, profitable to platform
+
+Hard Cap:
+- Max total translated minutes per month:
+  * Pro: 500 minutes of translated content (in addition to 1,500 base)
+  * Agency: 2,000 minutes of translated content (in addition to 5,000 base)
+
+UI Flow:
+1. User uploads video on /video-to-subtitles page
+2. After primary language selection, show:
+   "Generate additional languages?" (Pro/Agency only)
+3. Checkboxes for available languages
+4. Show estimate: "This will use 30 minutes of your plan (10 base + 20 translated)"
+5. "Generate All Languages" button
+6. Processing shows progress per language
+7. Success screen: "Download ZIP (5 languages)"
+
+File Naming in ZIP:
+- my_video_en.srt (English)
+- my_video_es.srt (Spanish)
+- my_video_fr.srt (French)
+- my_video_de.srt (German)
+- my_video_pt.srt (Portuguese)
+
+Technical Implementation:
+```javascript
+// 1. Transcribe primary language
+const primarySrt = await transcribe(video, primaryLang);
+
+// 2. For each additional language
+for (const lang of selectedLanguages) {
+  const translatedSrt = await translateSubtitles(primarySrt, lang);
+  zipFiles.push({ name: `${filename}_${lang}.srt`, content: translatedSrt });
+}
+
+// 3. Generate ZIP
+const zip = createZip(zipFiles);
+return zip;
+```
+
+Available on:
+- /video-to-subtitles (main use case)
+- /batch-process (can combine with batch processing)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ABUSE CONTROL (NON-NEGOTIABLE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ALL usage must be metered and enforced:
+
+1. TOTAL PROCESSED MINUTES PER MONTH
+   - Track per user, per month
+   - Reset on first day of month
+   - Hard block when limit reached (show upgrade modal)
+
+2. MAX CONCURRENT JOBS
+   - Free: 1 job at a time
+   - Basic: 1 job at a time
+   - Pro: 3 jobs at a time
+   - Agency: 10 jobs at a time
+
+3. QUEUE PRIORITY
+   - Free: Lowest priority
+   - Basic: Normal priority
+   - Pro: High priority
+   - Agency: Highest priority (process first)
+
+4. BATCH SIZE LIMITS
+   - Enforced at UI (disable if exceeded)
+   - Enforced at backend (reject if exceeded)
+   - Enforced by total duration (reject if batch too long)
+
+5. MAX VIDEO DURATION PER FILE
+   - Free: 10 minutes per video
+   - Basic: 30 minutes per video
+   - Pro: 120 minutes per video
+   - Agency: 240 minutes per video
+
+6. MAX FILE SIZE
+   - Free: 100MB per file
+   - Basic: 500MB per file
+   - Pro: 2GB per file
+   - Agency: 10GB per file
+
+7. DUPLICATE DETECTION (NEW - Abuse Prevention)
+   - Hash video file on upload (MD5 or SHA-256)
+   - Check database: "Processed this file in last 30 days?"
+   - If YES: Offer cached result (instant, free)
+   - If NO: Process normally
+   - Benefit: Reduces costs, improves UX, prevents re-upload abuse
+
+8. RATE LIMITING
+   - Free tier: Max 3 videos per hour
+   - Basic: No hourly limit (monthly limit enforced)
+   - Pro: No hourly limit
+   - Agency: No hourly limit
+
+9. IP-BASED ABUSE PREVENTION (Free Tier)
+   - Max 3 free accounts per IP address
+   - Email verification required for free tier
+   - Optional: Phone verification after 3rd video
+
+10. ENFORCEMENT AT TWO LEVELS
+    - UI Level: Disable buttons, show upgrade prompts
+    - Backend Level: Hard validation, reject requests
+    - Never trust client-side limits alone
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PRICING & USAGE MODEL (UPDATED)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Plans:
+
+FREE TIER
+- Price: $0
+- Minutes per month: 300 (10 per day)
+- Max video duration: 10 minutes
+- Max file size: 100MB
+- Concurrent jobs: 1
+- Languages: 1 (primary only)
+- Batch processing: NO
+- Subtitle editing: Read-only preview
+- Video trimming: YES
+- Queue priority: Lowest
+
+BASIC — $19/month
+- Minutes per month: 300
+- Max video duration: 30 minutes
+- Max file size: 500MB
+- Concurrent jobs: 1
+- Languages: 1 (primary only)
+- Batch processing: NO (upgrade prompt shown)
+- Subtitle editing: Full editing enabled
+- Video trimming: YES
+- Queue priority: Normal
+
+PRO — $49/month
+- Minutes per month: 1,500
+- Max video duration: 120 minutes
+- Max file size: 2GB
+- Concurrent jobs: 3
+- Languages: Up to 5 per video
+- Batch processing: YES (max 20 videos per batch, 60 min total)
+- Batch jobs per day: 3
+- Subtitle editing: Full editing enabled
+- Video trimming: YES
+- Queue priority: High
+- ZIP export: YES
+
+AGENCY — $149/month (UPDATED from $99)
+- Minutes per month: 5,000
+- Max video duration: 240 minutes
+- Max file size: 10GB
+- Concurrent jobs: 10
+- Languages: Up to 10 per video
+- Batch processing: YES (max 100 videos per batch, 300 min total)
+- Batch jobs per day: 10
+- Subtitle editing: Full editing enabled
+- Video trimming: YES
+- Queue priority: Highest
+- ZIP export: YES
+- White-label exports: YES (optional feature)
+
+Margin Analysis (Why $149 for Agency):
+- Cost per 100 minutes: ~$1.50 (Whisper + GPT + infra)
+- Agency: $149 for 5,000 min = $2.98 per 100 min
+- Profit per 100 min: $1.48 (50% margin) ✅ Healthy
+
+Previous $99 pricing had only 24% margin (too thin).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PAY-AS-YOU-GO OVERAGES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+If users exceed monthly limits:
+- Extra minutes: $0.03 per minute
+- Extra language per video: $1 per language
+- Extra batch job: $5 per batch
+
+OVERAGE HANDLING UX (CRITICAL):
+
+When user hits monthly limit:
+1. Show modal immediately:
+   ```
+   ┌─────────────────────────────────────────┐
+   │ You've used 300/300 minutes this month  │
+   │                                         │
+   │ Choose how to continue:                 │
+   │                                         │
+   │ ┌────────────────┐  ┌─────────────────┐│
+   │ │ Buy 100 more   │  │ Upgrade to Pro  ││
+   │ │ minutes        │  │ $49/month       ││
+   │ │ $3 one-time    │  │                 ││
+   │ │                │  │ 1,500 min/month ││
+   │ │ [Buy Now]      │  │ [Upgrade]       ││
+   │ └────────────────┘  └─────────────────┘│
+   │                                         │
+   │ Or wait until next month (resets Mar 1) │
+   └─────────────────────────────────────────┘
+   ```
+
+2. If user has payment method on file:
+   - Allow "Buy 100 minutes" option
+   - One-click purchase via Stripe
+   - Immediately add minutes to account
+   - Continue processing current job
+
+3. If NO payment method:
+   - Show "Add Payment Method" button
+   - Redirect to Stripe Checkout
+   - After adding card, return to tool
+
+4. Auto-charge at end of month:
+   - If user accumulated overages during month
+   - Email invoice: "Your February usage: $19 plan + $6 overages = $25 total"
+   - Charge saved payment method
+   - Send receipt
+
+5. Hard block if payment fails:
+   - Show: "Payment method declined. Update card to continue."
+   - Don't allow new jobs until payment resolved
+
+Implementation Notes:
+- Track overages per user in database
+- Update in real-time as jobs complete
+- Charge at end of billing cycle OR immediately (configurable)
+- Log all overage charges for transparency
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DATA MODELS (REQUIRED)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+USER MODEL (UPDATED):
+```javascript
+{
+  id: uuid,
+  email: string,
+  passwordHash: string,
+  
+  // Plan details
+  plan: 'free' | 'basic' | 'pro' | 'agency',
+  stripeCustomerId: string,
+  subscriptionId: string,
+  paymentMethodId: string,
+  
+  // Usage tracking
+  usageThisMonth: {
+    totalMinutes: number,           // Total minutes processed
+    videoCount: number,              // Total videos processed
+    batchCount: number,              // Batch jobs run
+    languageCount: number,           // Additional languages generated
+    translatedMinutes: number,       // Total translated minutes (0.5x counted)
+    resetDate: Date                  // First of next month
+  },
+  
+  // Plan limits (cached from pricing tier)
+  limits: {
+    minutesPerMonth: number,
+    maxVideoDuration: number,
+    maxFileSize: number,
+    maxConcurrentJobs: number,
+    maxLanguages: number,
+    batchEnabled: boolean,
+    batchMaxVideos: number,
+    batchMaxDuration: number,
+    batchMaxPerDay: number
+  },
+  
+  // Overage tracking
+  overagesThisMonth: {
+    minutes: number,
+    languages: number,
+    batches: number,
+    totalCharge: number              // In cents
+  },
+  
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+JOB MODEL (UPDATED):
+```javascript
+{
+  id: uuid,
+  userId: uuid,
+  
+  // Job details
+  type: 'transcript' | 'subtitles' | 'translate' | 'batch' | 'burn' | 'compress',
+  status: 'queued' | 'processing' | 'completed' | 'failed',
+  priority: number,                  // Based on user plan
+  
+  // Video details
+  videoHash: string,                 // MD5/SHA-256 for duplicate detection
+  videoPath: string,
+  videoDuration: number,             // In seconds
+  videoSize: number,                 // In bytes
+  
+  // Processing details
+  trimmedStart: number,              // If trimmed (seconds)
+  trimmedEnd: number,                // If trimmed (seconds)
+  trimmedDuration: number,           // Actual processed duration
+  
+  // Languages (for multi-language jobs)
+  primaryLanguage: string,           // e.g., 'en'
+  additionalLanguages: string[],     // e.g., ['es', 'fr', 'de']
+  
+  // Batch details (if batch job)
+  batchId: uuid,                     // Links multiple jobs
+  batchPosition: number,             // Position in batch
+  batchTotal: number,                // Total videos in batch
+  
+  // Output
+  outputPath: string,                // Path to SRT file or ZIP
+  outputSize: number,
+  
+  // Usage metering
+  minutesCharged: number,            // How many minutes to deduct
+  overageMinutes: number,            // If exceeded monthly limit
+  
+  // Timestamps
+  queuedAt: Date,
+  startedAt: Date,
+  completedAt: Date,
+  expiresAt: Date,                   // Auto-delete temp files after 1 hour
+  
+  // Error tracking
+  error: string,
+  retryCount: number
+}
+```
+
+BATCH_JOB MODEL (NEW):
+```javascript
+{
+  id: uuid,
+  userId: uuid,
+  
+  // Batch details
+  totalVideos: number,
+  totalDuration: number,             // Sum of all video durations
+  processedVideos: number,           // Count of completed
+  failedVideos: number,
+  
+  // Status
+  status: 'queued' | 'processing' | 'completed' | 'failed' | 'partial',
+  
+  // Output
+  zipPath: string,                   // Path to generated ZIP
+  zipSize: number,
+  
+  // Error tracking
+  errors: {
+    videoName: string,
+    reason: string
+  }[],
+  
+  // Timestamps
+  createdAt: Date,
+  completedAt: Date,
+  expiresAt: Date                    // 24-hour expiration
+}
+```
+
+USAGE_LOG MODEL (NEW - For Analytics):
+```javascript
+{
+  id: uuid,
+  userId: uuid,
+  
+  // Event details
+  eventType: 'video_processed' | 'batch_completed' | 'language_added' | 'overage_charged',
+  
+  // Usage data
+  minutesUsed: number,
+  videosProcessed: number,
+  languagesGenerated: number,
+  
+  // Cost tracking
+  cost: number,                      // Actual cost to platform (API fees)
+  revenue: number,                   // Revenue from user (plan + overages)
+  margin: number,                    // Profit
+  
+  timestamp: Date
+}
+```
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+API CONTRACTS (BACKEND ENDPOINTS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+POST /api/batch/upload
+Input:
+```javascript
+{
+  files: File[],                     // Multiple video files
+  primaryLanguage: string,           // e.g., 'en'
+  additionalLanguages: string[]      // e.g., ['es', 'fr']
+}
+```
+Response:
+```javascript
+{
+  batchId: string,
+  totalVideos: number,
+  estimatedDuration: number,         // Total minutes to process
+  estimatedMinutes: number,          // Minutes to deduct from plan
+  status: 'queued'
+}
+```
+Errors:
+- 403: Plan doesn't support batch processing
+- 400: Batch exceeds size/duration limits
+- 402: Insufficient minutes remaining
+
+---
+
+GET /api/batch/:batchId/status
+Response:
+```javascript
+{
+  batchId: string,
+  status: 'queued' | 'processing' | 'completed' | 'partial' | 'failed',
+  progress: {
+    total: number,
+    completed: number,
+    failed: number,
+    percentage: number
+  },
+  estimatedTimeRemaining: number,    // In seconds
+  errors: {
+    videoName: string,
+    reason: string
+  }[]
+}
+```
+
+---
+
+GET /api/batch/:batchId/download
+Response: ZIP file stream
+
+---
+
+POST /api/video/trim
+Input:
+```javascript
+{
+  videoPath: string,
+  startTime: number,                 // Seconds
+  endTime: number,                   // Seconds
+  outputFormat: 'srt' | 'vtt'
+}
+```
+Response:
+```javascript
+{
+  jobId: string,
+  trimmedDuration: number,           // Actual duration processed
+  minutesToDeduct: number,
+  status: 'queued'
+}
+```
+
+---
+
+POST /api/subtitles/multi-language
+Input:
+```javascript
+{
+  videoId: string,
+  primaryLanguage: string,
+  additionalLanguages: string[],     // Max based on plan
+}
+```
+Response:
+```javascript
+{
+  jobId: string,
+  languages: string[],
+  estimatedMinutes: number,          // Base + (0.5 × translations)
+  status: 'queued'
+}
+```
+Errors:
+- 403: Plan doesn't support multiple languages
+- 400: Too many languages requested
+- 402: Insufficient minutes
+
+---
+
+GET /api/usage/current
+Response:
+```javascript
+{
+  plan: string,
+  limits: {
+    minutesPerMonth: number,
+    maxLanguages: number,
+    batchEnabled: boolean
+  },
+  usage: {
+    totalMinutes: number,
+    remaining: number,
+    videoCount: number,
+    batchCount: number
+  },
+  overages: {
+    minutes: number,
+    charge: number                   // In cents
+  },
+  resetDate: string
+}
+```
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BACKEND LOGIC FOR ENFORCING LIMITS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Limit Enforcement Flow:
+```javascript
+async function enforceUsageLimits(userId, requestedMinutes) {
+  const user = await getUser(userId);
+  
+  // 1. Check monthly limit
+  if (user.usageThisMonth.totalMinutes + requestedMinutes > user.limits.minutesPerMonth) {
+    // Exceeded monthly limit
+    if (!user.paymentMethodId) {
+      throw new Error('LIMIT_EXCEEDED_NO_PAYMENT');
+    }
+    
+    // Allow overage, will charge later
+    const overageMinutes = (user.usageThisMonth.totalMinutes + requestedMinutes) - user.limits.minutesPerMonth;
+    await trackOverage(userId, overageMinutes, 'minutes');
+    
+    return { allowed: true, overage: true, overageMinutes };
+  }
+  
+  // 2. Check concurrent jobs
+  const activeJobs = await getActiveJobs(userId);
+  if (activeJobs.length >= user.limits.maxConcurrentJobs) {
+    throw new Error('MAX_CONCURRENT_JOBS_REACHED');
+  }
+  
+  // 3. Check duplicate (hash-based)
+  const videoHash = await hashFile(videoPath);
+  const cachedResult = await checkDuplicateProcessing(userId, videoHash);
+  if (cachedResult) {
+    return { allowed: true, cached: true, resultPath: cachedResult.outputPath };
+  }
+  
+  return { allowed: true, overage: false };
+}
+```
+
+Batch Limit Enforcement:
+```javascript
+async function enforceBatchLimits(userId, videos) {
+  const user = await getUser(userId);
+  
+  // 1. Check if batch enabled
+  if (!user.limits.batchEnabled) {
+    throw new Error('BATCH_NOT_AVAILABLE');
+  }
+  
+  // 2. Check video count
+  if (videos.length > user.limits.batchMaxVideos) {
+    throw new Error('BATCH_TOO_MANY_VIDEOS');
+  }
+  
+  // 3. Check total duration
+  const totalDuration = videos.reduce((sum, v) => sum + v.duration, 0);
+  if (totalDuration > user.limits.batchMaxDuration * 60) {
+    throw new Error('BATCH_DURATION_EXCEEDED');
+  }
+  
+  // 4. Check daily batch limit
+  const batchesToday = await getBatchesProcessedToday(userId);
+  if (batchesToday >= user.limits.batchMaxPerDay) {
+    throw new Error('BATCH_DAILY_LIMIT_REACHED');
+  }
+  
+  return { allowed: true };
+}
+```
+
+Queue Priority Assignment:
+```javascript
+function getJobPriority(userPlan) {
+  const priorities = {
+    'free': 1,
+    'basic': 5,
+    'pro': 10,
+    'agency': 20
+  };
+  return priorities[userPlan] || 1;
+}
+```
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CLEAR SEPARATION: FREE VS PAID
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+UI Behavior:
+
+FREE TIER:
+- Batch processing button: Grayed out with lock icon
+- Hover tooltip: "Upgrade to Pro for batch processing"
+- Multi-language selector: Hidden entirely
+- Subtitle editor: Shows "Upgrade to edit" overlay
+- Concurrent jobs: Hard block with modal if attempted
+
+BASIC TIER:
+- Batch processing button: Shows "Upgrade to Pro" modal
+- Multi-language selector: Hidden
+- Subtitle editor: Fully functional
+- Shows: "Upgrade to Pro for batch processing + multi-language"
+
+PRO TIER:
+- Batch processing: Fully enabled
+- Multi-language: Enabled (max 5 languages shown)
+- Subtitle editor: Fully functional
+- Shows usage: "12/20 batch videos used today"
+
+AGENCY TIER:
+- All features unlocked
+- Higher limits displayed
+- Priority processing badge shown
+
+Backend Behavior:
+- Always validate plan limits server-side
+- Return clear error codes (403 for plan restriction, 402 for usage limit)
+- Log all limit violations for abuse detection
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NOTES ON ABUSE PREVENTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Where Abuse is Likely:
+
+1. BATCH SPLITTING
+   - Attack: User uploads 5 batches of 20 videos to bypass limits
+   - Defense: Daily batch job limit (3 for Pro, 10 for Agency)
+   - Also: Max total minutes per batch enforced
+
+2. FREE ACCOUNT FARMING
+   - Attack: Create multiple free accounts to bypass daily limits
+   - Defense: IP-based rate limiting (max 3 accounts per IP)
+   - Also: Email verification required
+   - Optional: Phone verification after 3rd video
+
+3. RE-UPLOAD SAME VIDEO
+   - Attack: Upload same video 100 times, waste compute
+   - Defense: Hash-based duplicate detection
+   - Benefit: Instant results for duplicates (improves UX too)
+
+4. LANGUAGE GAMING
+   - Attack: Request 10 languages but cancel before completion
+   - Defense: Charge immediately on job start, not completion
+   - Refund if job fails server-side (not user cancellation)
+
+5. CONCURRENT JOB SPAM
+   - Attack: Open 50 browser tabs, submit 50 jobs simultaneously
+   - Defense: Max concurrent jobs enforced (1-10 based on plan)
+   - Also: Rate limiting at IP level
+
+6. TRIM ABUSE
+   - Attack: Upload 1-hour video, trim to 10 seconds repeatedly
+   - Defense: This isn't actually abuse (helps reduce costs)
+   - No special handling needed
+
+7. EDIT ABUSE
+   - Attack: Process 1 minute video, manually expand to 60 minutes of subtitles
+   - Defense: Cannot add/delete entries, only edit text
+   - Timestamps locked to prevent gaming
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EXPLICITLY NOT ALLOWED IN PHASE 1.5
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+❌ NO YouTube direct upload
+❌ NO API access for developers
+❌ NO viral-style captions with emojis
+❌ NO speaker diarization (who's talking)
+❌ NO mobile app
+❌ NO video editing features (beyond trimming)
+❌ NO audio enhancement (noise reduction, etc.)
+❌ NO watermark adding/removal
+❌ NO transcript summarization
+❌ NO team collaboration features
+❌ NO white-labeling (except basic exports for Agency)
+❌ NO analytics dashboard (beyond usage tracking)
+❌ NO referral program
+❌ NO affiliate system
+
+Do not prepare Phase 2 features.
+Do not add features "for later."
+Do not improve beyond spec.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FILE STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You MUST use the existing Phase 0 + Phase 1 structure.
+Do NOT rename, move, or reorganize folders.
+
+Add these new files only:
+- server/src/routes/batch.ts (batch processing endpoints)
+- server/src/routes/usage.ts (usage tracking endpoints)
+- server/src/services/trimming.ts (FFmpeg trimming logic)
+- server/src/services/duplicate.ts (hash-based duplicate detection)
+- server/src/utils/limits.ts (limit enforcement logic)
+- server/src/utils/metering.ts (usage calculation)
+- server/src/models/BatchJob.ts (batch job model)
+- server/src/models/UsageLog.ts (usage log model)
+- client/src/pages/BatchProcess.tsx (batch processing page)
+- client/src/components/VideoTrimmer.tsx (trimming UI)
+- client/src/components/SubtitleEditor.tsx (editing UI)
+- client/src/components/LanguageSelector.tsx (multi-language UI)
+- client/src/components/UsageDisplay.tsx (shows current usage)
+- client/src/components/OverageModal.tsx (upgrade/buy modal)
+
+Update these existing files:
+- server/src/models/User.ts (add usage tracking fields)
+- server/src/models/Job.ts (add batch, trim, language fields)
+- client/src/pages/*.tsx (add trimming + editing to tool pages)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STOP SIGNAL PROTOCOL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After completing Phase 1.5, you MUST:
+1. Show verification checklist (see below)
+2. Provide test instructions for each feature
+3. List any new dependencies installed
+4. STOP and WAIT for explicit "proceed to Phase 2" command
+
+DO NOT auto-continue beyond Phase 1.5.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AFTER YOU FINISH CODING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Provide a checklist confirming each item with ✅ or ❌:
+
+FEATURE FUNCTIONALITY:
+- [ ] Batch processing works end-to-end
+- [ ] Batch limits enforced (video count, duration, daily limit)
+- [ ] Batch produces ZIP file with all SRTs
+- [ ] Video trimming works on all applicable tool pages
+- [ ] Trimmed duration accurately metered
+- [ ] Subtitle editing works (text-only, no timestamp changes)
+- [ ] Editing constraints enforced (no add/delete entries)
+- [ ] Multi-language generation works
+- [ ] Language limits enforced by plan
+- [ ] Multi-language metering accurate (0.5x for translations)
+
+USAGE METERING:
+- [ ] Monthly minute tracking works
+- [ ] Usage resets on first of month
+- [ ] Concurrent job limits enforced
+- [ ] Plan limits enforced at UI and backend
+- [ ] Duplicate detection works (hash-based caching)
+- [ ] Overage tracking accurate
+- [ ] Overage charges calculated correctly
+
+PRICING & PLANS:
+- [ ] Free tier limits enforced
+- [ ] Basic tier limits enforced
+- [ ] Pro tier limits enforced
+- [ ] Agency tier limits enforced
+- [ ] Upgrade prompts shown correctly
+- [ ] Overage modal appears when limit hit
+- [ ] Payment method checked before overage allowed
+
+ABUSE PREVENTION:
+- [ ] Batch daily limits enforced
+- [ ] IP-based free account limiting works
+- [ ] Duplicate video detection working
+- [ ] Concurrent job limits respected
+- [ ] Max video duration enforced
+- [ ] Max file size enforced
+
+USER EXPERIENCE:
+- [ ] Free users see upgrade prompts (not hard blocks)
+- [ ] Paid users see usage remaining
+- [ ] Processing shows accurate progress
+- [ ] Error messages are clear
+- [ ] ZIP downloads work correctly
+
+CRITICAL CHECKS:
+- [ ] No unlimited usage anywhere
+- [ ] All features metered and logged
+- [ ] Margin-positive on all plans (50%+ margin)
+- [ ] No features outside Phase 1.5 spec added
+- [ ] Existing Phase 1 tools still work
+
+MANUAL VERIFICATION STEPS:
+
+TEST BATCH PROCESSING:
+1. Sign up for Pro plan (test mode)
+2. Navigate to /batch-process
+3. Upload 5 test videos (each 2 minutes)
+4. Verify: Total duration shown (10 minutes)
+5. Verify: "This will use 10 minutes of your 1,500/month"
+6. Click "Process Batch"
+7. Wait for completion (~2-3 minutes)
+8. Download ZIP file
+9. Verify: ZIP contains 5 SRT files
+10. Verify: Usage now shows 10/1,500 minutes used
+11. Try uploading 21 videos (exceeds limit)
+12. Verify: Error shown "Max 20 videos per batch"
+
+TEST VIDEO TRIMMING:
+1. Upload 10-minute test video
+2. Verify: Video preview player appears
+3. Drag timeline to select 2:00 to 4:00 (2 minutes)
+4. Verify: "Selected: 2:00 to 4:00 (2 minutes)" displayed
+5. Click "Process Selected Segment"
+6. Verify: Job processes only 2 minutes
+7. Verify: Usage deducted is 2 minutes (not 10)
+
+TEST SUBTITLE EDITING:
+1. Generate subtitles for test video
+2. Free tier: Verify editing is disabled (read-only)
+3. Upgrade to Basic plan
+4. Verify: Can click and edit subtitle text
+5. Verify: Cannot change timestamps (grayed out)
+6. Verify: Cannot add new entries (no button)
+7. Verify: Cannot delete entries (no delete button)
+8. Edit some text, download
+9. Verify: Downloaded SRT has edited text
+
+TEST MULTI-LANGUAGE:
+1. Upload test video (Pro plan)
+2. Select primary language: English
+3. Check additional languages: Spanish, French, German
+4. Verify: "This will use 16 minutes (10 base + 15 translated)"
+5. Wait, should be: 10 + (3 × 5) = 10 + 15 = 25... recalculate
+   Actually: 10 + (3 × 0.5 × 10) = 10 + 15 = 25 minutes
+6. Process
+7. Download ZIP
+8. Verify: 4 SRT files (en, es, fr, de)
+9. Verify: Usage deducted correctly
+
+TEST USAGE LIMITS:
+1. Use free tier account
+2. Process 10 minutes of video (300 minutes monthly limit)
+3. Repeat until 300 minutes used
+4. On next attempt, verify: Overage modal appears
+5. Options: "Buy 100 minutes" or "Upgrade to Basic"
+6. Click "Buy 100 minutes"
+7. Complete Stripe payment
+8. Verify: Can now process more videos
+9. Verify: Overage charge logged
+
+TEST DUPLICATE DETECTION:
+1. Upload video, get hash
+2. Process video
+3. Upload SAME video again
+4. Verify: "You've processed this video before. Use cached result?"
+5. Click "Use cached result"
+6. Verify: Instant download (no processing)
+7. Verify: No usage deducted
+
+TEST ABUSE PREVENTION:
+1. Try batch processing on Free tier
+2. Verify: Button grayed out, tooltip shown
+3. Try opening 5 tabs, submitting 5 jobs simultaneously (Basic plan)
+4. Verify: Only 1 processes, others queued or rejected
+5. Try uploading 60-minute video on Free tier (10 min limit)
+6. Verify: Rejected with clear error
+
+DEPENDENCIES INSTALLED:
+List any new packages:
+- bull / bullmq (job queue)
+- crypto (for file hashing, built-in Node)
+- archiver (for ZIP file generation)
+- Any FFmpeg wrappers if not already installed
+
+KNOWN ISSUES (if any):
+List any bugs or limitations discovered during testing.
+
+Do NOT suggest improvements.
+Do NOT move to Phase 2.
+WAIT for my next instruction.

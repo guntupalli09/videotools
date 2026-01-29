@@ -1,0 +1,506 @@
+You are building PHASE 0 ONLY of a browser-based video utility platform.
+
+This is "I Love PDF for video".
+PHASE 0 = FOUNDATION ONLY.
+NO tool logic is allowed in this phase.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+GOAL OF PHASE 0
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Set up the project skeleton, shared UI, backend infrastructure, and job system
+so that later phases can plug in tool logic without refactoring.
+
+This phase must compile, run locally, and deploy — but MUST NOT process videos yet.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BEFORE YOU WRITE ANY CODE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Summarize in bullet points EXACTLY what you will build in Phase 0.
+2. Summarize in bullet points EXACTLY what you will NOT build.
+3. WAIT for my explicit approval before writing code.
+
+Do not proceed until approved.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INCLUDED IN PHASE 0 (BUILD ONLY THESE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FRONTEND SETUP
+- React 18 + Vite + TypeScript
+- Tailwind CSS
+- shadcn/ui
+- Framer Motion (installed, minimal usage)
+- React Router
+- react-dropzone
+- React Hot Toast
+
+BACKEND SETUP
+- Node.js + Express OR Next.js API routes
+- FFmpeg installed and callable
+- Bull + Redis configured
+- Background worker process
+- Temp file storage with auto-delete after 1 hour
+- Job queue that can enqueue and process DUMMY jobs only
+
+DESIGN SYSTEM IMPLEMENTATION
+- Tailwind config with EXACT color palette:
+  * Primary Brand: Violet-600 (#7C3AED)
+  * Secondary: Violet-700 (#5B21B6) for hovers
+  * Light Purple: Violet-400 (#A78BFA) for accents
+  * Purple Tint: Violet-100 (#EDE9FE) for backgrounds
+  * Violet-50 (#F5F3FF) for subtle backgrounds
+  
+  * White: #FFFFFF (main background)
+  * Light Gray: Gray-50 (#F9FAFB) for secondary backgrounds
+  * Medium Gray: Gray-500 (#6B7280) for body text
+  * Dark Gray: Gray-800 (#1F2937) for headings
+  * Border Gray: Gray-200 (#E5E7EB) for dividers
+  
+  * Success: Green-500 (#10B981)
+  * Error: Red-500 (#EF4444)
+  * Warning: Amber-500 (#F59E0B)
+  * Info: Blue-500 (#3B82F6)
+
+- Typography system:
+  * Font family: Inter (from Google Fonts)
+  * Fallback: system-ui, -apple-system, sans-serif
+  * Font sizes: Tailwind defaults (text-xs to text-5xl)
+  * Line heights: leading-tight, leading-normal, leading-relaxed
+  
+- Spacing scale: Tailwind defaults (space-y-2 to space-y-12)
+- Border radius: rounded-lg (8px), rounded-xl (12px), rounded-2xl (16px)
+- Shadow system: shadow-sm, shadow-md, shadow-lg, shadow-xl
+- Container max-widths: max-w-7xl (1280px), max-w-4xl for tool pages
+
+- Animations (Framer Motion):
+  * Fade in up: initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+  * Transition duration: 0.3s default
+  * Hover scale: 1.05
+  * Tap scale: 0.95
+
+SHARED FRONTEND COMPONENTS (NO TOOL LOGIC)
+Build these components with full styling but NO processing logic:
+
+1. Navigation (sticky header)
+   - Logo: "VideoTools" text with icon
+   - Desktop: [Logo] [Tools ▼] [Pricing] [Try Free →]
+   - Mobile: Hamburger menu with slide-in drawer
+   - Styling: bg-white/80 backdrop-blur-lg, border-b, sticky top-0
+   - Tools dropdown: Show all 6 tools on hover
+
+2. ToolCard (for homepage grid)
+   - Icon (64x64, bg-violet-100 rounded-xl p-4)
+   - Title (text-xl font-semibold)
+   - Description (text-gray-600, 1-2 lines)
+   - CTA link ("Try it free →" in violet-600)
+   - Hover: border-violet-300, shadow-lg, -translate-y-1
+
+3. FileUploadZone (UI only, no processing)
+   - Drag-and-drop area (border-2 border-dashed)
+   - Default: border-gray-300
+   - Hover: border-violet-400 bg-violet-50/30
+   - Dragover: border-violet-600 bg-violet-50
+   - Upload icon, headline, sub-text, file info
+   - After file selected: Show file preview card with name, size
+   - "Process" button (bg-violet-600, disabled for Phase 0)
+
+4. ProgressBar
+   - Container: bg-gray-200 rounded-full h-3
+   - Fill: bg-gradient-to-r from-violet-600 to-purple-600
+   - Smooth width transition
+   - Percentage text below
+   - Status message above ("Processing...")
+
+5. SuccessState
+   - Checkmark icon (bg-green-100 text-green-600, h-16 w-16 rounded-full)
+   - Success message ("Your file is ready!")
+   - File preview card (bg-gray-50 rounded-xl)
+   - Download button (bg-violet-600, full width, w-full py-4)
+   - "Process another file" link (text-violet-600)
+
+6. CrossToolSuggestions (static placeholders)
+   - Header: "Continue with another tool"
+   - 2-3 tool cards (horizontal layout)
+   - Each card: icon, title, arrow
+   - bg-violet-50 container with rounded-xl padding
+   - For Phase 0: Just show static placeholder cards
+
+7. PaywallModal (UI only, no Stripe)
+   - Modal overlay (bg-black/50 backdrop-blur-sm)
+   - Modal content (bg-white rounded-2xl p-8 max-w-lg)
+   - Message: "You've used X/Y free videos this month"
+   - Two option cards side-by-side:
+     * "Pay $1 for this file only"
+     * "Subscribe for $19/month"
+   - Buttons disabled for Phase 0 (just UI)
+   - "Or wait until next month" text below
+
+8. UsageCounter
+   - Small badge showing "X of Y free uses this month"
+   - bg-gray-100 rounded-full px-4 py-1.5
+   - text-sm text-gray-500
+   - Optional: progress bar showing usage visually
+
+9. Footer
+   - bg-gray-900 text-gray-400
+   - 3 columns (desktop) / stack (mobile):
+     * Brand + tagline
+     * Links (Tools, Pricing, How it works)
+     * Legal (Privacy, Terms, Contact)
+   - Copyright row at bottom
+
+HOMEPAGE CONTENT (STATIC ONLY)
+Build complete homepage with these sections:
+
+1. Hero Section
+   - Background: bg-gradient-to-br from-violet-50 via-white to-purple-50
+   - Badge: "✨ No signup required • Free tools" (bg-violet-100 text-violet-700)
+   - Headline: "Video utilities that just work" (text-5xl font-bold)
+   - Subheadline: "Professional video tools for creators. No bloat. No signup. Just drop your file and go."
+   - Two CTAs:
+     * Primary: "Choose a tool →" (bg-violet-600 hover:bg-violet-700)
+     * Secondary: "See pricing" (bg-white border-2 border-gray-200)
+   - Spacing: py-20 (desktop) / py-12 (mobile)
+
+2. Tool Grid Section
+   - Section header: "Six powerful tools. One simple platform."
+   - Grid: grid grid-cols-3 gap-6 (desktop), grid-cols-1 (mobile)
+   - 6 ToolCards (use component from above):
+     
+     Card 1: Video → Transcript
+     - Icon: FileText (Lucide)
+     - Description: "Extract spoken text from any video in seconds"
+     
+     Card 2: Video → Subtitles
+     - Icon: Captions
+     - Description: "Generate SRT and VTT subtitle files instantly"
+     
+     Card 3: Translate Subtitles
+     - Icon: Languages
+     - Description: "Convert subtitles to Arabic, Hindi, and more"
+     
+     Card 4: Fix Subtitles
+     - Icon: Wrench
+     - Description: "Auto-correct timing issues and formatting errors"
+     
+     Card 5: Burn Subtitles
+     - Icon: Film
+     - Description: "Hardcode captions directly into your video"
+     
+     Card 6: Compress Video
+     - Icon: Minimize2
+     - Description: "Reduce file size while keeping quality high"
+
+3. How It Works Section
+   - Background: bg-gray-50
+   - Header: "How it works" (text-3xl font-bold text-center)
+   - 3 steps (horizontal on desktop, vertical on mobile):
+     
+     Step 1: Upload file
+     - Number circle: bg-violet-600 text-white (h-16 w-16 rounded-full)
+     - Title: "Upload file"
+     - Description: "Drop your video or paste a URL"
+     
+     Step 2: We process
+     - Number: 2
+     - Title: "We process"
+     - Description: "Our AI handles the rest in seconds"
+     
+     Step 3: Download
+     - Number: 3
+     - Title: "Download"
+     - Description: "Get your file and go"
+
+4. Social Proof (optional but recommended)
+   - Stats row: "100K+ videos processed • 4.9★ rating • Free tier"
+   - text-gray-600 text-sm font-medium
+   - Centered, inline-flex with dividers
+
+5. Pricing Teaser
+   - Background: bg-gradient-to-br from-violet-600 to-purple-700
+   - Text color: text-white
+   - Headline: "Start free. Upgrade when you need more."
+   - Subtext: "Free tier includes 5-10 uses per month. No credit card required."
+   - CTA: "View pricing →" (bg-white text-violet-600)
+
+PAGES (PLACEHOLDER CONTENT ONLY)
+Create routes and placeholder pages:
+
+1. / (Homepage - full content as specified above)
+
+2. /pricing
+   - Placeholder: "Pricing page - Coming in Phase 2"
+   - Show basic 3-tier layout (no functionality):
+     * Free ($0)
+     * Pay-per-use ($1/file)
+     * High-Usage ($19/month)
+
+3. Tool routes (placeholder pages only, NO functionality):
+   - /video-to-transcript
+   - /video-to-subtitles
+   - /translate-subtitles
+   - /fix-subtitles
+   - /burn-subtitles
+   - /compress-video
+   
+   Each placeholder shows:
+   - Page header (icon, title, description)
+   - FileUploadZone (UI only, button disabled)
+   - Message: "Tool processing coming in Phase 1"
+
+BACKEND ENDPOINTS (NO REAL PROCESSING)
+Build these endpoints with dummy logic only:
+
+1. POST /api/upload
+   - Accept file upload
+   - Validate: file type (magic bytes), file size
+   - Save to temp storage (/tmp or configured path)
+   - Create dummy job in Bull queue
+   - Return: { jobId, status: 'queued' }
+
+2. GET /api/job/:jobId
+   - Check job status from Bull queue
+   - Return: { 
+       status: 'queued' | 'processing' | 'completed' | 'failed',
+       progress: 0-100,
+       result?: { downloadUrl }
+     }
+
+3. Dummy job processor
+   - Worker that processes jobs from queue
+   - Wait 3 seconds (simulate processing)
+   - Return fake success result
+   - No real video processing
+
+4. File cleanup cron
+   - Run every hour
+   - Delete files in temp directory older than 1 hour
+   - Log cleanup actions
+
+ENVIRONMENT VARIABLES
+Create .env.example file with:
+
+```
+# OpenAI (placeholder for Phase 1)
+OPENAI_API_KEY=sk-placeholder
+
+# Redis
+REDIS_URL=redis://localhost:6379
+
+# App
+NODE_ENV=development
+BASE_URL=http://localhost:3000
+
+# File storage
+TEMP_FILE_PATH=/tmp/videotools
+
+# Stripe (placeholder for Phase 2)
+STRIPE_PUBLIC_KEY=pk_test_placeholder
+STRIPE_SECRET_KEY=sk_test_placeholder
+STRIPE_WEBHOOK_SECRET=whsec_placeholder
+
+# JWT (placeholder for Phase 2)
+JWT_SECRET=your-secret-key-here
+```
+
+SECURITY (BASIC)
+Implement these validations:
+
+- File size validation (client + server)
+  * Free tier: 100MB max
+  * Show clear error: "File exceeds 100MB. Upgrade for larger files."
+
+- File type validation
+  * Check MIME type AND magic bytes (not just extension)
+  * Allowed: video/mp4, video/quicktime, video/x-msvideo, video/webm
+  * Reject with: "Please upload MP4, MOV, AVI, or WEBM"
+
+- Rate limiting (basic, IP-based)
+  * 10 requests per hour per IP for free tier
+  * Return 429 with message: "Too many requests. Please wait."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EXPLICITLY NOT ALLOWED IN PHASE 0
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+❌ NO transcription
+❌ NO Whisper API calls
+❌ NO translation
+❌ NO subtitle parsing
+❌ NO FFmpeg processing logic (install FFmpeg but don't use it yet)
+❌ NO Stripe or payments (just UI placeholders)
+❌ NO analytics integration
+❌ NO SEO optimization (meta tags, schema)
+❌ NO dashboards
+❌ NO accounts or auth
+❌ NO tool-specific processing logic
+❌ NO "helpful" enhancements
+❌ NO blog or content pages
+
+Do not stub future logic.
+Do not prepare abstractions "for later".
+Do not improve UX beyond what is specified.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FILE STRUCTURE (MUST MATCH EXACTLY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+videotools/
+├── client/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── Navigation.tsx
+│   │   │   ├── Footer.tsx
+│   │   │   ├── ToolCard.tsx
+│   │   │   ├── FileUploadZone.tsx
+│   │   │   ├── ProgressBar.tsx
+│   │   │   ├── SuccessState.tsx
+│   │   │   ├── CrossToolSuggestions.tsx
+│   │   │   ├── PaywallModal.tsx
+│   │   │   └── UsageCounter.tsx
+│   │   ├── pages/
+│   │   │   ├── Home.tsx
+│   │   │   ├── Pricing.tsx
+│   │   │   ├── VideoToTranscript.tsx
+│   │   │   ├── VideoToSubtitles.tsx
+│   │   │   ├── TranslateSubtitles.tsx
+│   │   │   ├── FixSubtitles.tsx
+│   │   │   ├── BurnSubtitles.tsx
+│   │   │   └── CompressVideo.tsx
+│   │   ├── lib/
+│   │   │   ├── api.ts
+│   │   │   ├── utils.ts
+│   │   │   └── usage.ts (localStorage tracking)
+│   │   ├── App.tsx
+│   │   ├── main.tsx
+│   │   └── index.css
+│   ├── package.json
+│   ├── tailwind.config.js
+│   └── vite.config.ts
+│
+├── server/
+│   ├── src/
+│   │   ├── routes/
+│   │   │   ├── upload.ts
+│   │   │   └── jobs.ts
+│   │   ├── workers/
+│   │   │   └── dummyProcessor.ts
+│   │   ├── utils/
+│   │   │   └── fileCleanup.ts
+│   │   └── index.ts
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── docker-compose.yml   (Redis)
+├── .env.example
+└── README.md
+
+You MUST NOT rename, reorganize, or nest differently.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STOP SIGNAL PROTOCOL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After completing Phase 0, you MUST:
+1. Show verification checklist (see below)
+2. Provide test instructions
+3. List any dependencies that need manual installation
+4. STOP and WAIT for explicit "proceed to Phase 1" command
+
+DO NOT auto-continue to Phase 1 even if you think you're done.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AFTER YOU FINISH CODING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Provide a checklist confirming each item with ✅ or ❌:
+
+FUNCTIONALITY:
+- [ ] App runs locally without errors
+- [ ] Navigation renders and is sticky
+- [ ] Homepage displays all sections correctly
+- [ ] All 6 tool cards visible and clickable
+- [ ] Tool routes navigate to placeholder pages
+- [ ] FileUploadZone accepts files (UI only)
+- [ ] File preview shows after selection
+- [ ] Dummy jobs can be queued
+- [ ] Job status polling works
+- [ ] Dummy job completes in ~3 seconds
+- [ ] Temp files auto-delete after 1 hour
+- [ ] Redis connection works
+- [ ] Bull queue processes dummy jobs
+
+DESIGN:
+- [ ] Colors match spec (Violet-600 primary)
+- [ ] Inter font loaded
+- [ ] Spacing/padding correct
+- [ ] Mobile responsive works
+- [ ] Hover states work on cards
+- [ ] Animations smooth (Framer Motion)
+
+SAFETY:
+- [ ] NO real video processing exists
+- [ ] NO API calls to OpenAI/Stripe
+- [ ] NO auth system
+- [ ] File size validation works
+- [ ] File type validation works
+
+MANUAL VERIFICATION STEPS:
+Run these commands and verify each step:
+
+1. Install dependencies:
+   ```
+   cd client && npm install
+   cd ../server && npm install
+   ```
+
+2. Start Redis:
+   ```
+   docker-compose up -d
+   ```
+
+3. Start development servers:
+   ```
+   # Terminal 1 - Client
+   cd client && npm run dev
+   
+   # Terminal 2 - Server
+   cd server && npm run dev
+   ```
+
+4. Verify in browser (http://localhost:3000):
+   - Homepage loads without errors
+   - Click each tool card → Routes to placeholder page
+   - Try uploading a file → See file preview (no processing)
+   - Check browser console → No errors
+
+5. Test backend:
+   ```
+   curl -X POST http://localhost:3001/api/upload \
+     -F "file=@test-video.mp4"
+   
+   # Should return: { "jobId": "...", "status": "queued" }
+   ```
+
+6. Check Redis:
+   ```
+   docker exec -it videotools-redis redis-cli
+   > KEYS *
+   # Should see Bull queue keys
+   ```
+
+7. Verify file cleanup (wait 1 hour or modify cron to run every 1 minute for testing)
+
+DEPENDENCIES REQUIRING MANUAL INSTALLATION:
+List any system dependencies needed:
+- Node.js (v18+)
+- FFmpeg (installed but not used yet)
+- Redis (via Docker or local)
+
+Do NOT suggest improvements.
+Do NOT move to Phase 1.
+Stop when Phase 0 is complete.
+
+WAIT for my next instruction.

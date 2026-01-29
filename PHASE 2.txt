@@ -1,0 +1,245 @@
+You are building PHASE 2 ONLY of a browser-based video utility platform.
+
+This is “I Love PDF for video”.
+PHASE 2 = MONETIZATION + PRICING WIRING ONLY.
+
+Core tools, usage tracking, limits, and overage calculation
+are ALREADY implemented in Phase 1.5.
+
+Do NOT add new product features.
+Do NOT refactor existing logic.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CRITICAL IMPLEMENTATION RULES (NON-NEGOTIABLE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- Stripe Customer ID is the PRIMARY user identity.
+- Email is secondary (login + communication only).
+- ALL Stripe webhook handlers MUST be idempotent.
+- Store and dedupe Stripe event IDs.
+- Usage resets MUST align with Stripe billing periods.
+- Password setup tokens MUST be single-use.
+- Overage minutes apply ONLY to the current billing cycle.
+- Overage minutes are consumed AFTER plan minutes.
+- If ambiguity exists, choose the simplest safe behavior.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+GOAL OF PHASE 2
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Activate payments and pricing so that:
+- Paid tiers clearly outperform Free
+- No billing surprises occur
+- Users resume the SAME tool flow after payment
+- No dashboards or SaaS complexity is added
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BEFORE YOU WRITE ANY CODE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Summarize EXACTLY what you will build.
+2. Summarize EXACTLY what you will NOT build.
+3. WAIT for explicit approval before coding.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PRICING MODEL (LOCKED)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FREE — $0
+- Minutes/month: 200
+- Max video duration: 10 minutes
+- Max file size: 100MB
+- Languages: 1
+- Batch: NO
+- Editing: Read-only
+- Minutes expire monthly
+
+BASIC — $19/month
+- Minutes/month: 600
+- Max video duration: 30 minutes
+- Max file size: 500MB
+- Languages: 1
+- Batch: NO
+- Editing: Full editing
+
+PRO — $49/month
+- Minutes/month: 1,500
+- Max video duration: 120 minutes
+- Max file size: 2GB
+- Languages: Up to 5
+- Batch: YES (20 videos / 60 min per batch)
+
+AGENCY — $149/month
+- Minutes/month: 5,000
+- Max video duration: 240 minutes
+- Max file size: 10GB
+- Languages: Up to 10
+- Batch: YES (100 videos / 300 min per batch)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OVERAGES (LOCKED)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- Sold in packages ONLY
+- Package: 100 minutes for $3
+- Effective rate: $0.03/min
+- Applies only within current billing cycle
+- Consumed AFTER plan minutes
+- Expires automatically at reset
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STRIPE INTEGRATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+USE STRIPE CHECKOUT ONLY.
+
+STRIPE PRODUCTS:
+1. BASIC subscription ($19/month)
+2. PRO subscription ($49/month)
+3. AGENCY subscription ($149/month)
+4. Overage package (100 minutes for $3, one-time)
+
+STRIPE CUSTOMER CREATION:
+- Free users: NO Stripe customer
+- On first payment:
+  - Create Stripe Customer
+  - Persist stripeCustomerId
+  - Link email if provided
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STRIPE WEBHOOKS (IDEMPOTENT)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Handle ONLY:
+
+1. checkout.session.completed
+   - Identify user by stripeCustomerId
+   - If new:
+     - Create user record
+     - Issue password setup token
+   - Activate plan OR add overage minutes
+
+2. invoice.payment_succeeded
+   - Use Stripe billing period:
+     - period_start
+     - period_end
+   - Reset:
+     - usageThisMonth.*
+     - overagesThisMonth.*
+   - Sync plan limits
+
+3. customer.subscription.deleted
+   - Keep access until period_end
+   - Downgrade to Free afterward
+
+IDEMPOTENCY:
+- Store processed event IDs
+- Skip duplicates silently
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AUTHENTICATION (MINIMAL)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FREE USERS:
+- No account
+- No auth
+
+PAID USERS:
+- Email + password only
+- JWT session (30 days)
+
+PASSWORD SETUP TOKEN:
+- Generated on checkout.session.completed
+- Single-use
+- Expires in 24 hours
+- Stored with userId + expiresAt
+- New token invalidates old
+- Expired token → user can request new one
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OVERAGE PURCHASE FLOW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+When limits reached:
+1. Show PaywallModal
+2. Option: “Buy 100 more minutes for $3”
+3. Create Stripe Checkout (payment mode)
+4. On webhook:
+   - Add 100 minutes to overagesThisMonth
+5. Resume SAME tool flow
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BILLING CYCLE RESET LOGIC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+On invoice.payment_succeeded:
+
+- Set:
+  - billingPeriodStart = invoice.period_start
+  - billingPeriodEnd = invoice.period_end
+
+- Reset:
+  - usageThisMonth.totalMinutes = 0
+  - usageThisMonth.videoCount = 0
+  - usageThisMonth.batchCount = 0
+  - usageThisMonth.translatedMinutes = 0
+
+- Clear:
+  - overagesThisMonth.minutes = 0
+  - overagesThisMonth.totalCharge = 0
+
+IMPORTANT:
+- Use Stripe timestamps ONLY
+- Do NOT use server time
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PAYWALL BEHAVIOR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+At 80% usage:
+- Show dismissible warning banner
+
+At 100% usage:
+- Show PaywallModal (blocking)
+- Options:
+  - Buy 100 more minutes
+  - Upgrade plan
+  - Wait until next cycle
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ANALYTICS (LIGHT ONLY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Track:
+- tool_selected
+- processing_started
+- processing_completed
+- paywall_shown
+- payment_completed
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EXPLICITLY NOT ALLOWED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+❌ No new tools
+❌ No UI redesign
+❌ No experiments
+❌ No referrals
+❌ No lifetime plans
+❌ No enterprise features
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AFTER YOU FINISH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Confirm with ✅ / ❌:
+
+- Pricing wired correctly
+- Stripe plans match pricing
+- Webhooks idempotent
+- Overage purchase works
+- Usage resets correct
+- No new features added
+
+STOP.
+WAIT for next instruction.

@@ -1,0 +1,712 @@
+You are building PHASE 1 ONLY of a browser-based video utility platform.
+
+This is "I Love PDF for video".
+PHASE 1 = CORE TOOLS ONLY.
+Monetization, dashboards, and accounts are NOT allowed.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+GOAL OF PHASE 1
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Make the platform genuinely useful by implementing ALL 6 core tools
+end-to-end with file-in → file-out workflows.
+
+Users must be able to complete tasks WITHOUT logging in.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BEFORE YOU WRITE ANY CODE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Summarize in bullet points EXACTLY what you will build in Phase 1.
+2. Summarize in bullet points EXACTLY what you will NOT build.
+3. WAIT for my explicit approval before writing code.
+
+Do not proceed until approved.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 1 TOOLS (BUILD ALL — NOTHING MORE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TOOL 1 — VIDEO → TRANSCRIPT
+Route: /video-to-transcript
+
+INPUT OPTIONS:
+- Tab 1: Upload video file (drag-drop or click)
+  * Accepted formats: MP4, MOV, AVI, WEBM, MKV
+  * Max size (free tier): 100MB
+  * Max duration (free tier): 15 minutes
+  
+- Tab 2: Paste video URL
+  * YouTube URLs (extract via yt-dlp)
+  * Direct video links (public MP4/WEBM)
+  * URL validation before processing
+
+PROCESSING:
+1. Extract audio from video (FFmpeg)
+2. Send audio to OpenAI Whisper API:
+   ```javascript
+   const transcript = await openai.audio.transcriptions.create({
+     file: audioFile,
+     model: "whisper-1",
+     response_format: "text",
+     language: "en" // or auto-detect
+   });
+   ```
+3. Save transcript as .txt file
+4. Return download URL
+
+OUTPUT:
+- Clean .txt transcript file
+- File name: {original_filename}_transcript.txt
+
+UI COMPONENTS:
+- Tab switcher: "Upload File" | "Paste URL"
+- FileUploadZone (from Phase 0, now functional)
+- URL input field with validation
+- ProgressBar during processing
+- SuccessState with download button
+- Text preview (first 500 characters)
+- "Copy to clipboard" button
+- CrossToolSuggestions after download
+
+NO EDITING. NO STYLING. NO SUMMARIES.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TOOL 2 — VIDEO → SUBTITLES
+Route: /video-to-subtitles
+
+INPUT OPTIONS:
+- Tab 1: Upload video file
+- Tab 2: Paste YouTube/video URL
+
+FORMAT SELECTOR (before processing):
+- Radio buttons: ○ SRT (recommended for YouTube) | ○ VTT (recommended for web)
+- Default: SRT selected
+- Tooltip: "Not sure? Use SRT for most platforms"
+
+LANGUAGE DETECTION:
+- Auto-detect by default
+- Optional: User can specify language (dropdown)
+- Supported: English, Spanish, French, German, Arabic, Hindi, Chinese, Japanese
+
+PROCESSING:
+1. Extract audio from video
+2. Send to Whisper API:
+   ```javascript
+   const subtitles = await openai.audio.transcriptions.create({
+     file: audioFile,
+     model: "whisper-1",
+     response_format: format, // "srt" or "vtt"
+     language: language || undefined // auto-detect if not specified
+   });
+   ```
+3. Save subtitle file
+4. Return download URL
+
+OUTPUT:
+- .srt OR .vtt file (based on user selection)
+- File name: {original_filename}.srt or {original_filename}.vtt
+
+UI COMPONENTS:
+- Tab switcher: "Upload File" | "Paste URL"
+- Format selector (radio buttons, prominent)
+- Language selector (dropdown, optional)
+- FileUploadZone
+- ProgressBar
+- SuccessState
+- Subtitle preview (first 10 entries with timestamps, read-only)
+- Download button
+- CrossToolSuggestions after download
+
+NO SUBTITLE EDITOR. NO TIMING ADJUSTMENTS.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TOOL 3 — TRANSLATE SUBTITLES
+Route: /translate-subtitles
+
+INPUT OPTIONS:
+- Tab 1: Upload subtitle file (.srt or .vtt)
+  * Validate file format
+  * Show error if not valid subtitle file
+  
+- Tab 2: Paste subtitle text
+  * Large textarea
+  * Validate format before processing
+
+LANGUAGE SELECTOR:
+- Dropdown: "Translate to..."
+- Options:
+  * 🇸🇦 Arabic (عربي)
+  * 🇮🇳 Hindi (हिन्दी)
+  * (Future: Spanish, French, etc. - but NOT in Phase 1)
+- Show flag icons next to language names
+
+PROCESSING:
+1. Parse subtitle file (SRT or VTT)
+2. Extract text only (preserve timestamps separately)
+3. Send text to GPT-4o-mini for translation:
+   ```javascript
+   const response = await openai.chat.completions.create({
+     model: "gpt-4o-mini",
+     messages: [{
+       role: "user",
+       content: `Translate the following subtitle text from English to ${targetLanguage}.
+       
+       CRITICAL RULES:
+       - Preserve line breaks EXACTLY as they are
+       - Do not merge or split lines
+       - Return ONLY the translated text, no commentary
+       - Each line must translate to exactly one line
+       
+       Text to translate:
+       ${subtitleText}`
+     }]
+   });
+   ```
+4. Rebuild subtitle file with:
+   - Translated text
+   - Original timestamps (unchanged)
+   - Same format (SRT or VTT)
+
+OUTPUT:
+- Translated subtitle file
+- FILE NAMING CONVENTION (CRITICAL):
+  * Original: my_video.srt
+  * Arabic: my_video_ar.srt
+  * Hindi: my_video_hi.srt
+- Preserve original format (SRT stays SRT, VTT stays VTT)
+
+UI COMPONENTS:
+- Tab switcher: "Upload File" | "Paste Text"
+- Language selector (dropdown with flags)
+- FileUploadZone OR textarea
+- ProgressBar
+- SuccessState
+- Side-by-side preview (optional, read-only):
+  * Original (first 3 lines)
+  * Translated (first 3 lines)
+- Download button
+- CrossToolSuggestions after download
+
+NO BULK TRANSLATION. NO EDITING.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TOOL 4 — FIX / RETIME SUBTITLES
+Route: /fix-subtitles
+
+INPUT:
+- Upload SRT or VTT file only (single upload zone)
+- Validate: Must be valid subtitle file
+
+AUTO-DETECTION & FIXES:
+After upload, automatically detect and fix:
+
+1. Overlapping timestamps
+   - Check: subtitle[i].endTime > subtitle[i+1].startTime
+   - Fix: Set subtitle[i].endTime = subtitle[i+1].startTime - 0.1
+
+2. Lines longer than 42 characters (YouTube limit)
+   - Check: subtitle.text.length > 42
+   - Fix: Split into two lines at nearest space before char 21
+
+3. Reading speed too fast
+   - Check: (endTime - startTime) < 1.5 seconds AND text.length > 20
+   - Fix: Extend endTime to ensure minimum 1.5s display
+
+4. Gaps larger than 5 seconds
+   - Check: subtitle[i+1].startTime - subtitle[i].endTime > 5
+   - Flag as potential issue (don't auto-fix, just report)
+
+PROCESSING:
+1. Parse subtitle file
+2. Run all validation checks
+3. Collect issues found
+4. Apply auto-fixes
+5. Generate fixed subtitle file
+
+OUTPUT:
+- Corrected subtitle file
+- File name: {original_filename}_fixed.srt
+
+UI FLOW:
+1. Upload file
+2. Show analysis results:
+   ```
+   ┌─────────────────────────────────────┐
+   │ ✓ Found 3 issues in your subtitles │
+   │                                     │
+   │ • 2 overlapping timestamps          │
+   │ • 1 line too long (67 characters)   │
+   │                                     │
+   │ [Auto-fix all issues →]             │
+   └─────────────────────────────────────┘
+   ```
+3. User clicks "Auto-fix all issues"
+4. ProgressBar while processing
+5. SuccessState with:
+   - Summary: "Fixed 3 issues"
+   - Download button
+   - Before/after comparison (optional, read-only)
+6. CrossToolSuggestions
+
+NO MANUAL EDITING UI. NO DRIFT DETECTION (too complex for Phase 1).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TOOL 5 — BURN SUBTITLES INTO VIDEO
+Route: /burn-subtitles
+
+INPUTS (two separate upload zones):
+1. Video file upload zone
+   - Label: "Upload video"
+   - Accepted: MP4, MOV, AVI, WEBM
+   
+2. Subtitle file upload zone
+   - Label: "Upload subtitles"
+   - Accepted: .srt or .vtt
+   - Validate: Must be valid subtitle file
+
+Both files REQUIRED before processing can begin.
+
+DEFAULT SUBTITLE STYLE (NO CUSTOMIZATION):
+- Font: Arial
+- Font size: 24
+- Position: Bottom center
+- Text color: White (#FFFFFF)
+- Background: Black semi-transparent box (background opacity 50%)
+- Outline: None
+
+PROCESSING:
+1. Validate both files uploaded
+2. Use FFmpeg to burn subtitles:
+   ```javascript
+   ffmpeg(videoPath)
+     .videoFilters(`subtitles=${subtitlePath}:force_style='FontName=Arial,FontSize=24,PrimaryColour=&HFFFFFF,BackColour=&H80000000'`)
+     .on('progress', (progress) => {
+       // Update job progress in Bull queue
+       updateJobProgress(jobId, progress.percent);
+     })
+     .on('end', () => {
+       resolve({ downloadUrl });
+     })
+     .save(outputPath);
+   ```
+3. Return video with hardcoded subtitles
+
+OUTPUT:
+- MP4 with burned-in subtitles
+- File name: {original_filename}_subtitled.mp4
+- Same quality as original (no re-encoding unless necessary)
+
+UI COMPONENTS:
+- Two FileUploadZones side-by-side (desktop) or stacked (mobile)
+- Both show file preview after selection
+- "Process video" button (disabled until both files uploaded)
+- ProgressBar with estimated time:
+  * "This may take 3-5 minutes for a 10-minute video"
+  * Show progress percentage
+- SuccessState with:
+  - Download button
+  - File size comparison (before/after)
+- CrossToolSuggestions
+
+NO STYLING OPTIONS. NO PREVIEW PLAYER.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TOOL 6 — COMPRESS VIDEO
+Route: /compress-video
+
+INPUT:
+- Upload video file (single upload zone)
+- Accepted formats: MP4, MOV, AVI, WEBM, MKV
+
+COMPRESSION LEVEL SELECTOR:
+Radio buttons (before processing):
+┌─────────────────────────────────────────┐
+│  ○ Light (best quality, ~30% smaller)   │
+│  ● Medium (recommended, ~50% smaller)   │
+│  ○ Heavy (smallest size, ~70% smaller)  │
+└─────────────────────────────────────────┘
+
+Default: Medium selected
+
+Show file size estimate:
+"Your 124 MB file will be approximately 62 MB"
+
+PROCESSING:
+1. Get compression level CRF value:
+   - Light: crf 23
+   - Medium: crf 28
+   - Heavy: crf 32
+
+2. Compress with FFmpeg:
+   ```javascript
+   ffmpeg(inputPath)
+     .videoCodec('libx264')
+     .outputOptions([
+       `-crf ${crf}`,
+       '-preset medium',
+       '-movflags +faststart'
+     ])
+     .on('progress', (progress) => {
+       updateJobProgress(jobId, progress.percent);
+     })
+     .save(outputPath);
+   ```
+
+OUTPUT:
+- Compressed MP4
+- File name: {original_filename}_compressed.mp4
+
+UI COMPONENTS:
+- FileUploadZone
+- Compression level selector (radio buttons, prominent)
+- File size estimate (updates when level changes)
+- ProgressBar with:
+  * "Compressing... this may take 2-4 minutes"
+  * Progress percentage
+- SuccessState with:
+  * Before/after size comparison:
+    "124 MB → 64 MB (48% smaller)"
+  * Download button
+  * "Quality preserved ✓" badge
+- CrossToolSuggestions
+
+NO ADVANCED SETTINGS. NO BATCH COMPRESSION.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SHARED PHASE 1 RULES (ALL TOOLS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FREE TIER LIMITS (ENFORCE THESE STRICTLY):
+Track usage in localStorage per tool:
+
+Tool limits per month:
+- video-to-transcript: 5 uses/month
+- video-to-subtitles: 10 uses/month
+- translate-subtitles: 3 uses/month
+- fix-subtitles: UNLIMITED (validation is free, fixes are free for Phase 1)
+- burn-subtitles: 2 uses/month
+- compress-video: 5 uses/month
+
+Usage tracking implementation:
+```javascript
+const usageKey = `videotool_usage_${toolName}`;
+let usage = JSON.parse(localStorage.getItem(usageKey)) || {
+  count: 0,
+  resetDate: new Date(new Date().setMonth(new Date().getMonth() + 1))
+};
+
+// Check if monthly reset needed
+if (new Date() > new Date(usage.resetDate)) {
+  usage = { 
+    count: 0, 
+    resetDate: new Date(new Date().setMonth(new Date().getMonth() + 1)) 
+  };
+}
+
+// Check limit before processing
+const limits = {
+  'video-to-transcript': 5,
+  'video-to-subtitles': 10,
+  'translate-subtitles': 3,
+  'fix-subtitles': 999999, // unlimited
+  'burn-subtitles': 2,
+  'compress-video': 5
+};
+
+if (usage.count >= limits[toolName]) {
+  showPaywallModal(); // UI only, no Stripe yet
+  return;
+}
+
+// After successful processing
+usage.count++;
+localStorage.setItem(usageKey, JSON.stringify(usage));
+```
+
+USAGE COUNTER DISPLAY:
+Show UsageCounter component on each tool page:
+- Display: "7 of 10 free uses this month"
+- Position: Below page header, before upload zone
+- Visual: bg-gray-100 rounded-full px-4 py-1.5
+- Optional: Progress bar showing usage visually
+
+When limit reached:
+- Show PaywallModal (from Phase 0)
+- Message: "You've used 10/10 free videos this month"
+- Options (buttons disabled for Phase 1):
+  * "Pay $1 for this file" (grayed out)
+  * "Subscribe for $19/month" (grayed out)
+- Message: "Payment coming in Phase 2. Check back soon!"
+
+CROSS-TOOL SUGGESTIONS (CRITICAL — HABIT LOOP):
+After every successful download, show CrossToolSuggestions component with 2-3 relevant next tools.
+
+Suggestion mappings:
+- After "Video → Transcript":
+  * Suggest: Video → Subtitles
+  * Suggest: (user can create subtitles next)
+
+- After "Video → Subtitles":
+  * Suggest: Translate Subtitles
+  * Suggest: Burn Subtitles
+  * Suggest: Fix Subtitles
+
+- After "Translate Subtitles":
+  * Suggest: Burn Subtitles
+  * Suggest: Fix Subtitles
+
+- After "Fix Subtitles":
+  * Suggest: Burn Subtitles
+  * Suggest: Translate Subtitles
+
+- After "Burn Subtitles":
+  * Suggest: Compress Video
+  * Suggest: (user can optimize final video)
+
+- After "Compress Video":
+  * Suggest: Video → Subtitles
+  * Suggest: (user can start new project)
+
+UI for suggestions:
+```
+┌──────────────────────────────────────────────┐
+│  Continue with another tool                  │
+│                                              │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
+│  │ [Icon]   │  │ [Icon]   │  │ [Icon]   │  │
+│  │ Translate│  │ Burn into│  │ Fix      │  │
+│  │ subs →   │  │ video →  │  │ timing → │  │
+│  └──────────┘  └──────────┘  └──────────┘  │
+└──────────────────────────────────────────────┘
+```
+
+BACKGROUND JOB PROCESSING:
+- All processing must use Bull + Redis queue (from Phase 0)
+- Client uploads file → Server returns jobId → Client polls for status
+- No WebSockets, just polling every 2 seconds
+- Job statuses: queued, processing, completed, failed
+
+TEMP FILE CLEANUP:
+- All uploaded files deleted after 1 hour (cron from Phase 0)
+- OR delete immediately after download (if user clicks download)
+
+ERROR HANDLING:
+Show clear error messages via React Hot Toast:
+- File too large: "File exceeds 100MB. Upgrade for larger files."
+- Wrong format: "Please upload MP4, MOV, AVI, or WEBM"
+- Processing failed: "Something went wrong. Please try again or contact support."
+- Invalid URL: "Could not access video. Check the URL and try again."
+- Rate limit: "Too many requests. Please wait a few minutes."
+
+PROCESSING STATE UI (ALL TOOLS):
+Replace upload zone with:
+- Animated spinner (Framer Motion)
+- Status message: "Transcribing your video..." (tool-specific)
+- ProgressBar with percentage
+- Time estimate: "Estimated time: 45 seconds"
+
+SUCCESS STATE UI (ALL TOOLS):
+- Checkmark icon (animated, scale in)
+- Success message: "Your file is ready!"
+- File preview card (name, size, optional content preview)
+- Download button (prominent, bg-violet-600)
+- "Process another file" link (resets UI)
+- CrossToolSuggestions component
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EXPLICITLY NOT ALLOWED IN PHASE 1
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+❌ NO Stripe integration
+❌ NO subscriptions or payments (Paywall UI only, no functionality)
+❌ NO accounts or login
+❌ NO dashboards
+❌ NO SEO optimization (meta tags, schema)
+❌ NO analytics integration
+❌ NO advanced previews or editors
+❌ NO subtitle styling controls
+❌ NO video summaries or chapters
+❌ NO batch processing
+❌ NO APIs for external use
+❌ NO refactors or abstractions "for later"
+
+Do not prepare Phase 2 features.
+Do not improve UX beyond specification.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FILE STRUCTURE (MUST MATCH PHASE 0)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You MUST use the existing Phase 0 structure.
+Do NOT rename, move, or reorganize folders.
+
+Add these new files only:
+- server/src/services/transcription.ts
+- server/src/services/translation.ts
+- server/src/services/subtitles.ts
+- server/src/services/video.ts
+- server/src/services/ffmpeg.ts
+- server/src/utils/srtParser.ts (for parsing/rebuilding SRT/VTT)
+
+Update these existing files:
+- server/src/workers/dummyProcessor.ts → videoProcessor.ts (real processing)
+- client/src/pages/*.tsx (add real tool logic)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STOP SIGNAL PROTOCOL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After completing Phase 1, you MUST:
+1. Show verification checklist (see below)
+2. Provide test instructions with real files
+3. List any new dependencies installed
+4. STOP and WAIT for explicit "proceed to Phase 2" command
+
+DO NOT auto-continue to Phase 2 even if you think you're done.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AFTER YOU FINISH CODING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Provide a checklist confirming each item with ✅ or ❌:
+
+TOOL FUNCTIONALITY:
+- [ ] Tool 1 (Video → Transcript) works end-to-end
+- [ ] Tool 2 (Video → Subtitles) works end-to-end
+- [ ] Tool 3 (Translate Subtitles) works end-to-end
+- [ ] Tool 4 (Fix Subtitles) works end-to-end
+- [ ] Tool 5 (Burn Subtitles) works end-to-end
+- [ ] Tool 6 (Compress Video) works end-to-end
+
+SHARED FEATURES:
+- [ ] No login required for any tool
+- [ ] localStorage usage tracking works
+- [ ] Usage counters display correctly
+- [ ] Limits enforced (paywall appears when hit)
+- [ ] Cross-tool suggestions appear after download
+- [ ] All tools use background job queue
+- [ ] Job status polling works
+- [ ] Temp files auto-delete after 1 hour
+
+FILE PROCESSING:
+- [ ] Files upload successfully
+- [ ] Processing completes without errors
+- [ ] Download URLs work
+- [ ] Output files are valid and usable
+
+ERROR HANDLING:
+- [ ] File size validation works
+- [ ] File type validation works
+- [ ] Error toasts display correctly
+- [ ] Invalid URLs rejected gracefully
+
+CRITICAL FEATURES:
+- [ ] Cross-tool suggestions implemented for ALL 6 tools
+- [ ] File naming conventions followed (e.g., _ar.srt, _hi.srt)
+- [ ] No Stripe payments exist yet (just UI placeholders)
+
+MANUAL VERIFICATION STEPS:
+Run these tests with REAL FILES and confirm each works:
+
+SETUP:
+1. Get OpenAI API key from https://platform.openai.com/api-keys
+2. Add to .env file: OPENAI_API_KEY=sk-...
+3. Restart server
+4. Prepare test files:
+   - 1-minute video (MP4, under 100MB)
+   - Sample SRT subtitle file
+   - YouTube URL (public, short video)
+
+TEST TOOL 1 (Video → Transcript):
+1. Navigate to /video-to-transcript
+2. Upload your 1-minute test video
+3. Wait for processing (should take ~30-60 seconds)
+4. Download .txt file
+5. Verify: File contains accurate transcript
+6. Check: Cross-tool suggestions appear
+7. Check: UsageCounter shows "1 of 5 free uses"
+
+TEST TOOL 2 (Video → Subtitles):
+1. Navigate to /video-to-subtitles
+2. Select format: SRT
+3. Upload same test video
+4. Wait for processing
+5. Download .srt file
+6. Verify: File is valid SRT format with timestamps
+7. Test in video player (should display correctly)
+8. Check: Cross-tool suggestions appear
+
+TEST TOOL 3 (Translate Subtitles):
+1. Navigate to /translate-subtitles
+2. Upload the .srt file from Tool 2
+3. Select language: Arabic
+4. Wait for processing
+5. Download translated file
+6. Verify: Filename is {original}_ar.srt
+7. Verify: Timestamps unchanged, text translated
+8. Check: Cross-tool suggestions appear
+
+TEST TOOL 4 (Fix Subtitles):
+1. Create a broken .srt file with:
+   - Overlapping timestamps
+   - Line > 42 characters
+2. Navigate to /fix-subtitles
+3. Upload broken file
+4. Check: Issues detected and shown
+5. Click "Auto-fix all issues"
+6. Download fixed file
+7. Verify: Issues corrected
+8. Check: Cross-tool suggestions appear
+
+TEST TOOL 5 (Burn Subtitles):
+1. Navigate to /burn-subtitles
+2. Upload: test video + subtitle file
+3. Wait for processing (may take 3-5 minutes)
+4. Download video with burned subtitles
+5. Play video
+6. Verify: Subtitles are hardcoded and visible
+7. Check: Cross-tool suggestions appear
+
+TEST TOOL 6 (Compress Video):
+1. Navigate to /compress-video
+2. Upload large video file (e.g., 50MB+)
+3. Select compression: Medium
+4. Wait for processing
+5. Download compressed video
+6. Verify: File size reduced by ~40-60%
+7. Play video and check quality
+8. Check: Cross-tool suggestions appear
+
+TEST USAGE LIMITS:
+1. Use any tool until limit reached (e.g., use Tool 2 ten times)
+2. On 11th attempt, verify:
+   - PaywallModal appears
+   - Message says "You've used 10/10 free videos this month"
+   - Buttons are disabled (no Stripe yet)
+3. Wait until next month OR clear localStorage to reset
+
+TEST URL INPUT (Tool 1 & 2):
+1. Switch to "Paste URL" tab
+2. Paste a public YouTube URL
+3. Verify: Video downloads and processes correctly
+4. Verify: Same quality as uploaded file
+
+DEPENDENCIES INSTALLED:
+List any new packages added in Phase 1:
+- openai (for Whisper API and GPT-4o-mini)
+- fluent-ffmpeg (for video processing)
+- yt-dlp (Python tool for YouTube download)
+- Any subtitle parsing libraries
+
+KNOWN ISSUES (if any):
+List any bugs or limitations discovered during testing.
+
+Do NOT suggest improvements.
+Do NOT move to Phase 2.
+WAIT for my next instruction.
