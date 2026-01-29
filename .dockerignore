@@ -1,0 +1,17 @@
+# Reduce build context; only server/ is copied into image
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+client
+node_modules
+server/node_modules
+server/dist
+**/*.md
+**/PHASE*.txt
+docker-compose*.yml
+Dockerfile
+.dockerignore
+vercel.json
+railway.json

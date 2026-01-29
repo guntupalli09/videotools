@@ -59,11 +59,13 @@ app.get('/health', (req, res) => {
 // Start server
 const server = app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`)
-  
-  // Start background worker
-  startWorker()
-  console.log('Background worker started')
-  
+
+  // Worker runs in a separate container when Dockerized (DISABLE_WORKER=true).
+  if (process.env.DISABLE_WORKER !== 'true') {
+    startWorker()
+    console.log('Background worker started')
+  }
+
   // Start file cleanup cron
   startFileCleanup()
   console.log('File cleanup cron started')

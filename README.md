@@ -125,6 +125,20 @@ redis-cli
 # Should see Bull queue keys
 ```
 
+## Production: Vercel (frontend) + Hetzner (API)
+
+- **Frontend on Vercel** does **not** call the Vercel URL for the API. It calls whatever URL you set in **`VITE_API_URL`** (your backend).
+- **In production:** Deploy the API (Docker stack) on Hetzner. Put a reverse proxy + domain in front (e.g. `https://api.yourdomain.com`). In **Vercel** → Project → Settings → Environment Variables, set **`VITE_API_URL`** = `https://api.yourdomain.com` (no `/api` suffix; the client adds `/api` where needed). Redeploy the frontend so the build picks up the variable.
+- **localhost:3001 / 3002** are for **local development only**. Keep the fallback in code as-is (`http://localhost:3001/api`). When you run the API in Docker locally, use **`http://localhost:3002`** (or set `VITE_API_URL=http://localhost:3002` in `client/.env.local`). In production you never use localhost.
+
+See **`deploy/README.md`** for Hetzner Docker deployment.
+
+### Next steps (Railway → Hetzner migration)
+
+- **Railway-specific files removed:** `railway.json` and `server/nixpacks.toml` are deleted; the backend is Docker-only for Hetzner. No Railway config remains.
+- **Hetzner:** There is nothing named “Hetzner” to install. Hetzner Cloud is a VPS provider. You create an account, create a server (e.g. Ubuntu 22.04), and run Docker on it (see `deploy/README.md`). The **CX43** plan has a monthly fee (around €11–12); you pay for the VM, not for “Hetzner software.”
+- **What to do when ready for production:** 1) Sign up at [hetzner.com/cloud](https://www.hetzner.com/cloud); 2) Create a server (e.g. CX43, Ubuntu 22.04); 3) SSH in and follow `deploy/README.md` (install Docker, copy project + `.env`, `docker compose up -d`); 4) Point a domain (or IP) at the server and set `VITE_API_URL` on Vercel to that URL.
+
 ## Notes
 
 - **No real video processing** in Phase 0

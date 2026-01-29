@@ -1,6 +1,9 @@
 import ffmpeg from 'fluent-ffmpeg'
 import path from 'path'
 
+/** Cap FFmpeg threads (align with services/ffmpeg.ts). */
+const FFMPEG_THREADS = process.env.FFMPEG_THREADS || '2'
+
 const tempDir =
   process.env.TEMP_FILE_PATH ||
   (process.platform === 'win32' ? path.join(process.cwd(), 'temp') : '/tmp')
@@ -26,6 +29,7 @@ export function trimVideoSegment(options: TrimOptions): Promise<TrimResult> {
 
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
+      .outputOptions(['-threads', FFMPEG_THREADS])
       .setStartTime(startTime)
       .setDuration(duration)
       .output(outputPath)

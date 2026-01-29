@@ -147,8 +147,11 @@ async function generateBatchZip(batchId: string, batch: BatchJob): Promise<void>
   })
 }
 
+/** Concurrency cap: video-heavy jobs 2, batch effectively serialized when single worker. */
+const WORKER_CONCURRENCY = 2
+
 export function startWorker() {
-  fileQueue.process(async (job) => {
+  fileQueue.process(WORKER_CONCURRENCY, async (job) => {
     const data = job.data as JobData
     const { toolType, options } = data
 
@@ -658,4 +661,10 @@ export function startWorker() {
       }
     }
   })
+}
+
+// When run as main (worker container): node dist/workers/videoProcessor.js
+if (require.main === module) {
+  startWorker()
+  console.log('Worker process started (queue concurrency:', WORKER_CONCURRENCY, ')')
 }

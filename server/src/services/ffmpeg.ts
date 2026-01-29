@@ -6,16 +6,18 @@ import fs from 'fs'
 import { FfprobeData } from 'fluent-ffmpeg'
 import { detectSubtitleFormat, parseSRT, parseVTT } from '../utils/srtParser'
 
-// Set FFmpeg path
-ffmpeg.setFfmpegPath(ffmpegInstaller.path)
-
-// Set FFprobe path using @ffprobe-installer/ffprobe
+// Explicit paths: use env in Docker (e.g. /usr/bin/ffmpeg), else npm installer
+const ffmpegPath = process.env.FFMPEG_PATH || ffmpegInstaller.path
+const ffprobePath = process.env.FFPROBE_PATH || ffprobeInstaller.path
+ffmpeg.setFfmpegPath(ffmpegPath)
 try {
-  ffmpeg.setFfprobePath(ffprobeInstaller.path)
-  console.log('FFprobe path set to:', ffprobeInstaller.path)
+  ffmpeg.setFfprobePath(ffprobePath)
 } catch (e) {
-  console.warn('Could not set ffprobe path, using default:', e)
+  console.warn('Could not set ffprobe path:', e)
 }
+
+/** Cap FFmpeg threads to avoid unbounded CPU/RAM on shared VMs. */
+const FFMPEG_THREADS = process.env.FFMPEG_THREADS || '2'
 
 export interface FFmpegProgress {
   percent: number
@@ -32,7 +34,7 @@ export function extractAudio(
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     ffmpeg(videoPath)
-      .outputOptions(['-vn', '-acodec', 'libmp3lame', '-ar', '16000', '-ac', '1'])
+      .outputOptions(['-threads', FFMPEG_THREADS, '-vn', '-acodec', 'libmp3lame', '-ar', '16000', '-ac', '1'])
       .on('progress', (progress: { percent?: number; timemark?: string }) => {
         onProgress?.({
           percent: progress.percent || 0,
@@ -183,7 +185,7 @@ export function burnSubtitles(
     })
         ;(ffmpeg(videoPath) as any)
           .videoFilters(subtitleFilter)
-          .outputOptions(['-c:v libx264', '-c:a copy']) // Copy audio, encode video
+          .outputOptions(['-threads', FFMPEG_THREADS, '-c:v libx264', '-c:a copy']) // Copy audio, encode video
           .on('progress', (progress: { percent?: number; timemark?: string }) => {
             onProgress?.({
               percent: progress.percent || 0,
@@ -252,6 +254,7 @@ export function compressVideo(
     ffmpeg(inputPath)
       .videoCodec('libx264')
       .outputOptions([
+        '-threads', FFMPEG_THREADS,
         `-crf ${crf}`,
         '-preset medium',
         '-movflags +faststart',

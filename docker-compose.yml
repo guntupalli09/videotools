@@ -2,11 +2,46 @@ services:
   redis:
     image: redis:7-alpine
     container_name: videotools-redis
-    ports:
-      - "6379:6379"
+    # No host port: API and worker use redis:6379 on the Docker network. Add "ports: - 6379:6379" only if you need redis-cli from the host.
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes
 
+  api:
+    build: .
+    image: videotools-api
+    container_name: videotools-api
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379
+      TEMP_FILE_PATH: /tmp
+      DISABLE_WORKER: "true"
+      FFMPEG_PATH: /usr/bin/ffmpeg
+      FFPROBE_PATH: /usr/bin/ffprobe
+    depends_on:
+      - redis
+    volumes:
+      - tmp-files:/tmp
+    # Host 3002 avoids conflict with local npm run dev on 3001. Use "3001:3001" if 3001 is free.
+    ports:
+      - "3002:3001"
+    command: node dist/index.js
+
+  worker:
+    image: videotools-api
+    container_name: videotools-worker
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379
+      TEMP_FILE_PATH: /tmp
+      FFMPEG_PATH: /usr/bin/ffmpeg
+      FFPROBE_PATH: /usr/bin/ffprobe
+    depends_on:
+      - redis
+    volumes:
+      - tmp-files:/tmp
+    command: node dist/workers/videoProcessor.js
+
 volumes:
   redis-data:
+  tmp-files:
