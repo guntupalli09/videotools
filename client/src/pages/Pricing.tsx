@@ -25,9 +25,14 @@ export default function Pricing() {
   }
 
   const cardBase =
-    'bg-white rounded-2xl border-2 p-6 sm:p-8 flex flex-col min-h-[420px]'
-  const noticeClass =
-    'text-xs text-gray-600 bg-gray-50 rounded-lg px-3 py-2 mt-4 border border-gray-100'
+    'bg-white rounded-2xl border-2 p-6 sm:p-8 flex flex-col'
+  const subhead = 'text-sm text-gray-600 leading-relaxed'
+  const limits = 'text-xs text-gray-500 mt-1'
+  const bullets = 'mt-4 space-y-2 text-sm text-gray-600 flex-1'
+  const noteBox =
+    'text-xs text-gray-600 bg-gray-50 rounded-lg px-3 py-2.5 mt-4 border border-gray-100 italic'
+  const noteBoxPro =
+    'text-xs text-violet-800 bg-violet-50/50 rounded-lg px-3 py-2.5 mt-4 border border-violet-100'
 
   return (
     <div className="min-h-screen py-16 sm:py-20 bg-gray-50/50">
@@ -42,21 +47,29 @@ export default function Pricing() {
         </header>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Free */}
-          <div className={`${cardBase} border-gray-200`}>
-            <h3 className="text-xl font-semibold text-gray-900">Free</h3>
-            <div className="mt-2 text-3xl font-bold text-gray-900">$0</div>
-            <p className="mt-3 text-sm text-gray-600 leading-relaxed">
-              Try the magic · 1 language · No credit card
+          {/* FREE — $0 */}
+          <div className={`${cardBase} border-gray-200 min-h-[420px]`}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-semibold text-gray-900">Free</h3>
+              <span className="text-2xl font-bold text-gray-900">$0</span>
+            </div>
+            <p className="mt-3 text-base font-medium text-gray-900">
+              Try the magic
             </p>
-            <p className="mt-1 text-xs text-gray-500">
-              60 min/month · Up to 5 min per video
+            <p className={`mt-1 ${subhead}`}>
+              Short clips · Single language · Watermarked
             </p>
-            <ul className="mt-4 space-y-2 text-sm text-gray-600 flex-1">
+            <ul className={bullets}>
+              <li>Video → Transcript</li>
+              <li>Video → Subtitles</li>
+              <li>1 language</li>
               <li>Watermark on subtitles</li>
-              <li>No batch · 1 concurrent job</li>
+              <li>No batch processing</li>
+              <li>1 concurrent job</li>
             </ul>
-            <p className={noticeClass}>
+            <p className={limits}>60 min / month</p>
+            <p className={limits}>Up to 5 min per video</p>
+            <p className={noteBox}>
               Free jobs may queue longer during peak times.
             </p>
             <button
@@ -67,23 +80,34 @@ export default function Pricing() {
             </button>
           </div>
 
-          {/* Basic */}
-          <div className={`${cardBase} border-gray-200`}>
+          {/* BASIC — $15 / month */}
+          <div className={`${cardBase} border-gray-200 min-h-[420px]`}>
             <h3 className="text-xl font-semibold text-gray-900">Basic</h3>
             <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-3xl font-bold text-gray-900">$15</span>
-              <span className="text-sm text-gray-500">/mo</span>
+              <span className="text-2xl font-bold text-gray-900">$15</span>
+              <span className="text-sm text-gray-500">/ month</span>
             </div>
-            <p className="mt-1 text-xs text-gray-500">$12/mo billed annually</p>
-            <p className="mt-3 text-sm text-gray-600 leading-relaxed">
-              Subtitle editing · 2 languages · No watermark
+            <p className="mt-0.5 text-xs text-gray-500">
+              $12 / month billed annually
             </p>
-            <p className="mt-1 text-xs text-gray-500">
-              450 min/month · Up to 30 min per video
+            <p className="mt-3 text-base font-medium text-gray-900">
+              For light, occasional use
             </p>
-            <ul className="mt-4 space-y-2 text-sm text-gray-600 flex-1">
-              <li>No batch · 1 concurrent job</li>
+            <p className={`mt-1 ${subhead}`}>
+              Clean subtitles without watermarks
+            </p>
+            <ul className={bullets}>
+              <li>Subtitle editing unlocked</li>
+              <li>2 languages (your choice)</li>
+              <li>No watermark</li>
+              <li>No batch processing</li>
+              <li>1 concurrent job</li>
             </ul>
+            <p className={limits}>450 min / month</p>
+            <p className={limits}>Up to 30 min per video</p>
+            <p className={noteBox}>
+              Usable — but designed to push Pro for real workflows.
+            </p>
             <div className="mt-6 space-y-2">
               <button
                 onClick={() => handleSubscribe('basic', false)}
@@ -100,30 +124,38 @@ export default function Pricing() {
             </div>
           </div>
 
-          {/* Pro */}
+          {/* PRO — $49 / month 🏆 */}
           <div
-            className={`${cardBase} border-violet-500 relative shadow-lg shadow-violet-500/10`}
+            className={`${cardBase} border-violet-500 relative min-h-[420px] shadow-lg shadow-violet-500/10`}
           >
             <span className="absolute top-4 right-4 bg-violet-600 text-white text-xs font-medium px-2.5 py-1 rounded-full">
               Most Popular
             </span>
             <h3 className="text-xl font-semibold text-gray-900">Pro</h3>
             <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-3xl font-bold text-gray-900">$49</span>
-              <span className="text-sm text-gray-500">/mo</span>
+              <span className="text-2xl font-bold text-gray-900">$49</span>
+              <span className="text-sm text-gray-500">/ month</span>
             </div>
-            <p className="mt-1 text-xs text-gray-500">$39/mo billed annually</p>
-            <p className="mt-3 text-sm text-gray-600 leading-relaxed font-medium">
-              Batch processing · 5 languages · Long-form video
+            <p className="mt-0.5 text-xs text-gray-500">
+              $39 / month billed annually
             </p>
-            <p className="mt-1 text-xs text-gray-500">
-              1,200 min/month · Up to 120 min per video
+            <p className="mt-3 text-base font-medium text-gray-900">
+              Finish real video workflows
             </p>
-            <ul className="mt-4 space-y-2 text-sm text-gray-600 flex-1">
-              <li>20 videos / 60 min per batch</li>
-              <li>2 concurrent jobs · Priority processing</li>
+            <p className={`mt-1 ${subhead}`}>
+              Batch processing · Long-form videos · Priority queue
+            </p>
+            <ul className={bullets}>
+              <li>Batch processing</li>
+              <li>Up to 5 languages</li>
+              <li>Long-form video support</li>
+              <li>Faster processing during high demand</li>
+              <li>2 concurrent jobs</li>
             </ul>
-            <p className={`${noticeClass} border-violet-100 bg-violet-50/50 text-violet-800`}>
+            <p className="text-xs text-gray-500 mt-1">20 videos per batch · 60 min per batch</p>
+            <p className={limits}>1,200 min / month</p>
+            <p className={limits}>Up to 120 min per video</p>
+            <p className={noteBoxPro}>
               Pro jobs are prioritized during high demand.
             </p>
             <div className="mt-6 space-y-2">
@@ -142,25 +174,35 @@ export default function Pricing() {
             </div>
           </div>
 
-          {/* Agency */}
-          <div className={`${cardBase} border-gray-200`}>
+          {/* AGENCY — $99 / month */}
+          <div className={`${cardBase} border-gray-200 min-h-[420px]`}>
             <h3 className="text-xl font-semibold text-gray-900">Agency</h3>
             <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-3xl font-bold text-gray-900">$99</span>
-              <span className="text-sm text-gray-500">/mo</span>
+              <span className="text-2xl font-bold text-gray-900">$99</span>
+              <span className="text-sm text-gray-500">/ month</span>
             </div>
-            <p className="mt-1 text-xs text-gray-500">$79/mo billed annually</p>
-            <p className="mt-3 text-sm text-gray-600 leading-relaxed">
+            <p className="mt-0.5 text-xs text-gray-500">
+              $79 / month billed annually
+            </p>
+            <p className="mt-3 text-base font-medium text-gray-900">
+              Scale without breaking your pipeline
+            </p>
+            <p className={`mt-1 ${subhead}`}>
               Heavy batch · ZIP exports · Commercial use
             </p>
-            <p className="mt-1 text-xs text-gray-500">
-              3,000 min/month · Up to 240 min per video
-            </p>
-            <ul className="mt-4 space-y-2 text-sm text-gray-600 flex-1">
-              <li>10 languages</li>
-              <li>100 videos / 300 min per batch</li>
+            <ul className={bullets}>
+              <li>Heavy batch processing</li>
+              <li>ZIP batch exports</li>
+              <li>Commercial usage allowed</li>
+              <li>Up to 10 languages</li>
               <li>3 concurrent jobs</li>
             </ul>
+            <p className="text-xs text-gray-500 mt-1">100 videos per batch · 300 min per batch</p>
+            <p className={limits}>3,000 min / month</p>
+            <p className={limits}>Up to 240 min per video</p>
+            <p className={noteBox}>
+              Designed for sustained high-volume workloads.
+            </p>
             <div className="mt-6 space-y-2">
               <button
                 onClick={() => handleSubscribe('agency', false)}
@@ -178,9 +220,15 @@ export default function Pricing() {
           </div>
         </div>
 
-        <p className="mt-12 text-center text-sm text-gray-600">
-          Overage: 100 minutes = $5. Visible but not a replacement for upgrading.
-        </p>
+        {/* Overage footer */}
+        <div className="mt-12 pt-8 border-t border-gray-200 text-center">
+          <p className="text-sm text-gray-600 font-medium">
+            Overage: 100 minutes = $5
+          </p>
+          <p className="mt-1 text-sm text-gray-500">
+            Visible, but not a replacement for upgrading.
+          </p>
+        </div>
       </div>
     </div>
   )
