@@ -19,10 +19,11 @@ const PORT = process.env.PORT || 3001
 // Required behind Railway / Render / Fly / Vercel: trust one proxy hop so rate-limit doesn't throw on X-Forwarded-For
 app.set('trust proxy', 1)
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10, // 10 requests per hour
+// Phase 2.5: Per-user upload rate limit (3/min) is applied in upload and batch routes; no global upload cap here.
+// Optional: general API rate limit for other routes if needed
+const generalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
   message: 'Too many requests. Please wait.',
   standardHeaders: true,
   legacyHeaders: false,
@@ -40,7 +41,7 @@ app.post(
 
 // JSON body parsing for all other routes
 app.use(express.json())
-app.use('/api/upload', limiter)
+app.use('/api', generalLimiter)
 
 // Routes
 app.use('/api/upload', uploadRoutes)

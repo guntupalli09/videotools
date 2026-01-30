@@ -5,6 +5,7 @@ export type BillingPlan = 'basic' | 'pro' | 'agency'
 interface CheckoutParams {
   mode: 'subscription' | 'payment'
   plan?: BillingPlan
+  annual?: boolean
   returnToPath?: string
   email?: string
   frontendOrigin?: string

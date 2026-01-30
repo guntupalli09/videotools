@@ -202,7 +202,7 @@ export default function Home() {
               Start free. Upgrade when you need more.
             </h2>
             <p className="text-xl text-white/90 mb-8">
-              Free tier includes 5-10 uses per month. No credit card required.
+              Free tier includes 60 minutes per month. No credit card required.
             </p>
             <Link
               to="/pricing"

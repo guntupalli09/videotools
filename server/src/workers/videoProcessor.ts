@@ -5,21 +5,63 @@ import archiver from 'archiver'
 import { transcribeVideo } from '../services/transcription'
 import { translateSubtitleFile } from '../services/translation'
 import { fixSubtitleFile } from '../services/subtitles'
-import { burnSubtitles, compressVideo } from '../services/ffmpeg'
+import { burnSubtitles, compressVideo, HUNG_JOB_MESSAGE } from '../services/ffmpeg'
 import { generateOutputFilename, downloadVideoFromURL, validateVideoDuration } from '../services/video'
 import { validateFileType, validateFileSize } from '../utils/fileValidation'
 import { trimVideoSegment } from '../services/trimming'
 import { generateMultiLanguageSubtitles } from '../services/multiLanguage'
 import { BatchJob, getBatchById, saveBatch } from '../models/BatchJob'
 import { getUser, saveUser, PlanType } from '../models/User'
-import { getPlanLimits } from '../utils/limits'
+import { getPlanLimits, getJobPriority, getMaxJobRuntimeMinutes } from '../utils/limits'
 import { calculateTranslationMinutes, secondsToMinutes } from '../utils/metering'
 import { saveDuplicateResult } from '../services/duplicate'
 import { createRedisClient } from '../utils/redis'
+import { MAX_GLOBAL_WORKERS, PAID_TIER_RESERVATION_QUEUE_THRESHOLD } from '../utils/queueConfig'
 
 export const fileQueue = new Queue('file-processing', {
   createClient: createRedisClient,
 })
+
+/** Phase 2.5: Pro/Agency jobs when queue > 50 get 1 dedicated worker; remaining 2 serve all tiers. */
+export const priorityQueue = new Queue('file-processing-priority', {
+  createClient: createRedisClient,
+})
+
+export async function getTotalQueueCount(): Promise<number> {
+  const [normalCounts, priorityCounts] = await Promise.all([
+    fileQueue.getJobCounts(),
+    priorityQueue.getJobCounts(),
+  ])
+  return (
+    (normalCounts.waiting ?? 0) + (normalCounts.active ?? 0) + (normalCounts.delayed ?? 0) +
+    (priorityCounts.waiting ?? 0) + (priorityCounts.active ?? 0) + (priorityCounts.delayed ?? 0)
+  )
+}
+
+/** Add job to the appropriate queue by plan (Pro/Agency → priority when reservation active). Phase 2.5: auto-retry once on failure (e.g. HUNG_JOB). */
+export async function addJobToQueue(
+  plan: PlanType,
+  data: JobData,
+  options?: { priority?: number }
+) {
+  const priority = options?.priority ?? getJobPriority(plan)
+  const totalCount = await getTotalQueueCount()
+  const usePriorityQueue =
+    (plan === 'pro' || plan === 'agency') &&
+    totalCount > PAID_TIER_RESERVATION_QUEUE_THRESHOLD
+  const jobOptions = { priority, attempts: 2 }
+  if (usePriorityQueue) {
+    return priorityQueue.add(data, jobOptions)
+  }
+  return fileQueue.add(data, jobOptions)
+}
+
+/** Get job by ID from either queue (for status endpoint). */
+export async function getJobById(jobId: string) {
+  let job = await priorityQueue.getJob(jobId)
+  if (job) return job
+  return fileQueue.getJob(jobId)
+}
 
 interface JobData {
   toolType: string
@@ -147,12 +189,19 @@ async function generateBatchZip(batchId: string, batch: BatchJob): Promise<void>
   })
 }
 
-/** Concurrency cap: video-heavy jobs 2, batch effectively serialized when single worker. */
-const WORKER_CONCURRENCY = 2
+/** Phase 2.5: 1 worker for Pro/Agency, 2 for all tiers = MAX_GLOBAL_WORKERS (3). */
+const NORMAL_CONCURRENCY = 2
+const PRIORITY_CONCURRENCY = 1
 
-export function startWorker() {
-  fileQueue.process(WORKER_CONCURRENCY, async (job) => {
-    const data = job.data as JobData
+const RUNTIME_QUEUE_THRESHOLD = 20
+const RUNTIME_CHECK_INTERVAL_MS = 15 * 1000
+
+async function processJob(job: import('bull').Job<JobData>) {
+  const data = job.data as JobData
+  const plan = (data.plan || 'free') as PlanType
+  const maxRuntimeMs = getMaxJobRuntimeMinutes(plan) * 60 * 1000
+
+  const run = async (): Promise<any> => {
     const { toolType, options } = data
 
     try {
@@ -608,39 +657,59 @@ export function startWorker() {
       console.error('Processing error:', error)
       throw error
     }
-  })
+  }
 
-  fileQueue.on('completed', async (job) => {
+  // Phase 2.5: tier-aware runtime — enforce only when queue >= 20; re-check periodically so we relax when queue drops.
+  let deadline: number | null = null
+  let rejectDynamic: (err: Error) => void
+  const dynamicRuntimePromise = new Promise<never>((_, rej) => {
+    rejectDynamic = rej
+  })
+  const interval = setInterval(async () => {
+    const q = await getTotalQueueCount()
+    if (q < RUNTIME_QUEUE_THRESHOLD) {
+      deadline = null
+      return
+    }
+    const now = Date.now()
+    if (deadline === null) deadline = now + maxRuntimeMs
+    if (now > deadline) {
+      clearInterval(interval)
+      rejectDynamic(new Error('Job exceeded maximum runtime. Minutes were not charged. Please retry or upgrade for longer jobs.'))
+    }
+  }, RUNTIME_CHECK_INTERVAL_MS)
+
+  try {
+    const result = await Promise.race([run(), dynamicRuntimePromise])
+    clearInterval(interval)
+    return result
+  } catch (err: any) {
+    clearInterval(interval)
+    throw err
+  }
+}
+
+function attachQueueEvents(queue: import('bull').Queue<JobData>) {
+  queue.on('completed', async (job) => {
     console.log(`Job ${job.id} completed`)
-    
-    // Check if this is a batch job and update batch status
     const data = job.data as JobData
     if (data.batchId) {
       const batch = getBatchById(data.batchId)
       if (batch) {
-        // Check if all jobs are done
-        const allJobs = await fileQueue.getJobs(['completed', 'failed'])
-        const batchJobs = allJobs.filter(j => (j.data as JobData).batchId === data.batchId)
-        
-        if (batchJobs.length >= batch.totalVideos) {
-          const completed = batchJobs.filter(j => j.returnvalue).length
-          const failed = batchJobs.length - completed
-          
-          if (batch.processedVideos + batch.failedVideos < batch.totalVideos) {
-            // Generate ZIP if not already done
-            if (!batch.zipPath) {
-              await generateBatchZip(data.batchId, batch)
-            }
-          }
+        const allJobs = await queue.getJobs(['completed', 'failed'])
+        const batchJobs = allJobs.filter((j) => (j.data as JobData).batchId === data.batchId)
+        if (batchJobs.length >= batch.totalVideos && !batch.zipPath) {
+          await generateBatchZip(data.batchId, batch)
         }
       }
     }
   })
-
-  fileQueue.on('failed', async (job, err) => {
-    console.error(`Job ${job?.id} failed:`, err)
-    
-    // Update batch on failure
+  queue.on('failed', async (job, err) => {
+    if (err?.message === HUNG_JOB_MESSAGE) {
+      console.warn(`Job ${job?.id} hung (no FFmpeg output 90s); ${(job?.opts?.attempts ?? 2) - (job?.attemptsMade ?? 1) > 0 ? 'will retry' : 'final failure, minutes not charged'}`)
+    } else {
+      console.error(`Job ${job?.id} failed:`, err)
+    }
     const data = job?.data as JobData
     if (data?.batchId) {
       const batch = getBatchById(data.batchId)
@@ -651,20 +720,23 @@ export function startWorker() {
           reason: err?.message || 'Processing failed',
         })
         saveBatch(batch)
-        
-        // Check if batch should be finalized
-        if (batch.processedVideos + batch.failedVideos >= batch.totalVideos) {
-          if (!batch.zipPath) {
-            await generateBatchZip(data.batchId, batch)
-          }
+        if (batch.processedVideos + batch.failedVideos >= batch.totalVideos && !batch.zipPath) {
+          await generateBatchZip(data.batchId, batch)
         }
       }
     }
   })
 }
 
+export function startWorker() {
+  fileQueue.process(NORMAL_CONCURRENCY, processJob)
+  priorityQueue.process(PRIORITY_CONCURRENCY, processJob)
+  attachQueueEvents(fileQueue)
+  attachQueueEvents(priorityQueue)
+}
+
 // When run as main (worker container): node dist/workers/videoProcessor.js
 if (require.main === module) {
   startWorker()
-  console.log('Worker process started (queue concurrency:', WORKER_CONCURRENCY, ')')
+  console.log('Worker process started (normal: 2, priority: 1)')
 }

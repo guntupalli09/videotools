@@ -18,6 +18,9 @@ export interface StripePriceConfig {
   basicPriceId: string
   proPriceId: string
   agencyPriceId: string
+  basicAnnualPriceId?: string
+  proAnnualPriceId?: string
+  agencyAnnualPriceId?: string
   overagePriceId: string
 }
 
@@ -26,6 +29,9 @@ export function getStripePriceConfig(): StripePriceConfig {
   const proPriceId = process.env.STRIPE_PRICE_PRO
   const agencyPriceId = process.env.STRIPE_PRICE_AGENCY
   const overagePriceId = process.env.STRIPE_PRICE_OVERAGE
+  const basicAnnualPriceId = process.env.STRIPE_PRICE_BASIC_ANNUAL
+  const proAnnualPriceId = process.env.STRIPE_PRICE_PRO_ANNUAL
+  const agencyAnnualPriceId = process.env.STRIPE_PRICE_AGENCY_ANNUAL
 
   if (!basicPriceId || !proPriceId || !agencyPriceId || !overagePriceId) {
     throw new Error(
@@ -37,6 +43,9 @@ export function getStripePriceConfig(): StripePriceConfig {
     basicPriceId,
     proPriceId,
     agencyPriceId,
+    basicAnnualPriceId,
+    proAnnualPriceId,
+    agencyAnnualPriceId,
     overagePriceId,
   }
 }
@@ -44,9 +53,9 @@ export function getStripePriceConfig(): StripePriceConfig {
 export function getPlanFromPriceId(priceId: string): BillingPlan | null {
   try {
     const config = getStripePriceConfig()
-    if (priceId === config.basicPriceId) return 'basic'
-    if (priceId === config.proPriceId) return 'pro'
-    if (priceId === config.agencyPriceId) return 'agency'
+    if (priceId === config.basicPriceId || priceId === config.basicAnnualPriceId) return 'basic'
+    if (priceId === config.proPriceId || priceId === config.proAnnualPriceId) return 'pro'
+    if (priceId === config.agencyPriceId || priceId === config.agencyAnnualPriceId) return 'agency'
     return null
   } catch {
     return null

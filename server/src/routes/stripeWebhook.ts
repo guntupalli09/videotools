@@ -98,10 +98,10 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event): Promise<void
     }
   }
 
-  // One-time overage purchase: add 100 minutes for current billing period
+  // Phase 2.5: One-time overage 100 minutes = $5
   if (purchaseType === 'overage') {
     user.overagesThisMonth.minutes += 100
-    user.overagesThisMonth.totalCharge += 3
+    user.overagesThisMonth.totalCharge += 5
   }
 
   // Generate password setup token for new paid users (only once, single-use)

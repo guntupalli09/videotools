@@ -1,12 +1,20 @@
 import express, { Request, Response } from 'express'
-import { fileQueue } from '../workers/videoProcessor'
+import { getJobById } from '../workers/videoProcessor'
 
 const router = express.Router()
+
+/** Phase 2.5: Return queue position (jobs ahead) for transparency: "Processing… {N} jobs ahead of you." */
+async function getQueuePosition(job: import('bull').Job): Promise<number> {
+  const queue = job.queue
+  const waiting = await queue.getWaiting()
+  const idx = waiting.findIndex((j) => j.id === job.id)
+  return idx >= 0 ? idx : 0
+}
 
 router.get('/:jobId', async (req: Request, res: Response) => {
   try {
     const { jobId } = req.params
-    const job = await fileQueue.getJob(jobId)
+    const job = await getJobById(jobId)
 
     if (!job) {
       return res.status(404).json({ message: 'Job not found' })
@@ -25,11 +33,13 @@ router.get('/:jobId', async (req: Request, res: Response) => {
     }
 
     const result = job.returnvalue || undefined
+    const queuePosition = state === 'waiting' ? await getQueuePosition(job) : undefined
 
     res.json({
       status,
       progress,
       result,
+      queuePosition,
     })
   } catch (error: any) {
     console.error('Job status error:', error)

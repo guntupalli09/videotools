@@ -8,8 +8,10 @@ import { validateFileSize, validateFileType } from '../utils/fileValidation'
 import { BatchJob, saveBatch, getBatchById } from '../models/BatchJob'
 import { getUser, saveUser, PlanType, User } from '../models/User'
 import { getPlanLimits, enforceBatchLimits, getJobPriority } from '../utils/limits'
-import { fileQueue } from '../workers/videoProcessor'
+import { addJobToQueue, getTotalQueueCount } from '../workers/videoProcessor'
 import { getAuthFromRequest } from '../utils/auth'
+import { isQueueAtHardLimit, isQueueAtSoftLimit } from '../utils/queueConfig'
+import { checkAndRecordUpload } from '../utils/uploadRateLimit'
 
 const router = express.Router()
 
@@ -105,6 +107,18 @@ router.post(
         return res.status(400).json({ message: 'No files uploaded' })
       }
 
+      if (!checkAndRecordUpload(user.id)) {
+        res.setHeader('Retry-After', '60')
+        return res.status(429).json({ message: 'Too many uploads. Please wait a minute before trying again.' })
+      }
+      const queueCount = await getTotalQueueCount()
+      if (isQueueAtHardLimit(queueCount)) {
+        return res.status(503).json({ message: 'High demand right now. Please retry shortly.' })
+      }
+      if (isQueueAtSoftLimit(queueCount)) {
+        return res.status(503).json({ message: 'High demand right now. Batch uploads are temporarily disabled. Please retry shortly.' })
+      }
+
       // Basic plan enforcement: batch not available
       if (!user.limits.batchEnabled) {
         // Free: NO BATCH (disabled), Basic: NO BATCH with upgrade prompt
@@ -186,7 +200,7 @@ router.post(
       
       for (let i = 0; i < videoMeta.length; i++) {
         const video = videoMeta[i]
-        await fileQueue.add({
+        await addJobToQueue(user.plan, {
           toolType: 'batch-video-to-subtitles',
           filePath: video.path,
           originalName: video.originalName,
@@ -201,8 +215,6 @@ router.post(
             language: primaryLanguage || 'en',
             additionalLanguages: additionalLangs,
           },
-        }, {
-          priority: getJobPriority(user.plan),
         })
       }
 

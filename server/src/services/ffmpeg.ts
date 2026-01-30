@@ -19,13 +19,38 @@ try {
 /** Cap FFmpeg threads to avoid unbounded CPU/RAM on shared VMs. */
 const FFMPEG_THREADS = process.env.FFMPEG_THREADS || '2'
 
+/** Phase 2.5: Kill job if no FFmpeg output for 90s. Worker will auto-retry once. */
+export const HUNG_JOB_MS = 90 * 1000
+export const HUNG_JOB_MESSAGE = 'HUNG_JOB'
+
 export interface FFmpegProgress {
   percent: number
   timemark?: string
 }
 
+function setupHungProtection(
+  cmd: { kill: (signal: string) => unknown },
+  reject: (err: Error) => void
+): { clear: () => void; reset: () => void } {
+  let hungTimer: NodeJS.Timeout
+  const reset = () => {
+    clearTimeout(hungTimer)
+    hungTimer = setTimeout(() => {
+      try {
+        cmd.kill('SIGKILL')
+      } catch (_) {
+        /* ignore */
+      }
+      reject(new Error(HUNG_JOB_MESSAGE))
+    }, HUNG_JOB_MS)
+  }
+  const clear = () => clearTimeout(hungTimer)
+  reset()
+  return { clear, reset }
+}
+
 /**
- * Extract audio from video file
+ * Extract audio from video file (with 90s hung-job kill).
  */
 export function extractAudio(
   videoPath: string,
@@ -33,21 +58,25 @@ export function extractAudio(
   onProgress?: (progress: FFmpegProgress) => void
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    ffmpeg(videoPath)
+    const cmd = ffmpeg(videoPath)
       .outputOptions(['-threads', FFMPEG_THREADS, '-vn', '-acodec', 'libmp3lame', '-ar', '16000', '-ac', '1'])
       .on('progress', (progress: { percent?: number; timemark?: string }) => {
+        hung.reset()
         onProgress?.({
           percent: progress.percent || 0,
           timemark: progress.timemark,
         })
       })
       .on('end', () => {
+        hung.clear()
         resolve(outputPath)
       })
       .on('error', (err: Error) => {
+        hung.clear()
         reject(err)
       })
-      .save(outputPath)
+    const hung = setupHungProtection(cmd, reject)
+    cmd.save(outputPath)
   })
 }
 
@@ -183,54 +212,41 @@ export function burnSubtitles(
       tempAss: tempAssPath,
       output: outputPath,
     })
-        ;(ffmpeg(videoPath) as any)
+        const cmd = (ffmpeg(videoPath) as any)
           .videoFilters(subtitleFilter)
-          .outputOptions(['-threads', FFMPEG_THREADS, '-c:v libx264', '-c:a copy']) // Copy audio, encode video
+          .outputOptions(['-threads', FFMPEG_THREADS, '-c:v libx264', '-c:a copy'])
           .on('progress', (progress: { percent?: number; timemark?: string }) => {
+            hung.reset()
             onProgress?.({
               percent: progress.percent || 0,
               timemark: progress.timemark,
             })
           })
           .on('end', () => {
-            // Clean up temporary subtitle file
+            hung.clear()
             try {
-              if (fs.existsSync(tempSubtitlePath)) {
-                fs.unlinkSync(tempSubtitlePath)
-              }
-              if (fs.existsSync(tempAssPath)) {
-                fs.unlinkSync(tempAssPath)
-              }
-            } catch (e) {
-              // Ignore cleanup errors
-            }
+              if (fs.existsSync(tempSubtitlePath)) fs.unlinkSync(tempSubtitlePath)
+              if (fs.existsSync(tempAssPath)) fs.unlinkSync(tempAssPath)
+            } catch (e) { /* ignore */ }
             console.log('Subtitle burning completed:', outputPath)
             resolve(outputPath)
           })
           .on('error', (err: any, stdout: any, stderr: any) => {
-            // Clean up temporary subtitle file on error
+            hung.clear()
             try {
-              if (fs.existsSync(tempSubtitlePath)) {
-                fs.unlinkSync(tempSubtitlePath)
-              }
-              if (fs.existsSync(tempAssPath)) {
-                fs.unlinkSync(tempAssPath)
-              }
-            } catch (e) {
-              // Ignore cleanup errors
-            }
+              if (fs.existsSync(tempSubtitlePath)) fs.unlinkSync(tempSubtitlePath)
+              if (fs.existsSync(tempAssPath)) fs.unlinkSync(tempAssPath)
+            } catch (e) { /* ignore */ }
             console.error('FFmpeg error:', err?.message || err)
-            console.error('FFmpeg stderr:', stderr)
-            console.error('FFmpeg stdout:', stdout)
             reject(new Error(`FFmpeg error: ${err?.message || err}\n${stderr || ''}`))
           })
           .on('stderr', (stderrLine: string) => {
-            // Log FFmpeg warnings/info (not errors)
             if (stderrLine.includes('error') || stderrLine.includes('Error')) {
               console.error('FFmpeg stderr:', stderrLine)
             }
           })
-          .save(outputPath)
+        const hung = setupHungProtection(cmd, reject)
+        cmd.save(outputPath)
       })
       .catch((err) => {
         try {
@@ -251,7 +267,7 @@ export function compressVideo(
   onProgress?: (progress: FFmpegProgress) => void
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
+    const cmd = ffmpeg(inputPath)
       .videoCodec('libx264')
       .outputOptions([
         '-threads', FFMPEG_THREADS,
@@ -260,18 +276,22 @@ export function compressVideo(
         '-movflags +faststart',
       ])
       .on('progress', (progress: { percent?: number; timemark?: string }) => {
+        hung.reset()
         onProgress?.({
           percent: progress.percent || 0,
           timemark: progress.timemark,
         })
       })
       .on('end', () => {
+        hung.clear()
         resolve(outputPath)
       })
       .on('error', (err: Error) => {
+        hung.clear()
         reject(err)
       })
-      .save(outputPath)
+    const hung = setupHungProtection(cmd, reject)
+    cmd.save(outputPath)
   })
 }
 

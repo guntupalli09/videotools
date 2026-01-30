@@ -33,7 +33,7 @@ export default function OverageModal({
             className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-left text-sm hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="font-semibold">Buy 100 more minutes</div>
-            <div className="text-xs text-gray-500">$3 one-time</div>
+            <div className="text-xs text-gray-500">$5 one-time</div>
           </button>
           <button
             onClick={onUpgrade}

@@ -1,61 +1,71 @@
 import { PlanLimits, PlanType, User } from '../models/User'
 import { getPlanTranslatedMinutesCap } from './metering'
 
+// Phase 2.5: authoritative plan limits (FINAL)
 export function getPlanLimits(plan: PlanType): PlanLimits {
   switch (plan) {
     case 'free':
       return {
-        // Phase 2: Free = 200 minutes/month
-        minutesPerMonth: 200,
-        maxVideoDuration: 10,
+        minutesPerMonth: 60,
+        maxVideoDuration: 5,
         maxFileSize: 100 * 1024 * 1024,
         maxConcurrentJobs: 1,
         maxLanguages: 1,
         batchEnabled: false,
         batchMaxVideos: 0,
         batchMaxDuration: 0,
-        batchMaxPerDay: 0,
+        batchMaxPerDay: 999,
       }
     case 'basic':
       return {
-        // Phase 2: Basic = 600 minutes/month
-        minutesPerMonth: 600,
+        minutesPerMonth: 450,
         maxVideoDuration: 30,
         maxFileSize: 500 * 1024 * 1024,
         maxConcurrentJobs: 1,
-        maxLanguages: 1,
+        maxLanguages: 2,
         batchEnabled: false,
         batchMaxVideos: 0,
         batchMaxDuration: 0,
-        batchMaxPerDay: 0,
+        batchMaxPerDay: 999,
       }
     case 'pro':
       return {
-        minutesPerMonth: 1500,
+        minutesPerMonth: 1200,
         maxVideoDuration: 120,
         maxFileSize: 2 * 1024 * 1024 * 1024,
-        maxConcurrentJobs: 3,
+        maxConcurrentJobs: 2,
         maxLanguages: 5,
         batchEnabled: true,
         batchMaxVideos: 20,
         batchMaxDuration: 60,
-        batchMaxPerDay: 3,
+        batchMaxPerDay: 999,
       }
     case 'agency':
       return {
-        minutesPerMonth: 5000,
+        minutesPerMonth: 3000,
         maxVideoDuration: 240,
         maxFileSize: 10 * 1024 * 1024 * 1024,
-        maxConcurrentJobs: 10,
+        maxConcurrentJobs: 3,
         maxLanguages: 10,
         batchEnabled: true,
         batchMaxVideos: 100,
         batchMaxDuration: 300,
-        batchMaxPerDay: 10,
+        batchMaxPerDay: 999,
       }
     default:
       return getPlanLimits('free')
   }
+}
+
+/** Tier-aware max job runtime (minutes). Enforced in worker when queue_length >= 20. */
+export function getMaxJobRuntimeMinutes(plan: PlanType): number {
+  const runtimes: Record<PlanType, number> = {
+    free: 10,
+    basic: 15,
+    pro: 30,
+    agency: 45,
+  }
+  return runtimes[plan] ?? 10
 }
 
 export function getJobPriority(plan: PlanType): number {
@@ -79,12 +89,12 @@ export async function enforceUsageLimits(
   const projected = user.usageThisMonth.totalMinutes + requestedMinutes
 
   if (projected > user.limits.minutesPerMonth) {
-    if (!user.paymentMethodId) {
+    // Overage allowed only for paid users (Stripe customer); do not allow overage to replace upgrading
+    if (!user.stripeCustomerId) {
       return { allowed: false, overage: false }
     }
 
     const overageMinutes = projected - user.limits.minutesPerMonth
-    // Phase 1.5: we only track overage minutes here; billing handled elsewhere
     user.overagesThisMonth.minutes += overageMinutes
     return { allowed: true, overage: true, overageMinutes }
   }
@@ -110,10 +120,7 @@ export async function enforceBatchLimits(
     return { allowed: false, reason: 'BATCH_DURATION_EXCEEDED' }
   }
 
-  if (batchesToday >= user.limits.batchMaxPerDay) {
-    return { allowed: false, reason: 'BATCH_DAILY_LIMIT_REACHED' }
-  }
-
+  // Phase 2.5: no daily batch cap; only max_videos and max_total_minutes
   return { allowed: true }
 }
 

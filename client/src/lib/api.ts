@@ -20,6 +20,8 @@ export interface UploadResponse {
 export interface JobStatus {
   status: 'queued' | 'processing' | 'completed' | 'failed'
   progress: number
+  /** Phase 2.5: jobs ahead in queue for "Processing… {N} jobs ahead of you." */
+  queuePosition?: number
   result?: {
     downloadUrl: string
     fileName?: string

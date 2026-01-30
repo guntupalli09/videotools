@@ -1,0 +1,327 @@
+PRICING STRATEGY (FINAL)
+🆓 Free — $0
+
+Purpose: prove value, block workflows
+
+60 minutes / month
+
+Max 5 min per video
+
+1 language
+
+Watermark on subtitles
+
+No batch
+
+1 concurrent job
+
+No credit card
+
+👉 Enough to feel magic
+👉 Impossible to abuse seriously
+
+🟦 Basic — $15 / month
+
+Purpose: paid entry, upgrade pressure
+
+450 minutes / month
+
+Up to 30 min per video
+
+2 languages (user choice)
+
+Subtitle editing unlocked
+
+No batch
+
+1 concurrent job
+
+No watermark
+
+👉 Usable
+👉 Still painful for creators
+👉 Designed to push Pro
+
+🟪 Pro — $49 / month (🏆 MOST POPULAR)
+
+Purpose: revenue engine
+
+1,200 minutes / month
+
+Up to 120 min per video
+
+5 languages
+
+Batch processing
+
+20 videos
+
+60 min per batch
+
+2 concurrent jobs
+
+Faster processing / priority queue
+
+👉 Where 70–80% of revenue lands
+👉 Do not discount heavily
+
+🟨 Agency — $99 / month
+
+Purpose: volume without melting infra
+
+3,000 minutes / month
+
+Up to 240 min per video
+
+10 languages
+
+Heavy batch
+
+100 videos
+
+300 min per batch
+
+3 concurrent jobs
+
+ZIP batch exports
+
+Commercial usage allowed
+
+👉 Clear jump from Pro
+👉 Affordable vs competitors
+👉 Actually sells
+
+➕ Overage (Strict)
+
+100 minutes = $5
+
+No discounts
+
+Visible but not attractive enough to replace upgrades
+
+💸 Annual Billing (20% off)
+
+Basic: $12/mo billed annually
+
+Pro: $39/mo billed annually
+
+Agency: $79/mo billed annually
+
+Boosts LTV, smooths load, reduces churn.
+
+3. PRICING PAGE UX RULES (MANDATORY)
+
+❌ Never headline minutes
+✅ Headline features & outcomes
+
+Example:
+
+❌ “1,200 minutes”
+
+✅ “Batch processing • 5 languages • Long-form video support”
+
+Minutes = secondary text only.
+
+4. INFRA STRATEGY (CPX31-SAFE)
+Server
+
+Hetzner CPX31
+
+4 vCPU (burstable)
+
+8 GB RAM
+
+Ubuntu
+
+Single node
+
+Global Processing Limits (HARD)
+
+MAX_GLOBAL_WORKERS = 3
+(FFmpeg jobs at once)
+
+This is the physical ceiling.
+Never exceed it.
+
+Per-Tier Concurrency Caps
+Tier	Concurrent Jobs
+Free	1
+Basic	1
+Pro	2
+Agency	3
+
+Prevents monopolization.
+
+🔴 MUST-DO #1: Paid-Tier Worker Reservation
+
+When queue length > 50:
+
+Reserve 1 worker exclusively for Pro + Agency
+
+Remaining 2 workers serve all tiers fairly
+
+This guarantees:
+
+Pro jobs always progress
+
+“Priority processing” is real, not marketing
+
+Free users still get service (just slower)
+
+Queue Management & Backpressure
+
+Soft limit: 200 jobs
+
+Disable batch uploads
+
+Disable URL imports
+
+Hard limit: 300 jobs
+
+Block all new submissions
+
+Show user message:
+
+“High demand right now. Please retry shortly.”
+
+No silent failure. Ever.
+
+Queue Scheduling
+
+Round-robin
+
+Skip users at concurrency cap
+
+No starvation
+
+No pay-to-win domination
+
+🔴 MUST-DO #2: Tier-Aware Job Runtime Limits
+Tier	Max Runtime
+Free	10 min
+Basic	15 min
+Pro	30 min
+Agency	45 min
+
+Additional rule:
+
+If queue < 20 → allow jobs to exceed soft runtime
+
+If queue high → enforce strict limits
+
+Prevents:
+
+runaway FFmpeg
+
+angry Agency users
+
+worker starvation
+
+Refund minutes on forced kill.
+
+Hung Job Protection
+
+Kill job if no FFmpeg output for 90s
+
+Auto retry once
+
+Refund minutes if failed
+
+5. ANTI-ABUSE CONTROLS
+Rate Limits
+
+Max 3 uploads per minute per user
+
+Includes retries & URL imports
+
+HTTP 429 on violation
+
+🟡 Strongly Recommended: Soft Multi-Account Detection
+
+(No bans early-stage)
+
+Flag (silently):
+
+repeated signups from same IP
+
+identical usage patterns
+
+excessive failed jobs
+
+Response:
+
+temporary cooldown (10–30 min)
+
+never hard ban unless extreme
+
+6. UX TRANSPARENCY (NON-NEGOTIABLE)
+Explicit UI Language (ADD THIS VERBATIM)
+
+Free tier notice:
+
+“Free jobs may queue longer during peak times.”
+
+Pro tier notice:
+
+“Pro jobs are prioritized during high demand.”
+
+Queue status:
+
+“Processing… 3 jobs ahead of you.”
+
+This alone cuts support tickets by ~80%.
+
+7. AUTO-SCALING TRIGGERS (OBJECTIVE)
+
+Upgrade CPX31 → CPX41 when any is true:
+
+Pro users wait >10 min avg for 30 min
+
+CPU >85% for 15 min sustained
+
+Queue >200 for 30 min continuous
+
+No vibes. Data only.
+
+8. COMPETITIVE STRATEGY (REALITY)
+
+You do not beat competitors on:
+
+raw $/minute
+
+AI gimmicks
+
+templates
+
+editors
+
+You do beat them on:
+
+end-to-end workflow completion
+
+batch sanity
+
+reliability under load
+
+honest limits
+
+predictable execution
+
+Users remember:
+
+“This one actually finished my job.”
+
+That is your moat.
+
+9. FINAL VERDICT
+
+This strategy is:
+
+✅ Infra-honest
+✅ Abuse-resistant
+✅ Conversion-optimized
+✅ Competitive without feature bloat
+✅ Safe on single-node CPX31
+
+Ship this.
+Only iterate based on real usage data, not anxiety.

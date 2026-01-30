@@ -1,0 +1,251 @@
+You are a senior full-stack engineer and infra architect.
+
+Your task is to UPDATE the existing codebase to EXACTLY match the following FINAL, LOCKED strategy.
+This is not a discussion or suggestion task.
+You must implement these rules end-to-end across:
+- pricing config
+- backend enforcement
+- queue + worker logic
+- rate limiting
+- UI copy
+- limits validation
+- error handling
+- user messagingEUX messaging
+
+If anything conflicts with current logic, DELETE the old logic and replace it.
+
+========================
+1. PRICING PLANS (FINAL)
+========================
+
+Define 4 plans with the following EXACT rules:
+
+--- FREE ($0) ---
+minutes_per_month = 60
+max_video_length_minutes = 5
+languages_allowed = 1
+watermark_subtitles = true
+batch_processing = false
+concurrent_jobs = 1
+credit_card_required = false
+
+--- BASIC ($15/month) ---
+minutes_per_month = 450
+max_video_length_minutes = 30
+languages_allowed = 2 (user-selected)
+subtitle_editing = enabled
+batch_processing = false
+concurrent_jobs = 1
+watermark_subtitles = false
+
+--- PRO ($49/month) [MOST POPULAR] ---
+minutes_per_month = 1200
+max_video_length_minutes = 120
+languages_allowed = 5
+batch_processing = true
+batch_limits:
+  max_videos = 20
+  max_total_minutes = 60
+concurrent_jobs = 2
+priority_processing = true
+
+--- AGENCY ($99/month) ---
+minutes_per_month = 3000
+max_video_length_minutes = 240
+languages_allowed = 10
+batch_processing = true
+batch_limits:
+  max_videos = 100
+  max_total_minutes = 300
+concurrent_jobs = 3
+zip_exports = enabled
+commercial_usage = allowed
+
+--- OVERAGE ---
+100 minutes = $5
+No discounts
+Do NOT allow overage to replace upgrading
+
+--- ANNUAL BILLING ---
+Apply 20% discount:
+Basic = $12/mo billed annually
+Pro = $39/mo billed annually
+Agency = $79/mo billed annually
+
+==============================
+2. PRICING PAGE UX (MANDATORY)
+==============================
+
+- DO NOT headline minutes
+- Headline FEATURES + OUTCOMES
+- Minutes must be secondary text only
+
+Example:
+❌ "1,200 minutes"
+✅ "Batch processing • 5 languages • Long-form video support"
+
+Highlight PRO as:
+- "Most Popular"
+- "Best for creators & professionals"
+
+=========================
+3. INFRA / QUEUE STRATEGY
+=========================
+
+Server constraints:
+- Hetzner CPX31
+- 4 vCPU (burstable)
+- 8GB RAM
+- single node
+
+GLOBAL HARD LIMIT:
+MAX_GLOBAL_WORKERS = 3
+(FFmpeg jobs running concurrently)
+
+Never exceed this.
+
+-------------------------
+Per-Tier Concurrency Caps
+-------------------------
+Free = 1
+Basic = 1
+Pro = 2
+Agency = 3
+
+Enforce at job dispatch time.
+
+------------------------------------------------
+MUST-DO #1 — PAID TIER WORKER RESERVATION
+------------------------------------------------
+When queue_length > 50:
+
+- Reserve 1 worker EXCLUSIVELY for Pro + Agency jobs
+- Remaining 2 workers serve all tiers fairly
+
+This must guarantee:
+- Pro/Agency jobs always make progress
+- Free jobs still run, but slower
+- Priority processing is REAL, not marketing
+
+--------------------------------
+Queue Limits & Backpressure
+--------------------------------
+Soft limit = 200 jobs
+  - Disable batch uploads
+  - Disable URL imports
+
+Hard limit = 300 jobs
+  - Block all new submissions
+  - Return user message:
+    "High demand right now. Please retry shortly."
+
+No silent failure. Ever.
+
+-------------------------
+Queue Scheduling Rules
+-------------------------
+- Round-robin scheduling
+- Skip users already at concurrency cap
+- Prevent starvation
+- No pay-to-win monopolization
+
+================================================
+MUST-DO #2 — TIER-AWARE RUNTIME LIMITS
+================================================
+
+Max job runtime by tier:
+
+Free = 10 min
+Basic = 15 min
+Pro = 30 min
+Agency = 45 min
+
+Additional rule:
+- If queue_length < 20 → allow job to exceed soft runtime
+- If queue_length >= 20 → enforce strict runtime
+
+If job is force-killed:
+- Refund minutes proportionally
+- Return clear error message
+
+------------------------
+Hung Job Protection
+------------------------
+- Kill job if FFmpeg emits no output for 90 seconds
+- Auto-retry ONCE
+- Refund minutes if final failure
+
+=====================
+4. ANTI-ABUSE RULES
+=====================
+
+Rate limiting:
+- Max 3 uploads per minute per user
+- Includes retries + URL imports
+- Return HTTP 429 on violation
+
+----------------------------------
+Soft Multi-Account Detection
+----------------------------------
+(No bans early stage)
+
+Silently flag:
+- repeated signups from same IP
+- identical usage patterns
+- excessive failed jobs
+
+Response:
+- temporary cooldown (10–30 min)
+- never permanent bans unless extreme
+
+==========================
+5. UX TRANSPARENCY (COPY)
+==========================
+
+Add the following UI copy VERBATIM:
+
+Free tier notice:
+"Free jobs may queue longer during peak times."
+
+Pro tier notice:
+"Pro jobs are prioritized during high demand."
+
+Queue status display:
+"Processing… {N} jobs ahead of you."
+
+This messaging must appear wherever jobs are queued.
+
+==========================
+6. AUTO-SCALING TRIGGERS
+==========================
+
+Add monitoring + alerts for:
+
+Upgrade CPX31 → CPX41 when ANY condition is true:
+- Pro users wait >10 minutes on average for 30 minutes
+- CPU >85% for 15 minutes sustained
+- Queue length >200 for 30 minutes continuous
+
+These are objective triggers. No manual judgment.
+
+=====================
+7. FINAL INSTRUCTIONS
+=====================
+
+- This strategy is authoritative.
+- Do not invent alternatives.
+- Do not simplify limits.
+- Do not weaken enforcement.
+- Do not remove transparency messaging.
+- If existing code conflicts, REPLACE it.
+
+After implementation:
+- Verify pricing logic
+- Verify queue behavior
+- Verify concurrency caps
+- Verify UI copy
+- Verify refunds on killed jobs
+
+Return only:
+- a summary of files changed
+- confirmation that all rules are enforced

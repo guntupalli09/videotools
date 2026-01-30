@@ -4,16 +4,12 @@ import { stripe, getStripePriceConfig, BillingPlan } from '../services/stripe'
 const router = express.Router()
 
 interface CheckoutRequestBody {
-  // 'subscription' for BASIC/PRO/AGENCY, 'payment' for overage package
   mode: 'subscription' | 'payment'
-  plan?: BillingPlan // required for subscription mode
-  // Optional: where to send the user back (e.g. '/video-to-subtitles')
+  plan?: BillingPlan
+  annual?: boolean // Phase 2.5: 20% off annual billing
   returnToPath?: string
-  // Optional email hint for Stripe Customer
   email?: string
-  // Optional: reuse existing Stripe customer when known
   stripeCustomerId?: string
-  // Optional: frontend origin (e.g. https://your-app.vercel.app) so we don't hard-code BASE_URL
   frontendOrigin?: string
 }
 
@@ -72,7 +68,7 @@ router.post('/checkout', async (req: Request, res: Response) => {
     }
 
     if (mode === 'payment') {
-      // One-time overage package: 100 minutes for $3
+      // Phase 2.5: One-time overage 100 minutes = $5
       const session = await stripe.checkout.sessions.create({
         mode: 'payment',
         customer: stripeCustomerId || undefined,

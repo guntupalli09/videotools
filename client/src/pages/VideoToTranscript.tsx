@@ -29,6 +29,7 @@ export default function VideoToTranscript() {
   const [showPaywall, setShowPaywall] = useState(false)
   const [availableMinutes, setAvailableMinutes] = useState<number | null>(null)
   const [usedMinutes, setUsedMinutes] = useState<number | null>(null)
+  const [queuePosition, setQueuePosition] = useState<number | undefined>(undefined)
 
   const usage = getUsage('video-to-transcript')
   const limit = getLimit('video-to-transcript')
@@ -96,6 +97,7 @@ export default function VideoToTranscript() {
         try {
           const jobStatus = await getJobStatus(response.jobId)
           setProgress(jobStatus.progress)
+          if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
 
           if (jobStatus.status === 'completed' && jobStatus.result) {
             clearInterval(pollInterval)
@@ -260,7 +262,14 @@ export default function VideoToTranscript() {
           <div className="bg-white rounded-xl p-8 border border-gray-200 mb-6 text-center">
             <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
             <p className="text-lg font-medium text-gray-800 mb-4">Transcribing your video...</p>
-            <ProgressBar progress={progress} status="Processing audio and generating transcript" />
+            <ProgressBar
+              progress={progress}
+              status={
+                queuePosition !== undefined
+                  ? `Processing… ${queuePosition} jobs ahead of you.`
+                  : 'Processing audio and generating transcript'
+              }
+            />
             <p className="text-sm text-gray-500 mt-4">Estimated time: 30-60 seconds</p>
           </div>
         )}

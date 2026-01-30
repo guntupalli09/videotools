@@ -3,12 +3,14 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
-import { fileQueue } from '../workers/videoProcessor'
+import { fileQueue, addJobToQueue, getTotalQueueCount as getQueueCountFromWorker } from '../workers/videoProcessor'
 import { validateFileType, validateFileSize, validateSubtitleFile } from '../utils/fileValidation'
 import { enforceLanguageLimits, getJobPriority, getPlanLimits } from '../utils/limits'
 import { getUser, saveUser, PlanType, User } from '../models/User'
 import { hashFile, checkDuplicateProcessing } from '../services/duplicate'
 import { getAuthFromRequest } from '../utils/auth'
+import { isQueueAtHardLimit, isQueueAtSoftLimit } from '../utils/queueConfig'
+import { checkAndRecordUpload } from '../utils/uploadRateLimit'
 
 const router = express.Router()
 
@@ -37,6 +39,10 @@ const upload = multer({
   },
 })
 
+async function getTotalQueueCount(): Promise<number> {
+  return getQueueCountFromWorker()
+}
+
 // Single file upload
 router.post('/', upload.single('file'), async (req: Request, res: Response) => {
   try {
@@ -53,6 +59,20 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
         : headerPlan === 'basic' || headerPlan === 'pro' || headerPlan === 'agency'
         ? headerPlan
         : 'free'
+
+    // Phase 2.5: rate limit 3 uploads per minute per user
+    if (!checkAndRecordUpload(userId)) {
+      res.setHeader('Retry-After', '60')
+      return res.status(429).json({ message: 'Too many uploads. Please wait a minute before trying again.' })
+    }
+
+    const queueCount = await getTotalQueueCount()
+    if (isQueueAtHardLimit(queueCount)) {
+      return res.status(503).json({ message: 'High demand right now. Please retry shortly.' })
+    }
+    if (url && (toolType === 'video-to-transcript' || toolType === 'video-to-subtitles') && isQueueAtSoftLimit(queueCount)) {
+      return res.status(503).json({ message: 'High demand right now. URL imports are temporarily disabled. Please retry shortly.' })
+    }
 
     // Ensure user exists (in-memory store for Phase 1.5)
     let user = getUser(userId)
@@ -121,13 +141,13 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
         return res.status(400).json({ message: 'Invalid URL' })
       }
 
-      const job = await fileQueue.add({
+      const job = await addJobToQueue(plan, {
         toolType,
         url,
         userId,
         plan,
         options: options.format || options.language ? options : undefined,
-      }, { priority: getJobPriority(plan) })
+      })
 
       return res.json({
         jobId: job.id,
@@ -203,7 +223,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
         const cached = await checkDuplicateProcessing(userId, videoHash)
         if (cached && fs.existsSync(cached.outputPath)) {
           const cachedFileName = path.basename(cached.outputPath)
-          const cachedJob = await fileQueue.add({
+          const cachedJob = await addJobToQueue(plan, {
             toolType: 'cached-result',
             userId,
             plan,
@@ -211,7 +231,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
               downloadUrl: `/api/download/${cachedFileName}`,
               fileName: cachedFileName,
             },
-          }, { priority: getJobPriority(plan) })
+          })
 
           return res.json({
             jobId: cachedJob.id,
@@ -223,7 +243,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       }
     }
 
-    const job = await fileQueue.add({
+    const job = await addJobToQueue(plan, {
       toolType,
       filePath: req.file.path,
       userId,
@@ -234,7 +254,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       trimmedStart: options.trimmedStart ? parseFloat(options.trimmedStart) : undefined,
       trimmedEnd: options.trimmedEnd ? parseFloat(options.trimmedEnd) : undefined,
       options: Object.keys(jobOptions).length > 0 ? jobOptions : undefined,
-    }, { priority: getJobPriority(plan) })
+    })
 
     res.json({
       jobId: job.id,
@@ -266,6 +286,15 @@ router.post('/dual', upload.fields([
       planHeader === 'basic' || planHeader === 'pro' || planHeader === 'agency'
         ? planHeader
         : 'free'
+
+    if (!checkAndRecordUpload(userId)) {
+      res.setHeader('Retry-After', '60')
+      return res.status(429).json({ message: 'Too many uploads. Please wait a minute before trying again.' })
+    }
+    const queueCount = await getTotalQueueCount()
+    if (isQueueAtHardLimit(queueCount)) {
+      return res.status(503).json({ message: 'High demand right now. Please retry shortly.' })
+    }
 
     // Enforce max concurrent jobs (simple queue-based check)
     const activeJobs = await fileQueue.getJobs(['active', 'waiting', 'delayed'])
@@ -314,7 +343,7 @@ router.post('/dual', upload.fields([
     }
 
     // Create job in queue
-    const job = await fileQueue.add({
+    const job = await addJobToQueue(plan, {
       toolType: 'burn-subtitles',
       filePath: videoFile.path,
       filePath2: subtitleFile.path,
@@ -325,7 +354,7 @@ router.post('/dual', upload.fields([
       fileSize: videoFile.size,
       trimmedStart: trimmedStart ? parseFloat(trimmedStart) : undefined,
       trimmedEnd: trimmedEnd ? parseFloat(trimmedEnd) : undefined,
-    }, { priority: getJobPriority(plan) })
+    })
 
     res.json({
       jobId: job.id,
