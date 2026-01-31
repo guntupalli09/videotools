@@ -12,6 +12,7 @@ import LanguageSelector from '../components/LanguageSelector'
 import SubtitleEditor, { SubtitleRow } from '../components/SubtitleEditor'
 import { getUsage, getLimit, checkLimit, incrementUsage } from '../lib/usage'
 import { uploadFile, uploadFromURL, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES } from '../lib/api'
+import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { createCheckoutSession } from '../lib/billing'
 import { trackEvent } from '../lib/analytics'
 import toast from 'react-hot-toast'
@@ -214,11 +215,7 @@ export default function VideoToSubtitles() {
 
   const getDownloadUrl = () => {
     if (!result?.downloadUrl) return ''
-    if (result.downloadUrl.startsWith('http')) {
-      return result.downloadUrl
-    }
-    const baseUrl = import.meta.env.VITE_API_URL || window.location.origin
-    return baseUrl + result.downloadUrl
+    return getAbsoluteDownloadUrl(result.downloadUrl)
   }
 
   return (

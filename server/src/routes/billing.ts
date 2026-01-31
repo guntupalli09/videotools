@@ -18,11 +18,9 @@ router.post('/checkout', async (req: Request, res: Response) => {
     const { mode, plan, returnToPath, email, stripeCustomerId, frontendOrigin } =
       req.body as CheckoutRequestBody
 
-    const envOrigin =
-      process.env.VERCEL_URL && process.env.VERCEL_URL.length > 0
-        ? `https://${process.env.VERCEL_URL}`
-        : process.env.BASE_URL
-    const baseUrl = frontendOrigin || envOrigin || 'http://localhost:3000'
+    // Frontend URL for Stripe success/cancel redirects. Client sends frontendOrigin; otherwise use BASE_URL (Hetzner).
+    const envOrigin = process.env.BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+    const baseUrl = frontendOrigin || envOrigin || 'https://www.videotext.io'
     const normalizedPath =
       typeof returnToPath === 'string' && returnToPath.startsWith('/')
         ? returnToPath

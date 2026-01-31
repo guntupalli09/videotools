@@ -5,7 +5,7 @@
 export const SITE_URL =
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SITE_URL) ||
   (typeof window !== 'undefined' && window.location?.origin) ||
-  'https://videotext.io'
+  'https://www.videotext.io'
 
 export const SITE_NAME = 'VideoText'
 export const DEFAULT_DESCRIPTION =

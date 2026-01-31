@@ -3,4 +3,4 @@ User-agent: *
 Allow: /
 
 # Sitemap (update domain if different)
-Sitemap: https://videotext.io/sitemap.xml
+Sitemap: https://www.videotext.io/sitemap.xml

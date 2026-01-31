@@ -10,6 +10,7 @@ import UsageDisplay from '../components/UsageDisplay'
 import VideoTrimmer from '../components/VideoTrimmer'
 import { getUsage, getLimit, checkLimit, incrementUsage } from '../lib/usage'
 import { uploadDualFiles, getJobStatus, BACKEND_TOOL_TYPES } from '../lib/api'
+import { API_ORIGIN } from '../lib/apiBase'
 import toast from 'react-hot-toast'
 import { Minimize2 } from 'lucide-react'
 
@@ -95,11 +96,7 @@ export default function BurnSubtitles() {
 
   const getDownloadUrl = () => {
     if (!result?.downloadUrl) return ''
-    if (result.downloadUrl.startsWith('http')) {
-      return result.downloadUrl
-    }
-    const baseUrl = import.meta.env.VITE_API_URL || window.location.origin
-    return baseUrl + result.downloadUrl
+    return getAbsoluteDownloadUrl(result.downloadUrl)
   }
 
   return (

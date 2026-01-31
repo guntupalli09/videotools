@@ -9,6 +9,7 @@ import UsageDisplay from '../components/UsageDisplay'
 import SubtitleEditor, { SubtitleRow } from '../components/SubtitleEditor'
 import { getUsage, getLimit, incrementUsage } from '../lib/usage'
 import { uploadFile, getJobStatus, BACKEND_TOOL_TYPES } from '../lib/api'
+import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import toast from 'react-hot-toast'
 import { Film, Languages } from 'lucide-react'
 
@@ -168,11 +169,7 @@ export default function FixSubtitles() {
 
   const getDownloadUrl = () => {
     if (!result?.downloadUrl) return ''
-    if (result.downloadUrl.startsWith('http')) {
-      return result.downloadUrl
-    }
-    const baseUrl = import.meta.env.VITE_API_URL || window.location.origin
-    return baseUrl + result.downloadUrl
+    return getAbsoluteDownloadUrl(result.downloadUrl)
   }
 
   const getIssueTypeLabel = (type: string) => {

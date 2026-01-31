@@ -29,8 +29,23 @@ const generalLimiter = rateLimit({
   legacyHeaders: false,
 })
 
-// Middleware
-app.use(cors())
+// CORS: allow frontend origins. In production restrict to your domain.
+const allowedOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
+  : process.env.NODE_ENV === 'production'
+    ? ['https://www.videotext.io', 'https://videotext.io']
+    : ['http://localhost:3000', 'http://127.0.0.1:3000']
+
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true) // same-origin or server-to-server
+      if (allowedOrigins.includes(origin)) return cb(null, true)
+      cb(null, false) // disallow unknown origins
+    },
+    credentials: true,
+  })
+)
 
 // Stripe webhook must receive the raw body for signature verification
 app.post(

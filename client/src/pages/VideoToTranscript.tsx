@@ -10,6 +10,7 @@ import UsageDisplay from '../components/UsageDisplay'
 import VideoTrimmer from '../components/VideoTrimmer'
 import { getUsage, getLimit, checkLimit, incrementUsage } from '../lib/usage'
 import { uploadFile, uploadFromURL, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES } from '../lib/api'
+import { API_ORIGIN, getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { trackEvent } from '../lib/analytics'
 import toast from 'react-hot-toast'
 import { Subtitles } from 'lucide-react'
@@ -107,7 +108,7 @@ export default function VideoToTranscript() {
             // Fetch transcript preview
             if (jobStatus.result.downloadUrl) {
               try {
-                const transcriptResponse = await fetch(jobStatus.result.downloadUrl)
+                const transcriptResponse = await fetch(getAbsoluteDownloadUrl(jobStatus.result.downloadUrl))
                 const transcriptText = await transcriptResponse.text()
                 setTranscriptPreview(transcriptText.substring(0, 500))
               } catch (e) {
@@ -162,13 +163,7 @@ export default function VideoToTranscript() {
 
   const getDownloadUrl = () => {
     if (!result?.downloadUrl) return ''
-    // If downloadUrl already starts with http, use it as-is
-    if (result.downloadUrl.startsWith('http')) {
-      return result.downloadUrl
-    }
-    // Otherwise, construct full URL
-    const baseUrl = import.meta.env.VITE_API_URL || window.location.origin
-    return baseUrl + result.downloadUrl
+    return getAbsoluteDownloadUrl(result.downloadUrl)
   }
 
   return (
