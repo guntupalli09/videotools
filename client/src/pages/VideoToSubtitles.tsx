@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { MessageSquare, Loader2 } from 'lucide-react'
 import FileUploadZone from '../components/FileUploadZone'
 import UsageCounter from '../components/UsageCounter'
+import PlanBadge from '../components/PlanBadge'
 import ProgressBar from '../components/ProgressBar'
 import SuccessState from '../components/SuccessState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
@@ -10,7 +11,7 @@ import UsageDisplay from '../components/UsageDisplay'
 import VideoTrimmer from '../components/VideoTrimmer'
 import LanguageSelector from '../components/LanguageSelector'
 import SubtitleEditor, { SubtitleRow } from '../components/SubtitleEditor'
-import { getUsage, getLimit, checkLimit, incrementUsage } from '../lib/usage'
+import { checkLimit, incrementUsage } from '../lib/usage'
 import { uploadFile, uploadFromURL, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES } from '../lib/api'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { createCheckoutSession } from '../lib/billing'
@@ -43,9 +44,6 @@ export default function VideoToSubtitles() {
   const canEdit = plan !== 'free'
   const canMultiLanguage = plan === 'basic' || plan === 'pro' || plan === 'agency'
   const maxAdditionalLanguages = plan === 'agency' ? 9 : plan === 'pro' ? 4 : plan === 'basic' ? 1 : 0
-
-  const usage = getUsage('video-to-subtitles')
-  const limit = getLimit('video-to-subtitles')
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file)
@@ -222,6 +220,9 @@ export default function VideoToSubtitles() {
     <div className="min-h-screen py-12">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8">
+          <div className="mb-4">
+            <PlanBadge />
+          </div>
           <div className="bg-violet-100 rounded-xl p-4 w-16 h-16 flex items-center justify-center mx-auto mb-4">
             <MessageSquare className="h-8 w-8 text-violet-600" />
           </div>
@@ -229,7 +230,7 @@ export default function VideoToSubtitles() {
           <p className="text-lg text-gray-600 mb-6">
             Generate SRT and VTT subtitle files instantly
           </p>
-          <UsageCounter used={usage.count} limit={limit} />
+          <UsageCounter />
           <UsageDisplay />
         </div>
 
@@ -472,7 +473,7 @@ export default function VideoToSubtitles() {
           isOpen={showPaywall}
           onClose={() => setShowPaywall(false)}
           usedMinutes={usedMinutes ?? 0}
-          availableMinutes={availableMinutes ?? usage.count}
+          availableMinutes={availableMinutes ?? 0}
           onBuyOverage={async () => {
             try {
               const { url } = await createCheckoutSession({

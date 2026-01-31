@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { Languages, Loader2 } from 'lucide-react'
 import FileUploadZone from '../components/FileUploadZone'
 import UsageCounter from '../components/UsageCounter'
+import PlanBadge from '../components/PlanBadge'
 import ProgressBar from '../components/ProgressBar'
 import SuccessState from '../components/SuccessState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
 import SubtitleEditor, { SubtitleRow } from '../components/SubtitleEditor'
-import { getUsage, getLimit, checkLimit, incrementUsage } from '../lib/usage'
+import { checkLimit, incrementUsage } from '../lib/usage'
 import { uploadFile, getJobStatus, BACKEND_TOOL_TYPES } from '../lib/api'
 import { API_ORIGIN } from '../lib/apiBase'
 import toast from 'react-hot-toast'
@@ -29,9 +30,6 @@ export default function TranslateSubtitles() {
 
   const plan = (localStorage.getItem('plan') || 'free').toLowerCase()
   const canEdit = plan !== 'free'
-
-  const usage = getUsage('translate-subtitles')
-  const limit = getLimit('translate-subtitles')
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file)
@@ -153,6 +151,9 @@ export default function TranslateSubtitles() {
     <div className="min-h-screen py-12">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8">
+          <div className="mb-4">
+            <PlanBadge />
+          </div>
           <div className="bg-violet-100 rounded-xl p-4 w-16 h-16 flex items-center justify-center mx-auto mb-4">
             <Languages className="h-8 w-8 text-violet-600" />
           </div>
@@ -160,7 +161,7 @@ export default function TranslateSubtitles() {
           <p className="text-lg text-gray-600 mb-6">
             Convert subtitles to Arabic, Hindi, and more
           </p>
-          <UsageCounter used={usage.count} limit={limit} />
+          <UsageCounter />
           <UsageDisplay />
         </div>
 
@@ -326,8 +327,8 @@ export default function TranslateSubtitles() {
         <PaywallModal
           isOpen={showPaywall}
           onClose={() => setShowPaywall(false)}
-          usedMinutes={usage.count}
-          availableMinutes={limit}
+          usedMinutes={0}
+          availableMinutes={0}
           onUpgrade={() => {
             window.location.href = '/pricing'
           }}

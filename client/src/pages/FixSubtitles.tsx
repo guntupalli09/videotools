@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { Wrench, Loader2, CheckCircle } from 'lucide-react'
 import FileUploadZone from '../components/FileUploadZone'
 import UsageCounter from '../components/UsageCounter'
+import PlanBadge from '../components/PlanBadge'
 import ProgressBar from '../components/ProgressBar'
 import SuccessState from '../components/SuccessState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import UsageDisplay from '../components/UsageDisplay'
 import SubtitleEditor, { SubtitleRow } from '../components/SubtitleEditor'
-import { getUsage, getLimit, incrementUsage } from '../lib/usage'
+import { incrementUsage } from '../lib/usage'
 import { uploadFile, getJobStatus, BACKEND_TOOL_TYPES } from '../lib/api'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import toast from 'react-hot-toast'
@@ -24,9 +25,6 @@ export default function FixSubtitles() {
 
   const plan = (localStorage.getItem('plan') || 'free').toLowerCase()
   const canEdit = plan !== 'free'
-
-  const usage = getUsage('fix-subtitles')
-  const limit = getLimit('fix-subtitles')
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file)
@@ -186,6 +184,9 @@ export default function FixSubtitles() {
     <div className="min-h-screen py-12">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8">
+          <div className="mb-4">
+            <PlanBadge />
+          </div>
           <div className="bg-violet-100 rounded-xl p-4 w-16 h-16 flex items-center justify-center mx-auto mb-4">
             <Wrench className="h-8 w-8 text-violet-600" />
           </div>
@@ -193,7 +194,7 @@ export default function FixSubtitles() {
           <p className="text-lg text-gray-600 mb-6">
             Auto-correct timing issues and formatting errors
           </p>
-          <UsageCounter used={usage.count} limit={limit} />
+          <UsageCounter />
           <UsageDisplay />
         </div>
 

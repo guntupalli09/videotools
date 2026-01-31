@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import FileUploadZone from '../components/FileUploadZone'
+import PlanBadge from '../components/PlanBadge'
 import UsageDisplay from '../components/UsageDisplay'
 import ProgressBar from '../components/ProgressBar'
 import { Loader2, FolderPlus } from 'lucide-react'
@@ -62,6 +63,9 @@ export default function BatchProcess() {
     <div className="min-h-screen py-12">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <div className="mb-8 text-center">
+          <div className="mb-4">
+            <PlanBadge />
+          </div>
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-violet-100">
             <FolderPlus className="h-8 w-8 text-violet-600" />
           </div>

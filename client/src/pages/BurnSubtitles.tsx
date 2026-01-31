@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { Film, Loader2 } from 'lucide-react'
 import FileUploadZone from '../components/FileUploadZone'
 import UsageCounter from '../components/UsageCounter'
+import PlanBadge from '../components/PlanBadge'
 import ProgressBar from '../components/ProgressBar'
 import SuccessState from '../components/SuccessState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
 import VideoTrimmer from '../components/VideoTrimmer'
-import { getUsage, getLimit, checkLimit, incrementUsage } from '../lib/usage'
+import { checkLimit, incrementUsage } from '../lib/usage'
 import { uploadDualFiles, getJobStatus, BACKEND_TOOL_TYPES } from '../lib/api'
 import { API_ORIGIN } from '../lib/apiBase'
 import toast from 'react-hot-toast'
@@ -23,9 +24,6 @@ export default function BurnSubtitles() {
   const [progress, setProgress] = useState(0)
   const [result, setResult] = useState<{ downloadUrl: string; fileName?: string } | null>(null)
   const [showPaywall, setShowPaywall] = useState(false)
-
-  const usage = getUsage('burn-subtitles')
-  const limit = getLimit('burn-subtitles')
 
   const handleVideoSelect = (file: File) => {
     setVideoFile(file)
@@ -103,6 +101,9 @@ export default function BurnSubtitles() {
     <div className="min-h-screen py-12">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8">
+          <div className="mb-4">
+            <PlanBadge />
+          </div>
           <div className="bg-violet-100 rounded-xl p-4 w-16 h-16 flex items-center justify-center mx-auto mb-4">
             <Film className="h-8 w-8 text-violet-600" />
           </div>
@@ -110,7 +111,7 @@ export default function BurnSubtitles() {
           <p className="text-lg text-gray-600 mb-6">
             Hardcode captions directly into your video
           </p>
-          <UsageCounter used={usage.count} limit={limit} />
+          <UsageCounter />
           <UsageDisplay />
         </div>
 
@@ -200,8 +201,8 @@ export default function BurnSubtitles() {
         <PaywallModal
           isOpen={showPaywall}
           onClose={() => setShowPaywall(false)}
-          usedMinutes={usage.count}
-          availableMinutes={limit}
+          usedMinutes={0}
+          availableMinutes={0}
           onUpgrade={() => {
             window.location.href = '/pricing'
           }}

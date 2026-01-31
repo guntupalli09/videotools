@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { FileText, Copy, Loader2 } from 'lucide-react'
 import FileUploadZone from '../components/FileUploadZone'
 import UsageCounter from '../components/UsageCounter'
+import PlanBadge from '../components/PlanBadge'
 import ProgressBar from '../components/ProgressBar'
 import SuccessState from '../components/SuccessState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
 import VideoTrimmer from '../components/VideoTrimmer'
-import { getUsage, getLimit, checkLimit, incrementUsage } from '../lib/usage'
+import { checkLimit, incrementUsage } from '../lib/usage'
 import { uploadFile, uploadFromURL, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES } from '../lib/api'
 import { API_ORIGIN, getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { trackEvent } from '../lib/analytics'
@@ -31,9 +32,6 @@ export default function VideoToTranscript() {
   const [availableMinutes, setAvailableMinutes] = useState<number | null>(null)
   const [usedMinutes, setUsedMinutes] = useState<number | null>(null)
   const [queuePosition, setQueuePosition] = useState<number | undefined>(undefined)
-
-  const usage = getUsage('video-to-transcript')
-  const limit = getLimit('video-to-transcript')
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file)
@@ -170,6 +168,9 @@ export default function VideoToTranscript() {
     <div className="min-h-screen py-12">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8">
+          <div className="mb-4">
+            <PlanBadge />
+          </div>
           <div className="bg-violet-100 rounded-xl p-4 w-16 h-16 flex items-center justify-center mx-auto mb-4">
             <FileText className="h-8 w-8 text-violet-600" />
           </div>
@@ -177,7 +178,7 @@ export default function VideoToTranscript() {
           <p className="text-lg text-gray-600 mb-6">
             Extract spoken text from any video in seconds
           </p>
-          <UsageCounter used={usage.count} limit={limit} />
+          <UsageCounter />
           <UsageDisplay />
         </div>
 
@@ -323,7 +324,7 @@ export default function VideoToTranscript() {
           isOpen={showPaywall}
           onClose={() => setShowPaywall(false)}
           usedMinutes={usedMinutes ?? 0}
-          availableMinutes={availableMinutes ?? usage.count}
+          availableMinutes={availableMinutes ?? 0}
         />
       </div>
     </div>

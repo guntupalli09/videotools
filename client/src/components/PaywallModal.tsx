@@ -1,11 +1,13 @@
+import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { getCurrentUsage } from '../lib/api'
 
 interface PaywallModalProps {
   isOpen: boolean
   onClose: () => void
-  usedMinutes: number
-  availableMinutes: number
+  usedMinutes?: number
+  availableMinutes?: number
   onBuyOverage?: () => void
   onUpgrade?: () => void
 }
@@ -13,11 +15,41 @@ interface PaywallModalProps {
 export default function PaywallModal({
   isOpen,
   onClose,
-  usedMinutes,
-  availableMinutes,
+  usedMinutes: propUsed,
+  availableMinutes: propAvailable,
   onBuyOverage,
   onUpgrade,
 }: PaywallModalProps) {
+  const [usage, setUsage] = useState<{ used: number; available: number } | null>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+    let cancelled = false
+    getCurrentUsage()
+      .then((data) => {
+        if (cancelled) return
+        const available =
+          data.limits.minutesPerMonth + data.overages.minutes
+        setUsage({
+          used: data.usage.totalMinutes,
+          available,
+        })
+      })
+      .catch(() => {
+        if (cancelled) return
+        setUsage({
+          used: propUsed ?? 0,
+          available: propAvailable ?? 0,
+        })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen, propUsed, propAvailable])
+
+  const usedMinutes = usage?.used ?? propUsed ?? 0
+  const availableMinutes = usage?.available ?? propAvailable ?? 0
+
   if (!isOpen) return null
 
   return (
