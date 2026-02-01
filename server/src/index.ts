@@ -29,21 +29,21 @@ const generalLimiter = rateLimit({
   legacyHeaders: false,
 })
 
-// CORS: allow frontend origins. In production restrict to your domain.
-const allowedOrigins = process.env.CORS_ORIGINS
-  ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
-  : process.env.NODE_ENV === 'production'
-    ? ['https://www.videotext.io', 'https://videotext.io']
-    : ['http://localhost:3000', 'http://127.0.0.1:3000']
+// CORS: production allowlist only.
+const allowedOrigins = [
+  'https://videotext.io',
+  'https://www.videotext.io',
+  'https://videotools-l4yktavlp-santhosh-guntupallis-projects.vercel.app',
+]
 
 app.use(
   cors({
-    origin: (origin, cb) => {
-      if (!origin) return cb(null, true) // same-origin or server-to-server
-      if (allowedOrigins.includes(origin)) return cb(null, true)
-      // Allow Vercel preview deployments so "Choose plan" works from preview URLs
-      if (process.env.NODE_ENV === 'production' && /^https:\/\/[^/]+\.vercel\.app$/i.test(origin)) return cb(null, true)
-      cb(null, false) // disallow unknown origins
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true)
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true)
+      }
+      return callback(new Error('Not allowed by CORS'))
     },
     credentials: true,
   })
