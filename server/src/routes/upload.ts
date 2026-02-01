@@ -149,7 +149,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
         options: options.format || options.language ? options : undefined,
       })
 
-      return res.json({
+      return res.status(202).json({
         jobId: job.id,
         status: 'queued',
       })
@@ -233,7 +233,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
             },
           })
 
-          return res.json({
+          return res.status(202).json({
             jobId: cachedJob.id,
             status: 'queued',
           })
@@ -256,7 +256,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       options: Object.keys(jobOptions).length > 0 ? jobOptions : undefined,
     })
 
-    res.json({
+    res.status(202).json({
       jobId: job.id,
       status: 'queued',
     })
@@ -356,7 +356,7 @@ router.post('/dual', upload.fields([
       trimmedEnd: trimmedEnd ? parseFloat(trimmedEnd) : undefined,
     })
 
-    res.json({
+    res.status(202).json({
       jobId: job.id,
       status: 'queued',
     })
