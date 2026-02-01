@@ -1,0 +1,3 @@
+api.videotext.io {
+    reverse_proxy localhost:3001
+}

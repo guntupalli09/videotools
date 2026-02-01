@@ -41,6 +41,8 @@ app.use(
     origin: (origin, cb) => {
       if (!origin) return cb(null, true) // same-origin or server-to-server
       if (allowedOrigins.includes(origin)) return cb(null, true)
+      // Allow Vercel preview deployments so "Choose plan" works from preview URLs
+      if (process.env.NODE_ENV === 'production' && /^https:\/\/[^/]+\.vercel\.app$/i.test(origin)) return cb(null, true)
       cb(null, false) // disallow unknown origins
     },
     credentials: true,

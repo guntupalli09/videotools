@@ -22,9 +22,8 @@ services:
       - redis
     volumes:
       - tmp-files:/tmp
-    # Host 3002 avoids conflict with local npm run dev on 3001. Use "3001:3001" if 3001 is free.
     ports:
-      - "3002:3001"
+      - "3001:3001"
     command: node dist/index.js
 
   worker:

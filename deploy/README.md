@@ -182,3 +182,25 @@ For a tagged image (if you push images to a registry), pin the image in `docker-
 | Roll back         | `docker compose down` → checkout → `up --build -d`|
 
 API is on port **3001**. Point your Vercel frontend (or reverse proxy) at `http://<server-ip>:3001`. For production, put a reverse proxy (e.g. Caddy or Nginx) and TLS in front of the API.
+
+---
+
+## 7. Troubleshooting
+
+### Upload shows "Provisional headers" / no response in browser
+
+Your frontend is on **HTTPS** (e.g. `https://videotext.io`). If `VITE_API_URL` points to **HTTP** (e.g. `http://178.156.234.143:3002/api`), the browser **blocks** the request (mixed content). The request never completes → "Provisional headers", no response.
+
+**Fix:** Serve the API over **HTTPS** (reverse proxy + TLS, e.g. Caddy/Nginx with Let's Encrypt). Set `VITE_API_URL` to that HTTPS URL (e.g. `https://api.videotext.io/api`) and redeploy the frontend. Do not use `http://IP:port` when the site is HTTPS.
+
+### Stripe: "STRIPE_SECRET_KEY is not set"
+
+Payments and "Choose plan" checkout will not work until Stripe is configured on the server.
+
+**Fix:** In the server `.env` (or Docker env), set:
+
+- `STRIPE_SECRET_KEY` (e.g. `sk_live_...` or `sk_test_...`)
+- `STRIPE_WEBHOOK_SECRET` (e.g. `whsec_...`)
+- `STRIPE_PRICE_BASIC`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_AGENCY`, `STRIPE_PRICE_OVERAGE`
+
+See `docs/STRIPE_GO_LIVE.md` and `docs/ENV_CHECKLIST.md`. Restart the API and worker after changing env: `docker compose up -d --build api worker`.
