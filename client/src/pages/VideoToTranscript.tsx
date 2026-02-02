@@ -10,21 +10,17 @@ import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
 import VideoTrimmer from '../components/VideoTrimmer'
 import { checkLimit, incrementUsage } from '../lib/usage'
-import { uploadFile, uploadFromURL, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES } from '../lib/api'
+import { uploadFile, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES } from '../lib/api'
 import { getJobLifecycleTransition } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { trackEvent } from '../lib/analytics'
 import toast from 'react-hot-toast'
 import { Subtitles } from 'lucide-react'
 
-type Tab = 'upload' | 'url'
-
 export default function VideoToTranscript() {
-  const [tab, setTab] = useState<Tab>('upload')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [trimStart, setTrimStart] = useState<number | null>(null)
   const [trimEnd, setTrimEnd] = useState<number | null>(null)
-  const [url, setUrl] = useState('')
   const [status, setStatus] = useState<'idle' | 'processing' | 'completed' | 'failed'>('idle')
   const [progress, setProgress] = useState(0)
   const [result, setResult] = useState<{ downloadUrl: string; fileName?: string } | null>(null)
@@ -69,28 +65,16 @@ export default function VideoToTranscript() {
       setProgress(0)
       trackEvent('processing_started', { tool: 'video-to-transcript' })
 
-      let response
-      if (tab === 'upload' && selectedFile) {
-        response = await uploadFile(selectedFile, {
-          toolType: BACKEND_TOOL_TYPES.VIDEO_TO_TRANSCRIPT,
-          trimmedStart: trimStart ?? undefined,
-          trimmedEnd: trimEnd ?? undefined,
-        })
-      } else if (tab === 'url' && url.trim()) {
-        // Validate URL
-        try {
-          new URL(url)
-        } catch {
-          toast.error('Invalid URL. Please enter a valid video URL.')
-          setStatus('idle')
-          return
-        }
-        response = await uploadFromURL(url, { toolType: BACKEND_TOOL_TYPES.VIDEO_TO_TRANSCRIPT })
-      } else {
-        toast.error('Please select a file or enter a URL')
+      if (!selectedFile) {
+        toast.error('Please select a file')
         setStatus('idle')
         return
       }
+      const response = await uploadFile(selectedFile, {
+        toolType: BACKEND_TOOL_TYPES.VIDEO_TO_TRANSCRIPT,
+        trimmedStart: trimStart ?? undefined,
+        trimmedEnd: trimEnd ?? undefined,
+      })
 
       // Poll for status: run first poll immediately, then every 2s.
       // Lifecycle depends ONLY on jobStatus.status; missing result never causes failure.
@@ -153,7 +137,6 @@ export default function VideoToTranscript() {
 
   const handleProcessAnother = () => {
     setSelectedFile(null)
-    setUrl('')
     setStatus('idle')
     setProgress(0)
     setResult(null)
@@ -185,73 +168,30 @@ export default function VideoToTranscript() {
 
         {status === 'idle' && (
           <div className="bg-white rounded-xl p-8 border border-gray-200 mb-6">
-            {/* Tab Switcher */}
-            <div className="flex space-x-4 mb-6 border-b border-gray-200">
-              <button
-                onClick={() => setTab('upload')}
-                className={`pb-3 px-4 font-medium transition-colors ${
-                  tab === 'upload'
-                    ? 'text-violet-600 border-b-2 border-violet-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Upload File
-              </button>
-              <button
-                onClick={() => setTab('url')}
-                className={`pb-3 px-4 font-medium transition-colors ${
-                  tab === 'url'
-                    ? 'text-violet-600 border-b-2 border-violet-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Paste URL
-              </button>
-            </div>
-
-            {tab === 'upload' ? (
-              <div>
-                <FileUploadZone
-                  onFileSelect={handleFileSelect}
-                  accept={{ 'video/*': ['.mp4', '.mov', '.avi', '.webm', '.mkv'] }}
-                  maxSize={10 * 1024 * 1024 * 1024}
+            <div>
+              <FileUploadZone
+                onFileSelect={handleFileSelect}
+                accept={{ 'video/*': ['.mp4', '.mov', '.avi', '.webm', '.mkv'] }}
+                maxSize={10 * 1024 * 1024 * 1024}
+              />
+              {selectedFile && (
+                <VideoTrimmer
+                  file={selectedFile}
+                  onChange={(startSeconds, endSeconds) => {
+                    setTrimStart(startSeconds)
+                    setTrimEnd(endSeconds)
+                  }}
                 />
-                {selectedFile && (
-                  <VideoTrimmer
-                    file={selectedFile}
-                    onChange={(startSeconds, endSeconds) => {
-                      setTrimStart(startSeconds)
-                      setTrimEnd(endSeconds)
-                    }}
-                  />
-                )}
-                {selectedFile && (
-                  <button
-                    onClick={handleProcess}
-                    className="mt-6 w-full bg-violet-600 hover:bg-violet-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
-                  >
-                    Transcribe Video
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div>
-                <input
-                  type="text"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  placeholder="Paste YouTube URL or direct video link"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent mb-4"
-                />
+              )}
+              {selectedFile && (
                 <button
                   onClick={handleProcess}
-                  disabled={!url.trim()}
-                  className="w-full bg-violet-600 hover:bg-violet-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium py-3 px-6 rounded-lg transition-colors"
+                  className="mt-6 w-full bg-violet-600 hover:bg-violet-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
                 >
                   Transcribe Video
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
 

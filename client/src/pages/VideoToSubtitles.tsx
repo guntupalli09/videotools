@@ -12,7 +12,7 @@ import VideoTrimmer from '../components/VideoTrimmer'
 import LanguageSelector from '../components/LanguageSelector'
 import SubtitleEditor, { SubtitleRow } from '../components/SubtitleEditor'
 import { checkLimit, incrementUsage } from '../lib/usage'
-import { uploadFile, uploadFromURL, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES } from '../lib/api'
+import { uploadFile, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES } from '../lib/api'
 import { getJobLifecycleTransition } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { createCheckoutSession } from '../lib/billing'
@@ -20,14 +20,10 @@ import { trackEvent } from '../lib/analytics'
 import toast from 'react-hot-toast'
 import { Languages, Film, Wrench } from 'lucide-react'
 
-type Tab = 'upload' | 'url'
-
 export default function VideoToSubtitles() {
-  const [tab, setTab] = useState<Tab>('upload')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [trimStart, setTrimStart] = useState<number | null>(null)
   const [trimEnd, setTrimEnd] = useState<number | null>(null)
-  const [url, setUrl] = useState('')
   const [format, setFormat] = useState<'srt' | 'vtt'>('srt')
   const [language, setLanguage] = useState<string>('')
   const [additionalLanguages, setAdditionalLanguages] = useState<string[]>([])
@@ -116,34 +112,19 @@ export default function VideoToSubtitles() {
       setProgress(0)
       trackEvent('processing_started', { tool: 'video-to-subtitles' })
 
-      let response
-      if (tab === 'upload' && selectedFile) {
-        response = await uploadFile(selectedFile, {
-          toolType: BACKEND_TOOL_TYPES.VIDEO_TO_SUBTITLES,
-          format,
-          language: language || undefined,
-          trimmedStart: trimStart ?? undefined,
-          trimmedEnd: trimEnd ?? undefined,
-          additionalLanguages: canMultiLanguage ? additionalLanguages : undefined,
-        })
-      } else if (tab === 'url' && url.trim()) {
-        try {
-          new URL(url)
-        } catch {
-          toast.error('Invalid URL. Please enter a valid video URL.')
-          setStatus('idle')
-          return
-        }
-        response = await uploadFromURL(url, {
-          toolType: BACKEND_TOOL_TYPES.VIDEO_TO_SUBTITLES,
-          format,
-          language: language || undefined,
-        })
-      } else {
-        toast.error('Please select a file or enter a URL')
+      if (!selectedFile) {
+        toast.error('Please select a file')
         setStatus('idle')
         return
       }
+      const response = await uploadFile(selectedFile, {
+        toolType: BACKEND_TOOL_TYPES.VIDEO_TO_SUBTITLES,
+        format,
+        language: language || undefined,
+        trimmedStart: trimStart ?? undefined,
+        trimmedEnd: trimEnd ?? undefined,
+        additionalLanguages: canMultiLanguage ? additionalLanguages : undefined,
+      })
 
       const pollIntervalRef = { current: 0 as ReturnType<typeof setInterval> }
       const doPoll = async () => {
@@ -198,7 +179,6 @@ export default function VideoToSubtitles() {
 
   const handleProcessAnother = () => {
     setSelectedFile(null)
-    setUrl('')
     setTrimStart(null)
     setTrimEnd(null)
     setAdditionalLanguages([])
@@ -286,83 +266,40 @@ export default function VideoToSubtitles() {
               </select>
             </div>
 
-            {/* Tab Switcher */}
-            <div className="flex space-x-4 mb-6 border-b border-gray-200">
-              <button
-                onClick={() => setTab('upload')}
-                className={`pb-3 px-4 font-medium transition-colors ${
-                  tab === 'upload'
-                    ? 'text-violet-600 border-b-2 border-violet-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Upload File
-              </button>
-              <button
-                onClick={() => setTab('url')}
-                className={`pb-3 px-4 font-medium transition-colors ${
-                  tab === 'url'
-                    ? 'text-violet-600 border-b-2 border-violet-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Paste URL
-              </button>
-            </div>
+            <div>
+              <FileUploadZone
+                onFileSelect={handleFileSelect}
+                accept={{ 'video/*': ['.mp4', '.mov', '.avi', '.webm', '.mkv'] }}
+                maxSize={10 * 1024 * 1024 * 1024}
+              />
 
-            {tab === 'upload' ? (
-              <div>
-                <FileUploadZone
-                  onFileSelect={handleFileSelect}
-                  accept={{ 'video/*': ['.mp4', '.mov', '.avi', '.webm', '.mkv'] }}
-                  maxSize={10 * 1024 * 1024 * 1024}
+              {selectedFile && (
+                <VideoTrimmer
+                  file={selectedFile}
+                  onChange={(startSeconds, endSeconds) => {
+                    setTrimStart(startSeconds)
+                    setTrimEnd(endSeconds)
+                  }}
                 />
+              )}
 
-                {selectedFile && (
-                  <VideoTrimmer
-                    file={selectedFile}
-                    onChange={(startSeconds, endSeconds) => {
-                      setTrimStart(startSeconds)
-                      setTrimEnd(endSeconds)
-                    }}
-                  />
-                )}
-
-                {selectedFile && canMultiLanguage && (
-                  <LanguageSelector
-                    primaryLanguage={language || 'en'}
-                    selected={additionalLanguages}
-                    onChange={setAdditionalLanguages}
-                    maxAdditional={maxAdditionalLanguages}
-                  />
-                )}
-                {selectedFile && (
-                  <button
-                    onClick={handleProcess}
-                    className="mt-6 w-full bg-violet-600 hover:bg-violet-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
-                  >
-                    Generate Subtitles
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div>
-                <input
-                  type="text"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  placeholder="Paste YouTube URL or direct video link"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent mb-4"
+              {selectedFile && canMultiLanguage && (
+                <LanguageSelector
+                  primaryLanguage={language || 'en'}
+                  selected={additionalLanguages}
+                  onChange={setAdditionalLanguages}
+                  maxAdditional={maxAdditionalLanguages}
                 />
+              )}
+              {selectedFile && (
                 <button
                   onClick={handleProcess}
-                  disabled={!url.trim()}
-                  className="w-full bg-violet-600 hover:bg-violet-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium py-3 px-6 rounded-lg transition-colors"
+                  className="mt-6 w-full bg-violet-600 hover:bg-violet-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
                 >
                   Generate Subtitles
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
 
