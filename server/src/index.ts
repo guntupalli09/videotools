@@ -14,6 +14,7 @@ import { startWorker } from './workers/videoProcessor'
 import { startFileCleanup } from './utils/fileCleanup'
 
 const app = express()
+app.disable('etag')
 const PORT = process.env.PORT || 3001
 
 // Required behind Railway / Render / Fly / Vercel: trust one proxy hop so rate-limit doesn't throw on X-Forwarded-For

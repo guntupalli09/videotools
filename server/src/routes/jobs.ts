@@ -17,6 +17,12 @@ router.get('/:jobId', async (req: Request, res: Response) => {
     const job = await getJobById(jobId)
 
     if (!job) {
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'Surrogate-Control': 'no-store',
+      })
       return res.status(404).json({ message: 'Job not found' })
     }
 
@@ -35,6 +41,12 @@ router.get('/:jobId', async (req: Request, res: Response) => {
     const result = job.returnvalue || undefined
     const queuePosition = state === 'waiting' ? await getQueuePosition(job) : undefined
 
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'Surrogate-Control': 'no-store',
+    })
     res.json({
       status,
       progress,
@@ -43,6 +55,12 @@ router.get('/:jobId', async (req: Request, res: Response) => {
     })
   } catch (error: any) {
     console.error('Job status error:', error)
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'Surrogate-Control': 'no-store',
+    })
     res.status(500).json({ message: error.message || 'Failed to get job status' })
   }
 })
