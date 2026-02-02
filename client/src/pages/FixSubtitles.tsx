@@ -134,7 +134,7 @@ export default function FixSubtitles() {
             incrementUsage('fix-subtitles')
             if (jobStatus.result?.downloadUrl) {
               try {
-                const res = await fetch(jobStatus.result.downloadUrl)
+                const res = await fetch(getAbsoluteDownloadUrl(jobStatus.result.downloadUrl))
                 const txt = await res.text()
                 setSubtitleRows(parseSubtitlesToRows(txt))
               } catch {

@@ -1,17 +1,19 @@
-/** Full API base for fetch (e.g. https://api.videotext.io/api). Set VITE_API_URL in Vercel. */
-export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
-
-/** Backend origin only (no /api). Use for building download URLs from relative paths like /api/download/xxx. */
+/**
+ * API contract: all backend routes are under /api/*
+ * - VITE_API_URL must be ORIGIN ONLY (e.g. https://api.videotext.io). Do NOT include /api.
+ * - Every request path must start with /api/ (enforced by api() in api.ts).
+ * - Prevents 404s from /upload, /usage, /job (missing /api) or /api/api/* (double prefix).
+ */
+const raw = import.meta.env.VITE_API_URL as string | undefined
 export const API_ORIGIN =
-  typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL
-    ? (import.meta.env.VITE_API_URL as string).replace(/\/api\/?$/, '') || (import.meta.env.VITE_API_URL as string)
+  raw != null && raw !== ''
+    ? raw.replace(/\/api\/?$/, '').replace(/\/$/, '') // strip trailing /api or /
     : typeof window !== 'undefined'
       ? window.location.origin
-      : ''
+      : 'http://localhost:3001'
 
-/** Resolve relative download path to absolute URL for fetch/download. */
+/** Resolve relative API path (e.g. /api/download/xxx) to absolute URL for fetch/download. */
 export function getAbsoluteDownloadUrl(relativeOrAbsolute: string): string {
   if (relativeOrAbsolute.startsWith('http')) return relativeOrAbsolute
   return API_ORIGIN + relativeOrAbsolute
 }
-

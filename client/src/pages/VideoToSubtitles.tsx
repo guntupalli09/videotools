@@ -159,7 +159,7 @@ export default function VideoToSubtitles() {
             setResult(jobStatus.result ?? null)
             if (jobStatus.result?.downloadUrl) {
               try {
-                const subtitleResponse = await fetch(jobStatus.result.downloadUrl)
+                const subtitleResponse = await fetch(getAbsoluteDownloadUrl(jobStatus.result.downloadUrl))
                 const ct = subtitleResponse.headers.get('content-type') || ''
                 const isZip =
                   jobStatus.result.fileName?.toLowerCase().endsWith('.zip') ||

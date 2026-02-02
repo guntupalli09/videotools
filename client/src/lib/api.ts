@@ -1,4 +1,16 @@
-import { API_BASE } from './apiBase'
+import { API_ORIGIN } from './apiBase'
+
+/**
+ * Single entry point for all API requests. Enforces /api/* contract so no request
+ * can hit /upload, /usage, etc. (missing /api) or /api/api/* (double prefix).
+ * VITE_API_URL must be ORIGIN ONLY (e.g. https://api.videotext.io), NOT .../api.
+ */
+export function api(path: string, init?: RequestInit): Promise<Response> {
+  if (!path.startsWith('/api/')) {
+    throw new Error(`API path must start with /api/. Got: ${path}`)
+  }
+  return fetch(`${API_ORIGIN}${path}`, init)
+}
 
 /** Backend-supported toolType values. Match server/src/routes/upload.ts and workers/videoProcessor.ts exactly. Do not invent names. */
 export const BACKEND_TOOL_TYPES = {
@@ -58,7 +70,7 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
   }
 
   // Do NOT set Content-Type: browser must set multipart/form-data with boundary
-  const response = await fetch(`${API_BASE}/upload`, {
+  const response = await api('/api/upload', {
     method: 'POST',
     body: formData,
     headers: {
@@ -100,7 +112,7 @@ export async function uploadFromURL(url: string, options: UploadOptions): Promis
   if (options.format) formData.append('format', options.format)
   if (options.language) formData.append('language', options.language)
 
-  const response = await fetch(`${API_BASE}/upload`, {
+  const response = await api('/api/upload', {
     method: 'POST',
     body: formData,
     headers: {
@@ -150,7 +162,7 @@ export async function uploadDualFiles(
     formData.append('trimmedEnd', options.trimmedEnd.toString())
   }
 
-  const response = await fetch(`${API_BASE}/upload/dual`, {
+  const response = await api('/api/upload/dual', {
     method: 'POST',
     body: formData,
     headers: {
@@ -184,7 +196,7 @@ export async function uploadDualFiles(
 }
 
 export async function getJobStatus(jobId: string): Promise<JobStatus> {
-  const response = await fetch(`${API_BASE}/job/${jobId}`)
+  const response = await api(`/api/job/${jobId}`)
 
   if (!response.ok) {
     throw new Error('Failed to get job status')
@@ -216,7 +228,7 @@ export async function uploadBatch(
     formData.append('additionalLanguages', JSON.stringify(additionalLanguages))
   }
 
-  const response = await fetch(`${API_BASE}/batch/upload`, {
+  const response = await api('/api/batch/upload', {
     method: 'POST',
     body: formData,
     headers: {
@@ -247,7 +259,7 @@ export interface BatchStatus {
 }
 
 export async function getBatchStatus(batchId: string): Promise<BatchStatus> {
-  const response = await fetch(`${API_BASE}/batch/${batchId}/status`)
+  const response = await api(`/api/batch/${batchId}/status`)
 
   if (!response.ok) {
     throw new Error('Failed to get batch status')
@@ -257,7 +269,7 @@ export async function getBatchStatus(batchId: string): Promise<BatchStatus> {
 }
 
 export function getBatchDownloadUrl(batchId: string): string {
-  return `${API_BASE}/batch/${batchId}/download`
+  return `${API_ORIGIN}/api/batch/${batchId}/download`
 }
 
 // Usage APIs
@@ -282,7 +294,7 @@ export interface UsageData {
 }
 
 export async function getCurrentUsage(): Promise<UsageData> {
-  const response = await fetch(`${API_BASE}/usage/current`, {
+  const response = await api('/api/usage/current', {
     headers: {
       'x-user-id': localStorage.getItem('userId') || 'demo-user',
       'x-plan': localStorage.getItem('plan') || 'free',

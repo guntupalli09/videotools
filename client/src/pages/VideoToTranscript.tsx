@@ -140,7 +140,7 @@ export default function VideoToTranscript() {
       try {
         // Fetch full transcript
         if (result?.downloadUrl) {
-          const response = await fetch(result.downloadUrl)
+          const response = await fetch(getAbsoluteDownloadUrl(result.downloadUrl))
           const text = await response.text()
           await navigator.clipboard.writeText(text)
           toast.success('Copied to clipboard!')

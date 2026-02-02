@@ -1,4 +1,4 @@
-import { API_BASE } from './apiBase'
+import { api } from './api'
 
 export type BillingPlan = 'basic' | 'pro' | 'agency'
 
@@ -20,7 +20,7 @@ function isNetworkError(e: unknown): boolean {
 export async function createCheckoutSession(params: CheckoutParams): Promise<{ url: string }> {
   let response: Response
   try {
-    response = await fetch(`${API_BASE}/billing/checkout`, {
+    response = await api('/api/billing/checkout', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
