@@ -13,6 +13,7 @@ import LanguageSelector from '../components/LanguageSelector'
 import SubtitleEditor, { SubtitleRow } from '../components/SubtitleEditor'
 import { checkLimit, incrementUsage } from '../lib/usage'
 import { uploadFile, uploadFromURL, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES } from '../lib/api'
+import { getJobLifecycleTransition } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { createCheckoutSession } from '../lib/billing'
 import { trackEvent } from '../lib/analytics'
@@ -148,26 +149,23 @@ export default function VideoToSubtitles() {
       const doPoll = async () => {
         try {
           const jobStatus = await getJobStatus(response.jobId)
-          setProgress(jobStatus.progress)
+          setProgress(jobStatus.progress ?? 0)
           if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
 
-          if (jobStatus.status === 'completed' && jobStatus.result) {
+          const transition = getJobLifecycleTransition(jobStatus)
+          if (transition === 'completed') {
             clearInterval(pollIntervalRef.current)
             setStatus('completed')
-            setResult(jobStatus.result)
-
-            // Fetch subtitle preview
-            if (jobStatus.result.downloadUrl) {
+            setResult(jobStatus.result ?? null)
+            if (jobStatus.result?.downloadUrl) {
               try {
                 const subtitleResponse = await fetch(jobStatus.result.downloadUrl)
                 const ct = subtitleResponse.headers.get('content-type') || ''
                 const isZip =
                   jobStatus.result.fileName?.toLowerCase().endsWith('.zip') ||
                   ct.includes('application/zip')
-
                 if (!isZip) {
                   const subtitleText = await subtitleResponse.text()
-                  // Show first 10 entries
                   const lines = subtitleText.split('\n\n').slice(0, 10)
                   setSubtitlePreview(lines.join('\n\n'))
                   setSubtitleRows(parseSubtitlesToRows(subtitleText))
@@ -179,16 +177,15 @@ export default function VideoToSubtitles() {
                 // Ignore preview fetch errors
               }
             }
-
             incrementUsage('video-to-subtitles')
             trackEvent('processing_completed', { tool: 'video-to-subtitles' })
-          } else if (jobStatus.status === 'failed') {
+          } else if (transition === 'failed') {
             clearInterval(pollIntervalRef.current)
             setStatus('failed')
             toast.error('Processing failed. Please try again.')
           }
         } catch (error: any) {
-          // Only jobStatus.status === 'failed' is failure; network/parse errors => keep polling
+          // Network/parse errors: do not set failed; keep polling.
         }
       }
       pollIntervalRef.current = setInterval(doPoll, 2000)

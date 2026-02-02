@@ -11,6 +11,7 @@ import UsageDisplay from '../components/UsageDisplay'
 import VideoTrimmer from '../components/VideoTrimmer'
 import { checkLimit, incrementUsage } from '../lib/usage'
 import { uploadFile, uploadFromURL, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES } from '../lib/api'
+import { getJobLifecycleTransition } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { trackEvent } from '../lib/analytics'
 import toast from 'react-hot-toast'
@@ -91,20 +92,21 @@ export default function VideoToTranscript() {
         return
       }
 
-      // Poll for status: run first poll immediately, then every 2s
+      // Poll for status: run first poll immediately, then every 2s.
+      // Lifecycle depends ONLY on jobStatus.status; missing result never causes failure.
+      const pollIntervalRef = { current: 0 as ReturnType<typeof setInterval> }
       const doPoll = async () => {
         try {
           const jobStatus = await getJobStatus(response.jobId)
-          setProgress(jobStatus.progress)
+          setProgress(jobStatus.progress ?? 0)
           if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
 
-          if (jobStatus.status === 'completed' && jobStatus.result) {
+          const transition = getJobLifecycleTransition(jobStatus)
+          if (transition === 'completed') {
             clearInterval(pollIntervalRef.current)
             setStatus('completed')
-            setResult(jobStatus.result)
-            
-            // Fetch transcript preview
-            if (jobStatus.result.downloadUrl) {
+            setResult(jobStatus.result ?? null)
+            if (jobStatus.result?.downloadUrl) {
               try {
                 const transcriptResponse = await fetch(getAbsoluteDownloadUrl(jobStatus.result.downloadUrl))
                 const transcriptText = await transcriptResponse.text()
@@ -113,20 +115,18 @@ export default function VideoToTranscript() {
                 // Ignore preview fetch errors
               }
             }
-
-            // Increment local usage counter
             incrementUsage('video-to-transcript')
             trackEvent('processing_completed', { tool: 'video-to-transcript' })
-          } else if (jobStatus.status === 'failed') {
+          } else if (transition === 'failed') {
             clearInterval(pollIntervalRef.current)
             setStatus('failed')
             toast.error('Processing failed. Please try again.')
           }
+          // transition === 'continue': keep polling (queued | processing)
         } catch (error: any) {
-          // Only jobStatus.status === 'failed' is failure; network/parse errors => keep polling
+          // Network/parse errors: do not set failed; keep polling.
         }
       }
-      const pollIntervalRef = { current: 0 as ReturnType<typeof setInterval> }
       pollIntervalRef.current = setInterval(doPoll, 2000)
       doPoll()
     } catch (error: any) {

@@ -11,6 +11,7 @@ import UsageDisplay from '../components/UsageDisplay'
 import VideoTrimmer from '../components/VideoTrimmer'
 import { checkLimit, incrementUsage } from '../lib/usage'
 import { uploadDualFiles, getJobStatus, BACKEND_TOOL_TYPES } from '../lib/api'
+import { getJobLifecycleTransition } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import toast from 'react-hot-toast'
 import { Minimize2 } from 'lucide-react'
@@ -59,20 +60,21 @@ export default function BurnSubtitles() {
       const doPoll = async () => {
         try {
           const jobStatus = await getJobStatus(response.jobId)
-          setProgress(jobStatus.progress)
+          setProgress(jobStatus.progress ?? 0)
 
-          if (jobStatus.status === 'completed' && jobStatus.result) {
+          const transition = getJobLifecycleTransition(jobStatus)
+          if (transition === 'completed') {
             clearInterval(pollIntervalRef.current)
             setStatus('completed')
-            setResult(jobStatus.result)
+            setResult(jobStatus.result ?? null)
             incrementUsage('burn-subtitles')
-          } else if (jobStatus.status === 'failed') {
+          } else if (transition === 'failed') {
             clearInterval(pollIntervalRef.current)
             setStatus('failed')
             toast.error('Processing failed. Please try again.')
           }
         } catch (error: any) {
-          // Only jobStatus.status === 'failed' is failure; network/parse errors => keep polling
+          // Network/parse errors: do not set failed; keep polling.
         }
       }
       pollIntervalRef.current = setInterval(doPoll, 2000)

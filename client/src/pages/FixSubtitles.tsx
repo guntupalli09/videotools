@@ -10,6 +10,7 @@ import UsageDisplay from '../components/UsageDisplay'
 import SubtitleEditor, { SubtitleRow } from '../components/SubtitleEditor'
 import { incrementUsage } from '../lib/usage'
 import { uploadFile, getJobStatus, BACKEND_TOOL_TYPES } from '../lib/api'
+import { getJobLifecycleTransition } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import toast from 'react-hot-toast'
 import { Film, Languages } from 'lucide-react'
@@ -82,21 +83,22 @@ export default function FixSubtitles() {
       const doPoll = async () => {
         try {
           const jobStatus = await getJobStatus(response.jobId)
-          setProgress(jobStatus.progress)
+          setProgress(jobStatus.progress ?? 0)
 
-          if (jobStatus.status === 'completed' && jobStatus.result) {
+          const transition = getJobLifecycleTransition(jobStatus)
+          if (transition === 'completed') {
             clearInterval(pollIntervalRef.current)
-            setIssues(jobStatus.result.issues || [])
+            setResult(jobStatus.result ?? null)
+            setIssues(jobStatus.result?.issues ?? [])
             setShowIssues(true)
             setStatus('idle')
-            setResult(jobStatus.result)
-          } else if (jobStatus.status === 'failed') {
+          } else if (transition === 'failed') {
             clearInterval(pollIntervalRef.current)
             setStatus('failed')
             toast.error('Analysis failed. Please try again.')
           }
         } catch (error: any) {
-          // Only jobStatus.status === 'failed' is failure; network/parse errors => keep polling
+          // Network/parse errors: do not set failed; keep polling.
         }
       }
       pollIntervalRef.current = setInterval(doPoll, 2000)
@@ -122,16 +124,15 @@ export default function FixSubtitles() {
       const doPoll = async () => {
         try {
           const jobStatus = await getJobStatus(response.jobId)
-          setProgress(jobStatus.progress)
+          setProgress(jobStatus.progress ?? 0)
 
-          if (jobStatus.status === 'completed' && jobStatus.result) {
+          const transition = getJobLifecycleTransition(jobStatus)
+          if (transition === 'completed') {
             clearInterval(pollIntervalRef.current)
             setStatus('completed')
-            setResult(jobStatus.result)
+            setResult(jobStatus.result ?? null)
             incrementUsage('fix-subtitles')
-
-            // Fetch for editor
-            if (jobStatus.result.downloadUrl) {
+            if (jobStatus.result?.downloadUrl) {
               try {
                 const res = await fetch(jobStatus.result.downloadUrl)
                 const txt = await res.text()
@@ -140,13 +141,13 @@ export default function FixSubtitles() {
                 // ignore
               }
             }
-          } else if (jobStatus.status === 'failed') {
+          } else if (transition === 'failed') {
             clearInterval(pollIntervalRef.current)
             setStatus('failed')
             toast.error('Processing failed. Please try again.')
           }
         } catch (error: any) {
-          // Only jobStatus.status === 'failed' is failure; network/parse errors => keep polling
+          // Network/parse errors: do not set failed; keep polling.
         }
       }
       pollIntervalRef.current = setInterval(doPoll, 2000)
