@@ -4,6 +4,7 @@ FROM node:20-slim
 # System dependencies (ffmpeg for workers; yt-dlp binary for URL-based video import).
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
+    python3 \
     curl \
     ca-certificates \
     && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
