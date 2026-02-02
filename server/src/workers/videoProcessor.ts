@@ -197,12 +197,24 @@ const RUNTIME_QUEUE_THRESHOLD = 20
 const RUNTIME_CHECK_INTERVAL_MS = 15 * 1000
 
 async function processJob(job: import('bull').Job<JobData>) {
+  const jobId = job.id
+  console.log('[JOB]', jobId, 'RECEIVED')
+
   const data = job.data as JobData
   const plan = (data.plan || 'free') as PlanType
   const maxRuntimeMs = getMaxJobRuntimeMinutes(plan) * 60 * 1000
 
   const run = async (): Promise<any> => {
+    console.log('[JOB]', jobId, 'STARTED')
     const { toolType, options } = data
+
+    // Instrument progress so every update is logged; Bull persists progress for status endpoint
+    const progressFn = job.progress.bind(job)
+    ;(job as any).progress = async (value?: number | object) => {
+      const out = await progressFn(value)
+      if (typeof value === 'number') console.log('[JOB]', jobId, 'PROGRESS', value)
+      return out
+    }
 
     try {
       await job.progress(5)
@@ -654,7 +666,9 @@ async function processJob(job: import('bull').Job<JobData>) {
       await job.progress(100)
       return result
     } catch (error: any) {
-      console.error('Processing error:', error)
+      // Log and rethrow so Bull marks job as failed; outer handler also logs for consistency
+      console.error('[JOB]', jobId, 'FAILED', error?.message ?? error)
+      if (error?.stack) console.error(error.stack)
       throw error
     }
   }
@@ -682,9 +696,14 @@ async function processJob(job: import('bull').Job<JobData>) {
   try {
     const result = await Promise.race([run(), dynamicRuntimePromise])
     clearInterval(interval)
+    // Success: return value is persisted by Bull as job.returnvalue; job state becomes "completed"
+    console.log('[JOB]', jobId, 'COMPLETED')
     return result
   } catch (err: any) {
     clearInterval(interval)
+    // Failure: rethrow so Bull marks job as "failed" and stores error; no job can exit without terminal state
+    console.error('[JOB]', jobId, 'FAILED', err?.message ?? err)
+    if (err?.stack) console.error(err.stack)
     throw err
   }
 }
