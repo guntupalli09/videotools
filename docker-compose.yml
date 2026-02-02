@@ -11,6 +11,7 @@ services:
     build: .
     image: videotools-api
     container_name: videotools-api
+    # Stripe: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_* must be in .env or API will exit at startup
     env_file: .env
     environment:
       REDIS_URL: redis://redis:6379

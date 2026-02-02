@@ -89,6 +89,7 @@ app.get('/health', (req, res) => {
 // Start server
 const server = app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`)
+  console.log('[Stripe] Configured (secret key and price IDs present)')
 
   // Worker runs in a separate container when Dockerized (DISABLE_WORKER=true).
   if (process.env.DISABLE_WORKER !== 'true') {

@@ -1,14 +1,40 @@
 import Stripe from 'stripe'
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY
+const REQUIRED_STRIPE_VARS = [
+  'STRIPE_SECRET_KEY',
+  'STRIPE_WEBHOOK_SECRET',
+  'STRIPE_PRICE_BASIC',
+  'STRIPE_PRICE_PRO',
+  'STRIPE_PRICE_AGENCY',
+  'STRIPE_PRICE_OVERAGE',
+] as const
 
-if (!stripeSecretKey) {
-  console.warn(
-    '[Stripe] STRIPE_SECRET_KEY is not set. Stripe integration will not work until this is configured.'
-  )
+/**
+ * Fail fast at startup if any required Stripe env var is missing.
+ * Call this when the API process starts; do not call from the worker process.
+ */
+export function assertStripeConfig(): void {
+  const missing = REQUIRED_STRIPE_VARS.filter((name) => !process.env[name]?.trim())
+  if (missing.length > 0) {
+    console.error(
+      '[Stripe] Missing required env vars. Set these in the server .env or Docker env and restart the API:'
+    )
+    missing.forEach((name) => console.error(`  - ${name}`))
+    console.error('See docs/STRIPE_GO_LIVE.md and docs/ENV_CHECKLIST.md.')
+    process.exit(1)
+  }
+  try {
+    getStripePriceConfig()
+  } catch (e) {
+    console.error('[Stripe]', (e as Error).message)
+    process.exit(1)
+  }
 }
 
-export const stripe = new Stripe(stripeSecretKey || 'sk_test_placeholder', {
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY
+assertStripeConfig()
+
+export const stripe = new Stripe(stripeSecretKey!, {
   apiVersion: '2026-01-28.clover',
 })
 
