@@ -157,6 +157,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
 
     // File-based input
     if (!req.file) {
+      console.warn('[upload] no file in request', { toolType, bodyKeys: Object.keys(req.body) })
       return res.status(400).json({ message: 'No file uploaded' })
     }
 
@@ -169,7 +170,16 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     // Validate file type based on tool
     let typeError: string | null = null
     if (toolType === 'translate-subtitles' || toolType === 'fix-subtitles') {
-      typeError = await validateSubtitleFile(req.file.path)
+      const subResult = await validateSubtitleFile(req.file.path)
+      console.log('[upload] subtitle validation', {
+        toolType,
+        originalname: req.file.originalname,
+        detectedFormat: subResult.detectedFormat,
+        validationError: subResult.error ?? undefined,
+      })
+      if (subResult.error) {
+        typeError = subResult.error
+      }
     } else if (toolType !== 'burn-subtitles') {
       // For video tools, validate video type
       typeError = await validateFileType(req.file.path)
@@ -334,12 +344,18 @@ router.post('/dual', upload.fields([
       return res.status(400).json({ message: videoTypeError })
     }
 
-    // Validate subtitle file
-    const subtitleError = await validateSubtitleFile(subtitleFile.path)
-    if (subtitleError) {
+    // Validate subtitle file (content-based; no extension check)
+    const subResult = await validateSubtitleFile(subtitleFile.path)
+    console.log('[upload] subtitle validation (dual)', {
+      toolType: 'burn-subtitles',
+      originalname: subtitleFile.originalname,
+      detectedFormat: subResult.detectedFormat,
+      validationError: subResult.error ?? undefined,
+    })
+    if (subResult.error) {
       fs.unlinkSync(videoFile.path)
       fs.unlinkSync(subtitleFile.path)
-      return res.status(400).json({ message: subtitleError })
+      return res.status(400).json({ message: subResult.error })
     }
 
     // Create job in queue

@@ -53,6 +53,14 @@ export interface UploadOptions {
   additionalLanguages?: string[] // For multi-language
 }
 
+/** Map backend subtitle validation errors to human-friendly messages. */
+function mapSubtitleUploadError(backendMessage: string): string {
+  if (/unsupported subtitle format/i.test(backendMessage)) {
+    return "This file doesn't look like a subtitle file. Upload SRT, VTT, or a text subtitle."
+  }
+  return backendMessage
+}
+
 export async function uploadFile(file: File, options: UploadOptions): Promise<UploadResponse> {
   const formData = new FormData()
   // Field name must be exactly "file" for Multer upload.single('file')
@@ -81,7 +89,12 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Upload failed' }))
-    throw new Error(error.message || 'Upload failed')
+    const message = error.message || 'Upload failed'
+    const displayMessage =
+      options.toolType === 'translate-subtitles' || options.toolType === 'fix-subtitles'
+        ? mapSubtitleUploadError(message)
+        : message
+    throw new Error(displayMessage)
   }
 
   // 204 or empty body: no jobId to poll; treat as error so UI doesn't show "Processing failed" from JSON parse error

@@ -1,4 +1,5 @@
 import fs from 'fs'
+import { detectSubtitleFormatFromContent } from './subtitleDetector'
 
 export interface SubtitleEntry {
   index: number
@@ -161,15 +162,10 @@ function formatVTTTime(seconds: number): string {
 }
 
 /**
- * Detect subtitle format from file extension or content
+ * Detect subtitle format from file content only (no extension). Uses first N KB.
+ * Defaults to 'srt' when unknown so callers can still attempt parse.
  */
 export function detectSubtitleFormat(filePath: string): 'srt' | 'vtt' {
-  const ext = filePath.toLowerCase().split('.').pop()
-  if (ext === 'vtt') return 'vtt'
-  if (ext === 'srt') return 'srt'
-  
-  // Try to detect from content
-  const content = fs.readFileSync(filePath, 'utf-8')
-  if (content.startsWith('WEBVTT')) return 'vtt'
-  return 'srt' // default
+  const { normalizedFormat } = detectSubtitleFormatFromContent(filePath)
+  return normalizedFormat === 'vtt' ? 'vtt' : 'srt'
 }

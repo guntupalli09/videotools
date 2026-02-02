@@ -1,4 +1,5 @@
 import { fromFile as fileTypeFromFile } from 'file-type'
+import { detectSubtitleFormatFromContent } from './subtitleDetector'
 
 const ALLOWED_MIME_TYPES = [
   'video/mp4',
@@ -36,31 +37,31 @@ export async function validateFileType(filePath: string): Promise<string | null>
   }
 }
 
-export async function validateSubtitleFile(filePath: string): Promise<string | null> {
+export type SubtitleValidationResult =
+  | { error: null; format: 'srt' | 'vtt'; detectedFormat: 'srt' | 'vtt' }
+  | { error: string; detectedFormat: 'srt' | 'vtt' | 'unknown' }
+
+const UNSUPPORTED_SUBTITLE_MESSAGE =
+  'Unsupported subtitle format. Upload a valid SRT or VTT file.'
+
+/**
+ * Validate subtitle file by content only. Ignores filename/extension.
+ * Uses subtitleDetector to read first N KB and detect SRT vs VTT.
+ */
+export async function validateSubtitleFile(filePath: string): Promise<SubtitleValidationResult> {
   try {
-    const fs = require('fs')
-    const content = fs.readFileSync(filePath, 'utf-8')
-    const ext = filePath.toLowerCase().split('.').pop()
-    
-    if (ext === 'srt') {
-      // Basic SRT validation - check for timestamp pattern
-      if (!content.match(/\d{2}:\d{2}:\d{2}[,.]\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}[,.]\d{3}/)) {
-        return 'Invalid SRT file format'
-      }
-      return null
+    const { detectedFormat, normalizedFormat } = detectSubtitleFormatFromContent(filePath)
+
+    if (normalizedFormat === null || detectedFormat === 'unknown') {
+      return { error: UNSUPPORTED_SUBTITLE_MESSAGE, detectedFormat: 'unknown' }
     }
-    
-    if (ext === 'vtt') {
-      // Basic VTT validation - check for WEBVTT header or timestamp pattern
-      if (!content.startsWith('WEBVTT') && !content.match(/\d{2}:\d{2}:\d{2}[,.]\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}[,.]\d{3}/)) {
-        return 'Invalid VTT file format'
-      }
-      return null
-    }
-    
-    return 'Please upload a valid SRT or VTT subtitle file'
+
+    return { error: null, format: normalizedFormat, detectedFormat }
   } catch (error) {
     console.error('Subtitle validation error:', error)
-    return 'Please upload a valid SRT or VTT subtitle file'
+    return {
+      error: 'Please upload a valid SRT or VTT subtitle file.',
+      detectedFormat: 'unknown',
+    }
   }
 }
