@@ -119,7 +119,20 @@ Ensure:
 
 ---
 
-## 7. Quick checklist
+## 7. Customer Billing Portal (upgrade, downgrade, cancel)
+
+The app lets **paid users** manage their subscription in-app via **Stripe Customer Billing Portal** (upgrade, downgrade, cancel, update payment method).
+
+1. **Stripe Dashboard → Settings → Billing → Customer portal**  
+   [dashboard.stripe.com/settings/billing/portal](https://dashboard.stripe.com/settings/billing/portal)
+2. **Save** the default configuration (or customize allowed actions and branding).
+3. Until the portal is configured, creating a portal session in test mode can fail with: *"You can't create a portal session in test mode until you save your customer portal settings."*
+
+After checkout success, the client exchanges the `session_id` for `userId` and `plan` and stores them so “Manage subscription” works. Paid users see **Manage subscription** in the nav and on the Pricing page; clicking it opens the Stripe portal and returns to `/pricing` when done.
+
+---
+
+## 8. Quick checklist
 
 - [ ] Stripe account created; **live** mode activated if you want real payments
 - [ ] Products and prices created; **Price IDs** copied
@@ -128,5 +141,6 @@ Ensure:
 - [ ] **STRIPE_PRICE_BASIC**, **STRIPE_PRICE_PRO**, **STRIPE_PRICE_AGENCY**, **STRIPE_PRICE_OVERAGE** set on server
 - [ ] Webhook endpoint URL is `https://YOUR_API_DOMAIN/api/stripe/webhook` and events include `checkout.session.completed`, `invoice.payment_succeeded`, `customer.subscription.deleted`
 - [ ] Success/cancel URLs point to your real frontend (via `frontendOrigin` or `BASE_URL`)
+- [ ] **Customer portal** settings saved in Stripe Dashboard (Settings → Billing → Customer portal) so “Manage subscription” works
 
 After this, the integration in the repo is enough for **live payments**; no code changes are required unless you want to add annual checkout or change products/prices.

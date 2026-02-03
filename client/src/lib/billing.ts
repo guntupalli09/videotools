@@ -44,3 +44,36 @@ export async function createCheckoutSession(params: CheckoutParams): Promise<{ u
   return response.json()
 }
 
+/** Create a Stripe Customer Billing Portal session. User can upgrade, downgrade, cancel, update payment. */
+export async function createBillingPortalSession(returnUrl: string): Promise<{ url: string }> {
+  const response = await api('/api/billing/portal', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-user-id': localStorage.getItem('userId') || '',
+      'x-plan': localStorage.getItem('plan') || 'free',
+    },
+    body: JSON.stringify({ returnUrl }),
+  })
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: 'Failed to open billing' }))
+    throw new Error(err.message || 'Failed to open billing')
+  }
+
+  return response.json()
+}
+
+/** After checkout success: exchange session_id for userId and plan so the client can set identity. */
+export async function getSessionDetails(sessionId: string): Promise<{ userId: string; plan: string }> {
+  const response = await api(
+    `/api/billing/session-details?session_id=${encodeURIComponent(sessionId)}`
+  )
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: 'Failed to get session' }))
+    throw new Error(err.message || 'Failed to get session')
+  }
+
+  return response.json()
+}

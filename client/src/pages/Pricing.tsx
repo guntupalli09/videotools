@@ -1,6 +1,8 @@
-import { createCheckoutSession } from '../lib/billing'
+import { useState, useEffect } from 'react'
+import { createCheckoutSession, createBillingPortalSession } from '../lib/billing'
 import { trackEvent } from '../lib/analytics'
 import type { BillingPlan } from '../lib/billing'
+import { getCurrentUsage } from '../lib/api'
 
 function CheckIcon({ className = '' }: { className?: string }) {
   return (
@@ -11,6 +13,30 @@ function CheckIcon({ className = '' }: { className?: string }) {
 }
 
 export default function Pricing() {
+  const [currentPlan, setCurrentPlan] = useState<string | null>(null)
+  const [portalLoading, setPortalLoading] = useState(false)
+
+  useEffect(() => {
+    getCurrentUsage()
+      .then((data) => setCurrentPlan((data.plan || 'free').toLowerCase()))
+      .catch(() => setCurrentPlan((localStorage.getItem('plan') || 'free').toLowerCase()))
+  }, [])
+
+  const isPaidPlan = currentPlan === 'basic' || currentPlan === 'pro' || currentPlan === 'agency'
+
+  async function handleManageSubscription() {
+    if (!isPaidPlan) return
+    setPortalLoading(true)
+    try {
+      const { url } = await createBillingPortalSession(window.location.origin + '/pricing')
+      window.location.href = url
+    } catch (err: any) {
+      alert(err.message || 'Failed to open billing')
+    } finally {
+      setPortalLoading(false)
+    }
+  }
+
   async function handleSubscribe(plan: BillingPlan, annual = false) {
     try {
       const { url } = await createCheckoutSession({
@@ -49,6 +75,18 @@ export default function Pricing() {
           <p className="mt-3 text-lg text-gray-600 max-w-xl mx-auto">
             Features and outcomes first. Upgrade when you need more.
           </p>
+          {isPaidPlan && (
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={handleManageSubscription}
+                disabled={portalLoading}
+                className="inline-flex items-center gap-2 rounded-xl bg-gray-900 hover:bg-gray-800 text-white px-5 py-2.5 text-sm font-medium transition-colors disabled:opacity-60"
+              >
+                {portalLoading ? 'Opening…' : 'Manage subscription (upgrade, downgrade, cancel)'}
+              </button>
+            </div>
+          )}
         </header>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8 items-stretch">

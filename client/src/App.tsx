@@ -1,11 +1,14 @@
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
-import { Toaster } from 'react-hot-toast'
+import { useEffect, useRef } from 'react'
+import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
+import { Toaster, toast } from 'react-hot-toast'
 import Navigation from './components/Navigation'
+import { getSessionDetails } from './lib/billing'
 import Footer from './components/Footer'
 import Seo from './components/Seo'
 import { ROUTE_SEO, getOrganizationJsonLd, getWebApplicationJsonLd } from './lib/seoMeta'
 import Home from './pages/Home'
 import Pricing from './pages/Pricing'
+import Refer from './pages/Refer'
 import VideoToTranscript from './pages/VideoToTranscript'
 import VideoToSubtitles from './pages/VideoToSubtitles'
 import BatchProcess from './pages/BatchProcess'
@@ -55,10 +58,50 @@ function AppSeo() {
   )
 }
 
+/** After Stripe checkout success: set identity (userId, plan) so the app shows the right plan and portal works. */
+function PostCheckoutHandler() {
+  const { search } = useLocation()
+  const navigate = useNavigate()
+  const handled = useRef(false)
+  const cancelled = useRef(false)
+
+  useEffect(() => {
+    const params = new URLSearchParams(search)
+    const paymentSuccess = params.get('payment') === 'success'
+    const sessionId = params.get('session_id')
+    if (!paymentSuccess || !sessionId || handled.current) return
+
+    cancelled.current = false
+    const run = async (retries = 2) => {
+      try {
+        const data = await getSessionDetails(sessionId)
+        if (cancelled.current) return
+        localStorage.setItem('userId', data.userId)
+        localStorage.setItem('plan', data.plan.toLowerCase())
+        handled.current = true
+        navigate(window.location.pathname, { replace: true })
+        toast.success(`Welcome! You're now on the ${data.plan} plan.`)
+      } catch {
+        if (cancelled.current) return
+        if (retries > 0) {
+          setTimeout(() => run(retries - 1), 2000)
+        } else {
+          toast.error('Could not load your plan. Refresh the page or go to Pricing.')
+        }
+      }
+    }
+    run()
+    return () => { cancelled.current = true }
+  }, [search, navigate])
+
+  return null
+}
+
 function App() {
   return (
     <BrowserRouter>
       <AppSeo />
+      <PostCheckoutHandler />
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-violet-600 focus:text-white focus:rounded-lg">
         Skip to main content
       </a>
@@ -68,6 +111,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/pricing" element={<Pricing />} />
+            <Route path="/refer" element={<Refer />} />
             <Route path="/video-to-transcript" element={<VideoToTranscript />} />
             <Route path="/video-to-subtitles" element={<VideoToSubtitles />} />
             <Route path="/batch-process" element={<BatchProcess />} />
