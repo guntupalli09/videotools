@@ -22,6 +22,20 @@ if (!fs.existsSync(tempDir)) {
   fs.mkdirSync(tempDir, { recursive: true })
 }
 
+// Chunked upload metadata (uploadId -> { userId, plan, filename, totalChunks, toolType, options })
+const chunkUploadMeta = new Map<string, {
+  userId: string
+  plan: PlanType
+  filename: string
+  totalChunks: number
+  toolType: string
+  options: Record<string, unknown>
+}>()
+const chunksDir = path.join(tempDir, 'chunks')
+if (!fs.existsSync(chunksDir)) {
+  fs.mkdirSync(chunksDir, { recursive: true })
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, tempDir)
@@ -35,7 +49,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: {
-    fileSize: 10 * 1024 * 1024 * 1024, // 10GB (plan enforcement happens after upload)
+    fileSize: 20 * 1024 * 1024 * 1024, // 20GB — max plan (Agency); plan enforcement after upload
   },
 })
 
@@ -407,6 +421,181 @@ router.post('/dual', upload.fields([
       }
     }
     res.status(500).json({ message: error.message || 'Upload failed' })
+  }
+})
+
+// ─── Chunked upload (init + chunk + complete) for large files ─────────────────
+router.post('/init', async (req: Request, res: Response) => {
+  try {
+    const auth = getAuthFromRequest(req)
+    const headerUserId = (req.headers['x-user-id'] as string) || 'demo-user'
+    const headerPlan = (req.headers['x-plan'] as string) as PlanType | undefined
+    const userId = auth?.userId || headerUserId
+    const plan: PlanType =
+      auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency')
+        ? auth.plan
+        : headerPlan === 'basic' || headerPlan === 'pro' || headerPlan === 'agency'
+        ? headerPlan
+        : 'free'
+
+    if (!checkAndRecordUpload(userId)) {
+      res.setHeader('Retry-After', '60')
+      return res.status(429).json({ message: 'Too many uploads. Please wait a minute before trying again.' })
+    }
+
+    const queueCount = await getTotalQueueCount()
+    if (isQueueAtHardLimit(queueCount)) {
+      return res.status(503).json({ message: 'High demand right now. Please retry shortly.' })
+    }
+
+    const { filename, totalSize, totalChunks, toolType, ...rest } = req.body as {
+      filename: string
+      totalSize: number
+      totalChunks: number
+      toolType: string
+      [k: string]: unknown
+    }
+    if (!filename || !totalChunks || !toolType) {
+      return res.status(400).json({ message: 'filename, totalChunks, and toolType are required' })
+    }
+
+    const uploadId = uuidv4()
+    const dir = path.join(chunksDir, uploadId)
+    fs.mkdirSync(dir, { recursive: true })
+
+    chunkUploadMeta.set(uploadId, {
+      userId,
+      plan,
+      filename,
+      totalChunks,
+      toolType,
+      options: rest || {},
+    })
+
+    return res.json({ uploadId })
+  } catch (error: any) {
+    console.error('Upload init error:', error)
+    return res.status(500).json({ message: error.message || 'Upload init failed' })
+  }
+})
+
+/** Chunk handler: req.body is raw Buffer. Mount in index with express.raw() for POST /api/upload/chunk */
+export function handleUploadChunk(req: Request, res: Response) {
+  try {
+    const uploadId = req.headers['x-upload-id'] as string
+    const chunkIndex = parseInt(req.headers['x-chunk-index'] as string, 10)
+    if (!uploadId || Number.isNaN(chunkIndex) || chunkIndex < 0) {
+      return res.status(400).json({ message: 'x-upload-id and x-chunk-index required' })
+    }
+
+    const meta = chunkUploadMeta.get(uploadId)
+    if (!meta) {
+      return res.status(404).json({ message: 'Upload session not found or expired' })
+    }
+
+    const body = (req as any).body as Buffer
+    if (!Buffer.isBuffer(body) || body.length === 0) {
+      return res.status(400).json({ message: 'Chunk body required' })
+    }
+
+    const chunkPath = path.join(chunksDir, uploadId, `chunk_${chunkIndex}`)
+    fs.writeFileSync(chunkPath, body)
+    return res.json({ ok: true })
+  } catch (error: any) {
+    console.error('Upload chunk error:', error)
+    return res.status(500).json({ message: error.message || 'Chunk upload failed' })
+  }
+}
+
+router.post('/complete', async (req: Request, res: Response) => {
+  try {
+    const { uploadId } = req.body as { uploadId?: string }
+    if (!uploadId) {
+      return res.status(400).json({ message: 'uploadId required' })
+    }
+
+    const meta = chunkUploadMeta.get(uploadId)
+    if (!meta) {
+      return res.status(404).json({ message: 'Upload session not found or expired' })
+    }
+    chunkUploadMeta.delete(uploadId)
+
+    const dir = path.join(chunksDir, uploadId)
+    if (!fs.existsSync(dir)) {
+      return res.status(400).json({ message: 'No chunks found' })
+    }
+
+    const totalChunks = meta.totalChunks
+    const outPath = path.join(tempDir, `${uuidv4()}-${meta.filename}`)
+    const out = fs.createWriteStream(outPath, { flags: 'a' })
+    for (let i = 0; i < totalChunks; i++) {
+      const chunkPath = path.join(dir, `chunk_${i}`)
+      if (!fs.existsSync(chunkPath)) {
+        out.close()
+        fs.unlinkSync(outPath)
+        return res.status(400).json({ message: `Missing chunk ${i}` })
+      }
+      const buf = fs.readFileSync(chunkPath)
+      out.write(buf)
+      fs.unlinkSync(chunkPath)
+    }
+    out.end()
+    fs.rmdirSync(dir)
+
+    let user = getUser(meta.userId)
+    if (!user) {
+      const limits = getPlanLimits(meta.plan)
+      const now = new Date()
+      const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+      user = {
+        id: meta.userId,
+        email: `${meta.userId}@example.com`,
+        passwordHash: '',
+        plan: meta.plan,
+        stripeCustomerId: '',
+        subscriptionId: '',
+        paymentMethodId: undefined,
+        usageThisMonth: {
+          totalMinutes: 0,
+          videoCount: 0,
+          batchCount: 0,
+          languageCount: 0,
+          translatedMinutes: 0,
+          resetDate,
+        },
+        limits,
+        overagesThisMonth: { minutes: 0, languages: 0, batches: 0, totalCharge: 0 },
+        createdAt: now,
+        updatedAt: now,
+      }
+      saveUser(user)
+    }
+
+    if (user.limits.maxFileSize && fs.statSync(outPath).size > user.limits.maxFileSize) {
+      fs.unlinkSync(outPath)
+      return res.status(400).json({ message: 'File exceeds plan limit. Upgrade for larger files.' })
+    }
+
+    const opts = meta.options || {}
+    const trimmedStart = typeof opts.trimmedStart === 'number' ? opts.trimmedStart : undefined
+    const trimmedEnd = typeof opts.trimmedEnd === 'number' ? opts.trimmedEnd : undefined
+    const { trimmedStart: _s, trimmedEnd: _e, ...restOptions } = opts
+    const job = await addJobToQueue(meta.plan, {
+      toolType: meta.toolType,
+      filePath: outPath,
+      userId: meta.userId,
+      plan: meta.plan,
+      originalName: meta.filename,
+      fileSize: fs.statSync(outPath).size,
+      trimmedStart,
+      trimmedEnd,
+      options: Object.keys(restOptions).length > 0 ? restOptions : undefined,
+    })
+
+    return res.status(202).json({ jobId: job.id, status: 'queued' })
+  } catch (error: any) {
+    console.error('Upload complete error:', error)
+    return res.status(500).json({ message: error.message || 'Upload complete failed' })
   }
 })
 

@@ -2,7 +2,7 @@ import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import rateLimit from 'express-rate-limit'
-import uploadRoutes from './routes/upload'
+import uploadRoutes, { handleUploadChunk } from './routes/upload'
 import jobRoutes from './routes/jobs'
 import downloadRoutes from './routes/download'
 import usageRoutes from './routes/usage'
@@ -66,6 +66,13 @@ app.post(
   '/api/stripe/webhook',
   express.raw({ type: 'application/json' }),
   stripeWebhookHandler
+)
+
+// Chunked upload chunk endpoint: raw body (must be before express.json())
+app.post(
+  '/api/upload/chunk',
+  express.raw({ type: 'application/octet-stream', limit: '10mb' }),
+  handleUploadChunk
 )
 
 // JSON body parsing for all other routes

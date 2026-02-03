@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { FileText, Copy, Loader2, Users, ListOrdered, BookOpen, Sparkles, Hash, FileCode, Download, Eraser } from 'lucide-react'
 import FileUploadZone from '../components/FileUploadZone'
 import UsageCounter from '../components/UsageCounter'
@@ -10,9 +11,11 @@ import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
 import VideoTrimmer from '../components/VideoTrimmer'
 import { incrementUsage } from '../lib/usage'
-import { uploadFile, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES } from '../lib/api'
+import { uploadFileWithProgress, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError } from '../lib/api'
+import { checkVideoPreflight } from '../lib/uploadPreflight'
 import { getJobLifecycleTransition } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
+import { persistJobId, getPersistedJobId, clearPersistedJobId } from '../lib/jobSession'
 import { trackEvent } from '../lib/analytics'
 import toast from 'react-hot-toast'
 import { Subtitles } from 'lucide-react'
@@ -52,11 +55,15 @@ export type VideoToTranscriptSeoProps = {
 
 export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {}) {
   const { seoH1, seoIntro, faq = [] } = props
+  const location = useLocation()
+  const navigate = useNavigate()
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [trimStart, setTrimStart] = useState<number | null>(null)
   const [trimEnd, setTrimEnd] = useState<number | null>(null)
   const [status, setStatus] = useState<'idle' | 'processing' | 'completed' | 'failed'>('idle')
   const [progress, setProgress] = useState(0)
+  const [uploadPhase, setUploadPhase] = useState<'preparing' | 'uploading' | 'processing'>('preparing')
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [result, setResult] = useState<{ downloadUrl: string; fileName?: string } | null>(null)
   const [transcriptPreview, setTranscriptPreview] = useState('')
   const [fullTranscript, setFullTranscript] = useState('')
@@ -69,6 +76,107 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   const [cleanTranscriptEnabled, setCleanTranscriptEnabled] = useState(false)
   const transcriptScrollRef = useRef<HTMLDivElement>(null)
   const segmentRefsRef = useRef<Map<number, HTMLDivElement>>(new Map())
+  const rehydratePollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Rehydrate from URL/sessionStorage after idle or reload (e.g. mobile Safari)
+  useEffect(() => {
+    const pathname = location.pathname
+    const jobId = getPersistedJobId(pathname)
+    if (!jobId) return
+
+    let cancelled = false
+    const run = async () => {
+      try {
+        const jobStatus = await getJobStatus(jobId)
+        if (cancelled) return
+        setProgress(jobStatus.progress ?? 0)
+        if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
+
+        const transition = getJobLifecycleTransition(jobStatus)
+        if (transition === 'completed') {
+          setStatus('completed')
+          setResult(jobStatus.result ?? null)
+          setUploadPhase('processing')
+          setUploadProgress(100)
+          if (jobStatus.result?.downloadUrl) {
+            try {
+              const transcriptResponse = await fetch(getAbsoluteDownloadUrl(jobStatus.result.downloadUrl))
+              const transcriptText = await transcriptResponse.text()
+              setTranscriptPreview(transcriptText.substring(0, 500))
+              setFullTranscript(transcriptText)
+            } catch {
+              // ignore
+            }
+          }
+          return
+        }
+        if (transition === 'failed') {
+          setStatus('failed')
+          toast.error('Processing failed. Please try again.')
+          clearPersistedJobId(pathname, navigate)
+          return
+        }
+        // Resume polling for queued/processing
+        setStatus('processing')
+        setUploadPhase('processing')
+        setUploadProgress(100)
+        const doPoll = async () => {
+          if (cancelled) return
+          try {
+            const s = await getJobStatus(jobId)
+            if (cancelled) return
+            setProgress(s.progress ?? 0)
+            if (s.queuePosition !== undefined) setQueuePosition(s.queuePosition)
+            const t = getJobLifecycleTransition(s)
+            if (t === 'completed') {
+              if (rehydratePollRef.current) clearInterval(rehydratePollRef.current)
+              rehydratePollRef.current = null
+              setStatus('completed')
+              setResult(s.result ?? null)
+              if (s.result?.downloadUrl) {
+                try {
+                  const res = await fetch(getAbsoluteDownloadUrl(s.result.downloadUrl))
+                  const text = await res.text()
+                  setTranscriptPreview(text.substring(0, 500))
+                  setFullTranscript(text)
+                } catch {
+                  // ignore
+                }
+              }
+            } else if (t === 'failed') {
+              if (rehydratePollRef.current) clearInterval(rehydratePollRef.current)
+              rehydratePollRef.current = null
+              setStatus('failed')
+              toast.error('Processing failed. Please try again.')
+              clearPersistedJobId(pathname, navigate)
+            }
+          } catch (err) {
+            if (err instanceof SessionExpiredError) {
+              if (rehydratePollRef.current) clearInterval(rehydratePollRef.current)
+              rehydratePollRef.current = null
+              clearPersistedJobId(pathname, navigate)
+              toast.error(err.message)
+            }
+            // other errors: keep polling
+          }
+        }
+        rehydratePollRef.current = setInterval(doPoll, 2000)
+        doPoll()
+      } catch (err) {
+        if (cancelled) return
+        if (err instanceof SessionExpiredError) {
+          clearPersistedJobId(pathname, navigate)
+          toast.error(err.message)
+        }
+      }
+    }
+    run()
+    return () => {
+      cancelled = true
+      if (rehydratePollRef.current) clearInterval(rehydratePollRef.current)
+      rehydratePollRef.current = null
+    }
+  }, [location.pathname, navigate])
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file)
@@ -77,9 +185,15 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   }
 
   const handleProcess = async () => {
-    // Check backend minute-based limits only (no local counter — minutes are source of truth)
+    if (!selectedFile) {
+      toast.error('Please select a file')
+      return
+    }
+
+    // Minute-based limit check
+    let usageData: Awaited<ReturnType<typeof getCurrentUsage>> | null = null
     try {
-      const usageData = await getCurrentUsage()
+      usageData = await getCurrentUsage()
       const totalAvailable = usageData.limits.minutesPerMonth + usageData.overages.minutes
       const used = usageData.usage.totalMinutes
       setAvailableMinutes(totalAvailable)
@@ -94,21 +208,46 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
       // If usage lookup fails, fall back to allowing processing
     }
 
+    // Pre-flight: file size + duration vs plan limits (no upload if over limit)
     try {
       setStatus('processing')
+      setUploadPhase('preparing')
+      setUploadProgress(0)
       setProgress(0)
-      trackEvent('processing_started', { tool: 'video-to-transcript' })
 
-      if (!selectedFile) {
-        toast.error('Please select a file')
+      const limits = usageData?.limits
+        ? { maxFileSize: usageData.limits.maxFileSize, maxVideoDuration: usageData.limits.maxVideoDuration }
+        : {}
+      const preflight = await checkVideoPreflight(selectedFile, limits)
+      if (!preflight.allowed) {
         setStatus('idle')
+        toast.error(preflight.reason ?? 'Video exceeds plan limits.')
+        trackEvent('paywall_shown', { tool: 'video-to-transcript', reason: 'preflight' })
         return
       }
-      const response = await uploadFile(selectedFile, {
-        toolType: BACKEND_TOOL_TYPES.VIDEO_TO_TRANSCRIPT,
-        trimmedStart: trimStart ?? undefined,
-        trimmedEnd: trimEnd ?? undefined,
-      })
+    } catch (e) {
+      setStatus('idle')
+      toast.error('Could not validate video. Try again.')
+      return
+    }
+
+    try {
+      setUploadPhase('uploading')
+      trackEvent('processing_started', { tool: 'video-to-transcript' })
+
+      const response = await uploadFileWithProgress(
+        selectedFile,
+        {
+          toolType: BACKEND_TOOL_TYPES.VIDEO_TO_TRANSCRIPT,
+          trimmedStart: trimStart ?? undefined,
+          trimmedEnd: trimEnd ?? undefined,
+        },
+        { onProgress: (p) => setUploadProgress(p) }
+      )
+
+      persistJobId(location.pathname, response.jobId)
+      setUploadPhase('processing')
+      setUploadProgress(100)
 
       // Poll for status: run first poll immediately, then every 2s.
       // Lifecycle depends ONLY on jobStatus.status; missing result never causes failure.
@@ -150,7 +289,12 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
       pollIntervalRef.current = setInterval(doPoll, 2000)
       doPoll()
     } catch (error: any) {
-      setStatus('failed')
+      if (error instanceof SessionExpiredError) {
+        clearPersistedJobId(location.pathname, navigate)
+        setStatus('idle')
+      } else {
+        setStatus('failed')
+      }
       toast.error(error.message || 'Upload failed')
     }
   }
@@ -172,9 +316,12 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   }
 
   const handleProcessAnother = () => {
+    clearPersistedJobId(location.pathname, navigate)
     setSelectedFile(null)
     setStatus('idle')
     setProgress(0)
+    setUploadPhase('preparing')
+    setUploadProgress(0)
     setResult(null)
     setTranscriptPreview('')
     setFullTranscript('')
@@ -417,16 +564,24 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
         {status === 'processing' && (
           <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
             <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
-            <p className="text-lg font-medium text-gray-800 mb-4">Transcribing your video...</p>
+            <p className="text-lg font-medium text-gray-800 mb-4">
+              {uploadPhase === 'preparing' && 'Preparing video…'}
+              {uploadPhase === 'uploading' && `Uploading (${uploadProgress}%)`}
+              {uploadPhase === 'processing' && 'Processing audio and generating transcript'}
+            </p>
             <ProgressBar
-              progress={progress}
+              progress={uploadPhase === 'uploading' ? uploadProgress : progress}
               status={
-                queuePosition !== undefined
-                  ? `Processing… ${queuePosition} jobs ahead of you.`
-                  : 'Processing audio and generating transcript'
+                uploadPhase === 'uploading'
+                  ? `Uploading… ${uploadProgress}%`
+                  : queuePosition !== undefined
+                    ? `Processing… ${queuePosition} jobs ahead of you.`
+                    : 'Processing audio and generating transcript'
               }
             />
-            <p className="text-sm text-gray-500 mt-4">Estimated time: 30-60 seconds</p>
+            <p className="text-sm text-gray-500 mt-4">
+              {uploadPhase === 'uploading' ? 'Large files may take a minute.' : 'Estimated time: 30-60 seconds'}
+            </p>
           </div>
         )}
 

@@ -8,7 +8,7 @@ export function getPlanLimits(plan: PlanType): PlanLimits {
       return {
         minutesPerMonth: 60,
         maxVideoDuration: 5,
-        maxFileSize: 100 * 1024 * 1024,
+        maxFileSize: 2 * 1024 * 1024 * 1024, // 2 GB — typical iPhone short clips
         maxConcurrentJobs: 1,
         maxLanguages: 1,
         batchEnabled: false,
@@ -20,7 +20,7 @@ export function getPlanLimits(plan: PlanType): PlanLimits {
       return {
         minutesPerMonth: 450,
         maxVideoDuration: 30,
-        maxFileSize: 500 * 1024 * 1024,
+        maxFileSize: 5 * 1024 * 1024 * 1024, // 5 GB
         maxConcurrentJobs: 1,
         maxLanguages: 2,
         batchEnabled: false,
@@ -32,7 +32,7 @@ export function getPlanLimits(plan: PlanType): PlanLimits {
       return {
         minutesPerMonth: 1200,
         maxVideoDuration: 120,
-        maxFileSize: 2 * 1024 * 1024 * 1024,
+        maxFileSize: 10 * 1024 * 1024 * 1024, // 10 GB
         maxConcurrentJobs: 2,
         maxLanguages: 5,
         batchEnabled: true,
@@ -44,7 +44,7 @@ export function getPlanLimits(plan: PlanType): PlanLimits {
       return {
         minutesPerMonth: 3000,
         maxVideoDuration: 240,
-        maxFileSize: 10 * 1024 * 1024 * 1024,
+        maxFileSize: 20 * 1024 * 1024 * 1024, // 20 GB
         maxConcurrentJobs: 3,
         maxLanguages: 10,
         batchEnabled: true,

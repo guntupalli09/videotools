@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Minimize2, Loader2 } from 'lucide-react'
 import FileUploadZone from '../components/FileUploadZone'
 import UsageCounter from '../components/UsageCounter'
@@ -10,9 +11,10 @@ import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
 import VideoTrimmer from '../components/VideoTrimmer'
 import { incrementUsage } from '../lib/usage'
-import { uploadFile, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES } from '../lib/api'
+import { uploadFile, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError } from '../lib/api'
 import { getJobLifecycleTransition } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
+import { persistJobId, clearPersistedJobId } from '../lib/jobSession'
 import toast from 'react-hot-toast'
 import { MessageSquare } from 'lucide-react'
 import { formatFileSize } from '../lib/utils'
@@ -29,6 +31,8 @@ export type CompressVideoSeoProps = {
 
 export default function CompressVideo(props: CompressVideoSeoProps = {}) {
   const { seoH1, seoIntro, faq = [] } = props
+  const location = useLocation()
+  const navigate = useNavigate()
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [trimStart, setTrimStart] = useState<number | null>(null)
   const [trimEnd, setTrimEnd] = useState<number | null>(null)
@@ -90,6 +94,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
         trimmedEnd: trimEnd ?? undefined,
       })
 
+      persistJobId(location.pathname, response.jobId)
       const pollIntervalRef = { current: 0 as ReturnType<typeof setInterval> }
       const doPoll = async () => {
         try {
@@ -114,12 +119,18 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
       pollIntervalRef.current = setInterval(doPoll, 2000)
       doPoll()
     } catch (error: any) {
-      setStatus('failed')
+      if (error instanceof SessionExpiredError) {
+        clearPersistedJobId(location.pathname, navigate)
+        setStatus('idle')
+      } else {
+        setStatus('failed')
+      }
       toast.error(error.message || 'Upload failed')
     }
   }
 
   const handleProcessAnother = () => {
+    clearPersistedJobId(location.pathname, navigate)
     setSelectedFile(null)
     setStatus('idle')
     setProgress(0)

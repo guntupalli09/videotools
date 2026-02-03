@@ -105,6 +105,8 @@ router.get('/current', (req: Request, res: Response) => {
       minutesPerMonth: user.limits.minutesPerMonth,
       maxLanguages: user.limits.maxLanguages,
       batchEnabled: user.limits.batchEnabled,
+      maxFileSize: user.limits.maxFileSize,
+      maxVideoDuration: user.limits.maxVideoDuration,
     },
     usage: {
       totalMinutes: user.usageThisMonth.totalMinutes,

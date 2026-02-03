@@ -70,12 +70,10 @@ function mapSubtitleUploadError(backendMessage: string): string {
   return backendMessage
 }
 
-export async function uploadFile(file: File, options: UploadOptions): Promise<UploadResponse> {
+function buildUploadFormData(file: File, options: UploadOptions): FormData {
   const formData = new FormData()
-  // Field name must be exactly "file" for Multer upload.single('file')
   formData.append('file', file)
   formData.append('toolType', options.toolType)
-
   if (options.format) formData.append('format', options.format)
   if (options.language) formData.append('language', options.language)
   if (options.targetLanguage) formData.append('targetLanguage', options.targetLanguage)
@@ -91,8 +89,178 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
   if (options.grammarFix !== undefined) formData.append('grammarFix', String(options.grammarFix))
   if (options.lineBreakFix !== undefined) formData.append('lineBreakFix', String(options.lineBreakFix))
   if (options.compressProfile) formData.append('compressProfile', options.compressProfile)
+  return formData
+}
 
-  // Do NOT set Content-Type: browser must set multipart/form-data with boundary
+export interface UploadProgressOptions {
+  onProgress?: (percent: number) => void
+}
+
+const CHUNK_SIZE = 5 * 1024 * 1024 // 5 MB
+const CHUNK_THRESHOLD = 15 * 1024 * 1024 // 15 MB — use chunked upload above this
+const CHUNK_PARALLEL = 2 // upload 2 chunks at a time
+
+function buildInitBody(file: File, options: UploadOptions): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    filename: file.name,
+    totalSize: file.size,
+    totalChunks: Math.ceil(file.size / CHUNK_SIZE),
+    toolType: options.toolType,
+  }
+  if (options.format) body.format = options.format
+  if (options.language) body.language = options.language
+  if (options.targetLanguage) body.targetLanguage = options.targetLanguage
+  if (options.compressionLevel) body.compressionLevel = options.compressionLevel
+  if (options.trimmedStart !== undefined) body.trimmedStart = options.trimmedStart
+  if (options.trimmedEnd !== undefined) body.trimmedEnd = options.trimmedEnd
+  if (options.additionalLanguages && options.additionalLanguages.length > 0) {
+    body.additionalLanguages = options.additionalLanguages
+  }
+  if (options.targetFormat) body.targetFormat = options.targetFormat
+  if (options.fixTiming !== undefined) body.fixTiming = options.fixTiming
+  if (options.timingOffsetMs !== undefined) body.timingOffsetMs = options.timingOffsetMs
+  if (options.grammarFix !== undefined) body.grammarFix = options.grammarFix
+  if (options.lineBreakFix !== undefined) body.lineBreakFix = options.lineBreakFix
+  if (options.compressProfile) body.compressProfile = options.compressProfile
+  return body
+}
+
+/** Chunked upload for large files: init → upload chunks (parallel) → complete. Progress by chunk count. */
+async function uploadFileChunked(
+  file: File,
+  options: UploadOptions,
+  progressOptions?: UploadProgressOptions
+): Promise<UploadResponse> {
+  const userId = localStorage.getItem('userId') || 'demo-user'
+  const plan = localStorage.getItem('plan') || 'free'
+  const totalChunks = Math.ceil(file.size / CHUNK_SIZE)
+
+  const initRes = await api('/api/upload/init', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-user-id': userId,
+      'x-plan': plan,
+    },
+    body: JSON.stringify(buildInitBody(file, options)),
+  })
+  if (!initRes.ok) {
+    const err = await initRes.json().catch(() => ({ message: 'Upload init failed' }))
+    throw new Error(err.message || 'Upload init failed')
+  }
+  const { uploadId } = (await initRes.json()) as { uploadId: string }
+
+  const uploadChunk = async (chunkIndex: number): Promise<void> => {
+    const start = chunkIndex * CHUNK_SIZE
+    const end = Math.min(start + CHUNK_SIZE, file.size)
+    const blob = file.slice(start, end)
+    const res = await fetch(`${API_ORIGIN}/api/upload/chunk`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'x-upload-id': uploadId,
+        'x-chunk-index': String(chunkIndex),
+        'x-user-id': userId,
+        'x-plan': plan,
+      },
+      body: blob,
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: 'Chunk upload failed' }))
+      throw new Error(err.message || 'Chunk upload failed')
+    }
+  }
+
+  // Upload chunks with limited concurrency; report progress
+  let done = 0
+  for (let i = 0; i < totalChunks; i += CHUNK_PARALLEL) {
+    const batch = Array.from(
+      { length: Math.min(CHUNK_PARALLEL, totalChunks - i) },
+      (_, j) => uploadChunk(i + j)
+    )
+    await Promise.all(batch)
+    done += batch.length
+    progressOptions?.onProgress?.(Math.round((done / totalChunks) * 100))
+  }
+
+  const completeRes = await api('/api/upload/complete', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-user-id': userId,
+      'x-plan': plan,
+    },
+    body: JSON.stringify({ uploadId }),
+  })
+  if (!completeRes.ok) {
+    const err = await completeRes.json().catch(() => ({ message: 'Upload complete failed' }))
+    throw new Error(err.message || 'Upload complete failed')
+  }
+  const data = (await completeRes.json()) as UploadResponse
+  if (!data?.jobId) throw new Error('Invalid upload response. Please retry.')
+  return data
+}
+
+/** Upload with real progress. Uses chunked upload for large files (resumable-friendly); XHR for smaller. */
+export function uploadFileWithProgress(
+  file: File,
+  options: UploadOptions,
+  progressOptions?: UploadProgressOptions
+): Promise<UploadResponse> {
+  if (file.size > CHUNK_THRESHOLD) {
+    return uploadFileChunked(file, options, progressOptions)
+  }
+
+  const formData = buildUploadFormData(file, options)
+  const url = `${API_ORIGIN}/api/upload`
+  const userId = localStorage.getItem('userId') || 'demo-user'
+  const plan = localStorage.getItem('plan') || 'free'
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable && progressOptions?.onProgress) {
+        progressOptions.onProgress(Math.round((e.loaded / e.total) * 100))
+      }
+    })
+
+    xhr.addEventListener('load', () => {
+      if (xhr.status === 204 || !xhr.responseText?.trim()) {
+        reject(new Error('Upload accepted but no job ID returned. Please retry.'))
+        return
+      }
+      let data: UploadResponse & { message?: string }
+      try {
+        data = JSON.parse(xhr.responseText) as UploadResponse & { message?: string }
+      } catch {
+        reject(new Error('Invalid upload response. Please retry.'))
+        return
+      }
+      if (xhr.status >= 200 && xhr.status < 300 && data?.jobId) {
+        resolve({ jobId: data.jobId, status: data.status ?? 'queued' })
+        return
+      }
+      const err = data?.message || 'Upload failed'
+      reject(new Error(
+        options.toolType === 'translate-subtitles' || options.toolType === 'fix-subtitles' || options.toolType === 'convert-subtitles'
+          ? mapSubtitleUploadError(err)
+          : err
+      ))
+    })
+
+    xhr.addEventListener('error', () => reject(new Error('Upload failed')))
+    xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')))
+
+    xhr.open('POST', url)
+    xhr.setRequestHeader('x-user-id', userId)
+    xhr.setRequestHeader('x-plan', plan)
+    xhr.send(formData)
+  })
+}
+
+export async function uploadFile(file: File, options: UploadOptions): Promise<UploadResponse> {
+  const formData = buildUploadFormData(file, options)
   const response = await api('/api/upload', {
     method: 'POST',
     body: formData,
@@ -112,7 +280,6 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
     throw new Error(displayMessage)
   }
 
-  // 204 or empty body: no jobId to poll; treat as error so UI doesn't show "Processing failed" from JSON parse error
   if (response.status === 204) {
     throw new Error('Upload accepted but no job ID returned. Please retry.')
   }
@@ -232,8 +399,20 @@ export async function uploadDualFiles(
   return data
 }
 
+/** Thrown when GET /api/job/:id returns 404 (job expired or never existed). Show "Session expired. Please upload again." */
+export class SessionExpiredError extends Error {
+  constructor(message = 'Session expired. Please upload again.') {
+    super(message)
+    this.name = 'SessionExpiredError'
+  }
+}
+
 export async function getJobStatus(jobId: string): Promise<JobStatus> {
   const response = await api(`/api/job/${jobId}`)
+
+  if (response.status === 404) {
+    throw new SessionExpiredError('Session expired. Please upload again.')
+  }
 
   if (!response.ok) {
     throw new Error('Failed to get job status')
@@ -316,6 +495,8 @@ export interface UsageData {
     minutesPerMonth: number
     maxLanguages: number
     batchEnabled: boolean
+    maxFileSize?: number
+    maxVideoDuration?: number
   }
   usage: {
     totalMinutes: number

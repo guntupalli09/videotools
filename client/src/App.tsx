@@ -43,6 +43,7 @@ import ReduceVideoSizePage from './pages/seo/ReduceVideoSizePage'
 import BatchVideoProcessingPage from './pages/seo/BatchVideoProcessingPage'
 import BulkSubtitleExportPage from './pages/seo/BulkSubtitleExportPage'
 import BulkTranscriptExportPage from './pages/seo/BulkTranscriptExportPage'
+import SessionErrorBoundary from './components/SessionErrorBoundary'
 
 function AppSeo() {
   const { pathname } = useLocation()
@@ -108,6 +109,7 @@ function App() {
       <div className="min-h-screen flex flex-col">
         <Navigation />
         <main id="main" className="flex-grow" role="main">
+          <SessionErrorBoundary>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/pricing" element={<Pricing />} />
@@ -147,6 +149,7 @@ function App() {
             <Route path="/bulk-subtitle-export" element={<BulkSubtitleExportPage />} />
             <Route path="/bulk-transcript-export" element={<BulkTranscriptExportPage />} />
           </Routes>
+          </SessionErrorBoundary>
         </main>
         <Footer />
         <Toaster position="top-right" />

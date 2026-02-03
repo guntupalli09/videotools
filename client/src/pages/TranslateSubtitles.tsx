@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Languages, Loader2 } from 'lucide-react'
 import FileUploadZone from '../components/FileUploadZone'
 import UsageCounter from '../components/UsageCounter'
@@ -10,9 +11,10 @@ import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
 import SubtitleEditor, { SubtitleRow } from '../components/SubtitleEditor'
 import { incrementUsage } from '../lib/usage'
-import { uploadFile, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES } from '../lib/api'
+import { uploadFile, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError } from '../lib/api'
 import { getJobLifecycleTransition } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
+import { persistJobId, clearPersistedJobId } from '../lib/jobSession'
 import toast from 'react-hot-toast'
 import { Film, Wrench } from 'lucide-react'
 
@@ -27,6 +29,8 @@ export type TranslateSubtitlesSeoProps = {
 
 export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {}) {
   const { seoH1, seoIntro, faq = [] } = props
+  const location = useLocation()
+  const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('upload')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [pastedText, setPastedText] = useState('')
@@ -116,6 +120,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
         return
       }
 
+      persistJobId(location.pathname, response.jobId)
       const pollIntervalRef = { current: 0 as ReturnType<typeof setInterval> }
       const doPoll = async () => {
         try {
@@ -149,12 +154,18 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
       pollIntervalRef.current = setInterval(doPoll, 2000)
       doPoll()
     } catch (error: any) {
-      setStatus('failed')
+      if (error instanceof SessionExpiredError) {
+        clearPersistedJobId(location.pathname, navigate)
+        setStatus('idle')
+      } else {
+        setStatus('failed')
+      }
       toast.error(error.message || 'Upload failed')
     }
   }
 
   const handleProcessAnother = () => {
+    clearPersistedJobId(location.pathname, navigate)
     setSelectedFile(null)
     setPastedText('')
     setStatus('idle')
