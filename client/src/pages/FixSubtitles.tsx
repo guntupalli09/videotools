@@ -35,6 +35,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
   const [fixTiming, setFixTiming] = useState(false)
   const [grammarFix, setGrammarFix] = useState(false)
   const [lineBreakFix, setLineBreakFix] = useState(false)
+  const [removeFillers, setRemoveFillers] = useState(false)
   const [status, setStatus] = useState<'idle' | 'analyzing' | 'processing' | 'completed' | 'failed'>('idle')
   const [progress, setProgress] = useState(0)
   const [result, setResult] = useState<{ downloadUrl: string; fileName?: string; issues?: any[]; warnings?: { type: string; message: string; line?: number }[] } | null>(null)
@@ -144,6 +145,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         fixTiming,
         grammarFix,
         lineBreakFix,
+        removeFillers,
       })
 
       persistJobId(location.pathname, response.jobId)
@@ -288,6 +290,15 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
                   className="rounded text-violet-600 focus:ring-violet-500"
                 />
                 <span className="text-gray-700">Line breaks (max characters per line, reading speed)</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={removeFillers}
+                  onChange={(e) => setRemoveFillers(e.target.checked)}
+                  className="rounded text-violet-600 focus:ring-violet-500"
+                />
+                <span className="text-gray-700">Remove filler words (um, uh, like, you know, etc.)</span>
               </label>
             </div>
           </div>

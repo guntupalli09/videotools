@@ -64,9 +64,19 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   const [progress, setProgress] = useState(0)
   const [uploadPhase, setUploadPhase] = useState<'preparing' | 'uploading' | 'processing'>('preparing')
   const [uploadProgress, setUploadProgress] = useState(0)
-  const [result, setResult] = useState<{ downloadUrl: string; fileName?: string } | null>(null)
+  const [result, setResult] = useState<{
+    downloadUrl: string
+    fileName?: string
+    segments?: { start: number; end: number; text: string; speaker?: string }[]
+    summary?: { summary: string; bullets: string[]; actionItems?: string[] }
+    chapters?: { title: string; startTime: number; endTime?: number }[]
+  } | null>(null)
   const [transcriptPreview, setTranscriptPreview] = useState('')
   const [fullTranscript, setFullTranscript] = useState('')
+  const [includeSummary, setIncludeSummary] = useState(true)
+  const [includeChapters, setIncludeChapters] = useState(true)
+  const [exportFormats, setExportFormats] = useState<('txt' | 'json' | 'docx' | 'pdf')[]>(['txt'])
+  const [speakerDiarization, setSpeakerDiarization] = useState(false)
   const [showPaywall, setShowPaywall] = useState(false)
   const [availableMinutes, setAvailableMinutes] = useState<number | null>(null)
   const [usedMinutes, setUsedMinutes] = useState<number | null>(null)
@@ -98,14 +108,19 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
           setResult(jobStatus.result ?? null)
           setUploadPhase('processing')
           setUploadProgress(100)
-          if (jobStatus.result?.downloadUrl) {
+          const res = jobStatus.result
+          if (res?.segments?.length) {
+            const textFromSegments = res.segments.map((s: { text: string }) => s.text).join('\n\n')
+            setFullTranscript(textFromSegments)
+            setTranscriptPreview(textFromSegments.substring(0, 500))
+          } else if (res?.downloadUrl) {
             try {
-              const transcriptResponse = await fetch(getAbsoluteDownloadUrl(jobStatus.result.downloadUrl))
+              const transcriptResponse = await fetch(getAbsoluteDownloadUrl(res.downloadUrl))
               const transcriptText = await transcriptResponse.text()
               setTranscriptPreview(transcriptText.substring(0, 500))
               setFullTranscript(transcriptText)
             } catch {
-              // ignore
+              // ignore (e.g. ZIP file)
             }
           }
           return
@@ -241,6 +256,10 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
           toolType: BACKEND_TOOL_TYPES.VIDEO_TO_TRANSCRIPT,
           trimmedStart: trimStart ?? undefined,
           trimmedEnd: trimEnd ?? undefined,
+          includeSummary,
+          includeChapters,
+          exportFormats: exportFormats.length > 0 ? exportFormats : ['txt'],
+          speakerDiarization,
         },
         { onProgress: (p) => setUploadProgress(p) }
       )
@@ -263,15 +282,19 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             clearInterval(pollIntervalRef.current)
             setStatus('completed')
             setResult(jobStatus.result ?? null)
-            if (jobStatus.result?.downloadUrl) {
+            const res = jobStatus.result
+            if (res?.segments?.length) {
+              const textFromSegments = res.segments.map((s: { text: string }) => s.text).join('\n\n')
+              setFullTranscript(textFromSegments)
+              setTranscriptPreview(textFromSegments.substring(0, 500))
+            } else if (res?.downloadUrl) {
               try {
-                const transcriptResponse = await fetch(getAbsoluteDownloadUrl(jobStatus.result.downloadUrl))
+                const transcriptResponse = await fetch(getAbsoluteDownloadUrl(res.downloadUrl))
                 const transcriptText = await transcriptResponse.text()
                 setTranscriptPreview(transcriptText.substring(0, 500))
-                // Phase 1 – store full transcript for derived utilities (same payload, no new API)
                 setFullTranscript(transcriptText)
               } catch (e) {
-                // Ignore preview fetch errors; transcript still renders from preview if we had it
+                // Ignore (e.g. ZIP)
               }
             }
             incrementUsage('video-to-transcript')
@@ -327,6 +350,10 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     setFullTranscript('')
     setActiveBranch('transcript')
     setCleanTranscriptEnabled(false)
+    setIncludeSummary(true)
+    setIncludeChapters(true)
+    setExportFormats(['txt'])
+    setSpeakerDiarization(false)
   }
 
   const getDownloadUrl = () => {
@@ -350,6 +377,9 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   }, [])
 
   const getSpeakersData = useCallback((): { speaker: string; text: string }[] => {
+    if (result?.segments?.length) {
+      return result.segments.map((s) => ({ speaker: s.speaker || 'Speaker', text: s.text }))
+    }
     try {
       const raw = fullTranscript || ''
       if (!raw.trim()) return []
@@ -358,9 +388,18 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     } catch {
       return []
     }
-  }, [fullTranscript, getParagraphs])
+  }, [result?.segments, fullTranscript, getParagraphs])
 
-  const getSummarySchema = useCallback((): { decisions: string[]; action_items: string[]; key_points: string[] } => {
+  const getSummarySchema = useCallback((): { summary?: string; bullets: string[]; decisions: string[]; action_items: string[]; key_points: string[] } => {
+    if (result?.summary) {
+      return {
+        summary: result.summary.summary,
+        bullets: result.summary.bullets || [],
+        decisions: [],
+        action_items: result.summary.actionItems || [],
+        key_points: result.summary.bullets || [],
+      }
+    }
     try {
       const raw = fullTranscript || ''
       if (!raw.trim()) return { decisions: [], action_items: [], key_points: [] }
@@ -382,9 +421,20 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     } catch {
       return { decisions: [], action_items: [], key_points: [] }
     }
-  }, [fullTranscript])
+  }, [result?.summary, fullTranscript])
 
-  const getChaptersData = useCallback((): { label: string; segmentIndex: number }[] => {
+  const getChaptersData = useCallback((): { label: string; segmentIndex: number; startTime?: number }[] => {
+    if (result?.chapters?.length) {
+      const segs = result.segments || []
+      return result.chapters.map((c) => {
+        let segmentIndex = 0
+        if (segs.length) {
+          const idx = segs.findIndex((s) => s.start >= c.startTime)
+          segmentIndex = idx >= 0 ? idx : segs.length - 1
+        }
+        return { label: c.title, segmentIndex, startTime: c.startTime }
+      })
+    }
     try {
       const paras = getParagraphs(fullTranscript || '')
       if (paras.length === 0) return []
@@ -399,7 +449,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     } catch {
       return []
     }
-  }, [fullTranscript, getParagraphs])
+  }, [result?.chapters, fullTranscript, getParagraphs])
 
   const getHighlightsData = useCallback((): { type: string; text: string }[] => {
     try {
@@ -550,6 +600,40 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                 />
               )}
               {selectedFile && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-xl space-y-3">
+                  <p className="text-sm font-medium text-gray-700">Options</p>
+                  <label className="flex items-center gap-2 text-sm text-gray-600">
+                    <input type="checkbox" checked={includeSummary} onChange={(e) => setIncludeSummary(e.target.checked)} className="rounded border-gray-300" />
+                    Include AI summary & bullets
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-gray-600">
+                    <input type="checkbox" checked={includeChapters} onChange={(e) => setIncludeChapters(e.target.checked)} className="rounded border-gray-300" />
+                    Auto-generate chapters
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-gray-600">
+                    <input type="checkbox" checked={speakerDiarization} onChange={(e) => setSpeakerDiarization(e.target.checked)} className="rounded border-gray-300" />
+                    Speaker labels (who said what)
+                  </label>
+                  <div className="flex flex-wrap gap-2 items-center pt-1">
+                    <span className="text-sm text-gray-600">Export:</span>
+                    {(['txt', 'json', 'docx', 'pdf'] as const).map((fmt) => (
+                      <label key={fmt} className="flex items-center gap-1 text-sm text-gray-600">
+                        <input
+                          type="checkbox"
+                          checked={exportFormats.includes(fmt)}
+                          onChange={(e) => {
+                            if (e.target.checked) setExportFormats((f) => [...f, fmt])
+                            else setExportFormats((f) => f.filter((x) => x !== fmt))
+                          }}
+                          className="rounded border-gray-300"
+                        />
+                        {fmt.toUpperCase()}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {selectedFile && (
                 <button
                   onClick={handleProcess}
                   className="mt-6 w-full bg-violet-600 hover:bg-violet-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
@@ -664,39 +748,60 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
               <div className="bg-white rounded-2xl p-6 shadow-sm">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                   <ListOrdered className="h-5 w-5 text-violet-600" />
-                  Summary (schema only)
+                  Summary
                 </h3>
                 {(() => {
                   const schema = getSummarySchema()
-                  const hasAny = schema.decisions.length || schema.action_items.length || schema.key_points.length
+                  const hasServer = schema.summary || (schema.bullets && schema.bullets.length > 0)
+                  const hasAny = hasServer || schema.decisions.length || schema.action_items.length || schema.key_points.length
                   if (!hasAny) {
                     return (
                       <div className="rounded-xl bg-gray-50/80 p-4">
                         <p className="text-gray-600 text-sm font-medium mb-1">Summary</p>
-                        <p className="text-gray-500 text-sm">Decisions, action items, and key points extracted from the transcript. Empty when no matching phrases are found.</p>
+                        <p className="text-gray-500 text-sm">Enable &quot;Include AI summary&quot; when transcribing to get a paragraph and bullet points.</p>
                       </div>
                     )
                   }
                   return (
                     <div className="grid gap-4">
-                      <div>
-                        <h4 className="text-sm font-semibold text-gray-600 mb-2">Decisions</h4>
-                        <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                          {schema.decisions.map((d, i) => <li key={i}>{d}</li>)}
-                        </ul>
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-semibold text-gray-600 mb-2">Action items</h4>
-                        <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                          {schema.action_items.map((a, i) => <li key={i}>{a}</li>)}
-                        </ul>
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-semibold text-gray-600 mb-2">Key points</h4>
-                        <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                          {schema.key_points.map((k, i) => <li key={i}>{k}</li>)}
-                        </ul>
-                      </div>
+                      {schema.summary && (
+                        <div>
+                          <h4 className="text-sm font-semibold text-gray-600 mb-2">Overview</h4>
+                          <p className="text-sm text-gray-700">{schema.summary}</p>
+                        </div>
+                      )}
+                      {schema.bullets && schema.bullets.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-semibold text-gray-600 mb-2">Key points</h4>
+                          <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                            {schema.bullets.map((k, i) => <li key={i}>{k}</li>)}
+                          </ul>
+                        </div>
+                      )}
+                      {schema.action_items && schema.action_items.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-semibold text-gray-600 mb-2">Action items</h4>
+                          <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                            {schema.action_items.map((a, i) => <li key={i}>{a}</li>)}
+                          </ul>
+                        </div>
+                      )}
+                      {!hasServer && schema.decisions.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-semibold text-gray-600 mb-2">Decisions</h4>
+                          <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                            {schema.decisions.map((d, i) => <li key={i}>{d}</li>)}
+                          </ul>
+                        </div>
+                      )}
+                      {!hasServer && schema.key_points.length > 0 && schema.key_points !== schema.bullets && (
+                        <div>
+                          <h4 className="text-sm font-semibold text-gray-600 mb-2">Key points</h4>
+                          <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                            {schema.key_points.map((k, i) => <li key={i}>{k}</li>)}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   )
                 })()}

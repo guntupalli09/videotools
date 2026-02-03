@@ -2,9 +2,13 @@ import Queue from 'bull'
 import path from 'path'
 import fs from 'fs'
 import archiver from 'archiver'
-import { transcribeVideo } from '../services/transcription'
+import { transcribeVideo, transcribeVideoVerbose } from '../services/transcription'
 import { translateSubtitleFile, detectLanguageConsistency } from '../services/translation'
 import { fixSubtitleFile, validateSubtitleFile } from '../services/subtitles'
+import { generateSummary, generateChapters } from '../services/transcriptSummary'
+import { exportTranscriptJson, exportTranscriptDocx, exportTranscriptPdf } from '../services/transcriptExport'
+import { fireWebhook } from '../utils/webhook'
+import { transcribeWithDiarization } from '../services/diarization'
 import { convertSubtitleFile } from '../services/subtitleConverter'
 import { burnSubtitles, compressVideo, HUNG_JOB_MESSAGE, type CompressProfile } from '../services/ffmpeg'
 import { generateOutputFilename, downloadVideoFromURL, validateVideoDuration } from '../services/video'
@@ -93,11 +97,18 @@ interface JobData {
     timingOffsetMs?: number
     grammarFix?: boolean
     lineBreakFix?: boolean
+    removeFillers?: boolean
     burnFontSize?: 'small' | 'medium' | 'large'
     burnPosition?: 'bottom' | 'middle'
     burnBackgroundOpacity?: 'none' | 'low' | 'high'
     compressProfile?: 'web' | 'mobile' | 'archive'
+    // Transcript extras
+    includeSummary?: boolean
+    includeChapters?: boolean
+    exportFormats?: ('txt' | 'json' | 'docx' | 'pdf')[]
+    speakerDiarization?: boolean
   }
+  webhookUrl?: string
 }
 
 function getOrCreateUserForJob(userId: string, plan: PlanType) {
@@ -248,7 +259,12 @@ async function processJob(job: import('bull').Job<JobData>) {
           let videoPath = data.filePath!
           const userId = data.userId || 'demo-user'
           const plan = data.plan || 'free'
-          
+          const includeSummary = options?.includeSummary === true
+          const includeChapters = options?.includeChapters === true
+          const exportFormats = options?.exportFormats && options.exportFormats.length > 0
+            ? options.exportFormats
+            : ['txt']
+
           // Download from URL if provided
           if (data.url) {
             await job.progress(10)
@@ -275,26 +291,109 @@ async function processJob(job: import('bull').Job<JobData>) {
             throw new Error(durationCheck.error || 'Video too long')
           }
 
-          // Transcribe
-          await job.progress(30)
-          const transcript = await transcribeVideo(videoPath, 'text', options?.language)
+          const needVerbose = includeSummary || includeChapters || exportFormats.includes('json')
+          const wantDiarization = options?.speakerDiarization === true
+          let fullText: string
+          let segments: { start: number; end: number; text: string; speaker?: string }[] = []
 
-          // Save transcript
-          await job.progress(80)
-          const outputFilename = generateOutputFilename(data.originalName || 'video', '_transcript', '.txt')
-          const outputPath = path.join(tempDir, outputFilename)
-          fs.writeFileSync(outputPath, transcript)
-
-          result = {
-            downloadUrl: `/api/download/${outputFilename}`,
-            fileName: outputFilename,
+          if (wantDiarization) {
+            await job.progress(22)
+            const diar = await transcribeWithDiarization(videoPath, options?.language)
+            if (diar) {
+              fullText = diar.text
+              segments = diar.segments
+            } else {
+              const verbose = await transcribeVideoVerbose(videoPath, options?.language)
+              fullText = verbose.text
+              segments = verbose.segments || []
+            }
+          } else if (needVerbose) {
+            await job.progress(25)
+            const verbose = await transcribeVideoVerbose(videoPath, options?.language)
+            fullText = verbose.text
+            segments = verbose.segments || []
+          } else {
+            await job.progress(30)
+            fullText = await transcribeVideo(videoPath, 'text', options?.language)
           }
 
+          const baseName = path.basename(data.originalName || 'video', path.extname(data.originalName || 'video'))
+          const filesToZip: { path: string; name: string }[] = []
+          let primaryDownloadUrl: string
+          let primaryFileName: string
+
+          // Always write TXT
+          const txtFilename = generateOutputFilename(data.originalName || 'video', '_transcript', '.txt')
+          const txtPath = path.join(tempDir, txtFilename)
+          fs.writeFileSync(txtPath, fullText)
+          filesToZip.push({ path: txtPath, name: `${baseName}_transcript.txt` })
+          primaryDownloadUrl = `/api/download/${txtFilename}`
+          primaryFileName = txtFilename
+
+          let summary: { summary: string; bullets: string[]; actionItems?: string[] } | undefined
+          let chapters: { title: string; startTime: number; endTime?: number }[] | undefined
+
+          if (includeSummary) {
+            await job.progress(55)
+            summary = await generateSummary(fullText, { includeActionItems: true })
+          }
+          if (includeChapters && segments.length > 0) {
+            await job.progress(60)
+            chapters = await generateChapters(segments)
+          }
+
+          await job.progress(75)
+
+          // Export optional formats
+          if (exportFormats.includes('json')) {
+            const jsonFilename = generateOutputFilename(data.originalName || 'video', '_transcript', '.json')
+            const jsonPath = path.join(tempDir, jsonFilename)
+            exportTranscriptJson(fullText, segments, jsonPath)
+            filesToZip.push({ path: jsonPath, name: `${baseName}_transcript.json` })
+          }
+          if (exportFormats.includes('docx')) {
+            const docxFilename = generateOutputFilename(data.originalName || 'video', '_transcript', '.docx')
+            const docxPath = path.join(tempDir, docxFilename)
+            await exportTranscriptDocx(fullText, docxPath)
+            filesToZip.push({ path: docxPath, name: `${baseName}_transcript.docx` })
+          }
+          if (exportFormats.includes('pdf')) {
+            const pdfFilename = generateOutputFilename(data.originalName || 'video', '_transcript', '.pdf')
+            const pdfPath = path.join(tempDir, pdfFilename)
+            await exportTranscriptPdf(fullText, pdfPath)
+            filesToZip.push({ path: pdfPath, name: `${baseName}_transcript.pdf` })
+          }
+
+          // If multiple outputs, serve ZIP as primary
+          if (filesToZip.length > 1) {
+            const zipFilename = `${baseName}_transcript.zip`
+            const zipPath = path.join(tempDir, zipFilename)
+            const zipStream = fs.createWriteStream(zipPath)
+            const zip = archiver('zip', { zlib: { level: 9 } })
+            await new Promise<void>((resolve, reject) => {
+              zipStream.on('close', () => resolve())
+              zip.on('error', (err: any) => reject(err))
+              zip.pipe(zipStream)
+              filesToZip.forEach((f) => zip.file(f.path, { name: f.name }))
+              zip.finalize()
+            })
+            primaryDownloadUrl = `/api/download/${zipFilename}`
+            primaryFileName = zipFilename
+          }
+
+          result = {
+            downloadUrl: primaryDownloadUrl,
+            fileName: primaryFileName,
+            ...(segments.length > 0 && { segments }),
+            ...(summary && { summary }),
+            ...(chapters && chapters.length > 0 && { chapters }),
+          }
+
+          const outputPath = path.join(tempDir, primaryFileName)
           if (data.videoHash) {
             await saveDuplicateResult(userId, data.videoHash, outputPath)
           }
 
-          // Metering (minutes) - based on trimmed duration if provided
           const processedSeconds =
             data.trimmedStart !== undefined && data.trimmedEnd !== undefined
               ? Math.max(0, data.trimmedEnd - data.trimmedStart)
@@ -305,6 +404,10 @@ async function processJob(job: import('bull').Job<JobData>) {
           user.usageThisMonth.videoCount += 1
           user.updatedAt = new Date()
           saveUser(user)
+
+          if (data.webhookUrl) {
+            fireWebhook(data.webhookUrl, { jobId: String(jobId), status: 'completed', result }).catch(() => {})
+          }
           break
         }
 
@@ -571,6 +674,7 @@ async function processJob(job: import('bull').Job<JobData>) {
             timingOffsetMs: opt?.timingOffsetMs != null ? Number(opt.timingOffsetMs) : undefined,
             grammarFix: opt?.grammarFix === true || opt?.grammarFix === 'true',
             lineBreakFix: opt?.lineBreakFix === true || opt?.lineBreakFix === 'true',
+            removeFillers: opt?.removeFillers === true || opt?.removeFillers === 'true',
           }
           const fixed = fixSubtitleFile(data.filePath!, fixOptions)
 
@@ -803,6 +907,13 @@ function attachQueueEvents(queue: import('bull').Queue<JobData>) {
       console.error(`Job ${job?.id} failed:`, err)
     }
     const data = job?.data as JobData
+    if (data?.webhookUrl) {
+      fireWebhook(data.webhookUrl, {
+        jobId: String(job?.id),
+        status: 'failed',
+        error: err?.message || 'Job failed',
+      }).catch(() => {})
+    }
     if (data?.batchId) {
       const batch = getBatchById(data.batchId)
       if (batch) {

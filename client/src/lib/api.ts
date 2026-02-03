@@ -41,6 +41,9 @@ export interface JobStatus {
     issues?: any[]
     warnings?: { type: string; message: string; line?: number }[]
     consistencyIssues?: { line: number; issueType: string }[]
+    segments?: { start: number; end: number; text: string; speaker?: string }[]
+    summary?: { summary: string; bullets: string[]; actionItems?: string[] }
+    chapters?: { title: string; startTime: number; endTime?: number }[]
   }
 }
 
@@ -59,7 +62,14 @@ export interface UploadOptions {
   timingOffsetMs?: number
   grammarFix?: boolean
   lineBreakFix?: boolean
+  removeFillers?: boolean
   compressProfile?: 'web' | 'mobile' | 'archive'
+  // Transcript extras
+  includeSummary?: boolean
+  includeChapters?: boolean
+  exportFormats?: ('txt' | 'json' | 'docx' | 'pdf')[]
+  speakerDiarization?: boolean
+  webhookUrl?: string
 }
 
 /** Map backend subtitle validation errors to human-friendly messages. */
@@ -88,7 +98,15 @@ function buildUploadFormData(file: File, options: UploadOptions): FormData {
   if (options.timingOffsetMs !== undefined) formData.append('timingOffsetMs', options.timingOffsetMs.toString())
   if (options.grammarFix !== undefined) formData.append('grammarFix', String(options.grammarFix))
   if (options.lineBreakFix !== undefined) formData.append('lineBreakFix', String(options.lineBreakFix))
+  if (options.removeFillers !== undefined) formData.append('removeFillers', String(options.removeFillers))
   if (options.compressProfile) formData.append('compressProfile', options.compressProfile)
+  if (options.includeSummary !== undefined) formData.append('includeSummary', String(options.includeSummary))
+  if (options.includeChapters !== undefined) formData.append('includeChapters', String(options.includeChapters))
+  if (options.speakerDiarization !== undefined) formData.append('speakerDiarization', String(options.speakerDiarization))
+  if (options.exportFormats && options.exportFormats.length > 0) {
+    formData.append('exportFormats', JSON.stringify(options.exportFormats))
+  }
+  if (options.webhookUrl) formData.append('webhookUrl', options.webhookUrl)
   return formData
 }
 
@@ -121,7 +139,13 @@ function buildInitBody(file: File, options: UploadOptions): Record<string, unkno
   if (options.timingOffsetMs !== undefined) body.timingOffsetMs = options.timingOffsetMs
   if (options.grammarFix !== undefined) body.grammarFix = options.grammarFix
   if (options.lineBreakFix !== undefined) body.lineBreakFix = options.lineBreakFix
+  if (options.removeFillers !== undefined) body.removeFillers = options.removeFillers
   if (options.compressProfile) body.compressProfile = options.compressProfile
+  if (options.includeSummary !== undefined) body.includeSummary = options.includeSummary
+  if (options.includeChapters !== undefined) body.includeChapters = options.includeChapters
+  if (options.speakerDiarization !== undefined) body.speakerDiarization = options.speakerDiarization
+  if (options.exportFormats && options.exportFormats.length > 0) body.exportFormats = options.exportFormats
+  if (options.webhookUrl) body.webhookUrl = options.webhookUrl
   return body
 }
 

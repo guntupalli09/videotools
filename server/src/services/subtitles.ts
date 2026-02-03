@@ -201,6 +201,27 @@ export interface FixSubtitleOptions {
   timingOffsetMs?: number
   grammarFix?: boolean
   lineBreakFix?: boolean
+  removeFillers?: boolean
+}
+
+/** Filler words/phrases to remove when removeFillers is true. Case-insensitive, whole-word. */
+const FILLER_PATTERN = /\b(um|uh|hmm|hm|er|ah|like|you know|basically|actually|literally|so\s+|well\s+|just\s+|really\s+|right\s+|i mean|kind of|sort of)\b/gi
+
+function removeFillerWordsFromEntries(entries: SubtitleEntry[]): SubtitleEntry[] {
+  const result: SubtitleEntry[] = []
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i]
+    let text = e.text.replace(FILLER_PATTERN, ' ').replace(/\s+/g, ' ').trim()
+    if (!text) {
+      // Empty after removal: merge timing into previous or next
+      if (result.length > 0) {
+        result[result.length - 1].endTime = e.endTime
+      }
+      continue
+    }
+    result.push({ ...e, text, index: result.length + 1 })
+  }
+  return result
 }
 
 /**
@@ -244,6 +265,9 @@ export function fixSubtitleFile(
 
   if (options.fixTiming) {
     entries = normalizeTimingOnly(entries, options.timingOffsetMs ?? 0)
+  }
+  if (options.removeFillers) {
+    entries = removeFillerWordsFromEntries(entries)
   }
   if (options.grammarFix) {
     entries = grammarAndFormattingFix(entries)

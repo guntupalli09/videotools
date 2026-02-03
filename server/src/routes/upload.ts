@@ -60,7 +60,7 @@ async function getTotalQueueCount(): Promise<number> {
 // Single file upload
 router.post('/', upload.single('file'), async (req: Request, res: Response) => {
   try {
-    const { toolType, url, ...options } = req.body
+    const { toolType, url, webhookUrl, ...options } = req.body
 
     const auth = getAuthFromRequest(req)
     const headerUserId = (req.headers['x-user-id'] as string) || 'demo-user'
@@ -155,12 +155,15 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
         return res.status(400).json({ message: 'Invalid URL' })
       }
 
+      const jobOpts: Record<string, unknown> = options.format || options.language || options.includeSummary || options.includeChapters || options.exportFormats
+        ? { ...options } : {}
       const job = await addJobToQueue(plan, {
         toolType,
         url,
         userId,
         plan,
-        options: options.format || options.language ? options : undefined,
+        options: Object.keys(jobOpts).length > 0 ? jobOpts : undefined,
+        webhookUrl: typeof webhookUrl === 'string' && webhookUrl.trim() ? webhookUrl.trim() : undefined,
       })
 
       return res.status(202).json({
@@ -220,6 +223,15 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     }
 
     // Create job in queue
+    let exportFormats: ('txt' | 'json' | 'docx' | 'pdf')[] | undefined
+    if (options.exportFormats) {
+      try {
+        const arr = typeof options.exportFormats === 'string' ? JSON.parse(options.exportFormats) : options.exportFormats
+        if (Array.isArray(arr)) exportFormats = arr.filter((f: string) => ['txt', 'json', 'docx', 'pdf'].includes(f))
+      } catch {
+        // ignore
+      }
+    }
     const jobOptions: any = {
       format: options.format,
       language: options.language,
@@ -230,7 +242,12 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       timingOffsetMs: options.timingOffsetMs,
       grammarFix: options.grammarFix,
       lineBreakFix: options.lineBreakFix,
+      removeFillers: options.removeFillers === true || options.removeFillers === 'true',
       compressProfile: options.compressProfile,
+      includeSummary: options.includeSummary === true || options.includeSummary === 'true',
+      includeChapters: options.includeChapters === true || options.includeChapters === 'true',
+      speakerDiarization: options.speakerDiarization === true || options.speakerDiarization === 'true',
+      exportFormats,
     }
     if (additionalLanguages.length > 0) {
       jobOptions.additionalLanguages = additionalLanguages
@@ -284,6 +301,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       trimmedStart: options.trimmedStart ? parseFloat(options.trimmedStart) : undefined,
       trimmedEnd: options.trimmedEnd ? parseFloat(options.trimmedEnd) : undefined,
       options: Object.keys(jobOptions).length > 0 ? jobOptions : undefined,
+      webhookUrl: typeof webhookUrl === 'string' && webhookUrl.trim() ? webhookUrl.trim() : undefined,
     })
 
     res.status(202).json({

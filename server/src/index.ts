@@ -12,6 +12,7 @@ import authRoutes from './routes/auth'
 import { stripeWebhookHandler } from './routes/stripeWebhook'
 import { startWorker } from './workers/videoProcessor'
 import { startFileCleanup } from './utils/fileCleanup'
+import { apiKeyAuth } from './utils/apiKey'
 
 const app = express()
 app.disable('etag')
@@ -78,6 +79,11 @@ app.post(
 // JSON body parsing for all other routes
 app.use(express.json())
 app.use('/api', generalLimiter)
+
+// Optional API key auth (sets x-user-id from Bearer / X-Api-Key)
+app.use('/api/upload', apiKeyAuth)
+app.use('/api/job', apiKeyAuth)
+app.use('/api/batch', apiKeyAuth)
 
 // Routes
 app.use('/api/upload', uploadRoutes)
