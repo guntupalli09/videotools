@@ -18,7 +18,7 @@ export default function Navigation() {
   const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false)
 
   return (
-    <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-gray-200">
+    <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-lg border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
@@ -49,7 +49,7 @@ export default function Navigation() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.2 }}
-                    className="absolute top-full left-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-200 py-2"
+                    className="absolute top-full left-0 mt-2 w-64 bg-white rounded-xl shadow-md border border-gray-100 py-2"
                   >
                     {tools.map((tool) => (
                       <Link
@@ -98,7 +98,7 @@ export default function Navigation() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -300 }}
             transition={{ duration: 0.3 }}
-            className="md:hidden bg-white border-t border-gray-200"
+            className="md:hidden bg-white border-t border-gray-100"
           >
             <div className="px-4 py-4 space-y-4">
               <div className="space-y-2">

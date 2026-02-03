@@ -25,7 +25,7 @@ export default function Pricing() {
   }
 
   const cardBase =
-    'bg-white rounded-2xl border-2 p-6 sm:p-8 flex flex-col'
+    'bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 flex flex-col'
   const subhead = 'text-sm text-gray-600 leading-relaxed'
   const limits = 'text-xs text-gray-500 mt-1'
   const bullets = 'mt-4 space-y-2 text-sm text-gray-600 flex-1'
@@ -48,7 +48,7 @@ export default function Pricing() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* FREE — $0 */}
-          <div className={`${cardBase} border-gray-200 min-h-[420px]`}>
+          <div className={`${cardBase} border-gray-100 min-h-[420px]`}>
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-semibold text-gray-900">Free</h3>
               <span className="text-2xl font-bold text-gray-900">$0</span>
@@ -80,7 +80,7 @@ export default function Pricing() {
           </div>
 
           {/* BASIC — $19 / month (450 min) */}
-          <div className={`${cardBase} border-gray-200 min-h-[420px]`}>
+          <div className={`${cardBase} border-gray-100 min-h-[420px]`}>
             <h3 className="text-xl font-semibold text-gray-900">Basic</h3>
             <div className="mt-2 flex items-baseline gap-1">
               <span className="text-2xl font-bold text-gray-900">$19</span>
@@ -171,7 +171,7 @@ export default function Pricing() {
           </div>
 
           {/* AGENCY — $129 / month (3,000 min) */}
-          <div className={`${cardBase} border-gray-200 min-h-[420px]`}>
+          <div className={`${cardBase} border-gray-100 min-h-[420px]`}>
             <h3 className="text-xl font-semibold text-gray-900">Agency</h3>
             <div className="mt-2 flex items-baseline gap-1">
               <span className="text-2xl font-bold text-gray-900">$129</span>
@@ -216,7 +216,7 @@ export default function Pricing() {
         </div>
 
         {/* Overage footer */}
-        <div className="mt-12 pt-8 border-t border-gray-200 text-center">
+        <div className="mt-12 pt-8 border-t border-gray-100 text-center">
           <p className="text-sm text-gray-600 font-medium">
             Overage: 100 minutes = $5
           </p>

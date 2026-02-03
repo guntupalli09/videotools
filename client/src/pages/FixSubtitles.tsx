@@ -223,7 +223,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         </div>
 
         {status === 'idle' && !showIssues && (
-          <div className="bg-white rounded-xl p-8 border border-gray-200 mb-6">
+          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6">
             <FileUploadZone
               onFileSelect={handleFileSelect}
               accept={{ 'text/*': ['.srt', '.vtt'] }}
@@ -241,7 +241,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         )}
 
         {status === 'idle' && showIssues && (
-          <div className="bg-white rounded-xl p-8 border border-gray-200 mb-6">
+          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6">
             <h3 className="text-lg font-medium text-gray-800 mb-3">Fix options (optional)</h3>
             <p className="text-sm text-gray-600 mb-4">Fixes timing drift, long durations, and overflow issues. Original subtitles are always preserved.</p>
             <div className="space-y-3 mb-4">
@@ -277,7 +277,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         )}
 
         {status === 'analyzing' && (
-          <div className="bg-white rounded-xl p-8 border border-gray-200 mb-6 text-center">
+          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
             <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
             <p className="text-lg font-medium text-gray-800 mb-4">Analyzing subtitles...</p>
             <ProgressBar progress={progress} />
@@ -285,7 +285,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         )}
 
         {showIssues && (issues.length > 0 || warnings.length > 0) && status === 'idle' && (
-          <div className="bg-white rounded-xl p-8 border border-gray-200 mb-6">
+          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6">
             <div className="flex items-center space-x-2 mb-4">
               <CheckCircle className="h-6 w-6 text-green-600" />
               <h3 className="text-xl font-semibold text-gray-800">
@@ -331,7 +331,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         )}
 
         {showIssues && issues.length === 0 && warnings.length === 0 && status === 'idle' && (
-          <div className="bg-white rounded-xl p-8 border border-gray-200 mb-6 text-center">
+          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
             <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-800 mb-2">No issues found!</h3>
             <p className="text-gray-600 mb-4">Your subtitles are already in good shape. You can still apply optional fixes (timing, grammar, line breaks) above.</p>
@@ -353,7 +353,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         )}
 
         {status === 'processing' && (
-          <div className="bg-white rounded-xl p-8 border border-gray-200 mb-6 text-center">
+          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
             <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
             <p className="text-lg font-medium text-gray-800 mb-4">Fixing issues...</p>
             <ProgressBar progress={progress} status="Applying fixes to subtitle file" />
@@ -369,7 +369,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
             />
 
             {subtitleRows.length > 0 && (
-              <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
                 <SubtitleEditor
                   entries={subtitleRows}
                   editable={canEdit}
@@ -414,7 +414,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
             )}
 
             {issues.length > 0 && (
-              <div className="bg-green-50 rounded-xl p-6 border border-green-200">
+              <div className="bg-green-50 rounded-2xl p-6 shadow-sm border border-green-100">
                 <p className="text-green-800 font-medium">
                   ✓ Fixed {issues.length} issue{issues.length !== 1 ? 's' : ''}
                 </p>
@@ -439,7 +439,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         )}
 
         {status === 'failed' && (
-          <div className="bg-white rounded-xl p-8 border border-gray-200 mb-6 text-center">
+          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
             <p className="text-red-600 mb-4">Processing failed. Please try again.</p>
             <button
               onClick={handleProcessAnother}
@@ -451,7 +451,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         )}
 
         {faq.length > 0 && (
-          <section className="mt-12 pt-8 border-t border-gray-200" aria-label="FAQ">
+          <section className="mt-12 pt-8 border-t border-gray-100" aria-label="FAQ">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently asked questions</h2>
             <dl className="space-y-4">
               {faq.map((item, i) => (

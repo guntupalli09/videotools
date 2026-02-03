@@ -34,9 +34,9 @@ export default function SuccessState({
       <h3 className="text-2xl font-bold text-gray-800 mb-2">Your file is ready!</h3>
 
       {fileName && (
-        <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 mb-6 max-w-md mx-auto">
+        <div className="bg-gray-50/80 rounded-2xl p-6 shadow-sm mb-6 max-w-md mx-auto">
           <div className="flex items-center space-x-4">
-            <div className="bg-violet-100 rounded-lg p-3">
+            <div className="bg-violet-100/80 rounded-xl p-3">
               <File className="h-6 w-6 text-violet-600" />
             </div>
             <div className="text-left flex-1">

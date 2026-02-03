@@ -175,7 +175,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
         </div>
 
         {status === 'idle' && (
-          <div className="bg-white rounded-xl p-8 border border-gray-200 mb-6">
+          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6">
             {/* Language Selector */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -255,7 +255,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
         )}
 
         {status === 'processing' && (
-          <div className="bg-white rounded-xl p-8 border border-gray-200 mb-6 text-center">
+          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
             <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
             <p className="text-lg font-medium text-gray-800 mb-4">Translating subtitles...</p>
             <ProgressBar progress={progress} status="Translating text while preserving timestamps" />
@@ -272,7 +272,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
             />
 
             {result.consistencyIssues && result.consistencyIssues.length > 0 && (
-              <div className="bg-amber-50 rounded-xl p-6 border border-amber-200">
+              <div className="bg-amber-50 rounded-2xl p-6 shadow-sm border border-amber-100">
                 <p className="text-amber-800 font-medium mb-2">Some lines may not be translated.</p>
                 <p className="text-sm text-amber-900 mb-2">Non-blocking: review lines below if needed.</p>
                 <ul className="text-sm text-amber-900 space-y-1">
@@ -335,7 +335,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
         )}
 
         {status === 'failed' && (
-          <div className="bg-white rounded-xl p-8 border border-gray-200 mb-6 text-center">
+          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
             <p className="text-red-600 mb-4">Processing failed. Please try again.</p>
             <button
               onClick={handleProcessAnother}
@@ -357,7 +357,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
         />
 
         {faq.length > 0 && (
-          <section className="mt-12 pt-8 border-t border-gray-200" aria-label="FAQ">
+          <section className="mt-12 pt-8 border-t border-gray-100" aria-label="FAQ">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently asked questions</h2>
             <dl className="space-y-4">
               {faq.map((item, i) => (

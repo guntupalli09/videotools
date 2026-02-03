@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
-import { FileText, Copy, Loader2, Users, ListOrdered, BookOpen, Sparkles, Hash, FileCode, Download } from 'lucide-react'
+import { FileText, Copy, Loader2, Users, ListOrdered, BookOpen, Sparkles, Hash, FileCode, Download, Eraser } from 'lucide-react'
 import FileUploadZone from '../components/FileUploadZone'
 import UsageCounter from '../components/UsageCounter'
 import PlanBadge from '../components/PlanBadge'
@@ -29,6 +29,16 @@ const BRANCH_LABELS: Record<BranchId, string> = {
   keywords: 'Keywords',
   clean: 'Clean',
   exports: 'Exports',
+}
+const BRANCH_ICONS: Record<BranchId, typeof FileText> = {
+  transcript: FileText,
+  speakers: Users,
+  summary: ListOrdered,
+  chapters: BookOpen,
+  highlights: Sparkles,
+  keywords: Hash,
+  clean: Eraser,
+  exports: FileCode,
 }
 const FILLER_WORDS = new Set(['um', 'uh', 'like', 'you know', 'basically', 'actually', 'literally', 'so', 'well', 'just', 'really', 'right', 'i mean', 'kind of', 'sort of'])
 const STOPWORDS = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been', 'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'what', 'which', 'who', 'when', 'where', 'why', 'how'])
@@ -325,7 +335,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
           <div className="mb-4">
             <PlanBadge />
           </div>
-          <div className="bg-violet-100 rounded-xl p-4 w-16 h-16 flex items-center justify-center mx-auto mb-4">
+          <div className="bg-violet-100/80 rounded-2xl p-5 w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-sm">
             <FileText className="h-8 w-8 text-violet-600" />
           </div>
           <h1 className="text-4xl font-bold text-gray-800 mb-4">{seoH1 ?? 'Video → Transcript'}</h1>
@@ -336,20 +346,42 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
           <UsageDisplay />
         </div>
 
+        {/* Before upload: muted branch placeholders (visual only, non-interactive) */}
+        {status === 'idle' && (
+          <div className="mb-6 rounded-2xl bg-gray-50/80 px-4 py-3 shadow-sm" aria-hidden="true">
+            <div className="flex flex-wrap gap-3 justify-center items-center">
+              {BRANCH_IDS.map((id) => {
+                const Icon = BRANCH_ICONS[id]
+                return (
+                  <span
+                    key={id}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-gray-400"
+                    title={BRANCH_LABELS[id]}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                    <span className="text-xs font-medium text-gray-400">{BRANCH_LABELS[id]}</span>
+                  </span>
+                )
+              })}
+            </div>
+            <p className="text-center text-xs text-gray-400 mt-2">Upload a video to unlock these views</p>
+          </div>
+        )}
+
         {/* Phase 1 – Branch Bar (below header; only when transcript ready) */}
         {status === 'completed' && result && (
-          <div className="mb-6 border-b border-amber-200/60 bg-amber-50/50 rounded-xl px-2 py-2">
-            <div className="flex flex-wrap gap-1 justify-center items-center" role="tablist" aria-label="Transcript branches">
+          <div className="mb-6 rounded-2xl bg-gray-50/90 px-3 py-3 shadow-sm" role="tablist" aria-label="Transcript branches">
+            <div className="flex flex-wrap gap-2 justify-center items-center">
               {BRANCH_IDS.map((id) => (
                 <button
                   key={id}
                   role="tab"
                   aria-selected={activeBranch === id}
                   onClick={() => setActiveBranch(id)}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                     activeBranch === id
-                      ? 'bg-amber-600 text-white shadow'
-                      : 'bg-white/80 text-gray-700 hover:bg-amber-100 border border-amber-200/60'
+                      ? 'bg-violet-600 text-white shadow-md ring-2 ring-violet-200 ring-offset-2 ring-offset-gray-50'
+                      : 'bg-white/90 text-gray-600 hover:bg-white hover:text-gray-800 hover:shadow-sm border border-gray-100'
                   }`}
                 >
                   {BRANCH_LABELS[id]}
@@ -360,7 +392,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
         )}
 
         {status === 'idle' && (
-          <div className="bg-white rounded-xl p-8 border border-gray-200 mb-6">
+          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6">
             <div>
               <FileUploadZone
                 onFileSelect={handleFileSelect}
@@ -389,7 +421,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
         )}
 
         {status === 'processing' && (
-          <div className="bg-white rounded-xl p-8 border border-gray-200 mb-6 text-center">
+          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
             <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
             <p className="text-lg font-medium text-gray-800 mb-4">Transcribing your video...</p>
             <ProgressBar
@@ -416,7 +448,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             {activeBranch === 'transcript' && (
               <>
                 {transcriptPreview && (
-                  <div className="bg-white rounded-xl p-6 border border-gray-200">
+                  <div className="bg-white rounded-2xl p-6 shadow-sm">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-lg font-semibold text-gray-800">Transcript</h3>
                       <button
@@ -427,7 +459,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                         <span>Copy to clipboard</span>
                       </button>
                     </div>
-                    <div ref={transcriptScrollRef} className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                    <div ref={transcriptScrollRef} className="bg-gray-50/80 rounded-xl p-4 max-h-96 overflow-y-auto">
                       {fullTranscript ? (
                         transcriptParagraphs.map((p, i) => (
                           <div
@@ -450,7 +482,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             )}
 
             {activeBranch === 'speakers' && (
-              <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                   <Users className="h-5 w-5 text-violet-600" />
                   Speakers
@@ -458,7 +490,12 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                 {(() => {
                   const data = getSpeakersData()
                   if (!data.length) {
-                    return <p className="text-gray-500 text-sm">No speaker grouping available. Transcript has no paragraphs.</p>
+                    return (
+                      <div className="rounded-xl bg-gray-50/80 p-4">
+                        <p className="text-gray-600 text-sm font-medium mb-1">Speakers</p>
+                        <p className="text-gray-500 text-sm">Groups transcript by speaker. Empty when the transcript has no paragraph breaks to assign.</p>
+                      </div>
+                    )
                   }
                   return (
                     <div className="space-y-4 max-h-96 overflow-y-auto">
@@ -475,7 +512,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             )}
 
             {activeBranch === 'summary' && (
-              <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                   <ListOrdered className="h-5 w-5 text-violet-600" />
                   Summary (schema only)
@@ -484,7 +521,12 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                   const schema = getSummarySchema()
                   const hasAny = schema.decisions.length || schema.action_items.length || schema.key_points.length
                   if (!hasAny) {
-                    return <p className="text-gray-500 text-sm">No structured summary extracted. Schema: decisions, action_items, key_points.</p>
+                    return (
+                      <div className="rounded-xl bg-gray-50/80 p-4">
+                        <p className="text-gray-600 text-sm font-medium mb-1">Summary</p>
+                        <p className="text-gray-500 text-sm">Decisions, action items, and key points extracted from the transcript. Empty when no matching phrases are found.</p>
+                      </div>
+                    )
                   }
                   return (
                     <div className="grid gap-4">
@@ -513,7 +555,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             )}
 
             {activeBranch === 'chapters' && (
-              <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                   <BookOpen className="h-5 w-5 text-violet-600" />
                   Chapters
@@ -521,7 +563,12 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                 {(() => {
                   const chapters = getChaptersData()
                   if (!chapters.length) {
-                    return <p className="text-gray-500 text-sm">No chapters. Transcript has no paragraphs.</p>
+                    return (
+                      <div className="rounded-xl bg-gray-50/80 p-4">
+                        <p className="text-gray-600 text-sm font-medium mb-1">Chapters</p>
+                        <p className="text-gray-500 text-sm">Section headings derived from transcript paragraphs. Empty when the transcript has no paragraph structure.</p>
+                      </div>
+                    )
                   }
                   return (
                     <div className="space-y-2 max-h-96 overflow-y-auto">
@@ -529,7 +576,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                         <button
                           key={i}
                           onClick={() => scrollToSegment(ch.segmentIndex)}
-                          className="block w-full text-left px-3 py-2 rounded-lg bg-gray-50 hover:bg-violet-50 text-sm text-gray-800 border border-gray-200"
+                          className="block w-full text-left px-3 py-2 rounded-xl bg-gray-50/80 hover:bg-violet-50/80 text-sm text-gray-800 border border-gray-100"
                         >
                           {ch.label}
                         </button>
@@ -541,7 +588,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             )}
 
             {activeBranch === 'highlights' && (
-              <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-violet-600" />
                   Highlights / Key moments
@@ -549,7 +596,12 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                 {(() => {
                   const items = getHighlightsData()
                   if (!items.length) {
-                    return <p className="text-gray-500 text-sm">No highlights detected. Definitions, conclusions, and quote-worthy segments appear here.</p>
+                    return (
+                      <div className="rounded-xl bg-gray-50/80 p-4">
+                        <p className="text-gray-600 text-sm font-medium mb-1">Highlights</p>
+                        <p className="text-gray-500 text-sm">Definitions, conclusions, quotes, and important statements. Empty when no such segments are detected in the transcript.</p>
+                      </div>
+                    )
                   }
                   return (
                     <div className="space-y-3 max-h-96 overflow-y-auto">
@@ -566,7 +618,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             )}
 
             {activeBranch === 'keywords' && (
-              <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                   <Hash className="h-5 w-5 text-violet-600" />
                   Keywords / Topic index
@@ -574,7 +626,12 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                 {(() => {
                   const kw = getKeywordsData()
                   if (!kw.length) {
-                    return <p className="text-gray-500 text-sm">No repeated keywords found. Keywords map to transcript sections.</p>
+                    return (
+                      <div className="rounded-xl bg-gray-50/80 p-4">
+                        <p className="text-gray-600 text-sm font-medium mb-1">Keywords</p>
+                        <p className="text-gray-500 text-sm">Repeated terms that link to transcript sections. Empty when no word appears often enough to qualify.</p>
+                      </div>
+                    )
                   }
                   return (
                     <div className="flex flex-wrap gap-2">
@@ -594,7 +651,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             )}
 
             {activeBranch === 'clean' && (
-              <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Clean transcript</h3>
                 <p className="text-sm text-gray-500 mb-4">Filler words removed, casing normalized, paragraph grouping. Original transcript is always preserved in the Transcript branch.</p>
                 <label className="flex items-center gap-2 mb-4">
@@ -616,19 +673,23 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             )}
 
             {activeBranch === 'exports' && (
-              <div className="bg-white rounded-xl p-6 border border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-800 mb-2 flex items-center gap-2">
                   <FileCode className="h-5 w-5 text-violet-600" />
-                  Structured exports
+                  Exports
                 </h3>
+                <p className="text-sm text-gray-500 mb-5">Download transcript and derived data in your preferred format.</p>
                 {!fullTranscript ? (
-                  <p className="text-gray-500 text-sm">No transcript data to export.</p>
+                  <div className="rounded-xl bg-gray-50/80 p-4">
+                    <p className="text-gray-600 text-sm font-medium mb-1">Exports</p>
+                    <p className="text-gray-500 text-sm">Structured exports (JSON, CSV, Markdown, Notion) appear here once transcript data is available.</p>
+                  </div>
                 ) : (
                   <>
-                    <p className="text-sm text-gray-500 mb-4">
+                    <p className="text-sm text-gray-500 mb-5">
                       {isPaidPlan ? 'Full download available.' : 'Free plan: preview only. Upgrade for full export download.'}
                     </p>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {(['json', 'csv', 'markdown', 'notion'] as const).map((format) => {
                         const buildExport = () => {
                           const schema = getSummarySchema()
@@ -668,18 +729,18 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                           toast.success('Download started')
                         }
                         return (
-                          <div key={format} className="border border-gray-200 rounded-lg p-3 w-full max-w-md">
-                            <div className="flex items-center justify-between gap-2 mb-2">
-                              <span className="text-sm font-medium capitalize">{format}</span>
+                          <div key={format} className="rounded-xl bg-gray-50/80 p-4">
+                            <div className="flex items-center justify-between gap-2 mb-3">
+                              <span className="text-sm font-medium capitalize text-gray-800">{format}</span>
                               <button
                                 onClick={handleDownload}
-                                className="flex items-center gap-1 text-violet-600 hover:text-violet-700 text-sm font-medium"
+                                className="flex items-center gap-1.5 text-violet-600 hover:text-violet-700 text-sm font-medium"
                               >
-                                <Download className="h-4 w-4" />
+                                <Download className="h-4 w-4 shrink-0" />
                                 {isPaidPlan ? 'Download' : 'Preview only'}
                               </button>
                             </div>
-                            <pre className="text-xs text-gray-600 bg-gray-50 p-2 rounded max-h-32 overflow-y-auto whitespace-pre-wrap break-words">
+                            <pre className="text-xs text-gray-600 bg-white/80 p-3 rounded-lg max-h-32 overflow-y-auto whitespace-pre-wrap break-words border border-gray-100">
                               {preview}
                             </pre>
                           </div>
@@ -704,7 +765,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
         )}
 
         {status === 'failed' && (
-          <div className="bg-white rounded-xl p-8 border border-gray-200 mb-6 text-center">
+          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
             <p className="text-red-600 mb-4">Processing failed. Please try again.</p>
             <button
               onClick={handleProcessAnother}
@@ -723,7 +784,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
         />
 
         {faq.length > 0 && (
-          <section className="mt-12 pt-8 border-t border-gray-200" aria-label="FAQ">
+          <section className="mt-12 pt-8 border-t border-gray-100" aria-label="FAQ">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently asked questions</h2>
             <dl className="space-y-4">
               {faq.map((item, i) => (

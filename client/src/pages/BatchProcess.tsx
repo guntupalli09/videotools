@@ -17,7 +17,15 @@ interface BatchStatus {
   }
 }
 
-export default function BatchProcess() {
+/** Optional SEO overrides for alternate entry points. Do NOT duplicate logic. */
+export type BatchProcessSeoProps = {
+  seoH1?: string
+  seoIntro?: string
+  faq?: { q: string; a: string }[]
+}
+
+export default function BatchProcess(props: BatchProcessSeoProps = {}) {
+  const { seoH1, seoIntro, faq = [] } = props
   const [files, setFiles] = useState<File[]>([])
   const [status, setStatus] = useState<'idle' | 'processing' | 'done' | 'failed'>(
     'idle'
@@ -66,20 +74,20 @@ export default function BatchProcess() {
           <div className="mb-4">
             <PlanBadge />
           </div>
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-violet-100">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-100/80 shadow-sm">
             <FolderPlus className="h-8 w-8 text-violet-600" />
           </div>
           <h1 className="mb-2 text-4xl font-bold text-gray-800">
-            Batch Processing
+            {seoH1 ?? 'Batch Processing'}
           </h1>
           <p className="mb-3 text-lg text-gray-600">
-            Upload multiple videos and process them together.
+            {seoIntro ?? 'Upload multiple videos and process them together.'}
           </p>
           <UsageDisplay />
         </div>
 
         {status === 'idle' && (
-          <div className="mb-6 rounded-xl border border-gray-200 bg-white p-8">
+          <div className="mb-6 rounded-2xl shadow-sm bg-white p-8">
             <FileUploadZone
               onFilesSelect={handleFilesSelected}
               accept={{ 'video/*': ['.mp4', '.mov', '.avi', '.webm', '.mkv'] }}
@@ -102,7 +110,7 @@ export default function BatchProcess() {
         )}
 
         {status === 'processing' && (
-          <div className="mb-6 rounded-xl border border-gray-200 bg-white p-8 text-center">
+          <div className="mb-6 rounded-2xl shadow-sm bg-white p-8 text-center">
             <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-violet-600" />
             <p className="mb-2 text-lg font-medium text-gray-800">
               Processing your batch...
@@ -115,7 +123,7 @@ export default function BatchProcess() {
         )}
 
         {status === 'done' && batchInfo && (
-          <div className="mb-6 rounded-xl border border-gray-200 bg-white p-8 text-center">
+          <div className="mb-6 rounded-2xl shadow-sm bg-white p-8 text-center">
             <p className="mb-2 text-lg font-semibold text-gray-800">
               Batch complete
             </p>
@@ -133,7 +141,7 @@ export default function BatchProcess() {
         )}
 
         {status === 'failed' && (
-          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-8 text-center">
+          <div className="mb-6 rounded-2xl shadow-sm border border-red-100 bg-red-50/80 p-8 text-center">
             <p className="mb-2 text-lg font-semibold text-red-700">
               Batch failed
             </p>
@@ -141,6 +149,20 @@ export default function BatchProcess() {
               Something went wrong while starting your batch. Please try again.
             </p>
           </div>
+        )}
+
+        {faq.length > 0 && (
+          <section className="mt-12 pt-8 border-t border-gray-100" aria-label="FAQ">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently asked questions</h2>
+            <dl className="space-y-4">
+              {faq.map((item, i) => (
+                <div key={i}>
+                  <dt className="font-medium text-gray-800">{item.q}</dt>
+                  <dd className="mt-1 text-gray-600">{item.a}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
         )}
       </div>
     </div>

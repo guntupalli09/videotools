@@ -26,8 +26,8 @@ export default function ToolCard({ icon: Icon, title, description, path }: ToolC
           })
         }
       >
-        <div className="bg-white border-2 border-gray-200 rounded-xl p-6 hover:border-violet-300 hover:shadow-lg transition-all cursor-pointer h-full">
-          <div className="bg-violet-100 rounded-xl p-4 w-16 h-16 flex items-center justify-center mb-4">
+        <div className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all cursor-pointer h-full border border-gray-100">
+          <div className="bg-violet-100/80 rounded-xl p-4 w-16 h-16 flex items-center justify-center mb-4">
             <Icon className="h-8 w-8 text-violet-600" />
           </div>
           <h3 className="text-xl font-semibold text-gray-800 mb-2">{title}</h3>

@@ -262,7 +262,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           <div className="mb-4">
             <PlanBadge />
           </div>
-          <div className="bg-violet-100 rounded-xl p-4 w-16 h-16 flex items-center justify-center mx-auto mb-4">
+          <div className="bg-violet-100/80 rounded-2xl p-4 w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-sm">
             <MessageSquare className="h-8 w-8 text-violet-600" />
           </div>
           <h1 className="text-4xl font-bold text-gray-800 mb-4">{seoH1 ?? 'Video → Subtitles'}</h1>
@@ -274,7 +274,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
         </div>
 
         {status === 'idle' && (
-          <div className="bg-white rounded-xl p-8 border border-gray-200 mb-6">
+          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6">
             {/* Format Selector */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-3">Subtitle Format</label>
@@ -365,7 +365,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
         )}
 
         {status === 'processing' && (
-          <div className="bg-white rounded-xl p-8 border border-gray-200 mb-6 text-center">
+          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
             <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
             <p className="text-lg font-medium text-gray-800 mb-4">Generating subtitles...</p>
             <ProgressBar
@@ -389,7 +389,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             />
 
             {subtitleRows.length > 0 && (
-              <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
                 <SubtitleEditor
                   entries={subtitleRows}
                   editable={canEdit}
@@ -423,7 +423,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             )}
 
             {result.warnings && result.warnings.length > 0 && (
-              <div className="bg-amber-50 rounded-xl p-6 border border-amber-200">
+              <div className="bg-amber-50/80 rounded-2xl p-6 shadow-sm border border-amber-100">
                 <h3 className="text-lg font-semibold text-amber-800 mb-2">Validation (informational)</h3>
                 <p className="text-sm text-amber-900 mb-2">Some lines may need attention. Not blocking.</p>
                 <ul className="text-sm text-amber-900 space-y-1">
@@ -436,7 +436,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             )}
 
             {subtitlePreview && (
-              <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Preview (first 10 entries)</h3>
                 <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
                   <pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono">{subtitlePreview}</pre>
@@ -445,7 +445,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             )}
 
             {/* Phase 1B — UTILITY 2B: Convert format. Derived from subtitle files; free: preview 30 lines, paid: full download. */}
-            <div className="bg-white rounded-xl p-6 border border-gray-200">
+            <div className="bg-white rounded-2xl p-6 shadow-sm">
               <h3 className="text-lg font-semibold text-gray-800 mb-2 flex items-center gap-2">
                 <FileDown className="h-5 w-5 text-violet-600" />
                 Convert format
@@ -539,7 +539,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
         />
 
         {faq.length > 0 && (
-          <section className="mt-12 pt-8 border-t border-gray-200" aria-label="FAQ">
+          <section className="mt-12 pt-8 border-t border-gray-100" aria-label="FAQ">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently asked questions</h2>
             <dl className="space-y-4">
               {faq.map((item, i) => (

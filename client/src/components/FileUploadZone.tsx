@@ -56,10 +56,10 @@ export default function FileUploadZone({
 
   if (selectedFiles.length > 0) {
     return (
-      <div className="bg-gray-50 rounded-xl p-6 border-2 border-gray-200">
+      <div className="bg-gray-50/80 rounded-2xl p-6 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <div className="bg-violet-100 rounded-lg p-3">
+            <div className="bg-violet-100/80 rounded-xl p-3">
               <File className="h-6 w-6 text-violet-600" />
             </div>
             <div>
@@ -108,11 +108,11 @@ export default function FileUploadZone({
     <div
       {...getRootProps()}
       className={`
-        border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all
+        border border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all
         ${
           isDragActive || isDragging
-            ? 'border-violet-600 bg-violet-50'
-            : 'border-gray-300 hover:border-violet-400 hover:bg-violet-50/30'
+            ? 'border-violet-500 bg-violet-50/80'
+            : 'border-gray-200 hover:border-violet-300 hover:bg-gray-50/80'
         }
         ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
       `}

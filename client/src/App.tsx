@@ -19,6 +19,27 @@ import Mp4ToTextPage from './pages/seo/Mp4ToTextPage'
 import Mp4ToSrtPage from './pages/seo/Mp4ToSrtPage'
 import SubtitleGeneratorPage from './pages/seo/SubtitleGeneratorPage'
 import SrtTranslatorPage from './pages/seo/SrtTranslatorPage'
+import MeetingTranscriptPage from './pages/seo/MeetingTranscriptPage'
+import SpeakerDiarizationPage from './pages/seo/SpeakerDiarizationPage'
+import VideoSummaryGeneratorPage from './pages/seo/VideoSummaryGeneratorPage'
+import VideoChaptersGeneratorPage from './pages/seo/VideoChaptersGeneratorPage'
+import KeywordIndexedTranscriptPage from './pages/seo/KeywordIndexedTranscriptPage'
+import SrtToVttPage from './pages/seo/SrtToVttPage'
+import SubtitleConverterPage from './pages/seo/SubtitleConverterPage'
+import SubtitleTimingFixerPage from './pages/seo/SubtitleTimingFixerPage'
+import SubtitleValidationPage from './pages/seo/SubtitleValidationPage'
+import SubtitleTranslatorPage from './pages/seo/SubtitleTranslatorPage'
+import MultilingualSubtitlesPage from './pages/seo/MultilingualSubtitlesPage'
+import SubtitleLanguageCheckerPage from './pages/seo/SubtitleLanguageCheckerPage'
+import SubtitleGrammarFixerPage from './pages/seo/SubtitleGrammarFixerPage'
+import SubtitleLineBreakFixerPage from './pages/seo/SubtitleLineBreakFixerPage'
+import HardcodedCaptionsPage from './pages/seo/HardcodedCaptionsPage'
+import VideoWithSubtitlesPage from './pages/seo/VideoWithSubtitlesPage'
+import VideoCompressorPage from './pages/seo/VideoCompressorPage'
+import ReduceVideoSizePage from './pages/seo/ReduceVideoSizePage'
+import BatchVideoProcessingPage from './pages/seo/BatchVideoProcessingPage'
+import BulkSubtitleExportPage from './pages/seo/BulkSubtitleExportPage'
+import BulkTranscriptExportPage from './pages/seo/BulkTranscriptExportPage'
 
 function AppSeo() {
   const { pathname } = useLocation()
@@ -60,6 +81,27 @@ function App() {
             <Route path="/mp4-to-srt" element={<Mp4ToSrtPage />} />
             <Route path="/subtitle-generator" element={<SubtitleGeneratorPage />} />
             <Route path="/srt-translator" element={<SrtTranslatorPage />} />
+            <Route path="/meeting-transcript" element={<MeetingTranscriptPage />} />
+            <Route path="/speaker-diarization" element={<SpeakerDiarizationPage />} />
+            <Route path="/video-summary-generator" element={<VideoSummaryGeneratorPage />} />
+            <Route path="/video-chapters-generator" element={<VideoChaptersGeneratorPage />} />
+            <Route path="/keyword-indexed-transcript" element={<KeywordIndexedTranscriptPage />} />
+            <Route path="/srt-to-vtt" element={<SrtToVttPage />} />
+            <Route path="/subtitle-converter" element={<SubtitleConverterPage />} />
+            <Route path="/subtitle-timing-fixer" element={<SubtitleTimingFixerPage />} />
+            <Route path="/subtitle-validation" element={<SubtitleValidationPage />} />
+            <Route path="/subtitle-translator" element={<SubtitleTranslatorPage />} />
+            <Route path="/multilingual-subtitles" element={<MultilingualSubtitlesPage />} />
+            <Route path="/subtitle-language-checker" element={<SubtitleLanguageCheckerPage />} />
+            <Route path="/subtitle-grammar-fixer" element={<SubtitleGrammarFixerPage />} />
+            <Route path="/subtitle-line-break-fixer" element={<SubtitleLineBreakFixerPage />} />
+            <Route path="/hardcoded-captions" element={<HardcodedCaptionsPage />} />
+            <Route path="/video-with-subtitles" element={<VideoWithSubtitlesPage />} />
+            <Route path="/video-compressor" element={<VideoCompressorPage />} />
+            <Route path="/reduce-video-size" element={<ReduceVideoSizePage />} />
+            <Route path="/batch-video-processing" element={<BatchVideoProcessingPage />} />
+            <Route path="/bulk-subtitle-export" element={<BulkSubtitleExportPage />} />
+            <Route path="/bulk-transcript-export" element={<BulkTranscriptExportPage />} />
           </Routes>
         </main>
         <Footer />

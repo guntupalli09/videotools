@@ -138,7 +138,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
         </div>
 
         {status === 'idle' && (
-          <div className="bg-white rounded-xl p-8 border border-gray-200 mb-6">
+          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6">
             {/* Phase 1B: Profile (Web / Mobile / Archive) or legacy level */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-3">Profile (recommended)</label>
@@ -255,7 +255,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
         )}
 
         {status === 'processing' && (
-          <div className="bg-white rounded-xl p-8 border border-gray-200 mb-6 text-center">
+          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
             <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
             <p className="text-lg font-medium text-gray-800 mb-4">Compressing video...</p>
             <ProgressBar progress={progress} status="Reducing file size while preserving quality" />
@@ -305,7 +305,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
         )}
 
         {status === 'failed' && (
-          <div className="bg-white rounded-xl p-8 border border-gray-200 mb-6 text-center">
+          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
             <p className="text-red-600 mb-4">Processing failed. Please try again.</p>
             <button
               onClick={handleProcessAnother}
@@ -327,7 +327,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
         />
 
         {faq.length > 0 && (
-          <section className="mt-12 pt-8 border-t border-gray-200" aria-label="FAQ">
+          <section className="mt-12 pt-8 border-t border-gray-100" aria-label="FAQ">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently asked questions</h2>
             <dl className="space-y-4">
               {faq.map((item, i) => (

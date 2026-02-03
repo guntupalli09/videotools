@@ -73,6 +73,118 @@ export const ROUTE_SEO: Record<string, { title: string; description: string }> =
     description:
       'Translate SRT subtitle files to another language. Upload your SRT or VTT, choose target language, download translated captions with timestamps intact.',
   },
+  // VIDEO → TRANSCRIPT tree (SEO entry points; same tool as /video-to-transcript)
+  '/meeting-transcript': {
+    title: 'Meeting Transcript — Turn Meetings into Text | VideoText',
+    description:
+      'Convert meeting recordings to text. Upload a video, get a transcript in seconds. No signup for the free tier. Download or copy.',
+  },
+  '/speaker-diarization': {
+    title: 'Speaker-Separated Video Transcripts — Instantly Online | VideoText',
+    description:
+      'Get video transcripts with speaker labels. Upload any video, transcribe, then view Speakers view for who said what. Free tier available.',
+  },
+  '/video-summary-generator': {
+    title: 'Video Summary Generator — Decisions, Actions, Key Points | VideoText',
+    description:
+      'Extract structured summaries from video: decisions, action items, key points. Transcribe first, then use the Summary branch. Free tier.',
+  },
+  '/video-chapters-generator': {
+    title: 'Video Chapters Generator — Section Headings from Transcript | VideoText',
+    description:
+      'Generate chapter headings from your video transcript. Upload, transcribe, then use the Chapters branch to jump by section. Free.',
+  },
+  '/keyword-indexed-transcript': {
+    title: 'Keyword-Indexed Transcript — Topic Index from Video | VideoText',
+    description:
+      'Get a keyword index from your video transcript. Repeated terms link to transcript sections. Upload, transcribe, open Keywords branch.',
+  },
+  // VIDEO → SUBTITLES tree (SEO entry points; same tool as /video-to-subtitles)
+  '/srt-to-vtt': {
+    title: 'SRT to VTT Converter — Subtitle Format Conversion | VideoText',
+    description:
+      'Generate VTT from video or convert SRT to VTT. Upload video for SRT/VTT, or use the convert step after generating. Free tier.',
+  },
+  '/subtitle-converter': {
+    title: 'Subtitle Converter — SRT, VTT, TXT | VideoText',
+    description:
+      'Convert subtitle formats: SRT, VTT, plain text. Generate from video or convert after download. One tool, multiple formats. Free tier.',
+  },
+  '/subtitle-timing-fixer': {
+    title: 'Subtitle Timing Fixer — Fix Overlaps and Gaps | VideoText',
+    description:
+      'Fix overlapping timestamps and gaps in SRT/VTT files. Upload your subtitle file, get corrected timing. Free. Same tool as Fix Subtitles.',
+  },
+  '/subtitle-validation': {
+    title: 'Subtitle Validation — Check Timing and Format | VideoText',
+    description:
+      'Validate and fix SRT/VTT files: timing, line length, formatting. Upload subtitles, get a corrected file. Free. Same tool as Fix Subtitles.',
+  },
+  // TRANSLATE SUBTITLES tree (SEO entry points; same tool as /translate-subtitles)
+  '/subtitle-translator': {
+    title: 'Subtitle Translator — SRT/VTT to Any Language | VideoText',
+    description:
+      'Translate SRT or VTT subtitles to 50+ languages. Upload, pick target language, download. Timestamps stay intact. Free tier.',
+  },
+  '/multilingual-subtitles': {
+    title: 'Multilingual Subtitles — Multiple Languages from One File | VideoText',
+    description:
+      'Get subtitles in multiple languages. Translate SRT/VTT to Arabic, Hindi, Spanish, and more. One upload, many languages. Free tier.',
+  },
+  '/subtitle-language-checker': {
+    title: 'Subtitle Language Checker — Detect and Translate | VideoText',
+    description:
+      'Check subtitle language and translate to another. Upload SRT/VTT, choose target language, download. Free tier available.',
+  },
+  // FIX SUBTITLES tree (SEO entry points; same tool as /fix-subtitles)
+  '/subtitle-grammar-fixer': {
+    title: 'Subtitle Grammar Fixer — Auto-Correct Caption Text | VideoText',
+    description:
+      'Fix grammar and formatting in SRT/VTT files. Upload subtitles, get corrected text and timing. Free. Same tool as Fix Subtitles.',
+  },
+  '/subtitle-line-break-fixer': {
+    title: 'Subtitle Line Break Fixer — Fix Long Lines and Wrapping | VideoText',
+    description:
+      'Fix long lines and line breaks in SRT/VTT for readability and platform limits. Upload, download corrected file. Free.',
+  },
+  // BURN SUBTITLES tree (SEO entry points; same tool as /burn-subtitles)
+  '/hardcoded-captions': {
+    title: 'Hardcoded Captions — Burn Subtitles into Video | VideoText',
+    description:
+      'Burn SRT or VTT subtitles into your video. Upload video + subtitle file, get one video with hardcoded captions. Free tier.',
+  },
+  '/video-with-subtitles': {
+    title: 'Video with Subtitles — Add Captions to Video | VideoText',
+    description:
+      'Add subtitles to video permanently. Upload video and SRT/VTT, get a single video with captions baked in. No signup for free tier.',
+  },
+  // COMPRESS VIDEO tree (SEO entry points; same tool as /compress-video)
+  '/video-compressor': {
+    title: 'Video Compressor — Reduce File Size Online | VideoText',
+    description:
+      'Compress video online: light, medium, or heavy. Reduce file size for sharing and uploads. Free. No signup required.',
+  },
+  '/reduce-video-size': {
+    title: 'Reduce Video Size — Compress Without Losing Quality | VideoText',
+    description:
+      'Reduce video file size with adjustable compression. Upload, choose level, download smaller file. Free tier available.',
+  },
+  // BATCH PROCESSING tree (SEO entry points; same tool as /batch-process)
+  '/batch-video-processing': {
+    title: 'Batch Video Processing — Multiple Videos at Once | VideoText',
+    description:
+      'Process multiple videos in one batch. Upload many videos, get one ZIP of subtitle files. Pro and Agency plans. Same tool as Batch Process.',
+  },
+  '/bulk-subtitle-export': {
+    title: 'Bulk Subtitle Export — SRT for Many Videos | VideoText',
+    description:
+      'Export SRT subtitles for many videos in one go. Upload multiple videos, download ZIP. Pro+ plans. Same tool as Batch Process.',
+  },
+  '/bulk-transcript-export': {
+    title: 'Bulk Transcript Export — Text for Many Videos | VideoText',
+    description:
+      'Get transcripts for many videos in one batch. Upload multiple videos, receive one ZIP. Pro+ plans. Same tool as Batch Process.',
+  },
 }
 
 /** JSON-LD Organization + WebApplication for rich results (homepage or global). */

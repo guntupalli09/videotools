@@ -90,7 +90,7 @@ export default function Home() {
               </Link>
               <Link
                 to="/pricing"
-                className="bg-white border-2 border-gray-200 hover:border-gray-300 text-gray-800 px-8 py-3 rounded-lg font-medium transition-colors"
+                className="bg-white border border-gray-100 hover:border-gray-200 text-gray-800 px-8 py-3 rounded-lg font-medium transition-colors shadow-sm"
               >
                 See pricing
               </Link>
