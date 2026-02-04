@@ -493,7 +493,7 @@ router.post('/init', async (req: Request, res: Response) => {
 
     return res.json({ uploadId })
   } catch (error: any) {
-    console.error('Upload init error:', error)
+    console.error('[upload/init] 500', error?.message || error, error?.stack)
     return res.status(500).json({ message: error.message || 'Upload init failed' })
   }
 })
@@ -512,16 +512,16 @@ export function handleUploadChunk(req: Request, res: Response) {
       return res.status(404).json({ message: 'Upload session not found or expired' })
     }
 
-    const body = (req as any).body as Buffer
-    if (!Buffer.isBuffer(body) || body.length === 0) {
-      return res.status(400).json({ message: 'Chunk body required' })
+    const body = (req as any).body
+    if (!body || !Buffer.isBuffer(body) || body.length === 0) {
+      return res.status(400).json({ message: 'Chunk body required (raw binary)' })
     }
 
     const chunkPath = path.join(chunksDir, uploadId, `chunk_${chunkIndex}`)
     fs.writeFileSync(chunkPath, body)
     return res.json({ ok: true })
   } catch (error: any) {
-    console.error('Upload chunk error:', error)
+    console.error('[upload/chunk] 500', error?.message || error, error?.stack)
     return res.status(500).json({ message: error.message || 'Chunk upload failed' })
   }
 }
@@ -613,7 +613,7 @@ router.post('/complete', async (req: Request, res: Response) => {
 
     return res.status(202).json({ jobId: job.id, status: 'queued' })
   } catch (error: any) {
-    console.error('Upload complete error:', error)
+    console.error('[upload/complete] 500', error?.message || error, error?.stack)
     return res.status(500).json({ message: error.message || 'Upload complete failed' })
   }
 })

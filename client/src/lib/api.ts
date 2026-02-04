@@ -236,6 +236,7 @@ async function uploadFileChunked(
       totalChunks,
       uploadedChunks: [],
     })
+    progressOptions?.onProgress?.(0)
   }
 
   const uploadChunk = async (chunkIndex: number): Promise<void> => {
