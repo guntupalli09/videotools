@@ -14,7 +14,7 @@ import VideoTrimmer from '../components/VideoTrimmer'
 import LanguageSelector from '../components/LanguageSelector'
 import SubtitleEditor, { SubtitleRow } from '../components/SubtitleEditor'
 import { incrementUsage } from '../lib/usage'
-import { uploadFile, uploadFileWithProgress, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError } from '../lib/api'
+import { uploadFile, uploadFileWithProgress, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError, translateTranscript, TRANSCRIPT_TRANSLATION_LANGUAGES } from '../lib/api'
 import { checkVideoPreflight } from '../lib/uploadPreflight'
 import { getJobLifecycleTransition } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
@@ -22,7 +22,7 @@ import { persistJobId, getPersistedJobId, clearPersistedJobId } from '../lib/job
 import { createCheckoutSession } from '../lib/billing'
 import { trackEvent } from '../lib/analytics'
 import toast from 'react-hot-toast'
-import { Languages, Film, Wrench, FileDown } from 'lucide-react'
+import { Languages, Film, Wrench, FileDown, Copy, ChevronDown } from 'lucide-react'
 
 /** Optional SEO overrides for alternate entry points (e.g. /mp4-to-srt, /subtitle-generator). Do NOT duplicate logic. */
 export type VideoToSubtitlesSeoProps = {
@@ -57,12 +57,29 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
   const [convertTargetFormat, setConvertTargetFormat] = useState<'srt' | 'vtt' | 'txt'>('srt')
   const [convertProgress, setConvertProgress] = useState(false)
   const [convertPreview, setConvertPreview] = useState<string | null>(null)
+  const [translationLanguage, setTranslationLanguage] = useState<string | null>(null)
+  const [translatedCache, setTranslatedCache] = useState<Record<string, string>>({})
+  const [translating, setTranslating] = useState(false)
+  const [translateDropdownOpen, setTranslateDropdownOpen] = useState(false)
   const rehydratePollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const plan = (localStorage.getItem('plan') || 'free').toLowerCase()
   const canEdit = plan !== 'free'
   const canMultiLanguage = plan === 'basic' || plan === 'pro' || plan === 'agency'
   const maxAdditionalLanguages = plan === 'agency' ? 9 : plan === 'pro' ? 4 : plan === 'basic' ? 1 : 0
+
+  // Plain text from subtitles for translation and copy
+  const subtitleTextForTranslation = subtitleRows.length > 0 ? subtitleRows.map((r) => r.text).join('\n\n') : ''
+  const displaySubtitleText =
+    translationLanguage && translatedCache[translationLanguage] != null
+      ? translatedCache[translationLanguage]
+      : subtitleTextForTranslation
+
+  // Reset translation when result changes (new job)
+  useEffect(() => {
+    setTranslationLanguage(null)
+    setTranslatedCache({})
+  }, [result])
 
   // Rehydrate from URL/sessionStorage after idle or reload (e.g. mobile Safari)
   useEffect(() => {
@@ -365,6 +382,8 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
     setResult(null)
     setSubtitlePreview('')
     setSubtitleRows([])
+    setTranslationLanguage(null)
+    setTranslatedCache({})
   }
 
   const getDownloadUrl = () => {
@@ -419,6 +438,58 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
       toast.error(e.message || 'Conversion failed')
     } finally {
       setConvertProgress(false)
+    }
+  }
+
+  const handleTranslateLanguage = async (language: string) => {
+    if (language === 'Original') {
+      setTranslationLanguage(null)
+      setTranslateDropdownOpen(false)
+      return
+    }
+    if (translatedCache[language] != null) {
+      setTranslationLanguage(language)
+      setTranslateDropdownOpen(false)
+      return
+    }
+    if (!subtitleTextForTranslation.trim()) {
+      toast.error('No subtitles to translate')
+      return
+    }
+    setTranslating(true)
+    setTranslateDropdownOpen(false)
+    try {
+      const { translatedText } = await translateTranscript(subtitleTextForTranslation, language)
+      setTranslatedCache((prev) => ({ ...prev, [language]: translatedText }))
+      setTranslationLanguage(language)
+      toast.success(`Translated to ${language}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Translation failed')
+    } finally {
+      setTranslating(false)
+    }
+  }
+
+  const handleCopySubtitlesToClipboard = async () => {
+    const textToCopy = displaySubtitleText.trim()
+    if (!textToCopy) return
+    try {
+      await navigator.clipboard.writeText(textToCopy)
+      toast.success('Copied to clipboard!')
+    } catch {
+      try {
+        const textArea = document.createElement('textarea')
+        textArea.value = textToCopy
+        textArea.style.position = 'fixed'
+        textArea.style.opacity = '0'
+        document.body.appendChild(textArea)
+        textArea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textArea)
+        toast.success('Copied to clipboard!')
+      } catch {
+        toast.error('Failed to copy to clipboard')
+      }
     }
   }
 
@@ -599,6 +670,72 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {subtitleTextForTranslation && (
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <Languages className="h-5 w-5 text-violet-600" />
+                  View in another language
+                </h3>
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setTranslateDropdownOpen((o) => !o)}
+                      disabled={translating || !subtitleTextForTranslation.trim()}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Languages className="h-4 w-4" />
+                      <span>{translationLanguage ?? 'Translate'}</span>
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+                    {translateDropdownOpen && (
+                      <>
+                        <div className="fixed inset-0 z-10" aria-hidden onClick={() => setTranslateDropdownOpen(false)} />
+                        <div className="absolute left-0 top-full mt-1 py-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                          <button
+                            type="button"
+                            onClick={() => handleTranslateLanguage('Original')}
+                            className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                          >
+                            Original
+                          </button>
+                          {TRANSCRIPT_TRANSLATION_LANGUAGES.map((lang) => (
+                            <button
+                              key={lang}
+                              type="button"
+                              onClick={() => handleTranslateLanguage(lang)}
+                              disabled={translating}
+                              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                            >
+                              {lang}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopySubtitlesToClipboard}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-violet-600 hover:bg-violet-50"
+                  >
+                    <Copy className="h-4 w-4" />
+                    Copy
+                  </button>
+                </div>
+                {translating ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+                    <Loader2 className="h-8 w-8 animate-spin text-violet-600 mb-2" />
+                    <p className="text-sm">Translating subtitles…</p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{displaySubtitleText || '—'}</p>
+                  </div>
+                )}
               </div>
             )}
 
