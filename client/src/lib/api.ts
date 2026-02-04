@@ -620,3 +620,22 @@ export async function getCurrentUsage(): Promise<UsageData> {
 
   return response.json()
 }
+
+/** Translate transcript text to a target language (English, Hindi, Telugu, Spanish, Chinese, Russian). */
+export const TRANSCRIPT_TRANSLATION_LANGUAGES = ['English', 'Hindi', 'Telugu', 'Spanish', 'Chinese', 'Russian'] as const
+
+export async function translateTranscript(
+  text: string,
+  targetLanguage: string
+): Promise<{ translatedText: string }> {
+  const response = await api('/api/translate-transcript', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, targetLanguage }),
+  })
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    throw new Error((data as { message?: string }).message || 'Translation failed')
+  }
+  return response.json()
+}

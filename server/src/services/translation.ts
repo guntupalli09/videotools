@@ -27,12 +27,16 @@ const LANGUAGE_NAMES_BY_CODE: Record<string, string> = {
   pt: 'Portuguese',
   ar: 'Arabic',
   hi: 'Hindi',
+  te: 'Telugu',
   ja: 'Japanese',
   ko: 'Korean',
-  zh: 'Chinese Simplified',
+  zh: 'Chinese',
   it: 'Italian',
   ru: 'Russian',
 }
+
+/** Supported display names for transcript translation (frontend sends these). */
+export const TRANSCRIPT_TRANSLATION_LANGUAGES = ['English', 'Hindi', 'Telugu', 'Spanish', 'Chinese', 'Russian'] as const
 
 /**
  * Translate subtitle entries
@@ -159,6 +163,53 @@ Return ALL ${batch.length} translations in numbered format (1. through ${batch.l
   }
   
   return translatedEntries
+}
+
+/**
+ * Translate plain transcript text to a target language.
+ * Splits by paragraphs and translates in batches to stay within token limits.
+ */
+export async function translateTranscriptText(
+  text: string,
+  targetLanguage: string
+): Promise<string> {
+  const trimmed = text.trim()
+  if (!trimmed) return ''
+
+  const paragraphs = trimmed.split(/\n\s*\n/).filter((p) => p.trim().length > 0)
+  if (paragraphs.length === 0) return trimmed
+
+  const BATCH_SIZE = 15
+  const translatedParts: string[] = []
+
+  for (let i = 0; i < paragraphs.length; i += BATCH_SIZE) {
+    const batch = paragraphs.slice(i, i + BATCH_SIZE)
+    const block = batch.join('\n\n')
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{
+        role: 'user',
+        content: `Translate the following transcript text to ${targetLanguage}.
+
+CRITICAL:
+- Preserve paragraph breaks (each paragraph separated by a blank line).
+- Translate naturally; keep the same structure and number of paragraphs.
+- Do not add explanations, titles, or extra text. Output only the translated transcript.
+
+Transcript to translate:
+${block}`,
+      }],
+      temperature: 0.3,
+      max_tokens: 4000,
+    })
+
+    let out = response.choices[0]?.message?.content?.trim() ?? ''
+    out = out.replace(/```[\s\S]*?```/g, '').replace(/^Translation:?\s*/i, '').trim()
+    translatedParts.push(out || block)
+  }
+
+  return translatedParts.join('\n\n')
 }
 
 /** Phase 1B — UTILITY 3A: Language consistency. Detect mixed-language or untranslated lines. */

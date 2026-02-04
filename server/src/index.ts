@@ -9,6 +9,7 @@ import usageRoutes from './routes/usage'
 import batchRoutes from './routes/batch'
 import billingRoutes from './routes/billing'
 import authRoutes from './routes/auth'
+import translateTranscriptRoutes from './routes/translateTranscript'
 import { stripeWebhookHandler } from './routes/stripeWebhook'
 import { startWorker } from './workers/videoProcessor'
 import { startFileCleanup } from './utils/fileCleanup'
@@ -99,6 +100,7 @@ app.use('/api/usage', usageRoutes)
 app.use('/api/batch', batchRoutes)
 app.use('/api/billing', billingRoutes)
 app.use('/api/auth', authRoutes)
+app.use('/api/translate-transcript', translateTranscriptRoutes)
 
 // Health check
 app.get('/health', (req, res) => {

@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { FileText, Copy, Loader2, Users, ListOrdered, BookOpen, Sparkles, Hash, FileCode, Download, Eraser, Search, Pencil, FileDown } from 'lucide-react'
+import { FileText, Copy, Loader2, Users, ListOrdered, BookOpen, Sparkles, Hash, FileCode, Download, Eraser, Search, Pencil, FileDown, Languages, ChevronDown } from 'lucide-react'
 import FileUploadZone from '../components/FileUploadZone'
 import UsageCounter from '../components/UsageCounter'
 import PlanBadge from '../components/PlanBadge'
@@ -12,7 +12,7 @@ import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
 import VideoTrimmer from '../components/VideoTrimmer'
 import { incrementUsage } from '../lib/usage'
-import { uploadFileWithProgress, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError } from '../lib/api'
+import { uploadFileWithProgress, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError, translateTranscript, TRANSCRIPT_TRANSLATION_LANGUAGES } from '../lib/api'
 import { checkVideoPreflight } from '../lib/uploadPreflight'
 import { getJobLifecycleTransition } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
@@ -92,6 +92,10 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   // Phase 1 – Derived Transcript Utilities: branch tab (no remount/refetch)
   const [activeBranch, setActiveBranch] = useState<BranchId>('transcript')
   const [cleanTranscriptEnabled, setCleanTranscriptEnabled] = useState(false)
+  const [translationLanguage, setTranslationLanguage] = useState<string | null>(null)
+  const [translatedCache, setTranslatedCache] = useState<Record<string, string>>({})
+  const [translating, setTranslating] = useState(false)
+  const [translateDropdownOpen, setTranslateDropdownOpen] = useState(false)
   const transcriptScrollRef = useRef<HTMLDivElement>(null)
   const segmentRefsRef = useRef<Map<number, HTMLDivElement>>(new Map())
   const rehydratePollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -105,6 +109,12 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     }
     setTranscriptEditMode(false)
   }, [result?.segments])
+
+  // Reset translation when transcript result changes
+  useEffect(() => {
+    setTranslationLanguage(null)
+    setTranslatedCache({})
+  }, [result])
 
   // Rehydrate from URL/sessionStorage after idle or reload (e.g. mobile Safari)
   useEffect(() => {
@@ -353,18 +363,23 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   }
 
   const handleCopyToClipboard = async () => {
-    if (transcriptPreview) {
-      try {
-        // Fetch full transcript
-        if (result?.downloadUrl) {
-          const response = await fetch(getAbsoluteDownloadUrl(result.downloadUrl))
-          const text = await response.text()
-          await navigator.clipboard.writeText(text)
-          toast.success('Copied to clipboard!')
-        }
-      } catch (error) {
-        toast.error('Failed to copy to clipboard')
+    if (!transcriptPreview && !displayTranscript) return
+    try {
+      // If showing a translation, copy that; otherwise fetch full original
+      if (translationLanguage && translatedCache[translationLanguage] != null) {
+        await navigator.clipboard.writeText(translatedCache[translationLanguage])
+      } else if (result?.downloadUrl) {
+        const response = await fetch(getAbsoluteDownloadUrl(result.downloadUrl))
+        const text = await response.text()
+        await navigator.clipboard.writeText(text)
+      } else if (fullTranscript) {
+        await navigator.clipboard.writeText(fullTranscript)
+      } else {
+        return
       }
+      toast.success('Copied to clipboard!')
+    } catch {
+      toast.error('Failed to copy to clipboard')
     }
   }
 
@@ -551,7 +566,42 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   }, [fullTranscript, getParagraphs])
 
   const transcriptParagraphs = getParagraphs(fullTranscript || '')
+  const displayTranscript =
+    translationLanguage && translatedCache[translationLanguage] != null
+      ? translatedCache[translationLanguage]
+      : fullTranscript || ''
+  const displayParagraphs = getParagraphs(displayTranscript)
   const isPaidPlan = typeof window !== 'undefined' && (localStorage.getItem('plan') || 'free').toLowerCase() !== 'free'
+
+  const handleTranslateLanguage = async (language: string) => {
+    if (language === 'Original') {
+      setTranslationLanguage(null)
+      setTranslateDropdownOpen(false)
+      return
+    }
+    if (translatedCache[language] != null) {
+      setTranslationLanguage(language)
+      setTranslateDropdownOpen(false)
+      return
+    }
+    const textToTranslate = fullTranscript || ''
+    if (!textToTranslate.trim()) {
+      toast.error('No transcript to translate')
+      return
+    }
+    setTranslating(true)
+    setTranslateDropdownOpen(false)
+    try {
+      const { translatedText } = await translateTranscript(textToTranslate, language)
+      setTranslatedCache((prev) => ({ ...prev, [language]: translatedText }))
+      setTranslationLanguage(language)
+      toast.success(`Translated to ${language}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Translation failed')
+    } finally {
+      setTranslating(false)
+    }
+  }
 
   // Search: match in segments (if any) or paragraphs; return { index, snippet, startTime? }
   const searchResults = useMemo(() => {
@@ -823,6 +873,43 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                             </button>
                           </>
                         )}
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => setTranslateDropdownOpen((o) => !o)}
+                            disabled={translating || !fullTranscript?.trim()}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <Languages className="h-4 w-4" />
+                            <span>{translationLanguage ? translationLanguage : 'Translate'}</span>
+                            <ChevronDown className="h-4 w-4" />
+                          </button>
+                          {translateDropdownOpen && (
+                            <>
+                              <div className="fixed inset-0 z-10" aria-hidden onClick={() => setTranslateDropdownOpen(false)} />
+                              <div className="absolute right-0 top-full mt-1 py-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                                <button
+                                  type="button"
+                                  onClick={() => handleTranslateLanguage('Original')}
+                                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                >
+                                  Original
+                                </button>
+                                {TRANSCRIPT_TRANSLATION_LANGUAGES.map((lang) => (
+                                  <button
+                                    key={lang}
+                                    type="button"
+                                    onClick={() => handleTranslateLanguage(lang)}
+                                    disabled={translating}
+                                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                                  >
+                                    {lang}
+                                  </button>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
                         <button
                           onClick={handleCopyToClipboard}
                           className="flex items-center space-x-2 text-violet-600 hover:text-violet-700 font-medium text-sm"
@@ -849,7 +936,12 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                       </div>
                     )}
                     <div ref={transcriptScrollRef} className="bg-gray-50/80 rounded-xl p-4 max-h-96 overflow-y-auto">
-                      {transcriptEditMode && editableSegments && editableSegments.length > 0 ? (
+                      {translating ? (
+                        <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+                          <Loader2 className="h-8 w-8 animate-spin text-violet-600 mb-2" />
+                          <p className="text-sm">Translating transcript…</p>
+                        </div>
+                      ) : transcriptEditMode && editableSegments && editableSegments.length > 0 ? (
                         <div className="space-y-2">
                           {editableSegments.map((seg, i) => (
                             <div
@@ -873,8 +965,8 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                             </div>
                           ))}
                         </div>
-                      ) : fullTranscript ? (
-                        transcriptParagraphs.map((p, i) => (
+                      ) : displayTranscript ? (
+                        displayParagraphs.map((p, i) => (
                           <div
                             key={i}
                             ref={(el) => {
