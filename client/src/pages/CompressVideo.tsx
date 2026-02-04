@@ -6,6 +6,7 @@ import UsageCounter from '../components/UsageCounter'
 import PlanBadge from '../components/PlanBadge'
 import ProgressBar from '../components/ProgressBar'
 import SuccessState from '../components/SuccessState'
+import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
@@ -40,6 +41,8 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
   const [compressProfile, setCompressProfile] = useState<CompressProfile | ''>('')
   const [status, setStatus] = useState<'idle' | 'processing' | 'completed' | 'failed'>('idle')
   const [progress, setProgress] = useState(0)
+  const [queuePosition, setQueuePosition] = useState<number | undefined>(undefined)
+  const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null)
   const [result, setResult] = useState<{ downloadUrl: string; fileName?: string } | null>(null)
   const [showPaywall, setShowPaywall] = useState(false)
   const [availableMinutes, setAvailableMinutes] = useState<number | null>(null)
@@ -85,6 +88,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
     try {
       setStatus('processing')
       setProgress(0)
+      setProcessingStartedAt(Date.now())
 
       const response = await uploadFile(selectedFile, {
         toolType: BACKEND_TOOL_TYPES.COMPRESS_VIDEO,
@@ -100,6 +104,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
         try {
           const jobStatus = await getJobStatus(response.jobId)
           setProgress(jobStatus.progress ?? 0)
+          if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
 
           const transition = getJobLifecycleTransition(jobStatus)
           if (transition === 'completed') {
@@ -281,8 +286,17 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
           <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
             <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
             <p className="text-lg font-medium text-gray-800 mb-4">Compressing video...</p>
-            <ProgressBar progress={progress} status="Reducing file size while preserving quality" />
-            <p className="text-sm text-gray-500 mt-4">This may take 2-4 minutes</p>
+            <ProgressBar
+              progress={progress}
+              status="Reducing file size while preserving quality"
+              queuePosition={queuePosition}
+              processingStartedAt={processingStartedAt}
+            />
+            <p className="text-sm text-gray-500 mt-4">
+              {queuePosition !== undefined && queuePosition > 0
+                ? `${queuePosition} jobs ahead of you. Then ~2–4 min.`
+                : 'Usually 2–4 minutes'}
+            </p>
           </div>
         )}
 
@@ -328,15 +342,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
         )}
 
         {status === 'failed' && (
-          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
-            <p className="text-red-600 mb-4">Processing failed. Please try again.</p>
-            <button
-              onClick={handleProcessAnother}
-              className="text-violet-600 hover:text-violet-700 font-medium"
-            >
-              Try again
-            </button>
-          </div>
+          <FailedState onTryAgain={handleProcessAnother} />
         )}
 
         <PaywallModal

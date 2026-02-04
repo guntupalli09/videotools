@@ -3,6 +3,7 @@ import FileUploadZone from '../components/FileUploadZone'
 import PlanBadge from '../components/PlanBadge'
 import UsageDisplay from '../components/UsageDisplay'
 import ProgressBar from '../components/ProgressBar'
+import FailedState from '../components/FailedState'
 import { Loader2, FolderPlus } from 'lucide-react'
 import { getBatchDownloadUrl, getBatchStatus, uploadBatch } from '../lib/api'
 
@@ -141,14 +142,13 @@ export default function BatchProcess(props: BatchProcessSeoProps = {}) {
         )}
 
         {status === 'failed' && (
-          <div className="mb-6 rounded-2xl shadow-sm border border-red-100 bg-red-50/80 p-8 text-center">
-            <p className="mb-2 text-lg font-semibold text-red-700">
-              Batch failed
-            </p>
-            <p className="mb-4 text-sm text-red-600">
-              Something went wrong while starting your batch. Please try again.
-            </p>
-          </div>
+          <FailedState
+            onTryAgain={() => {
+              setStatus('idle')
+              setBatchInfo(null)
+            }}
+            message="Something went wrong while starting your batch. Your files weren't changed — try again; it usually works."
+          />
         )}
 
         {faq.length > 0 && (

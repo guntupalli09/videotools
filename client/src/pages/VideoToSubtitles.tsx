@@ -6,6 +6,7 @@ import UsageCounter from '../components/UsageCounter'
 import PlanBadge from '../components/PlanBadge'
 import ProgressBar from '../components/ProgressBar'
 import SuccessState from '../components/SuccessState'
+import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
@@ -51,6 +52,8 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
   const [availableMinutes, setAvailableMinutes] = useState<number | null>(null)
   const [usedMinutes, setUsedMinutes] = useState<number | null>(null)
   const [queuePosition, setQueuePosition] = useState<number | undefined>(undefined)
+  const [isRehydrating, setIsRehydrating] = useState(false)
+  const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null)
   const [convertTargetFormat, setConvertTargetFormat] = useState<'srt' | 'vtt' | 'txt'>('srt')
   const [convertProgress, setConvertProgress] = useState(false)
   const [convertPreview, setConvertPreview] = useState<string | null>(null)
@@ -67,11 +70,18 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
     const jobId = getPersistedJobId(pathname)
     if (!jobId) return
 
+    setStatus('processing')
+    setUploadPhase('processing')
+    setUploadProgress(100)
+    setIsRehydrating(true)
+    setProcessingStartedAt(Date.now())
+
     let cancelled = false
     const run = async () => {
       try {
         const jobStatus = await getJobStatus(jobId)
         if (cancelled) return
+        setIsRehydrating(false)
         setProgress(jobStatus.progress ?? 0)
         if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
 
@@ -103,6 +113,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           return
         }
         if (transition === 'failed') {
+          setIsRehydrating(false)
           setStatus('failed')
           toast.error('Processing failed. Please try again.')
           clearPersistedJobId(pathname, navigate)
@@ -142,6 +153,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             } else if (t === 'failed') {
               if (rehydratePollRef.current) clearInterval(rehydratePollRef.current)
               rehydratePollRef.current = null
+              setIsRehydrating(false)
               setStatus('failed')
               toast.error('Processing failed. Please try again.')
               clearPersistedJobId(pathname, navigate)
@@ -159,6 +171,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
         doPoll()
       } catch (err) {
         if (cancelled) return
+        setIsRehydrating(false)
         if (err instanceof SessionExpiredError) {
           clearPersistedJobId(pathname, navigate)
           toast.error(err.message)
@@ -281,6 +294,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
       persistJobId(location.pathname, response.jobId)
       setUploadPhase('processing')
       setUploadProgress(100)
+      setProcessingStartedAt(Date.now())
 
       const pollIntervalRef = { current: 0 as ReturnType<typeof setInterval> }
       const doPoll = async () => {
@@ -521,9 +535,10 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
             <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
             <p className="text-lg font-medium text-gray-800 mb-4">
-              {uploadPhase === 'preparing' && 'Preparing video…'}
-              {uploadPhase === 'uploading' && `Uploading (${uploadProgress}%)`}
-              {uploadPhase === 'processing' && 'Generating subtitles…'}
+              {isRehydrating && 'Resuming…'}
+              {!isRehydrating && uploadPhase === 'preparing' && 'Preparing video…'}
+              {!isRehydrating && uploadPhase === 'uploading' && `Uploading (${uploadProgress}%)`}
+              {!isRehydrating && uploadPhase === 'processing' && 'Generating subtitles…'}
             </p>
             <ProgressBar
               progress={uploadPhase === 'uploading' ? uploadProgress : progress}
@@ -534,6 +549,10 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                     ? `Processing… ${queuePosition} jobs ahead of you.`
                     : 'Processing video and extracting speech'
               }
+              isRehydrating={isRehydrating}
+              isUploadPhase={uploadPhase === 'uploading'}
+              queuePosition={queuePosition}
+              processingStartedAt={uploadPhase === 'processing' ? processingStartedAt : null}
             />
             <p className="text-sm text-gray-500 mt-4">
               {uploadPhase === 'uploading' ? 'Large files may take a minute.' : 'Estimated time: 30-60 seconds'}
@@ -664,15 +683,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
         )}
 
         {status === 'failed' && (
-          <div className="bg-white rounded-xl p-8 border border-gray-200 mb-6 text-center">
-            <p className="text-red-600 mb-4">Processing failed. Please try again.</p>
-            <button
-              onClick={handleProcessAnother}
-              className="text-violet-600 hover:text-violet-700 font-medium"
-            >
-              Try again
-            </button>
-          </div>
+          <FailedState onTryAgain={handleProcessAnother} />
         )}
 
         <PaywallModal

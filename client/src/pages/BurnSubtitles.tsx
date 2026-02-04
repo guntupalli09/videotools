@@ -6,6 +6,7 @@ import UsageCounter from '../components/UsageCounter'
 import PlanBadge from '../components/PlanBadge'
 import ProgressBar from '../components/ProgressBar'
 import SuccessState from '../components/SuccessState'
+import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
@@ -38,6 +39,8 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
   const [backgroundOpacity, setBackgroundOpacity] = useState<'none' | 'low' | 'high'>('low')
   const [status, setStatus] = useState<'idle' | 'processing' | 'completed' | 'failed'>('idle')
   const [progress, setProgress] = useState(0)
+  const [queuePosition, setQueuePosition] = useState<number | undefined>(undefined)
+  const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null)
   const [result, setResult] = useState<{ downloadUrl: string; fileName?: string } | null>(null)
   const [showPaywall, setShowPaywall] = useState(false)
   const [availableMinutes, setAvailableMinutes] = useState<number | null>(null)
@@ -77,6 +80,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
     try {
       setStatus('processing')
       setProgress(0)
+      setProcessingStartedAt(Date.now())
 
       const response = await uploadDualFiles(videoFile, subtitleFile, BACKEND_TOOL_TYPES.BURN_SUBTITLES, {
         trimmedStart: trimStart ?? undefined,
@@ -92,6 +96,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
         try {
           const jobStatus = await getJobStatus(response.jobId)
           setProgress(jobStatus.progress ?? 0)
+          if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
 
           const transition = getJobLifecycleTransition(jobStatus)
           if (transition === 'completed') {
@@ -240,9 +245,16 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
           <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
             <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
             <p className="text-lg font-medium text-gray-800 mb-4">Burning subtitles into video...</p>
-            <ProgressBar progress={progress} status="Processing video with hardcoded subtitles" />
+            <ProgressBar
+              progress={progress}
+              status="Processing video with hardcoded subtitles"
+              queuePosition={queuePosition}
+              processingStartedAt={processingStartedAt}
+            />
             <p className="text-sm text-gray-500 mt-4">
-              This may take 3-5 minutes for a 10-minute video
+              {queuePosition !== undefined && queuePosition > 0
+                ? `${queuePosition} jobs ahead of you. Then ~3–5 min for a 10-min video.`
+                : 'Usually 3–5 minutes for a 10-minute video'}
             </p>
           </div>
         )}
@@ -268,15 +280,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
         )}
 
         {status === 'failed' && (
-          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
-            <p className="text-red-600 mb-4">Processing failed. Please try again.</p>
-            <button
-              onClick={handleProcessAnother}
-              className="text-violet-600 hover:text-violet-700 font-medium"
-            >
-              Try again
-            </button>
-          </div>
+          <FailedState onTryAgain={handleProcessAnother} />
         )}
 
         <PaywallModal

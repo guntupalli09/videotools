@@ -6,6 +6,7 @@ import UsageCounter from '../components/UsageCounter'
 import PlanBadge from '../components/PlanBadge'
 import ProgressBar from '../components/ProgressBar'
 import SuccessState from '../components/SuccessState'
+import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import UsageDisplay from '../components/UsageDisplay'
 import SubtitleEditor, { SubtitleRow } from '../components/SubtitleEditor'
@@ -38,6 +39,8 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
   const [removeFillers, setRemoveFillers] = useState(false)
   const [status, setStatus] = useState<'idle' | 'analyzing' | 'processing' | 'completed' | 'failed'>('idle')
   const [progress, setProgress] = useState(0)
+  const [queuePosition, setQueuePosition] = useState<number | undefined>(undefined)
+  const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null)
   const [result, setResult] = useState<{ downloadUrl: string; fileName?: string; issues?: any[]; warnings?: { type: string; message: string; line?: number }[] } | null>(null)
   const [subtitleRows, setSubtitleRows] = useState<SubtitleRow[]>([])
 
@@ -90,6 +93,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
     try {
       setStatus('analyzing')
       setProgress(0)
+      setProcessingStartedAt(Date.now())
 
       // Upload and process to detect issues (no fix options for analyze)
       const response = await uploadFile(selectedFile, {
@@ -102,6 +106,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         try {
           const jobStatus = await getJobStatus(response.jobId)
           setProgress(jobStatus.progress ?? 0)
+          if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
 
           const transition = getJobLifecycleTransition(jobStatus)
           if (transition === 'completed') {
@@ -139,6 +144,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
     try {
       setStatus('processing')
       setProgress(0)
+      setProcessingStartedAt(Date.now())
 
       const response = await uploadFile(selectedFile, {
         toolType: BACKEND_TOOL_TYPES.FIX_SUBTITLES,
@@ -154,6 +160,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         try {
           const jobStatus = await getJobStatus(response.jobId)
           setProgress(jobStatus.progress ?? 0)
+          if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
 
           const transition = getJobLifecycleTransition(jobStatus)
           if (transition === 'completed') {
@@ -308,7 +315,17 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
           <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
             <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
             <p className="text-lg font-medium text-gray-800 mb-4">Analyzing subtitles...</p>
-            <ProgressBar progress={progress} />
+            <ProgressBar
+              progress={progress}
+              status="Checking for issues"
+              queuePosition={queuePosition}
+              processingStartedAt={processingStartedAt}
+            />
+            <p className="text-sm text-gray-500 mt-4">
+              {queuePosition !== undefined && queuePosition > 0
+                ? `${queuePosition} jobs ahead of you. Usually 10–30 seconds.`
+                : 'Usually 10–30 seconds'}
+            </p>
           </div>
         )}
 
@@ -384,7 +401,17 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
           <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
             <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
             <p className="text-lg font-medium text-gray-800 mb-4">Fixing issues...</p>
-            <ProgressBar progress={progress} status="Applying fixes to subtitle file" />
+            <ProgressBar
+              progress={progress}
+              status="Applying fixes to subtitle file"
+              queuePosition={queuePosition}
+              processingStartedAt={processingStartedAt}
+            />
+            <p className="text-sm text-gray-500 mt-4">
+              {queuePosition !== undefined && queuePosition > 0
+                ? `${queuePosition} jobs ahead of you. Usually 10–30 seconds.`
+                : 'Usually 10–30 seconds'}
+            </p>
           </div>
         )}
 
@@ -467,15 +494,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         )}
 
         {status === 'failed' && (
-          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
-            <p className="text-red-600 mb-4">Processing failed. Please try again.</p>
-            <button
-              onClick={handleProcessAnother}
-              className="text-violet-600 hover:text-violet-700 font-medium"
-            >
-              Try again
-            </button>
-          </div>
+          <FailedState onTryAgain={handleProcessAnother} />
         )}
 
         {faq.length > 0 && (

@@ -247,6 +247,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       includeSummary: options.includeSummary === true || options.includeSummary === 'true',
       includeChapters: options.includeChapters === true || options.includeChapters === 'true',
       speakerDiarization: options.speakerDiarization === true || options.speakerDiarization === 'true',
+      glossary: typeof options.glossary === 'string' && options.glossary.trim() ? options.glossary.trim() : undefined,
       exportFormats,
     }
     if (additionalLanguages.length > 0) {

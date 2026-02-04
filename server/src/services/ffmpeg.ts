@@ -16,8 +16,8 @@ try {
   console.warn('Could not set ffprobe path:', e)
 }
 
-/** Cap FFmpeg threads to avoid unbounded CPU/RAM on shared VMs. */
-const FFMPEG_THREADS = process.env.FFMPEG_THREADS || '2'
+/** FFmpeg thread count. Use 4+ on dedicated servers for faster encode. */
+const FFMPEG_THREADS = process.env.FFMPEG_THREADS || '4'
 
 /** Phase 2.5: Kill job if no FFmpeg output for 90s. Worker will auto-retry once. */
 export const HUNG_JOB_MS = 90 * 1000
@@ -59,7 +59,7 @@ export function extractAudio(
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const cmd = ffmpeg(videoPath)
-      .outputOptions(['-threads', FFMPEG_THREADS, '-vn', '-acodec', 'libmp3lame', '-ar', '16000', '-ac', '1'])
+      .outputOptions(['-threads', FFMPEG_THREADS, '-vn', '-acodec', 'libmp3lame', '-ar', '16000', '-ac', '1', '-q:a', '5'])
       .on('progress', (progress: { percent?: number; timemark?: string }) => {
         hung.reset()
         onProgress?.({
@@ -222,7 +222,7 @@ export function burnSubtitles(
     })
         const cmd = (ffmpeg(videoPath) as any)
           .videoFilters(subtitleFilter)
-          .outputOptions(['-threads', FFMPEG_THREADS, '-c:v libx264', '-c:a copy'])
+          .outputOptions(['-threads', FFMPEG_THREADS, '-c:v', 'libx264', '-preset', 'fast', '-c:a', 'copy'])
           .on('progress', (progress: { percent?: number; timemark?: string }) => {
             hung.reset()
             onProgress?.({
@@ -280,7 +280,7 @@ export function compressVideo(
       const opts: string[] = [
         '-threads', FFMPEG_THREADS,
         `-crf ${useCrf}`,
-        '-preset medium',
+        '-preset fast',
         '-movflags +faststart',
       ]
       const cmd = ffmpeg(inputPath).videoCodec('libx264')

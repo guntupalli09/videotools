@@ -1,11 +1,12 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { FileText, Copy, Loader2, Users, ListOrdered, BookOpen, Sparkles, Hash, FileCode, Download, Eraser } from 'lucide-react'
+import { FileText, Copy, Loader2, Users, ListOrdered, BookOpen, Sparkles, Hash, FileCode, Download, Eraser, Search, Pencil, FileDown } from 'lucide-react'
 import FileUploadZone from '../components/FileUploadZone'
 import UsageCounter from '../components/UsageCounter'
 import PlanBadge from '../components/PlanBadge'
 import ProgressBar from '../components/ProgressBar'
 import SuccessState from '../components/SuccessState'
+import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
@@ -17,6 +18,7 @@ import { getJobLifecycleTransition } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { persistJobId, getPersistedJobId, clearPersistedJobId } from '../lib/jobSession'
 import { trackEvent } from '../lib/analytics'
+import { segmentsToSrt, segmentsToVtt, formatTimestamp, type Segment } from '../lib/srtExport'
 import toast from 'react-hot-toast'
 import { Subtitles } from 'lucide-react'
 
@@ -77,10 +79,16 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   const [includeChapters, setIncludeChapters] = useState(true)
   const [exportFormats, setExportFormats] = useState<('txt' | 'json' | 'docx' | 'pdf')[]>(['txt'])
   const [speakerDiarization, setSpeakerDiarization] = useState(false)
+  const [glossary, setGlossary] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [transcriptEditMode, setTranscriptEditMode] = useState(false)
+  const [editableSegments, setEditableSegments] = useState<Segment[] | null>(null)
   const [showPaywall, setShowPaywall] = useState(false)
   const [availableMinutes, setAvailableMinutes] = useState<number | null>(null)
   const [usedMinutes, setUsedMinutes] = useState<number | null>(null)
   const [queuePosition, setQueuePosition] = useState<number | undefined>(undefined)
+  const [isRehydrating, setIsRehydrating] = useState(false)
+  const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null)
   // Phase 1 – Derived Transcript Utilities: branch tab (no remount/refetch)
   const [activeBranch, setActiveBranch] = useState<BranchId>('transcript')
   const [cleanTranscriptEnabled, setCleanTranscriptEnabled] = useState(false)
@@ -88,17 +96,34 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   const segmentRefsRef = useRef<Map<number, HTMLDivElement>>(new Map())
   const rehydratePollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Sync editable segments from result (so inline edits are preserved until result changes)
+  useEffect(() => {
+    if (result?.segments?.length) {
+      setEditableSegments(result.segments.map((s) => ({ start: s.start, end: s.end, text: s.text })))
+    } else {
+      setEditableSegments(null)
+    }
+    setTranscriptEditMode(false)
+  }, [result?.segments])
+
   // Rehydrate from URL/sessionStorage after idle or reload (e.g. mobile Safari)
   useEffect(() => {
     const pathname = location.pathname
     const jobId = getPersistedJobId(pathname)
     if (!jobId) return
 
+    setStatus('processing')
+    setUploadPhase('processing')
+    setUploadProgress(100)
+    setIsRehydrating(true)
+    setProcessingStartedAt(Date.now())
+
     let cancelled = false
     const run = async () => {
       try {
         const jobStatus = await getJobStatus(jobId)
         if (cancelled) return
+        setIsRehydrating(false)
         setProgress(jobStatus.progress ?? 0)
         if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
 
@@ -126,6 +151,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
           return
         }
         if (transition === 'failed') {
+          setIsRehydrating(false)
           setStatus('failed')
           toast.error('Processing failed. Please try again.')
           clearPersistedJobId(pathname, navigate)
@@ -161,6 +187,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             } else if (t === 'failed') {
               if (rehydratePollRef.current) clearInterval(rehydratePollRef.current)
               rehydratePollRef.current = null
+              setIsRehydrating(false)
               setStatus('failed')
               toast.error('Processing failed. Please try again.')
               clearPersistedJobId(pathname, navigate)
@@ -179,6 +206,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
         doPoll()
       } catch (err) {
         if (cancelled) return
+        setIsRehydrating(false)
         if (err instanceof SessionExpiredError) {
           clearPersistedJobId(pathname, navigate)
           toast.error(err.message)
@@ -260,6 +288,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
           includeChapters,
           exportFormats: exportFormats.length > 0 ? exportFormats : ['txt'],
           speakerDiarization,
+          glossary: glossary.trim() || undefined,
         },
         { onProgress: (p) => setUploadProgress(p) }
       )
@@ -267,6 +296,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
       persistJobId(location.pathname, response.jobId)
       setUploadPhase('processing')
       setUploadProgress(100)
+      setProcessingStartedAt(Date.now())
 
       // Poll for status: run first poll immediately, then every 2s.
       // Lifecycle depends ONLY on jobStatus.status; missing result never causes failure.
@@ -354,6 +384,10 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     setIncludeChapters(true)
     setExportFormats(['txt'])
     setSpeakerDiarization(false)
+    setGlossary('')
+    setSearchQuery('')
+    setTranscriptEditMode(false)
+    setEditableSegments(null)
   }
 
   const getDownloadUrl = () => {
@@ -519,6 +553,65 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   const transcriptParagraphs = getParagraphs(fullTranscript || '')
   const isPaidPlan = typeof window !== 'undefined' && (localStorage.getItem('plan') || 'free').toLowerCase() !== 'free'
 
+  // Search: match in segments (if any) or paragraphs; return { index, snippet, startTime? }
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q || q.length < 2) return []
+    const snippetLen = 60
+    if (result?.segments?.length) {
+      return result.segments
+        .map((s, i) => ({ index: i, text: s.text, start: s.start }))
+        .filter((x) => x.text.toLowerCase().includes(q))
+        .map((x) => ({
+          index: x.index,
+          snippet: x.text.length > snippetLen ? x.text.slice(0, snippetLen) + '…' : x.text,
+          startTime: x.start,
+        }))
+    }
+    return transcriptParagraphs
+      .map((p, i) => ({ index: i, text: p }))
+      .filter((x) => x.text.toLowerCase().includes(q))
+      .map((x) => ({
+        index: x.index,
+        snippet: x.text.length > snippetLen ? x.text.slice(0, snippetLen) + '…' : x.text,
+        startTime: undefined,
+      }))
+  }, [searchQuery, result?.segments, transcriptParagraphs])
+
+  const segmentsForExport = editableSegments && editableSegments.length > 0 ? editableSegments : (result?.segments ?? null)
+
+  const handleExportSrt = () => {
+    if (!segmentsForExport?.length) {
+      toast.error('Enable summary or chapters to get timestamps, then export SRT.')
+      return
+    }
+    const srt = segmentsToSrt(segmentsForExport)
+    const blob = new Blob([srt], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'transcript.srt'
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success('SRT downloaded')
+  }
+
+  const handleExportVtt = () => {
+    if (!segmentsForExport?.length) {
+      toast.error('Enable summary or chapters to get timestamps, then export VTT.')
+      return
+    }
+    const vtt = segmentsToVtt(segmentsForExport)
+    const blob = new Blob([vtt], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'transcript.vtt'
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success('VTT downloaded')
+  }
+
   return (
     <div className="min-h-screen py-12">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -614,6 +707,16 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                     <input type="checkbox" checked={speakerDiarization} onChange={(e) => setSpeakerDiarization(e.target.checked)} className="rounded border-gray-300" />
                     Speaker labels (who said what)
                   </label>
+                  <label className="block text-sm text-gray-600 mt-2">
+                    Glossary <span className="text-gray-400 font-normal">(names, terms — improves accuracy)</span>
+                  </label>
+                  <textarea
+                    value={glossary}
+                    onChange={(e) => setGlossary(e.target.value)}
+                    placeholder="e.g. Acme Corp, Dr. Smith, API, SaaS"
+                    rows={2}
+                    className="w-full mt-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                  />
                   <div className="flex flex-wrap gap-2 items-center pt-1">
                     <span className="text-sm text-gray-600">Export:</span>
                     {(['txt', 'json', 'docx', 'pdf'] as const).map((fmt) => (
@@ -649,9 +752,10 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
           <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
             <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
             <p className="text-lg font-medium text-gray-800 mb-4">
-              {uploadPhase === 'preparing' && 'Preparing video…'}
-              {uploadPhase === 'uploading' && `Uploading (${uploadProgress}%)`}
-              {uploadPhase === 'processing' && 'Processing audio and generating transcript'}
+              {isRehydrating && 'Resuming…'}
+              {!isRehydrating && uploadPhase === 'preparing' && 'Preparing video…'}
+              {!isRehydrating && uploadPhase === 'uploading' && `Uploading (${uploadProgress}%)`}
+              {!isRehydrating && uploadPhase === 'processing' && 'Processing audio and generating transcript'}
             </p>
             <ProgressBar
               progress={uploadPhase === 'uploading' ? uploadProgress : progress}
@@ -662,6 +766,10 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                     ? `Processing… ${queuePosition} jobs ahead of you.`
                     : 'Processing audio and generating transcript'
               }
+              isRehydrating={isRehydrating}
+              isUploadPhase={uploadPhase === 'uploading'}
+              queuePosition={queuePosition}
+              processingStartedAt={uploadPhase === 'processing' ? processingStartedAt : null}
             />
             <p className="text-sm text-gray-500 mt-4">
               {uploadPhase === 'uploading' ? 'Large files may take a minute.' : 'Estimated time: 30-60 seconds'}
@@ -682,18 +790,90 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
               <>
                 {transcriptPreview && (
                   <div className="bg-white rounded-2xl p-6 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                       <h3 className="text-lg font-semibold text-gray-800">Transcript</h3>
-                      <button
-                        onClick={handleCopyToClipboard}
-                        className="flex items-center space-x-2 text-violet-600 hover:text-violet-700 font-medium text-sm"
-                      >
-                        <Copy className="h-4 w-4" />
-                        <span>Copy to clipboard</span>
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="relative">
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          <input
+                            type="search"
+                            placeholder="Search in transcript…"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg w-48 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                          />
+                        </div>
+                        {segmentsForExport && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setTranscriptEditMode((v) => !v)}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium ${transcriptEditMode ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                            >
+                              <Pencil className="h-4 w-4" />
+                              {transcriptEditMode ? 'Done' : 'Edit'}
+                            </button>
+                            <button type="button" onClick={handleExportSrt} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">
+                              <FileDown className="h-4 w-4" />
+                              SRT
+                            </button>
+                            <button type="button" onClick={handleExportVtt} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">
+                              <FileDown className="h-4 w-4" />
+                              VTT
+                            </button>
+                          </>
+                        )}
+                        <button
+                          onClick={handleCopyToClipboard}
+                          className="flex items-center space-x-2 text-violet-600 hover:text-violet-700 font-medium text-sm"
+                        >
+                          <Copy className="h-4 w-4" />
+                          <span>Copy</span>
+                        </button>
+                      </div>
                     </div>
+                    {searchQuery.trim().length >= 2 && searchResults.length > 0 && (
+                      <div className="mb-3 p-2 bg-gray-50 rounded-lg max-h-32 overflow-y-auto">
+                        <p className="text-xs font-medium text-gray-500 mb-1">Jump to match</p>
+                        {searchResults.slice(0, 8).map((r, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => scrollToSegment(r.index)}
+                            className="block w-full text-left px-2 py-1.5 rounded text-sm text-gray-700 hover:bg-violet-50"
+                          >
+                            {r.startTime != null ? `${formatTimestamp(r.startTime)} — ` : ''}{r.snippet}
+                          </button>
+                        ))}
+                        {searchResults.length > 8 && <p className="text-xs text-gray-400 mt-1">+{searchResults.length - 8} more</p>}
+                      </div>
+                    )}
                     <div ref={transcriptScrollRef} className="bg-gray-50/80 rounded-xl p-4 max-h-96 overflow-y-auto">
-                      {fullTranscript ? (
+                      {transcriptEditMode && editableSegments && editableSegments.length > 0 ? (
+                        <div className="space-y-2">
+                          {editableSegments.map((seg, i) => (
+                            <div
+                              key={i}
+                              ref={(el) => {
+                                if (el) segmentRefsRef.current.set(i, el)
+                              }}
+                              className="flex gap-2 items-start"
+                            >
+                              <span className="text-xs text-gray-400 shrink-0 pt-2 w-12">{formatTimestamp(seg.start)}</span>
+                              <textarea
+                                value={seg.text}
+                                onChange={(e) => {
+                                  const next = [...editableSegments]
+                                  next[i] = { ...next[i], text: e.target.value }
+                                  setEditableSegments(next)
+                                }}
+                                rows={2}
+                                className="flex-1 text-sm border border-gray-200 rounded px-2 py-1.5 resize-y"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      ) : fullTranscript ? (
                         transcriptParagraphs.map((p, i) => (
                           <div
                             key={i}
@@ -1019,15 +1199,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
         )}
 
         {status === 'failed' && (
-          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
-            <p className="text-red-600 mb-4">Processing failed. Please try again.</p>
-            <button
-              onClick={handleProcessAnother}
-              className="text-violet-600 hover:text-violet-700 font-medium"
-            >
-              Try again
-            </button>
-          </div>
+          <FailedState onTryAgain={handleProcessAnother} />
         )}
 
         <PaywallModal

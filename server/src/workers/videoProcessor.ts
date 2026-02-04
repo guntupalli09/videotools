@@ -107,6 +107,7 @@ interface JobData {
     includeChapters?: boolean
     exportFormats?: ('txt' | 'json' | 'docx' | 'pdf')[]
     speakerDiarization?: boolean
+    glossary?: string
   }
   webhookUrl?: string
 }
@@ -218,9 +219,9 @@ async function generateBatchZip(batchId: string, batch: BatchJob): Promise<void>
   })
 }
 
-/** Phase 2.5: 1 worker for Pro/Agency, 2 for all tiers = MAX_GLOBAL_WORKERS (3). */
-const NORMAL_CONCURRENCY = 2
-const PRIORITY_CONCURRENCY = 1
+/** Worker concurrency. Tune via env for dedicated servers (e.g. 3+2=5 total). */
+const NORMAL_CONCURRENCY = Math.max(1, Math.min(4, parseInt(process.env.WORKER_NORMAL_CONCURRENCY || '2', 10)))
+const PRIORITY_CONCURRENCY = Math.max(1, Math.min(2, parseInt(process.env.WORKER_PRIORITY_CONCURRENCY || '1', 10)))
 
 const RUNTIME_QUEUE_THRESHOLD = 20
 const RUNTIME_CHECK_INTERVAL_MS = 15 * 1000
@@ -299,22 +300,25 @@ async function processJob(job: import('bull').Job<JobData>) {
           if (wantDiarization) {
             await job.progress(22)
             const diar = await transcribeWithDiarization(videoPath, options?.language)
+            const glossary = options?.glossary?.trim()
             if (diar) {
               fullText = diar.text
               segments = diar.segments
             } else {
-              const verbose = await transcribeVideoVerbose(videoPath, options?.language)
+              const verbose = await transcribeVideoVerbose(videoPath, options?.language, glossary)
               fullText = verbose.text
               segments = verbose.segments || []
             }
           } else if (needVerbose) {
             await job.progress(25)
-            const verbose = await transcribeVideoVerbose(videoPath, options?.language)
+            const glossary = options?.glossary?.trim()
+            const verbose = await transcribeVideoVerbose(videoPath, options?.language, glossary)
             fullText = verbose.text
             segments = verbose.segments || []
           } else {
             await job.progress(30)
-            fullText = await transcribeVideo(videoPath, 'text', options?.language)
+            const glossary = options?.glossary?.trim()
+            fullText = await transcribeVideo(videoPath, 'text', options?.language, glossary)
           }
 
           const baseName = path.basename(data.originalName || 'video', path.extname(data.originalName || 'video'))
@@ -333,18 +337,20 @@ async function processJob(job: import('bull').Job<JobData>) {
           let summary: { summary: string; bullets: string[]; actionItems?: string[] } | undefined
           let chapters: { title: string; startTime: number; endTime?: number }[] | undefined
 
-          if (includeSummary) {
+          if (includeSummary || (includeChapters && segments.length > 0)) {
             await job.progress(55)
-            summary = await generateSummary(fullText, { includeActionItems: true })
-          }
-          if (includeChapters && segments.length > 0) {
-            await job.progress(60)
-            chapters = await generateChapters(segments)
+            const [summaryResult, chaptersResult] = await Promise.all([
+              includeSummary ? generateSummary(fullText, { includeActionItems: true }) : Promise.resolve(undefined),
+              includeChapters && segments.length > 0 ? generateChapters(segments) : Promise.resolve([]),
+            ])
+            summary = summaryResult
+            chapters = chaptersResult && chaptersResult.length > 0 ? chaptersResult : undefined
           }
 
-          await job.progress(75)
+          await job.progress(70)
 
-          // Export optional formats
+          // Export optional formats in parallel where possible
+          const exportPromises: Promise<void>[] = []
           if (exportFormats.includes('json')) {
             const jsonFilename = generateOutputFilename(data.originalName || 'video', '_transcript', '.json')
             const jsonPath = path.join(tempDir, jsonFilename)
@@ -354,15 +360,22 @@ async function processJob(job: import('bull').Job<JobData>) {
           if (exportFormats.includes('docx')) {
             const docxFilename = generateOutputFilename(data.originalName || 'video', '_transcript', '.docx')
             const docxPath = path.join(tempDir, docxFilename)
-            await exportTranscriptDocx(fullText, docxPath)
-            filesToZip.push({ path: docxPath, name: `${baseName}_transcript.docx` })
+            exportPromises.push(exportTranscriptDocx(fullText, docxPath).then(() => {
+              filesToZip.push({ path: docxPath, name: `${baseName}_transcript.docx` })
+            }))
           }
           if (exportFormats.includes('pdf')) {
             const pdfFilename = generateOutputFilename(data.originalName || 'video', '_transcript', '.pdf')
             const pdfPath = path.join(tempDir, pdfFilename)
-            await exportTranscriptPdf(fullText, pdfPath)
-            filesToZip.push({ path: pdfPath, name: `${baseName}_transcript.pdf` })
+            exportPromises.push(exportTranscriptPdf(fullText, pdfPath).then(() => {
+              filesToZip.push({ path: pdfPath, name: `${baseName}_transcript.pdf` })
+            }))
           }
+          if (exportPromises.length > 0) {
+            await Promise.all(exportPromises)
+          }
+
+          await job.progress(75)
 
           // If multiple outputs, serve ZIP as primary
           if (filesToZip.length > 1) {
@@ -520,7 +533,8 @@ async function processJob(job: import('bull').Job<JobData>) {
           } else {
             // Single language
             await job.progress(30)
-            const subtitles = await transcribeVideo(videoPath, format, options?.language)
+            const glossary = options?.glossary?.trim()
+            const subtitles = await transcribeVideo(videoPath, format, options?.language, glossary)
 
             // Save subtitles
             await job.progress(80)
@@ -589,7 +603,8 @@ async function processJob(job: import('bull').Job<JobData>) {
             // Transcribe
             await job.progress(20)
             const format = options?.format || 'srt'
-            const subtitles = await transcribeVideo(videoPath, format, options?.language)
+            const glossary = options?.glossary?.trim()
+            const subtitles = await transcribeVideo(videoPath, format, options?.language, glossary)
 
             // Save SRT file (preserve original name for ZIP)
             await job.progress(80)

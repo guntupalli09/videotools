@@ -6,6 +6,7 @@ import UsageCounter from '../components/UsageCounter'
 import PlanBadge from '../components/PlanBadge'
 import ProgressBar from '../components/ProgressBar'
 import SuccessState from '../components/SuccessState'
+import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
@@ -37,6 +38,8 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
   const [targetLanguage, setTargetLanguage] = useState<string>('arabic')
   const [status, setStatus] = useState<'idle' | 'processing' | 'completed' | 'failed'>('idle')
   const [progress, setProgress] = useState(0)
+  const [queuePosition, setQueuePosition] = useState<number | undefined>(undefined)
+  const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null)
   const [result, setResult] = useState<{ downloadUrl: string; fileName?: string; consistencyIssues?: { line: number; issueType: string }[] } | null>(null)
   const [subtitleRows, setSubtitleRows] = useState<SubtitleRow[]>([])
   const [showPaywall, setShowPaywall] = useState(false)
@@ -100,6 +103,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
     try {
       setStatus('processing')
       setProgress(0)
+      setProcessingStartedAt(Date.now())
 
       let response
 
@@ -126,6 +130,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
         try {
           const jobStatus = await getJobStatus(response.jobId)
           setProgress(jobStatus.progress ?? 0)
+          if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
 
           const transition = getJobLifecycleTransition(jobStatus)
           if (transition === 'completed') {
@@ -281,8 +286,17 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
           <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
             <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
             <p className="text-lg font-medium text-gray-800 mb-4">Translating subtitles...</p>
-            <ProgressBar progress={progress} status="Translating text while preserving timestamps" />
-            <p className="text-sm text-gray-500 mt-4">Estimated time: 20-40 seconds</p>
+            <ProgressBar
+              progress={progress}
+              status="Translating text while preserving timestamps"
+              queuePosition={queuePosition}
+              processingStartedAt={processingStartedAt}
+            />
+            <p className="text-sm text-gray-500 mt-4">
+              {queuePosition !== undefined && queuePosition > 0
+                ? `${queuePosition} jobs ahead of you. Usually 20–40 seconds.`
+                : 'Usually 20–40 seconds'}
+            </p>
           </div>
         )}
 
@@ -358,15 +372,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
         )}
 
         {status === 'failed' && (
-          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
-            <p className="text-red-600 mb-4">Processing failed. Please try again.</p>
-            <button
-              onClick={handleProcessAnother}
-              className="text-violet-600 hover:text-violet-700 font-medium"
-            >
-              Try again
-            </button>
-          </div>
+          <FailedState onTryAgain={handleProcessAnother} />
         )}
 
         <PaywallModal

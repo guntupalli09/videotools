@@ -27,29 +27,26 @@ export interface VerboseTranscriptionResult {
 }
 
 /**
- * Transcribe video to text using Whisper API
+ * Transcribe video to text using Whisper API.
+ * Optional prompt/glossary improves accuracy for proper nouns and domain terms (max ~224 tokens).
  */
 export async function transcribeVideo(
   videoPath: string,
   responseFormat: 'text' | 'srt' | 'vtt' = 'text',
-  language?: string
+  language?: string,
+  prompt?: string
 ): Promise<string> {
-  // Extract audio first
   const tempDir = path.dirname(videoPath)
   const audioPath = path.join(tempDir, `audio-${Date.now()}.mp3`)
-  
   try {
     await extractAudio(videoPath, audioPath)
-    
-    // Create file stream for OpenAI
     const audioFile = fs.createReadStream(audioPath)
-    
-    // Transcribe with Whisper
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile as any,
       model: 'whisper-1',
       response_format: responseFormat,
-      language: language || undefined, // auto-detect if not specified
+      language: language || undefined,
+      prompt: prompt?.trim().slice(0, 1500) || undefined, // Whisper limit ~224 tokens; ~1500 chars safe
     })
     
     // Cleanup audio file
@@ -74,11 +71,12 @@ export async function transcribeVideo(
 }
 
 /**
- * Transcribe with segment-level timestamps (verbose_json). Used for chapters, searchable transcript, export.
+ * Transcribe with segment-level timestamps (verbose_json). Optional prompt for vocabulary/names.
  */
 export async function transcribeVideoVerbose(
   videoPath: string,
-  language?: string
+  language?: string,
+  prompt?: string
 ): Promise<VerboseTranscriptionResult> {
   const tempDir = path.dirname(videoPath)
   const audioPath = path.join(tempDir, `audio-${Date.now()}.mp3`)
@@ -91,6 +89,7 @@ export async function transcribeVideoVerbose(
       response_format: 'verbose_json',
       timestamp_granularities: ['segment'],
       language: language || undefined,
+      prompt: prompt?.trim().slice(0, 1500) || undefined,
     }) as { text?: string; segments?: Array<{ start: number; end: number; text: string }>; language?: string }
     try {
       fs.unlinkSync(audioPath)

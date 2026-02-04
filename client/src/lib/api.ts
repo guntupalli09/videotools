@@ -69,6 +69,7 @@ export interface UploadOptions {
   includeChapters?: boolean
   exportFormats?: ('txt' | 'json' | 'docx' | 'pdf')[]
   speakerDiarization?: boolean
+  glossary?: string
   webhookUrl?: string
 }
 
@@ -103,6 +104,7 @@ function buildUploadFormData(file: File, options: UploadOptions): FormData {
   if (options.includeSummary !== undefined) formData.append('includeSummary', String(options.includeSummary))
   if (options.includeChapters !== undefined) formData.append('includeChapters', String(options.includeChapters))
   if (options.speakerDiarization !== undefined) formData.append('speakerDiarization', String(options.speakerDiarization))
+  if (options.glossary) formData.append('glossary', options.glossary)
   if (options.exportFormats && options.exportFormats.length > 0) {
     formData.append('exportFormats', JSON.stringify(options.exportFormats))
   }
@@ -116,7 +118,44 @@ export interface UploadProgressOptions {
 
 const CHUNK_SIZE = 5 * 1024 * 1024 // 5 MB
 const CHUNK_THRESHOLD = 15 * 1024 * 1024 // 15 MB — use chunked upload above this
-const CHUNK_PARALLEL = 2 // upload 2 chunks at a time
+const CHUNK_PARALLEL = 4 // upload 4 chunks at a time for faster large uploads
+const CHUNKED_UPLOAD_STATE_KEY = 'videotools_chunked_upload'
+
+interface ChunkedUploadState {
+  uploadId: string
+  fileName: string
+  fileSize: number
+  totalChunks: number
+  uploadedChunks: number[]
+}
+
+function getChunkedUploadState(): ChunkedUploadState | null {
+  try {
+    const raw = sessionStorage.getItem(CHUNKED_UPLOAD_STATE_KEY)
+    if (!raw) return null
+    const s = JSON.parse(raw) as ChunkedUploadState
+    if (!s?.uploadId || !Array.isArray(s.uploadedChunks)) return null
+    return s
+  } catch {
+    return null
+  }
+}
+
+function setChunkedUploadState(state: ChunkedUploadState): void {
+  try {
+    sessionStorage.setItem(CHUNKED_UPLOAD_STATE_KEY, JSON.stringify(state))
+  } catch {
+    // ignore
+  }
+}
+
+function clearChunkedUploadState(): void {
+  try {
+    sessionStorage.removeItem(CHUNKED_UPLOAD_STATE_KEY)
+  } catch {
+    // ignore
+  }
+}
 
 function buildInitBody(file: File, options: UploadOptions): Record<string, unknown> {
   const body: Record<string, unknown> = {
@@ -144,12 +183,13 @@ function buildInitBody(file: File, options: UploadOptions): Record<string, unkno
   if (options.includeSummary !== undefined) body.includeSummary = options.includeSummary
   if (options.includeChapters !== undefined) body.includeChapters = options.includeChapters
   if (options.speakerDiarization !== undefined) body.speakerDiarization = options.speakerDiarization
+  if (options.glossary) body.glossary = options.glossary
   if (options.exportFormats && options.exportFormats.length > 0) body.exportFormats = options.exportFormats
   if (options.webhookUrl) body.webhookUrl = options.webhookUrl
   return body
 }
 
-/** Chunked upload for large files: init → upload chunks (parallel) → complete. Progress by chunk count. */
+/** Chunked upload for large files. Resumable: same file retry reuses uploadId and only sends missing chunks. */
 async function uploadFileChunked(
   file: File,
   options: UploadOptions,
@@ -159,20 +199,44 @@ async function uploadFileChunked(
   const plan = localStorage.getItem('plan') || 'free'
   const totalChunks = Math.ceil(file.size / CHUNK_SIZE)
 
-  const initRes = await api('/api/upload/init', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-user-id': userId,
-      'x-plan': plan,
-    },
-    body: JSON.stringify(buildInitBody(file, options)),
-  })
-  if (!initRes.ok) {
-    const err = await initRes.json().catch(() => ({ message: 'Upload init failed' }))
-    throw new Error(err.message || 'Upload init failed')
+  let uploadId: string
+  let uploadedChunks: number[]
+
+  const existing = getChunkedUploadState()
+  const canResume =
+    existing &&
+    existing.fileName === file.name &&
+    existing.fileSize === file.size &&
+    existing.totalChunks === totalChunks
+
+  if (canResume && existing) {
+    uploadId = existing.uploadId
+    uploadedChunks = [...existing.uploadedChunks]
+  } else {
+    const initRes = await api('/api/upload/init', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': userId,
+        'x-plan': plan,
+      },
+      body: JSON.stringify(buildInitBody(file, options)),
+    })
+    if (!initRes.ok) {
+      const err = await initRes.json().catch(() => ({ message: 'Upload init failed' }))
+      throw new Error(err.message || 'Upload init failed')
+    }
+    const initData = (await initRes.json()) as { uploadId: string }
+    uploadId = initData.uploadId
+    uploadedChunks = []
+    setChunkedUploadState({
+      uploadId,
+      fileName: file.name,
+      fileSize: file.size,
+      totalChunks,
+      uploadedChunks: [],
+    })
   }
-  const { uploadId } = (await initRes.json()) as { uploadId: string }
 
   const uploadChunk = async (chunkIndex: number): Promise<void> => {
     const start = chunkIndex * CHUNK_SIZE
@@ -193,15 +257,20 @@ async function uploadFileChunked(
       const err = await res.json().catch(() => ({ message: 'Chunk upload failed' }))
       throw new Error(err.message || 'Chunk upload failed')
     }
+    uploadedChunks.push(chunkIndex)
+    setChunkedUploadState({
+      uploadId,
+      fileName: file.name,
+      fileSize: file.size,
+      totalChunks,
+      uploadedChunks: [...uploadedChunks],
+    })
   }
 
-  // Upload chunks with limited concurrency; report progress
-  let done = 0
-  for (let i = 0; i < totalChunks; i += CHUNK_PARALLEL) {
-    const batch = Array.from(
-      { length: Math.min(CHUNK_PARALLEL, totalChunks - i) },
-      (_, j) => uploadChunk(i + j)
-    )
+  const indicesToUpload = Array.from({ length: totalChunks }, (_, i) => i).filter((i) => !uploadedChunks.includes(i))
+  let done = uploadedChunks.length
+  for (let i = 0; i < indicesToUpload.length; i += CHUNK_PARALLEL) {
+    const batch = indicesToUpload.slice(i, i + CHUNK_PARALLEL).map((chunkIndex) => uploadChunk(chunkIndex))
     await Promise.all(batch)
     done += batch.length
     progressOptions?.onProgress?.(Math.round((done / totalChunks) * 100))
@@ -222,6 +291,7 @@ async function uploadFileChunked(
   }
   const data = (await completeRes.json()) as UploadResponse
   if (!data?.jobId) throw new Error('Invalid upload response. Please retry.')
+  clearChunkedUploadState()
   return data
 }
 
