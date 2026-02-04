@@ -52,7 +52,7 @@ Use this checklist so the frontend (Vercel, www.videotext.io) and backend (Hetzn
 
 | Variable | Required | Example | Notes |
 |----------|----------|---------|--------|
-| `REDIS_URL` | Yes (Docker) | `redis://redis:6379` | For Bull queue. |
+| `REDIS_URL` | Yes | `redis://redis:6379` or `rediss://default:...@...upstash.io:6379` | Bull queue. **Self-hosted:** `redis://host:6379` (e.g. `redis://redis:6379` in Docker). **Upstash:** `rediss://...` (TLS). Switching URL invalidates existing job IDs. See `docs/REDIS_SETUP.md`. |
 | `TEMP_FILE_PATH` | No | `/tmp` | Where uploads/outputs are stored. |
 | `DISABLE_WORKER` | No | `true` | Set on API container only if worker runs in a separate container. |
 

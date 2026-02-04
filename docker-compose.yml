@@ -14,6 +14,7 @@ services:
     # Stripe: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_* must be in .env or API will exit at startup
     env_file: .env
     environment:
+      # Self-hosted Redis in this stack. To use Upstash instead, set REDIS_URL in .env and remove this line (and the one in worker).
       REDIS_URL: redis://redis:6379
       TEMP_FILE_PATH: /tmp
       DISABLE_WORKER: "true"
@@ -32,6 +33,7 @@ services:
     container_name: videotools-worker
     env_file: .env
     environment:
+      # Must match api. To use Upstash, set REDIS_URL in .env and remove this line (and the one in api).
       REDIS_URL: redis://redis:6379
       TEMP_FILE_PATH: /tmp
       FFMPEG_PATH: /usr/bin/ffmpeg

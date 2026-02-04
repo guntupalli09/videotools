@@ -55,7 +55,7 @@ nano .env   # or vim
 
 Set at least:
 
-- `REDIS_URL=redis://redis:6379` (so API/worker in Docker use the Redis service)
+- `REDIS_URL=redis://redis:6379` (so API/worker in Docker use the Redis service), or use Upstash—see `docs/REDIS_SETUP.md`
 - `TEMP_FILE_PATH=/tmp`
 - `OPENAI_API_KEY`, Stripe keys, `JWT_SECRET`, etc., as in `.env.example`
 
