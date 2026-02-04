@@ -404,7 +404,8 @@ async function processJob(job: import('bull').Job<JobData>) {
 
           const outputPath = path.join(tempDir, primaryFileName)
           if (data.videoHash) {
-            await saveDuplicateResult(userId, data.videoHash, outputPath)
+            const cacheOpts = { ...data.options, trimmedStart: data.trimmedStart, trimmedEnd: data.trimmedEnd }
+            await saveDuplicateResult(userId, data.videoHash, outputPath, 'video-to-transcript', cacheOpts, primaryFileName)
           }
 
           const processedSeconds =
@@ -516,6 +517,11 @@ async function processJob(job: import('bull').Job<JobData>) {
               multiLanguage: outputFiles,
             }
 
+            if (data.videoHash) {
+              const cacheOpts = { ...data.options, trimmedStart: data.trimmedStart, trimmedEnd: data.trimmedEnd }
+              await saveDuplicateResult(userId, data.videoHash, zipPath, 'video-to-subtitles', cacheOpts, zipFilename)
+            }
+
             // Metering: primary + 0.5x per additional language
             const processedSeconds =
               data.trimmedStart !== undefined && data.trimmedEnd !== undefined
@@ -558,7 +564,8 @@ async function processJob(job: import('bull').Job<JobData>) {
             }
 
           if (data.videoHash) {
-            await saveDuplicateResult(userId, data.videoHash, outputPath)
+            const cacheOpts = { ...data.options, trimmedStart: data.trimmedStart, trimmedEnd: data.trimmedEnd }
+            await saveDuplicateResult(userId, data.videoHash, outputPath, 'video-to-subtitles', cacheOpts, outputFilename)
           }
 
             // Metering (minutes)

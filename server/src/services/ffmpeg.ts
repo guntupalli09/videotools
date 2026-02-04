@@ -19,6 +19,24 @@ try {
 /** FFmpeg thread count. Use 4+ on dedicated servers for faster encode. */
 const FFMPEG_THREADS = process.env.FFMPEG_THREADS || '4'
 
+/** When set (e.g. "true" or "1"), use GPU for decode/encode where available (e.g. CUDA/NVENC). No-op if GPU not present. */
+const USE_GPU = /^(1|true|yes)$/i.test(process.env.FFMPEG_USE_GPU || '')
+
+function getGpuInputOptions(): string[] {
+  if (!USE_GPU) return []
+  return ['-hwaccel', 'auto']
+}
+
+function getGpuVideoCodec(): string {
+  if (!USE_GPU) return 'libx264'
+  return 'h264_nvenc'
+}
+
+/** libx264 uses -preset; nvenc does not. */
+function getEncodePresetOptions(): string[] {
+  return getGpuVideoCodec() === 'libx264' ? ['-preset', 'fast'] : []
+}
+
 /** Phase 2.5: Kill job if no FFmpeg output for 90s. Worker will auto-retry once. */
 export const HUNG_JOB_MS = 90 * 1000
 export const HUNG_JOB_MESSAGE = 'HUNG_JOB'
@@ -59,6 +77,7 @@ export function extractAudio(
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const cmd = ffmpeg(videoPath)
+      .inputOptions(getGpuInputOptions())
       .outputOptions(['-threads', FFMPEG_THREADS, '-vn', '-acodec', 'libmp3lame', '-ar', '16000', '-ac', '1', '-q:a', '5'])
       .on('progress', (progress: { percent?: number; timemark?: string }) => {
         hung.reset()
@@ -77,6 +96,37 @@ export function extractAudio(
       })
     const hung = setupHungProtection(cmd, reject)
     cmd.save(outputPath)
+  })
+}
+
+/**
+ * Split an audio file into fixed-duration chunks (for parallel transcription).
+ * Returns paths to chunk files in order. Caller must delete them when done.
+ */
+export function splitAudioIntoChunks(
+  audioPath: string,
+  chunkDurationSec: number,
+  outputDir: string
+): Promise<string[]> {
+  return new Promise((resolve, reject) => {
+    const pattern = path.join(outputDir, `chunk_%03d.mp3`)
+    ffmpeg(audioPath)
+      .outputOptions([
+        '-f', 'segment',
+        '-segment_time', String(chunkDurationSec),
+        '-reset_timestamps', '1',
+        '-c', 'copy',
+        '-map', '0',
+      ])
+      .output(pattern)
+      .on('end', () => {
+        const files = fs.readdirSync(outputDir)
+          .filter((f) => f.startsWith('chunk_') && f.endsWith('.mp3'))
+          .sort()
+        resolve(files.map((f) => path.join(outputDir, f)))
+      })
+      .on('error', (err: Error) => reject(err))
+      .run()
   })
 }
 
@@ -221,8 +271,10 @@ export function burnSubtitles(
       output: outputPath,
     })
         const cmd = (ffmpeg(videoPath) as any)
+          .inputOptions(getGpuInputOptions())
           .videoFilters(subtitleFilter)
-          .outputOptions(['-threads', FFMPEG_THREADS, '-c:v', 'libx264', '-preset', 'fast', '-c:a', 'copy'])
+          .videoCodec(getGpuVideoCodec())
+          .outputOptions(['-threads', FFMPEG_THREADS, ...getEncodePresetOptions(), '-c:a', 'copy'])
           .on('progress', (progress: { percent?: number; timemark?: string }) => {
             hung.reset()
             onProgress?.({
@@ -279,15 +331,14 @@ export function compressVideo(
     const run = (scaleFilter: string | null, useCrf: number) => {
       const opts: string[] = [
         '-threads', FFMPEG_THREADS,
-        `-crf ${useCrf}`,
-        '-preset fast',
+        ...(getGpuVideoCodec() === 'h264_nvenc' ? [`-cq`, String(useCrf)] : [`-crf`, String(useCrf)]),
+        ...getEncodePresetOptions(),
         '-movflags +faststart',
       ]
-      const cmd = ffmpeg(inputPath).videoCodec('libx264')
-      if (scaleFilter) {
-        cmd.outputOptions(['-vf', scaleFilter])
-      }
-      cmd
+      if (scaleFilter) opts.push('-vf', scaleFilter)
+      const cmd = ffmpeg(inputPath)
+        .inputOptions(getGpuInputOptions())
+        .videoCodec(getGpuVideoCodec())
         .outputOptions(opts)
         .on('progress', (progress: { percent?: number; timemark?: string }) => {
           hung.reset()

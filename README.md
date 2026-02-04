@@ -124,6 +124,14 @@ In `server/.env` (or Docker env). Use `server/.env.example` as template.
 | **Processing** | `TEMP_FILE_PATH` (default `/tmp`), `DISABLE_WORKER` (set on API-only container if worker runs elsewhere) |
 | **Transcription / translation** | `OPENAI_API_KEY` |
 | **Auth** | `JWT_SECRET` |
+| **Performance (optional)** | `FFMPEG_USE_GPU` = `true` to use GPU decode/encode (e.g. CUDA/NVENC) when available. `FFMPEG_THREADS` (default `4`) for CPU encode. |
+| **Caching (optional)** | `CACHE_TTL_DAYS` = number of days to cache results for repeat processing (same user + same file + same tool + same options). Default `7`. Set to `0` to disable. |
+
+**Performance behaviour (no config required):**
+
+- **Parallel transcription:** Videos ≥ 2.5 minutes are split into ~3‑minute chunks; chunks are transcribed in parallel via Whisper, then merged. Same API and result shape; faster wall‑clock for long files.
+- **Parallel pipeline:** Summary and chapters run in parallel after transcript; multi‑language subtitle translations run in parallel. Worker logic unchanged.
+- **Caching:** For video-to-transcript and video-to-subtitles, if the same user re-processes the same file with the same options (including trim, language, format) within the TTL, the job returns the cached result immediately (no re-run). Cache key includes file hash, tool type, and options. Set `CACHE_TTL_DAYS=0` to disable.
 
 ---
 

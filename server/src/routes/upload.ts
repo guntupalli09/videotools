@@ -263,14 +263,17 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       }
     }
 
-    // Duplicate detection for expensive video tools (last 30 days)
+    // Cache lookup: same user + same file + same tool + same options → instant result (configurable TTL)
     let videoHash: string | undefined
     if (toolType === 'video-to-transcript' || toolType === 'video-to-subtitles') {
       try {
         videoHash = await hashFile(req.file.path)
-        const cached = await checkDuplicateProcessing(userId, videoHash)
+        const cacheOptions = { ...jobOptions } as Record<string, unknown>
+        if (options.trimmedStart != null) cacheOptions.trimmedStart = parseFloat(String(options.trimmedStart))
+        if (options.trimmedEnd != null) cacheOptions.trimmedEnd = parseFloat(String(options.trimmedEnd))
+        const cached = await checkDuplicateProcessing(userId, videoHash, toolType, cacheOptions)
         if (cached && fs.existsSync(cached.outputPath)) {
-          const cachedFileName = path.basename(cached.outputPath)
+          const cachedFileName = cached.fileName || path.basename(cached.outputPath)
           const cachedJob = await addJobToQueue(plan, {
             toolType: 'cached-result',
             userId,
