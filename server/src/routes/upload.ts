@@ -550,68 +550,80 @@ router.post('/complete', async (req: Request, res: Response) => {
     for (let i = 0; i < totalChunks; i++) {
       const chunkPath = path.join(dir, `chunk_${i}`)
       if (!fs.existsSync(chunkPath)) {
-        out.close()
-        fs.unlinkSync(outPath)
+        out.destroy()
+        try { fs.unlinkSync(outPath) } catch { /* ignore */ }
         return res.status(400).json({ message: `Missing chunk ${i}` })
       }
       const buf = fs.readFileSync(chunkPath)
       out.write(buf)
       fs.unlinkSync(chunkPath)
     }
+
+    // Wait for the write stream to finish before stat/addJobToQueue (out.end() is async)
+    const onError = (err: any) => {
+      try { fs.unlinkSync(outPath) } catch { /* ignore */ }
+      console.error('[upload/complete] 500', err?.message || err, err?.stack)
+      res.status(500).json({ message: err?.message || 'Upload complete failed' })
+    }
+    out.once('error', onError)
+    out.once('finish', async () => {
+      out.removeListener('error', onError)
+      try {
+        try { fs.rmdirSync(dir) } catch { /* ignore if not empty or missing */ }
+        let user = getUser(meta.userId)
+          if (!user) {
+            const limits = getPlanLimits(meta.plan)
+            const now = new Date()
+            const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+            user = {
+              id: meta.userId,
+              email: `${meta.userId}@example.com`,
+              passwordHash: '',
+              plan: meta.plan,
+              stripeCustomerId: '',
+              subscriptionId: '',
+              paymentMethodId: undefined,
+              usageThisMonth: {
+                totalMinutes: 0,
+                videoCount: 0,
+                batchCount: 0,
+                languageCount: 0,
+                translatedMinutes: 0,
+                resetDate,
+              },
+              limits,
+              overagesThisMonth: { minutes: 0, languages: 0, batches: 0, totalCharge: 0 },
+              createdAt: now,
+              updatedAt: now,
+            }
+            saveUser(user)
+          }
+          const fileSize = fs.statSync(outPath).size
+          if (user.limits.maxFileSize && fileSize > user.limits.maxFileSize) {
+            fs.unlinkSync(outPath)
+            return res.status(400).json({ message: 'File exceeds plan limit. Upgrade for larger files.' })
+          }
+          const opts = meta.options || {}
+          const trimmedStart = typeof opts.trimmedStart === 'number' ? opts.trimmedStart : undefined
+          const trimmedEnd = typeof opts.trimmedEnd === 'number' ? opts.trimmedEnd : undefined
+          const { trimmedStart: _s, trimmedEnd: _e, ...restOptions } = opts
+          const job = await addJobToQueue(meta.plan, {
+            toolType: meta.toolType,
+            filePath: outPath,
+            userId: meta.userId,
+            plan: meta.plan,
+            originalName: meta.filename,
+            fileSize,
+            trimmedStart,
+            trimmedEnd,
+            options: Object.keys(restOptions).length > 0 ? restOptions : undefined,
+          })
+          return res.status(202).json({ jobId: job.id, status: 'queued' })
+        } catch (error: any) {
+          onError(error)
+        }
+      })
     out.end()
-    fs.rmdirSync(dir)
-
-    let user = getUser(meta.userId)
-    if (!user) {
-      const limits = getPlanLimits(meta.plan)
-      const now = new Date()
-      const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-      user = {
-        id: meta.userId,
-        email: `${meta.userId}@example.com`,
-        passwordHash: '',
-        plan: meta.plan,
-        stripeCustomerId: '',
-        subscriptionId: '',
-        paymentMethodId: undefined,
-        usageThisMonth: {
-          totalMinutes: 0,
-          videoCount: 0,
-          batchCount: 0,
-          languageCount: 0,
-          translatedMinutes: 0,
-          resetDate,
-        },
-        limits,
-        overagesThisMonth: { minutes: 0, languages: 0, batches: 0, totalCharge: 0 },
-        createdAt: now,
-        updatedAt: now,
-      }
-      saveUser(user)
-    }
-
-    if (user.limits.maxFileSize && fs.statSync(outPath).size > user.limits.maxFileSize) {
-      fs.unlinkSync(outPath)
-      return res.status(400).json({ message: 'File exceeds plan limit. Upgrade for larger files.' })
-    }
-
-    const opts = meta.options || {}
-    const trimmedStart = typeof opts.trimmedStart === 'number' ? opts.trimmedStart : undefined
-    const trimmedEnd = typeof opts.trimmedEnd === 'number' ? opts.trimmedEnd : undefined
-    const { trimmedStart: _s, trimmedEnd: _e, ...restOptions } = opts
-    const job = await addJobToQueue(meta.plan, {
-      toolType: meta.toolType,
-      filePath: outPath,
-      userId: meta.userId,
-      plan: meta.plan,
-      originalName: meta.filename,
-      fileSize: fs.statSync(outPath).size,
-      trimmedStart,
-      trimmedEnd,
-      options: Object.keys(restOptions).length > 0 ? restOptions : undefined,
-    })
-
-    return res.status(202).json({ jobId: job.id, status: 'queued' })
   } catch (error: any) {
     console.error('[upload/complete] 500', error?.message || error, error?.stack)
     return res.status(500).json({ message: error.message || 'Upload complete failed' })
