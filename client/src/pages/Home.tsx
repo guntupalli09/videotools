@@ -90,6 +90,13 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 to="#tools"
+                onClick={(e) => {
+                  const el = document.getElementById('tools')
+                  if (el) {
+                    e.preventDefault()
+                    el.scrollIntoView({ behavior: 'smooth' })
+                  }
+                }}
                 className="bg-violet-600 hover:bg-violet-700 text-white px-8 py-3 rounded-lg font-medium transition-colors"
               >
                 Choose a tool →

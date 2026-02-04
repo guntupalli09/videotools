@@ -363,23 +363,29 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   }
 
   const handleCopyToClipboard = async () => {
-    if (!transcriptPreview && !displayTranscript) return
+    const textToCopy =
+      translationLanguage && translatedCache[translationLanguage] != null
+        ? translatedCache[translationLanguage]
+        : (displayTranscript || fullTranscript || '').trim()
+    if (!textToCopy) return
     try {
-      // If showing a translation, copy that; otherwise fetch full original
-      if (translationLanguage && translatedCache[translationLanguage] != null) {
-        await navigator.clipboard.writeText(translatedCache[translationLanguage])
-      } else if (result?.downloadUrl) {
-        const response = await fetch(getAbsoluteDownloadUrl(result.downloadUrl))
-        const text = await response.text()
-        await navigator.clipboard.writeText(text)
-      } else if (fullTranscript) {
-        await navigator.clipboard.writeText(fullTranscript)
-      } else {
-        return
-      }
+      await navigator.clipboard.writeText(textToCopy)
       toast.success('Copied to clipboard!')
     } catch {
-      toast.error('Failed to copy to clipboard')
+      // Fallback for environments where clipboard API is restricted
+      try {
+        const textArea = document.createElement('textarea')
+        textArea.value = textToCopy
+        textArea.style.position = 'fixed'
+        textArea.style.opacity = '0'
+        document.body.appendChild(textArea)
+        textArea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textArea)
+        toast.success('Copied to clipboard!')
+      } catch {
+        toast.error('Failed to copy to clipboard')
+      }
     }
   }
 
