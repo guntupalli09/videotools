@@ -112,7 +112,7 @@ export default function Pricing() {
               <li className={bulletRow}><CheckIcon /><span>No batch processing</span></li>
             </ul>
             <p className={limitsClass}>60 min / month</p>
-            <p className={limitsClass}>Up to 5 min per video</p>
+            <p className={limitsClass}>Up to 15 min per video</p>
             <p className={noteBox}>
               Free jobs may queue longer during peak times.
             </p>
@@ -145,7 +145,7 @@ export default function Pricing() {
               <li className={bulletRow}><CheckIcon /><span>No batch processing</span></li>
             </ul>
             <p className={limitsClass}>450 min / month</p>
-            <p className={limitsClass}>Up to 30 min per video</p>
+            <p className={limitsClass}>Up to 45 min per video</p>
             <p className={noteBox}>
               Usable — but designed to push Pro for real workflows.
             </p>
