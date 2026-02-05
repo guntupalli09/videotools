@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import FileUploadZone from '../components/FileUploadZone'
 import PlanBadge from '../components/PlanBadge'
+import UsageCounter from '../components/UsageCounter'
 import UsageDisplay from '../components/UsageDisplay'
 import ProgressBar from '../components/ProgressBar'
 import FailedState from '../components/FailedState'
@@ -84,7 +85,8 @@ export default function BatchProcess(props: BatchProcessSeoProps = {}) {
           <p className="mb-3 text-lg text-gray-600">
             {seoIntro ?? 'Upload multiple videos and process them together.'}
           </p>
-          <UsageDisplay />
+          <UsageCounter refreshTrigger={status} />
+          <UsageDisplay refreshTrigger={status} />
         </div>
 
         {status === 'idle' && (

@@ -10,7 +10,7 @@ import { exportTranscriptJson, exportTranscriptDocx, exportTranscriptPdf } from 
 import { fireWebhook } from '../utils/webhook'
 import { transcribeWithDiarization } from '../services/diarization'
 import { convertSubtitleFile } from '../services/subtitleConverter'
-import { burnSubtitles, compressVideo, HUNG_JOB_MESSAGE, type CompressProfile } from '../services/ffmpeg'
+import { burnSubtitles, compressVideo, getVideoDuration, HUNG_JOB_MESSAGE, type CompressProfile } from '../services/ffmpeg'
 import { generateOutputFilename, downloadVideoFromURL, validateVideoDuration } from '../services/video'
 import { validateFileType, validateFileSize } from '../utils/fileValidation'
 import { trimVideoSegment } from '../services/trimming'
@@ -624,6 +624,17 @@ async function processJob(job: import('bull').Job<JobData>) {
             // Update batch progress
             batch.processedVideos += 1
             saveBatch(batch)
+
+            // Metering: charge minutes for this batch video (same as single video-to-subtitles)
+            const userId = data.userId || 'demo-user'
+            const plan = (data.plan || 'free') as PlanType
+            const processedSeconds = trimmedDuration > 0 ? trimmedDuration : await getVideoDuration(videoPath)
+            const minutes = secondsToMinutes(processedSeconds)
+            const user = getOrCreateUserForJob(userId, plan)
+            user.usageThisMonth.totalMinutes += minutes
+            user.usageThisMonth.videoCount += 1
+            user.updatedAt = new Date()
+            saveUser(user)
 
             // Check if batch is complete
             if (batch.processedVideos + batch.failedVideos >= batch.totalVideos) {

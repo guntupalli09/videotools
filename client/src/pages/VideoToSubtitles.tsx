@@ -507,8 +507,8 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           <p className="text-lg text-gray-600 mb-6">
             {seoIntro ?? 'Generate SRT and VTT subtitle files instantly'}
           </p>
-          <UsageCounter />
-          <UsageDisplay />
+          <UsageCounter refreshTrigger={status} />
+          <UsageDisplay refreshTrigger={status} />
         </div>
 
         {status === 'idle' && (

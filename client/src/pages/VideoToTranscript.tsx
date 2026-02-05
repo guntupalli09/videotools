@@ -682,8 +682,8 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
           <p className="text-lg text-gray-600 mb-6">
             {seoIntro ?? 'Extract spoken text from any video in seconds'}
           </p>
-          <UsageCounter />
-          <UsageDisplay />
+          <UsageCounter refreshTrigger={status} />
+          <UsageDisplay refreshTrigger={status} />
         </div>
 
         {/* Before upload: muted branch placeholders (visual only, non-interactive) */}

@@ -21,7 +21,8 @@ interface UsageInfo {
   resetDate: string
 }
 
-export default function UsageDisplay() {
+/** When refreshTrigger changes (e.g. status becomes 'completed'), usage is refetched so remaining minutes stay accurate. */
+export default function UsageDisplay({ refreshTrigger }: { refreshTrigger?: string | number }) {
   const [data, setData] = useState<UsageInfo | null>(null)
 
   useEffect(() => {
@@ -35,7 +36,7 @@ export default function UsageDisplay() {
     }
 
     fetchUsage()
-  }, [])
+  }, [refreshTrigger])
 
   if (!data) return null
 

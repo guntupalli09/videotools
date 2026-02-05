@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { getCurrentUsage } from '../lib/api'
 
-export default function UsageCounter() {
+/** When refreshTrigger changes (e.g. status becomes 'completed'), usage is refetched so remaining minutes stay accurate. */
+export default function UsageCounter({ refreshTrigger }: { refreshTrigger?: string | number }) {
   const [usage, setUsage] = useState<{
     remaining: number
     totalPlanMinutes: number
@@ -35,7 +36,7 @@ export default function UsageCounter() {
     }
 
     fetchUsage()
-  }, [])
+  }, [refreshTrigger])
 
   if (!usage) return null
 

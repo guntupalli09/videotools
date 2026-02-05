@@ -156,8 +156,8 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
           <p className="text-lg text-gray-600 mb-6">
             {seoIntro ?? 'Hardcode captions directly into your video'}
           </p>
-          <UsageCounter />
-          <UsageDisplay />
+          <UsageCounter refreshTrigger={status} />
+          <UsageDisplay refreshTrigger={status} />
         </div>
 
         {status === 'idle' && (

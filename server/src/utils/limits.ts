@@ -7,7 +7,7 @@ export function getPlanLimits(plan: PlanType): PlanLimits {
     case 'free':
       return {
         minutesPerMonth: 60,
-        maxVideoDuration: 5,
+        maxVideoDuration: 15,
         maxFileSize: 2 * 1024 * 1024 * 1024, // 2 GB — typical iPhone short clips
         maxConcurrentJobs: 1,
         maxLanguages: 1,
@@ -19,7 +19,7 @@ export function getPlanLimits(plan: PlanType): PlanLimits {
     case 'basic':
       return {
         minutesPerMonth: 450,
-        maxVideoDuration: 30,
+        maxVideoDuration: 45,
         maxFileSize: 5 * 1024 * 1024 * 1024, // 5 GB
         maxConcurrentJobs: 1,
         maxLanguages: 2,

@@ -161,8 +161,8 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
           <p className="text-lg text-gray-600 mb-6">
             {seoIntro ?? 'Reduce file size while keeping quality high'}
           </p>
-          <UsageCounter />
-          <UsageDisplay />
+          <UsageCounter refreshTrigger={status} />
+          <UsageDisplay refreshTrigger={status} />
         </div>
 
         {status === 'idle' && (

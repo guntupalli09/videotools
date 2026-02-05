@@ -10,6 +10,8 @@ Professional video utilities platform: transcribe video to text, generate and tr
 - **Faster long-video transcription**: parallel chunking + merge (same result shape).
 - **Optional GPU FFmpeg**: set `FFMPEG_USE_GPU=true` to use GPU decode/encode where available.
 - **Result caching**: repeat processing (same user + file + tool + options) returns instantly within `CACHE_TTL_DAYS`.
+- **Plan limits**: Free = 60 min/month, 15 min max per video; Basic = 45 min max per video. See [§5 Billing & usage](#5-billing--usage).
+- **Usage tracking**: Batch jobs charge minutes per video; all tools show minutes remaining and refetch when a job completes.
 
 ---
 
@@ -189,9 +191,18 @@ Valid `toolType` values: `video-to-transcript`, `video-to-subtitles`, `translate
 ## 5. Billing & usage
 
 - **Plans:** free, basic, pro, agency. Stored in user model; set by Stripe webhooks (checkout, invoice, subscription deleted) or by headers `x-user-id` / `x-plan` when no JWT.
-- **Limits** (see `server/src/utils/limits.ts`): minutes/month, max video duration, max file size, max subtitle languages, batch enabled (Pro/Agency), batch max videos and max minutes. Translation minutes cap for Pro/Agency.
-- **Usage:** Recorded in the **worker** when a job **completes** (totalMinutes, translatedMinutes, etc.). Reset on invoice period (paid) or calendar month (free). Overage allowed only for users with `stripeCustomerId`.
-- **Client:** Sends `x-user-id` and `x-plan`; after checkout, client stores `userId` and `plan` so usage and “Manage subscription” reflect the paid user.
+- **Plan limits (reference)** — see `server/src/utils/limits.ts` for the source of truth:
+
+| Plan   | Minutes/month | Max video duration | Max file size |
+|--------|----------------|--------------------|---------------|
+| Free   | 60             | 15 min             | 2 GB          |
+| Basic  | 450            | 45 min             | 5 GB          |
+| Pro    | 1200           | 120 min (2 h)      | 10 GB         |
+| Agency | 3000           | 240 min (4 h)      | 20 GB         |
+
+- **Other limits:** max subtitle languages (Basic: 2, Pro: 5, Agency: 10), batch enabled (Pro/Agency), batch max videos and max duration, translation minutes cap (Pro/Agency). All in `server/src/utils/limits.ts`.
+- **Usage:** Recorded in the **worker** when a job **completes** (totalMinutes, translatedMinutes for multi-language, etc.). Batch jobs charge minutes per video. Reset on invoice period (paid) or calendar month (free). Overage allowed only for users with `stripeCustomerId`.
+- **Client:** Sends `x-user-id` and `x-plan`; after checkout, client stores `userId` and `plan`. Minutes remaining is shown on every tool (UsageCounter + UsageDisplay) and refetches when a job completes.
 
 ---
 
