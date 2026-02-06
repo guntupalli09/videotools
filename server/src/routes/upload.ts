@@ -502,30 +502,33 @@ router.post('/init', async (req: Request, res: Response) => {
 })
 
 /** Chunk handler: req.body is raw Buffer. Mount in index with express.raw() for POST /api/upload/chunk */
-export function handleUploadChunk(req: Request, res: Response) {
+export async function handleUploadChunk(req: Request, res: Response): Promise<void> {
   try {
     const uploadId = req.headers['x-upload-id'] as string
     const chunkIndex = parseInt(req.headers['x-chunk-index'] as string, 10)
     if (!uploadId || Number.isNaN(chunkIndex) || chunkIndex < 0) {
-      return res.status(400).json({ message: 'x-upload-id and x-chunk-index required' })
+      res.status(400).json({ message: 'x-upload-id and x-chunk-index required' })
+      return
     }
 
     const meta = chunkUploadMeta.get(uploadId)
     if (!meta) {
-      return res.status(404).json({ message: 'Upload session not found or expired' })
+      res.status(404).json({ message: 'Upload session not found or expired' })
+      return
     }
 
     const body = (req as any).body
     if (!body || !Buffer.isBuffer(body) || body.length === 0) {
-      return res.status(400).json({ message: 'Chunk body required (raw binary)' })
+      res.status(400).json({ message: 'Chunk body required (raw binary)' })
+      return
     }
 
     const chunkPath = path.join(chunksDir, uploadId, `chunk_${chunkIndex}`)
-    fs.writeFileSync(chunkPath, body)
-    return res.json({ ok: true })
+    await fs.promises.writeFile(chunkPath, body)
+    res.json({ ok: true })
   } catch (error: any) {
     console.error('[upload/chunk] 500', error?.message || error, error?.stack)
-    return res.status(500).json({ message: error.message || 'Chunk upload failed' })
+    res.status(500).json({ message: error.message || 'Chunk upload failed' })
   }
 }
 

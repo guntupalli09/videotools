@@ -282,7 +282,7 @@ The frontend is built for **fast first load**, **reliable behaviour on slow or f
 
 ### Mobile & large uploads
 
-- **Chunked upload:** Files over 15 MB use resumable chunked upload. On mobile (or narrow viewport / touch), the client uses **smaller chunks** (2 MB) and **sequential** upload with a **per-chunk timeout** (90 s) and retries so long uploads are more likely to complete. Chunk size and progress are stored so a retry continues from the last successful chunk.
+- **Chunked upload:** Files over 15 MB use resumable chunked upload. **Desktop:** Before starting, the client probes connection speed (GET /health, < 2.5 s). **Fast** (< 400 ms) → 10 MB chunks, 4 in parallel; **medium** (< 1.2 s) → 5 MB, 2 parallel; **slow** or probe failure → 2 MB, 1 parallel. So good connections get maximum speed, weak ones get reliability without timeouts. **Mobile** (or narrow viewport / touch): always 2 MB, sequential, 90 s timeout. Resuming reuses existing chunk size; no re-probe. Chunk size and progress are stored so a retry continues from the last successful chunk.
 - **Visibility:** While the upload phase is active (Video → Transcript, Video → Subtitles), if the user switches tabs the app shows a toast: “Keep this tab open until the upload finishes.” (FAQ also explains Wi‑Fi and keeping the tab open on mobile.)
 
 ### Reliability & errors

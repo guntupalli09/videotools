@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, Suspense, lazy } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Languages, Loader2 } from 'lucide-react'
 import FileUploadZone from '../components/FileUploadZone'
@@ -10,10 +10,11 @@ import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
-import SubtitleEditor, { SubtitleRow } from '../components/SubtitleEditor'
+import type { SubtitleRow } from '../components/SubtitleEditor'
+const SubtitleEditor = lazy(() => import('../components/SubtitleEditor'))
 import { incrementUsage } from '../lib/usage'
 import { uploadFile, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError } from '../lib/api'
-import { getJobLifecycleTransition } from '../lib/jobPolling'
+import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { persistJobId, clearPersistedJobId } from '../lib/jobSession'
 import toast from 'react-hot-toast'
@@ -156,7 +157,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
           // Network/parse errors: do not set failed; keep polling.
         }
       }
-      pollIntervalRef.current = setInterval(doPoll, 2000)
+      pollIntervalRef.current = setInterval(doPoll, JOB_POLL_INTERVAL_MS)
       doPoll()
     } catch (error: any) {
       if (error instanceof SessionExpiredError) {
@@ -323,11 +324,13 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
 
             {subtitleRows.length > 0 && (
               <div className="bg-white rounded-xl p-6 border border-gray-200">
-                <SubtitleEditor
-                  entries={subtitleRows}
-                  editable={canEdit}
-                  onChange={setSubtitleRows}
-                />
+                <Suspense fallback={null}>
+                  <SubtitleEditor
+                    entries={subtitleRows}
+                    editable={canEdit}
+                    onChange={setSubtitleRows}
+                  />
+                </Suspense>
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                   <button
                     disabled={!canEdit}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, Suspense, lazy } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Film, Loader2 } from 'lucide-react'
 import FileUploadZone from '../components/FileUploadZone'
@@ -10,10 +10,10 @@ import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
-import VideoTrimmer from '../components/VideoTrimmer'
+const VideoTrimmer = lazy(() => import('../components/VideoTrimmer'))
 import { incrementUsage } from '../lib/usage'
 import { uploadDualFiles, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError } from '../lib/api'
-import { getJobLifecycleTransition } from '../lib/jobPolling'
+import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { persistJobId, clearPersistedJobId } from '../lib/jobSession'
 import toast from 'react-hot-toast'
@@ -113,7 +113,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
           // Network/parse errors: do not set failed; keep polling.
         }
       }
-      pollIntervalRef.current = setInterval(doPoll, 2000)
+      pollIntervalRef.current = setInterval(doPoll, JOB_POLL_INTERVAL_MS)
       doPoll()
     } catch (error: any) {
       if (error instanceof SessionExpiredError) {
@@ -212,13 +212,15 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
                   maxSize={10 * 1024 * 1024 * 1024}
                 />
                 {videoFile && (
-                  <VideoTrimmer
-                    file={videoFile}
-                    onChange={(startSeconds, endSeconds) => {
-                      setTrimStart(startSeconds)
-                      setTrimEnd(endSeconds)
-                    }}
-                  />
+                  <Suspense fallback={null}>
+                    <VideoTrimmer
+                      file={videoFile}
+                      onChange={(startSeconds, endSeconds) => {
+                        setTrimStart(startSeconds)
+                        setTrimEnd(endSeconds)
+                      }}
+                    />
+                  </Suspense>
                 )}
               </div>
               <div>

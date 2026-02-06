@@ -7,6 +7,7 @@ import ProgressBar from '../components/ProgressBar'
 import FailedState from '../components/FailedState'
 import { Loader2, FolderPlus } from 'lucide-react'
 import { getBatchDownloadUrl, getBatchStatus, uploadBatch } from '../lib/api'
+import { JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 
 interface BatchStatus {
   batchId: string
@@ -62,7 +63,7 @@ export default function BatchProcess(props: BatchProcessSeoProps = {}) {
         } catch {
           clearInterval(poll)
         }
-      }, 2000)
+      }, JOB_POLL_INTERVAL_MS)
     } catch (e) {
       console.error(e)
       setStatus('failed')

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense, lazy } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { MessageSquare, Loader2 } from 'lucide-react'
 import FileUploadZone from '../components/FileUploadZone'
@@ -10,13 +10,14 @@ import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
-import VideoTrimmer from '../components/VideoTrimmer'
+const VideoTrimmer = lazy(() => import('../components/VideoTrimmer'))
 import LanguageSelector from '../components/LanguageSelector'
-import SubtitleEditor, { SubtitleRow } from '../components/SubtitleEditor'
+import type { SubtitleRow } from '../components/SubtitleEditor'
+const SubtitleEditor = lazy(() => import('../components/SubtitleEditor'))
 import { incrementUsage } from '../lib/usage'
-import { uploadFile, uploadFileWithProgress, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError, getUserFacingMessage, translateTranscript, TRANSCRIPT_TRANSLATION_LANGUAGES } from '../lib/api'
+import { uploadFile, uploadFileWithProgress, getJobStatus, getCurrentUsage, getConnectionProbeIfNeeded, BACKEND_TOOL_TYPES, SessionExpiredError, getUserFacingMessage, translateTranscript, TRANSCRIPT_TRANSLATION_LANGUAGES } from '../lib/api'
 import { checkVideoPreflight } from '../lib/uploadPreflight'
-import { getJobLifecycleTransition } from '../lib/jobPolling'
+import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { persistJobId, getPersistedJobId, clearPersistedJobId } from '../lib/jobSession'
 import { createCheckoutSession } from '../lib/billing'
@@ -184,7 +185,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             }
           }
         }
-        rehydratePollRef.current = setInterval(doPoll, 2000)
+        rehydratePollRef.current = setInterval(doPoll, JOB_POLL_INTERVAL_MS)
         doPoll()
       } catch (err) {
         if (cancelled) return
@@ -278,7 +279,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
       // If usage lookup fails, fall back to allowing processing
     }
 
-    // Pre-flight: file size + duration vs plan limits
+    let connectionSpeed: 'fast' | 'medium' | 'slow' | undefined
     try {
       setStatus('processing')
       setUploadPhase('preparing')
@@ -288,7 +289,12 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
       const limits = usageData?.limits
         ? { maxFileSize: usageData.limits.maxFileSize, maxVideoDuration: usageData.limits.maxVideoDuration }
         : {}
-      const preflight = await checkVideoPreflight(selectedFile, limits)
+      const probePromise = getConnectionProbeIfNeeded(selectedFile)
+      const [preflight, probeResult] = await Promise.all([
+        checkVideoPreflight(selectedFile, limits),
+        probePromise ?? Promise.resolve(null),
+      ])
+      connectionSpeed = probeResult ?? undefined
       if (!preflight.allowed) {
         setStatus('idle')
         toast.error(preflight.reason ?? 'Video exceeds plan limits.')
@@ -315,7 +321,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           trimmedEnd: trimEnd ?? undefined,
           additionalLanguages: canMultiLanguage ? additionalLanguages : undefined,
         },
-        { onProgress: (p) => setUploadProgress(p) }
+        { onProgress: (p) => setUploadProgress(p), connectionSpeed }
       )
 
       persistJobId(location.pathname, response.jobId)
@@ -366,7 +372,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           // Network/parse errors: do not set failed; keep polling.
         }
       }
-      pollIntervalRef.current = setInterval(doPoll, 2000)
+      pollIntervalRef.current = setInterval(doPoll, JOB_POLL_INTERVAL_MS)
       doPoll()
     } catch (error: any) {
       if (error instanceof SessionExpiredError) {
@@ -442,7 +448,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           // keep polling
         }
       }
-      pollIntervalRef.current = setInterval(doPoll, 2000)
+      pollIntervalRef.current = setInterval(doPoll, JOB_POLL_INTERVAL_MS)
       doPoll()
     } catch (e: any) {
       toast.error(e.message || 'Conversion failed')
@@ -585,7 +591,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               {selectedFile && (
                 <VideoTrimmer
                   file={selectedFile}
-                  onChange={(startSeconds, endSeconds) => {
+                  onChange={(startSeconds: number, endSeconds: number) => {
                     setTrimStart(startSeconds)
                     setTrimEnd(endSeconds)
                   }}
@@ -651,11 +657,13 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
 
             {subtitleRows.length > 0 && (
               <div className="bg-white rounded-2xl p-6 shadow-sm">
-                <SubtitleEditor
-                  entries={subtitleRows}
-                  editable={canEdit}
-                  onChange={setSubtitleRows}
-                />
+                <Suspense fallback={null}>
+                  <SubtitleEditor
+                    entries={subtitleRows}
+                    editable={canEdit}
+                    onChange={setSubtitleRows}
+                  />
+                </Suspense>
 
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                   <button

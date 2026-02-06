@@ -67,7 +67,7 @@ export async function transcribeWithDiarization(
     if (!getUrl) return null
 
     for (let i = 0; i < 180; i++) {
-      await new Promise((r) => setTimeout(r, 2000))
+      await new Promise((r) => setTimeout(r, 1000))
       const statusRes = await fetch(getUrl, { headers: { Authorization: `Bearer ${token}` } })
       const status = (await statusRes.json()) as { status: string; output?: { segments?: Array<{ start: number; end: number; text: string; speaker?: string }>; text?: string } }
       if (status.status === 'succeeded' && status.output?.segments) {

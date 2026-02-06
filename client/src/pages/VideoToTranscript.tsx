@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo, Suspense, lazy } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { FileText, Copy, Loader2, Users, ListOrdered, BookOpen, Sparkles, Hash, FileCode, Download, Eraser, Search, Pencil, FileDown, Languages, ChevronDown } from 'lucide-react'
 import FileUploadZone from '../components/FileUploadZone'
@@ -10,11 +10,11 @@ import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
-import VideoTrimmer from '../components/VideoTrimmer'
+const VideoTrimmer = lazy(() => import('../components/VideoTrimmer'))
 import { incrementUsage } from '../lib/usage'
-import { uploadFileWithProgress, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError, getUserFacingMessage, translateTranscript, TRANSCRIPT_TRANSLATION_LANGUAGES } from '../lib/api'
+import { uploadFileWithProgress, getJobStatus, getCurrentUsage, getConnectionProbeIfNeeded, BACKEND_TOOL_TYPES, SessionExpiredError, getUserFacingMessage, translateTranscript, TRANSCRIPT_TRANSLATION_LANGUAGES } from '../lib/api'
 import { checkVideoPreflight } from '../lib/uploadPreflight'
-import { getJobLifecycleTransition } from '../lib/jobPolling'
+import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { persistJobId, getPersistedJobId, clearPersistedJobId } from '../lib/jobSession'
 import { trackEvent } from '../lib/analytics'
@@ -212,7 +212,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             // other errors: keep polling
           }
         }
-        rehydratePollRef.current = setInterval(doPoll, 2000)
+        rehydratePollRef.current = setInterval(doPoll, JOB_POLL_INTERVAL_MS)
         doPoll()
       } catch (err) {
         if (cancelled) return
@@ -271,7 +271,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
       // If usage lookup fails, fall back to allowing processing
     }
 
-    // Pre-flight: file size + duration vs plan limits (no upload if over limit)
+    let connectionSpeed: 'fast' | 'medium' | 'slow' | undefined
     try {
       setStatus('processing')
       setUploadPhase('preparing')
@@ -281,7 +281,12 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
       const limits = usageData?.limits
         ? { maxFileSize: usageData.limits.maxFileSize, maxVideoDuration: usageData.limits.maxVideoDuration }
         : {}
-      const preflight = await checkVideoPreflight(selectedFile, limits)
+      const probePromise = getConnectionProbeIfNeeded(selectedFile)
+      const [preflight, probeResult] = await Promise.all([
+        checkVideoPreflight(selectedFile, limits),
+        probePromise ?? Promise.resolve(null),
+      ])
+      connectionSpeed = probeResult ?? undefined
       if (!preflight.allowed) {
         setStatus('idle')
         toast.error(preflight.reason ?? 'Video exceeds plan limits.')
@@ -310,7 +315,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
           speakerDiarization,
           glossary: glossary.trim() || undefined,
         },
-        { onProgress: (p) => setUploadProgress(p) }
+        { onProgress: (p) => setUploadProgress(p), connectionSpeed }
       )
 
       persistJobId(location.pathname, response.jobId)
@@ -359,7 +364,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
           // Network/parse errors: do not set failed; keep polling.
         }
       }
-      pollIntervalRef.current = setInterval(doPoll, 2000)
+      pollIntervalRef.current = setInterval(doPoll, JOB_POLL_INTERVAL_MS)
       doPoll()
     } catch (error: any) {
       if (error instanceof SessionExpiredError) {
@@ -764,13 +769,15 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                 maxSize={10 * 1024 * 1024 * 1024}
               />
               {selectedFile && (
-                <VideoTrimmer
-                  file={selectedFile}
-                  onChange={(startSeconds, endSeconds) => {
+                <Suspense fallback={null}>
+                  <VideoTrimmer
+                    file={selectedFile}
+onChange={(startSeconds: number, endSeconds: number) => {
                     setTrimStart(startSeconds)
                     setTrimEnd(endSeconds)
                   }}
-                />
+                  />
+                </Suspense>
               )}
               {selectedFile && (
                 <div className="mt-4 p-4 bg-gray-50 rounded-xl space-y-3">

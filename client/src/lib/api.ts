@@ -126,12 +126,14 @@ function buildUploadFormData(file: File, options: UploadOptions): FormData {
 
 export interface UploadProgressOptions {
   onProgress?: (percent: number) => void
+  /** When set, chunked upload skips the connection probe and uses this profile (enables parallel preflight + probe in pages). */
+  connectionSpeed?: 'fast' | 'medium' | 'slow'
 }
 
 const CHUNK_THRESHOLD = 15 * 1024 * 1024 // 15 MB — use chunked upload above this
 const CHUNKED_UPLOAD_STATE_KEY = 'videotools_chunked_upload'
-/** Per-chunk timeout so we retry instead of hanging until OS kills the connection (helps mobile). */
-const CHUNK_FETCH_TIMEOUT_MS = 90_000
+/** Server accepts up to 10 MB per chunk (express.raw limit). */
+const SERVER_CHUNK_LIMIT = 10 * 1024 * 1024
 
 /** Heuristic: touch device or narrow screen or common mobile UA. Used to pick smaller chunks + sequential upload. */
 function isMobile(): boolean {
@@ -141,6 +143,41 @@ function isMobile(): boolean {
   if ('ontouchstart' in window) return true
   if (window.innerWidth > 0 && window.innerWidth < 768) return true
   return false
+}
+
+/** Probe connection speed via GET /health. Used to pick chunk size and parallelism for desktop chunked upload. */
+const PROBE_TIMEOUT_MS = 2_500
+const PROBE_FAST_MS = 400   // under this → fast (10 MB, 4 parallel)
+const PROBE_MEDIUM_MS = 1200 // under this → medium (5 MB, 2 parallel); else slow (2 MB, 1 parallel)
+const PROBE_CACHE_MS = 30_000
+const USAGE_CACHE_MS = 45_000
+
+let probeCache: { speed: 'fast' | 'medium' | 'slow'; at: number } | null = null
+
+async function measureConnectionSpeed(): Promise<'fast' | 'medium' | 'slow'> {
+  const now = Date.now()
+  if (probeCache && now - probeCache.at < PROBE_CACHE_MS) return probeCache.speed
+  const start = performance.now()
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS)
+  try {
+    const res = await fetch(`${API_ORIGIN}/health`, { signal: controller.signal })
+    clearTimeout(timeoutId)
+    const elapsed = performance.now() - start
+    if (!res.ok) return 'slow'
+    let speed: 'fast' | 'medium' | 'slow' = elapsed < PROBE_FAST_MS ? 'fast' : elapsed < PROBE_MEDIUM_MS ? 'medium' : 'slow'
+    probeCache = { speed, at: Date.now() }
+    return speed
+  } catch {
+    clearTimeout(timeoutId)
+    return 'slow'
+  }
+}
+
+/** Call when about to start chunked upload; returns a promise to run in parallel with preflight, or null if probe not needed. */
+export function getConnectionProbeIfNeeded(file: File): Promise<'fast' | 'medium' | 'slow'> | null {
+  if (file.size <= CHUNK_THRESHOLD || isMobile()) return null
+  return measureConnectionSpeed()
 }
 
 interface ChunkedUploadState {
@@ -182,7 +219,7 @@ function clearChunkedUploadState(): void {
 }
 
 function buildInitBody(file: File, options: UploadOptions, totalChunks?: number): Record<string, unknown> {
-  const defaultChunkSize = isMobile() ? 2 * 1024 * 1024 : 5 * 1024 * 1024
+  const defaultChunkSize = isMobile() ? 2 * 1024 * 1024 : SERVER_CHUNK_LIMIT // 2 MB mobile (reliable), 10 MB desktop (fewer round trips)
   const body: Record<string, unknown> = {
     filename: file.name,
     totalSize: file.size,
@@ -214,7 +251,7 @@ function buildInitBody(file: File, options: UploadOptions, totalChunks?: number)
   return body
 }
 
-/** Chunked upload for large files. Resumable: same file retry reuses uploadId and only sends missing chunks. Mobile: smaller chunks + sequential for reliability. */
+/** Chunked upload for large files. Resumable: same file retry reuses uploadId and only sends missing chunks. Desktop: adaptive chunk size and parallelism from connection probe; mobile: 2 MB sequential for reliability. */
 async function uploadFileChunked(
   file: File,
   options: UploadOptions,
@@ -223,11 +260,34 @@ async function uploadFileChunked(
   const userId = localStorage.getItem('userId') || 'demo-user'
   const plan = localStorage.getItem('plan') || 'free'
   const mobile = isMobile()
-  const defaultChunkSize = mobile ? 2 * 1024 * 1024 : 5 * 1024 * 1024 // 2 MB on mobile, 5 MB on desktop
-  const chunkParallel = mobile ? 1 : 4 // sequential on mobile to avoid connection limits
-
   const existing = getChunkedUploadState()
   const sameFile = existing && existing.fileName === file.name && existing.fileSize === file.size
+  const useExistingChunking = sameFile && existing!.uploadId && existing!.totalChunks != null
+
+  let defaultChunkSize: number
+  let chunkParallel: number
+  const chunkTimeoutMs = mobile ? 90_000 : 120_000
+
+  if (mobile) {
+    defaultChunkSize = 2 * 1024 * 1024
+    chunkParallel = 1
+  } else if (useExistingChunking) {
+    defaultChunkSize = existing!.chunkSize ?? SERVER_CHUNK_LIMIT
+    chunkParallel = 4
+  } else {
+    const speed = progressOptions?.connectionSpeed ?? (await measureConnectionSpeed())
+    if (speed === 'fast') {
+      defaultChunkSize = SERVER_CHUNK_LIMIT
+      chunkParallel = 4
+    } else if (speed === 'medium') {
+      defaultChunkSize = 5 * 1024 * 1024
+      chunkParallel = 2
+    } else {
+      defaultChunkSize = 2 * 1024 * 1024
+      chunkParallel = 1
+    }
+  }
+
   const chunkSize = sameFile ? (existing!.chunkSize ?? defaultChunkSize) : defaultChunkSize
   const totalChunks = sameFile ? (existing!.totalChunks ?? Math.ceil(file.size / chunkSize)) : Math.ceil(file.size / chunkSize)
 
@@ -274,7 +334,7 @@ async function uploadFileChunked(
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
         const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), CHUNK_FETCH_TIMEOUT_MS)
+        const timeoutId = setTimeout(() => controller.abort(), chunkTimeoutMs)
         const res = await fetch(`${API_ORIGIN}/api/upload/chunk`, {
           method: 'POST',
           signal: controller.signal,
@@ -669,7 +729,11 @@ export interface UsageData {
   resetDate: string
 }
 
+let usageCache: { data: unknown; at: number } | null = null
+
 export async function getCurrentUsage(): Promise<UsageData> {
+  const now = Date.now()
+  if (usageCache && now - usageCache.at < USAGE_CACHE_MS) return usageCache.data as UsageData
   const response = await api('/api/usage/current', {
     timeout: API_GET_TIMEOUT_MS,
     headers: {
@@ -677,12 +741,10 @@ export async function getCurrentUsage(): Promise<UsageData> {
       'x-plan': localStorage.getItem('plan') || 'free',
     },
   })
-
-  if (!response.ok) {
-    throw new Error('Failed to get usage data')
-  }
-
-  return response.json()
+  if (!response.ok) throw new Error('Failed to get usage data')
+  const data = await response.json()
+  usageCache = { data, at: Date.now() }
+  return data as UsageData
 }
 
 /** Translate transcript text to a target language (English, Hindi, Telugu, Spanish, Chinese, Russian). */

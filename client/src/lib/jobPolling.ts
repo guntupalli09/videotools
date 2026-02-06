@@ -1,5 +1,8 @@
 import type { JobStatus } from './api'
 
+/** Interval (ms) for polling job/batch status. */
+export const JOB_POLL_INTERVAL_MS = 1500
+
 /**
  * Job polling state machine — lifecycle depends ONLY on jobStatus.status.
  *

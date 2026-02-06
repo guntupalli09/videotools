@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, Suspense, lazy } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Wrench, Loader2, CheckCircle } from 'lucide-react'
 import FileUploadZone from '../components/FileUploadZone'
@@ -9,10 +9,11 @@ import SuccessState from '../components/SuccessState'
 import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import UsageDisplay from '../components/UsageDisplay'
-import SubtitleEditor, { SubtitleRow } from '../components/SubtitleEditor'
+import type { SubtitleRow } from '../components/SubtitleEditor'
+const SubtitleEditor = lazy(() => import('../components/SubtitleEditor'))
 import { incrementUsage } from '../lib/usage'
 import { uploadFile, getJobStatus, BACKEND_TOOL_TYPES, SessionExpiredError } from '../lib/api'
-import { getJobLifecycleTransition } from '../lib/jobPolling'
+import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { persistJobId, clearPersistedJobId } from '../lib/jobSession'
 import toast from 'react-hot-toast'
@@ -125,7 +126,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
           // Network/parse errors: do not set failed; keep polling.
         }
       }
-      pollIntervalRef.current = setInterval(doPoll, 2000)
+      pollIntervalRef.current = setInterval(doPoll, JOB_POLL_INTERVAL_MS)
       doPoll()
     } catch (error: any) {
       if (error instanceof SessionExpiredError) {
@@ -187,7 +188,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
           // Network/parse errors: do not set failed; keep polling.
         }
       }
-      pollIntervalRef.current = setInterval(doPoll, 2000)
+      pollIntervalRef.current = setInterval(doPoll, JOB_POLL_INTERVAL_MS)
       doPoll()
     } catch (error: any) {
       if (error instanceof SessionExpiredError) {
@@ -425,11 +426,13 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
 
             {subtitleRows.length > 0 && (
               <div className="bg-white rounded-2xl p-6 shadow-sm">
-                <SubtitleEditor
-                  entries={subtitleRows}
-                  editable={canEdit}
-                  onChange={setSubtitleRows}
-                />
+                <Suspense fallback={null}>
+                  <SubtitleEditor
+                    entries={subtitleRows}
+                    editable={canEdit}
+                    onChange={setSubtitleRows}
+                  />
+                </Suspense>
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                   <button
                     disabled={!canEdit}
