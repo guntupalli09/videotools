@@ -139,6 +139,8 @@ export interface UploadProgressOptions {
   onProgress?: (percent: number) => void
   /** When set, chunked upload skips the connection probe and uses this profile (enables parallel preflight + probe in pages). */
   connectionSpeed?: 'fast' | 'medium' | 'slow'
+  /** Optional AbortSignal to cancel upload (XHR abort / chunked stop). */
+  signal?: AbortSignal
 }
 
 const CHUNK_THRESHOLD = 15 * 1024 * 1024 // 15 MB — use chunked upload above this
@@ -267,6 +269,11 @@ function buildInitBody(file: File, options: UploadOptions, totalChunks?: number)
   return body
 }
 
+/** Exponential backoff delay (ms): 1s, 2s for attempts 1, 2. */
+function getRetryDelayMs(attempt: number): number {
+  return Math.min(1000 * Math.pow(2, attempt), 4000)
+}
+
 /** Chunked upload for large files. Resumable: same file retry reuses uploadId and only sends missing chunks. Desktop: adaptive chunk size and parallelism from connection probe; mobile: 2 MB sequential for reliability. */
 async function uploadFileChunked(
   file: File,
@@ -277,6 +284,7 @@ async function uploadFileChunked(
   const userId = localStorage.getItem('userId') || 'demo-user'
   const plan = localStorage.getItem('plan') || 'free'
   const mobile = isMobile()
+  const signal = progressOptions?.signal
   const existing = getChunkedUploadState()
   const sameFile = existing && existing.fileName === file.name && existing.fileSize === file.size
   const useExistingChunking = sameFile && existing!.uploadId && existing!.totalChunks != null
@@ -284,6 +292,7 @@ async function uploadFileChunked(
   let defaultChunkSize: number
   let chunkParallel: number
   const chunkTimeoutMs = mobile ? 90_000 : 120_000
+  const maxChunkRetries = 3
 
   if (mobile) {
     defaultChunkSize = 2 * 1024 * 1024
@@ -317,6 +326,7 @@ async function uploadFileChunked(
     uploadId = existing.uploadId
     uploadedChunks = [...existing.uploadedChunks]
   } else {
+    if (signal?.aborted) throw new Error('Upload cancelled')
     const initRes = await api('/api/upload/init', {
       method: 'POST',
       headers: {
@@ -344,14 +354,18 @@ async function uploadFileChunked(
     progressOptions?.onProgress?.(0)
   }
 
-  const uploadChunk = async (chunkIndex: number, retries = 2): Promise<void> => {
+  const uploadChunk = async (chunkIndex: number): Promise<void> => {
     const start = chunkIndex * chunkSize
     const end = Math.min(start + chunkSize, file.size)
     const blob = file.slice(start, end)
-    for (let attempt = 0; attempt <= retries; attempt++) {
+    for (let attempt = 0; attempt < maxChunkRetries; attempt++) {
+      if (signal?.aborted) throw new Error('Upload cancelled')
       try {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), chunkTimeoutMs)
+        if (signal) {
+          signal.addEventListener('abort', () => controller.abort(), { once: true })
+        }
         const res = await fetch(`${API_ORIGIN}/api/upload/chunk`, {
           method: 'POST',
           signal: controller.signal,
@@ -380,7 +394,10 @@ async function uploadFileChunked(
         })
         return
       } catch (e) {
-        if (attempt === retries) {
+        if (e instanceof Error && e.name === 'AbortError') throw new Error('Upload cancelled')
+        if (attempt < maxChunkRetries - 1) {
+          await new Promise((r) => setTimeout(r, getRetryDelayMs(attempt)))
+        } else {
           const msg = e instanceof Error ? e.message : 'Chunk upload failed'
           throw new Error(
             msg +
@@ -394,12 +411,14 @@ async function uploadFileChunked(
   const indicesToUpload = Array.from({ length: totalChunks }, (_, i) => i).filter((i) => !uploadedChunks.includes(i))
   let done = uploadedChunks.length
   for (let i = 0; i < indicesToUpload.length; i += chunkParallel) {
+    if (signal?.aborted) throw new Error('Upload cancelled')
     const batch = indicesToUpload.slice(i, i + chunkParallel).map((chunkIndex) => uploadChunk(chunkIndex))
     await Promise.all(batch)
     done += batch.length
     progressOptions?.onProgress?.(Math.round((done / totalChunks) * 100))
   }
 
+  if (signal?.aborted) throw new Error('Upload cancelled')
   const completeRes = await api('/api/upload/complete', {
     method: 'POST',
     headers: {
@@ -421,6 +440,8 @@ async function uploadFileChunked(
   return data
 }
 
+const SINGLE_UPLOAD_MAX_RETRIES = 3
+
 /** Upload with real progress. Uses chunked upload for large files (resumable-friendly); XHR for smaller. */
 export function uploadFileWithProgress(
   file: File,
@@ -435,52 +456,87 @@ export function uploadFileWithProgress(
   const url = `${API_ORIGIN}/api/upload`
   const userId = localStorage.getItem('userId') || 'demo-user'
   const plan = localStorage.getItem('plan') || 'free'
+  const signal = progressOptions?.signal
 
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest()
-    let uploadStartMs = 0
+  const runOne = (): Promise<UploadResponse> =>
+    new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      let uploadStartMs = 0
 
-    xhr.upload.addEventListener('progress', (e) => {
-      if (e.lengthComputable && progressOptions?.onProgress) {
-        progressOptions.onProgress(Math.round((e.loaded / e.total) * 100))
-      }
-    })
-
-    xhr.addEventListener('load', () => {
-      if (xhr.status === 204 || !xhr.responseText?.trim()) {
-        reject(new Error('Upload accepted but no job ID returned. Please retry.'))
+      if (signal?.aborted) {
+        reject(new Error('Upload cancelled'))
         return
       }
-      let data: UploadResponse & { message?: string }
+      const onAbort = () => {
+        xhr.abort()
+      }
+      signal?.addEventListener('abort', onAbort, { once: true })
+
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable && progressOptions?.onProgress) {
+          progressOptions.onProgress(Math.round((e.loaded / e.total) * 100))
+        }
+      })
+
+      xhr.addEventListener('load', () => {
+        signal?.removeEventListener('abort', onAbort)
+        if (xhr.status === 204 || !xhr.responseText?.trim()) {
+          reject(new Error('Upload accepted but no job ID returned. Please retry.'))
+          return
+        }
+        let data: UploadResponse & { message?: string }
+        try {
+          data = JSON.parse(xhr.responseText) as UploadResponse & { message?: string }
+        } catch {
+          reject(new Error('Invalid upload response. Please retry.'))
+          return
+        }
+        if (xhr.status >= 200 && xhr.status < 300 && data?.jobId) {
+          const uploadDurationMs = uploadStartMs ? Date.now() - uploadStartMs : 0
+          console.log('[UPLOAD_TIMING]', { file_size_bytes: file.size, upload_duration_ms: uploadDurationMs, tool_type: options.toolType, mode: 'xhr' })
+          resolve({ jobId: data.jobId, status: data.status ?? 'queued' })
+          return
+        }
+        const err = data?.message || 'Upload failed'
+        reject(new Error(
+          options.toolType === 'translate-subtitles' || options.toolType === 'fix-subtitles' || options.toolType === 'convert-subtitles'
+            ? mapSubtitleUploadError(err)
+            : err
+        ))
+      })
+
+      xhr.addEventListener('error', () => {
+        signal?.removeEventListener('abort', onAbort)
+        reject(new Error('Upload failed'))
+      })
+      xhr.addEventListener('abort', () => {
+        signal?.removeEventListener('abort', onAbort)
+        reject(new Error('Upload cancelled'))
+      })
+
+      xhr.open('POST', url)
+      xhr.setRequestHeader('x-user-id', userId)
+      xhr.setRequestHeader('x-plan', plan)
+      uploadStartMs = Date.now()
+      xhr.send(formData)
+    })
+
+  return (async () => {
+    let lastErr: Error | null = null
+    for (let attempt = 0; attempt < SINGLE_UPLOAD_MAX_RETRIES; attempt++) {
+      if (signal?.aborted) throw new Error('Upload cancelled')
       try {
-        data = JSON.parse(xhr.responseText) as UploadResponse & { message?: string }
-      } catch {
-        reject(new Error('Invalid upload response. Please retry.'))
-        return
+        return await runOne()
+      } catch (e) {
+        lastErr = e instanceof Error ? e : new Error('Upload failed')
+        if (lastErr.message === 'Upload cancelled') throw lastErr
+        if (attempt < SINGLE_UPLOAD_MAX_RETRIES - 1) {
+          await new Promise((r) => setTimeout(r, getRetryDelayMs(attempt)))
+        }
       }
-      if (xhr.status >= 200 && xhr.status < 300 && data?.jobId) {
-        const uploadDurationMs = uploadStartMs ? Date.now() - uploadStartMs : 0
-        console.log('[UPLOAD_TIMING]', { file_size_bytes: file.size, upload_duration_ms: uploadDurationMs, tool_type: options.toolType, mode: 'xhr' })
-        resolve({ jobId: data.jobId, status: data.status ?? 'queued' })
-        return
-      }
-      const err = data?.message || 'Upload failed'
-      reject(new Error(
-        options.toolType === 'translate-subtitles' || options.toolType === 'fix-subtitles' || options.toolType === 'convert-subtitles'
-          ? mapSubtitleUploadError(err)
-          : err
-      ))
-    })
-
-    xhr.addEventListener('error', () => reject(new Error('Upload failed')))
-    xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')))
-
-    xhr.open('POST', url)
-    xhr.setRequestHeader('x-user-id', userId)
-    xhr.setRequestHeader('x-plan', plan)
-    uploadStartMs = Date.now()
-    xhr.send(formData)
-  })
+    }
+    throw lastErr ?? new Error('Upload failed')
+  })()
 }
 
 export async function uploadFile(file: File, options: UploadOptions): Promise<UploadResponse> {

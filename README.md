@@ -6,6 +6,7 @@ Professional video utilities platform: transcribe video to text, generate and tr
 
 ### Recent updates (high level)
 
+- **Upload UX (Video → Transcript & Video → Subtitles):** Multi-stage progress (Preparing → Uploading → Processing → Completed/Error); instant file preview on selection (filename, duration, video thumbnail) using browser APIs only; **Cancel** to abort upload or leave processing and start a new file; automatic retry with exponential backoff (chunk and single-file uploads); “Slow connection detected — optimizing upload” when the connection probe indicates slow links. All additive and backwards compatible. See [§10 Upload & transcript/subtitles UX](#upload--transcriptsubtitles-ux) and `docs/UX_UPLOAD_IMPROVEMENTS.md`.
 - **In-app translation viewers**: Translate transcript text (Video → Transcript) and subtitle cue text (Video → Subtitles) into English, Hindi, Telugu, Spanish, Chinese, or Russian.
 - **Faster long-video transcription**: parallel chunking + merge (same result shape).
 - **Optional GPU FFmpeg**: set `FFMPEG_USE_GPU=true` to use GPU decode/encode where available.
@@ -13,8 +14,9 @@ Professional video utilities platform: transcribe video to text, generate and tr
 - **Plan limits**: Free = 60 min/month, 15 min max per video; Basic = 45 min max per video. See [§5 Billing & usage](#5-billing--usage).
 - **Usage tracking**: Batch jobs charge minutes per video; all tools show minutes remaining and refetch when a job completes.
 - **Client: fast load & revisits** — Route-level code splitting (lazy-loaded pages), prefetch on link hover/focus, and PWA (precache of static assets; API is never cached). See [§10 Client: performance, devices & reliability](#10-client-performance-devices--reliability).
-- **Client: mobile & reliability** — Chunked upload is mobile-optimised (smaller chunks, sequential, per-chunk timeout and retry); “keep tab open” reminder during upload; offline banner when the app loses connection; user-facing “Check your connection” message on network/abort errors; error boundary and unhandled-rejection safety net.
+- **Client: mobile & reliability** — Chunked upload is mobile-optimised (smaller chunks, sequential, per-chunk timeout and retry with exponential backoff); “keep tab open” reminder during upload; offline banner when the app loses connection; user-facing “Check your connection” message on network/abort errors; error boundary and unhandled-rejection safety net.
 - **Client: cross-browser** — Build target `es2020` and `browserslist` (last 2 Chrome, Firefox, Safari, Edge) for a clear compatibility baseline.
+- **Pipeline & architecture:** Upload → queue → worker flow is documented; performance audit (bottlenecks, optional future optimisations) in `docs/PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md`.
 
 ---
 
@@ -280,6 +282,18 @@ The frontend is built for **fast first load**, **reliable behaviour on slow or f
 - **Prefetch:** Navigation and UserMenu links prefetch the corresponding route chunk on hover/focus so navigation feels instant when the user clicks.
 - **PWA:** `vite-plugin-pwa` generates a service worker that precaches static assets (JS, CSS, HTML, images). Repeat visits and brief offline periods can serve the app shell from cache. **API is never cached** so usage, billing, and job state stay correct.
 
+### Upload & transcript/subtitles UX
+
+(Video → Transcript and Video → Subtitles only; frontend-only, no API changes.)
+
+- **Multi-stage progress:** UI shows **Preparing** (only when browser audio preprocessing runs) → **Uploading** (existing progress %) → **Processing** (job progress and queue position) → **Completed** or **Error**. Implemented via `UploadStageIndicator`; state is derived from existing `uploadPhase` and `status`.
+- **Instant file preview:** As soon as the user selects a file, the app shows filename, size, duration, and a video thumbnail (or placeholder for audio) using browser APIs only (`getFilePreview` in `client/src/lib/filePreview.ts`). Preview persists through upload and processing.
+- **Cancel + replace:** A **Cancel** button aborts the active upload (AbortController) or, if the job is already created, clears the persisted job and returns to idle so the user can start a new file immediately. Cancellation never blocks the flow; there is no server job-cancel API.
+- **Smarter retry:** Chunk uploads and single-file (XHR) uploads use automatic retry with exponential backoff (2–3 attempts). Chunked uploads resume from the last successful chunk (existing sessionStorage state). On final failure, the same “Try again” / FailedState flow is used.
+- **Network-aware messaging:** When the connection probe indicates a slow link, the app shows “Slow connection detected — optimizing upload” during the upload phase (informational only; flow is not blocked).
+
+Details, state machine, and regression notes: `docs/UX_UPLOAD_IMPROVEMENTS.md`.
+
 ### Mobile & large uploads
 
 - **Retest (15 min video, 155 MB):** Laptop 2 min 16 s (upload + processing); mobile 1 min 26 s. Mobile can be faster due to different chunk strategy (2 MB sequential, no probe) and network conditions.
@@ -307,8 +321,9 @@ A more detailed comparison with industry norms and optional next steps (tests, S
 ```text
 ├── client/                 # React + Vite; PWA (vite-plugin-pwa)
 │   ├── src/
-│   │   ├── components/     # UI (Navigation, FileUploadZone, SuccessState, OfflineBanner, SessionErrorBoundary, …)
-│   │   ├── lib/            # api, apiBase, billing, jobPolling, prefetch, seoMeta, theme, usage, …
+│   │   ├── components/     # UI (Navigation, FileUploadZone, FilePreviewCard, UploadStageIndicator,
+│   │   │                   #      SuccessState, OfflineBanner, SessionErrorBoundary, …)
+│   │   ├── lib/            # api, apiBase, billing, filePreview, jobPolling, prefetch, seoMeta, theme, usage, …
 │   │   ├── pages/          # Home, VideoToTranscript, VideoToSubtitles, BatchProcess, … (lazy-loaded)
 │   │   └── pages/seo/      # SEO entry-point wrappers (same tools, different meta)
 │   ├── public/
@@ -321,7 +336,9 @@ A more detailed comparison with industry norms and optional next steps (tests, S
 │   │   ├── models/        # User, Job, UsageLog, …
 │   │   └── utils/         # auth, limits, metering, srtParser, redis, …
 │   └── package.json
-├── docs/                   # FRONTEND_BENCHMARK.md (client vs industry), API_UPLOAD_CONTRACT, …
+├── docs/                   # UX_UPLOAD_IMPROVEMENTS.md (upload UX, state machine, regression notes),
+│                          # PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md (bottlenecks, optional optimisations),
+│                          # FRONTEND_BENCHMARK.md (client vs industry), …
 ├── deploy/
 │   ├── Caddyfile           # Reverse proxy for API
 │   └── (no separate README; see §8 above)
@@ -344,4 +361,4 @@ A more detailed comparison with industry norms and optional next steps (tests, S
 | Job status | `GET /api/job/:jobId` |
 | Health | `GET /health` → `{"status":"ok"}` |
 
-All product behavior, trees, branches, and features are described in [§1 Features & tools](#1-features--tools-trees-and-branches). Client performance and device/reliability details are in [§10 Client: performance, devices & reliability](#10-client-performance-devices--reliability). For env details use `server/.env.example` and the tables in [§3 Environment variables](#3-environment-variables).
+All product behavior, trees, branches, and features are described in [§1 Features & tools](#1-features--tools-trees-and-branches). Client performance and device/reliability details are in [§10 Client: performance, devices & reliability](#10-client-performance-devices--reliability). Latest upload UX improvements (multi-stage progress, preview, cancel, retry, network-aware messaging) are in [§10 Upload & transcript/subtitles UX](#upload--transcriptsubtitles-ux) and `docs/UX_UPLOAD_IMPROVEMENTS.md`. Pipeline architecture and performance audit are in `docs/PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md`. For env details use `server/.env.example` and the tables in [§3 Environment variables](#3-environment-variables).

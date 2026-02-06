@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, Suspense, lazy } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { MessageSquare, Loader2 } from 'lucide-react'
 import FileUploadZone from '../components/FileUploadZone'
+import FilePreviewCard from '../components/FilePreviewCard'
+import UploadStageIndicator from '../components/UploadStageIndicator'
 import UsageCounter from '../components/UsageCounter'
 import PlanBadge from '../components/PlanBadge'
 import ProgressBar from '../components/ProgressBar'
@@ -17,6 +19,7 @@ const SubtitleEditor = lazy(() => import('../components/SubtitleEditor'))
 import { incrementUsage } from '../lib/usage'
 import { uploadFile, uploadFileWithProgress, getJobStatus, getCurrentUsage, getConnectionProbeIfNeeded, BACKEND_TOOL_TYPES, SessionExpiredError, getUserFacingMessage, translateTranscript, TRANSCRIPT_TRANSLATION_LANGUAGES } from '../lib/api'
 import { checkVideoPreflight } from '../lib/uploadPreflight'
+import { getFilePreview, type FilePreviewData } from '../lib/filePreview'
 import { extractAudioInBrowser, isAudioExtractionSupported } from '../lib/audioExtraction'
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
@@ -56,6 +59,10 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
   const [queuePosition, setQueuePosition] = useState<number | undefined>(undefined)
   const [isRehydrating, setIsRehydrating] = useState(false)
   const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null)
+  const [filePreview, setFilePreview] = useState<FilePreviewData | null>(null)
+  const [connectionSpeed, setConnectionSpeed] = useState<'fast' | 'medium' | 'slow' | undefined>(undefined)
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null)
+  const uploadAbortRef = useRef<AbortController | null>(null)
   const [convertTargetFormat, setConvertTargetFormat] = useState<'srt' | 'vtt' | 'txt'>('srt')
   const [convertProgress, setConvertProgress] = useState(false)
   const [convertPreview, setConvertPreview] = useState<string | null>(null)
@@ -64,6 +71,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
   const [translating, setTranslating] = useState(false)
   const [translateDropdownOpen, setTranslateDropdownOpen] = useState(false)
   const rehydratePollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const activeUploadPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const plan = (localStorage.getItem('plan') || 'free').toLowerCase()
   const canEdit = plan !== 'free'
@@ -76,6 +84,21 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
     translationLanguage && translatedCache[translationLanguage] != null
       ? translatedCache[translationLanguage]
       : subtitleTextForTranslation
+
+  // Instant file preview (browser only); persists through upload + processing
+  useEffect(() => {
+    if (!selectedFile) {
+      setFilePreview(null)
+      return
+    }
+    let cancelled = false
+    getFilePreview(selectedFile).then((p) => {
+      if (!cancelled) setFilePreview(p)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedFile])
 
   // Reset translation when result changes (new job)
   useEffect(() => {
@@ -92,6 +115,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
     setStatus('processing')
     setUploadPhase('processing')
     setUploadProgress(100)
+    setCurrentJobId(jobId)
     setIsRehydrating(true)
     setProcessingStartedAt(Date.now())
 
@@ -222,6 +246,26 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
     setAdditionalLanguages([])
   }
 
+  const handleCancelUpload = () => {
+    if (uploadAbortRef.current) {
+      uploadAbortRef.current.abort()
+      uploadAbortRef.current = null
+    }
+    if (activeUploadPollRef.current) {
+      clearInterval(activeUploadPollRef.current)
+      activeUploadPollRef.current = null
+    }
+    if (currentJobId) {
+      clearPersistedJobId(location.pathname, navigate)
+      setCurrentJobId(null)
+      setStatus('idle')
+      setUploadPhase('preparing')
+      setUploadProgress(0)
+      setProgress(0)
+      toast('Cancelled. You can upload a new file — the previous job may still complete in the background.', { icon: 'ℹ️', duration: 5000 })
+    }
+  }
+
   const parseSubtitlesToRows = (text: string): SubtitleRow[] => {
     const blocks = text
       .replace(/\r/g, '')
@@ -280,12 +324,14 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
       // If usage lookup fails, fall back to allowing processing
     }
 
-    let connectionSpeed: 'fast' | 'medium' | 'slow' | undefined
+    let connectionSpeedResult: 'fast' | 'medium' | 'slow' | undefined
     try {
       setStatus('processing')
       setUploadPhase('preparing')
       setUploadProgress(0)
       setProgress(0)
+      uploadAbortRef.current = new AbortController()
+      setCurrentJobId(null)
 
       const limits = usageData?.limits
         ? { maxFileSize: usageData.limits.maxFileSize, maxVideoDuration: usageData.limits.maxVideoDuration }
@@ -295,14 +341,17 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
         checkVideoPreflight(selectedFile, limits),
         probePromise ?? Promise.resolve(null),
       ])
-      connectionSpeed = probeResult ?? undefined
+      connectionSpeedResult = probeResult ?? undefined
+      setConnectionSpeed(connectionSpeedResult)
       if (!preflight.allowed) {
+        uploadAbortRef.current = null
         setStatus('idle')
         toast.error(preflight.reason ?? 'Video exceeds plan limits.')
         trackEvent('paywall_shown', { tool: 'video-to-subtitles', reason: 'preflight' })
         return
       }
     } catch {
+      uploadAbortRef.current = null
       setStatus('idle')
       toast.error('Could not validate video. Try again.')
       return
@@ -341,15 +390,20 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
       const response = await uploadFileWithProgress(
         fileToUpload,
         baseOptions,
-        { onProgress: (p) => setUploadProgress(p), connectionSpeed }
+        {
+          onProgress: (p) => setUploadProgress(p),
+          connectionSpeed: connectionSpeedResult,
+          signal: uploadAbortRef.current?.signal,
+        }
       )
 
+      uploadAbortRef.current = null
+      setCurrentJobId(response.jobId)
       persistJobId(location.pathname, response.jobId)
       setUploadPhase('processing')
       setUploadProgress(100)
       setProcessingStartedAt(Date.now())
 
-      const pollIntervalRef = { current: 0 as ReturnType<typeof setInterval> }
       const doPoll = async () => {
         try {
           const jobStatus = await getJobStatus(response.jobId)
@@ -358,7 +412,10 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
 
           const transition = getJobLifecycleTransition(jobStatus)
           if (transition === 'completed') {
-            clearInterval(pollIntervalRef.current)
+            if (activeUploadPollRef.current) {
+              clearInterval(activeUploadPollRef.current)
+              activeUploadPollRef.current = null
+            }
             setStatus('completed')
             setResult(jobStatus.result ?? null)
             if (jobStatus.result?.downloadUrl) {
@@ -384,7 +441,10 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             incrementUsage('video-to-subtitles')
             trackEvent('processing_completed', { tool: 'video-to-subtitles' })
           } else if (transition === 'failed') {
-            clearInterval(pollIntervalRef.current)
+            if (activeUploadPollRef.current) {
+              clearInterval(activeUploadPollRef.current)
+              activeUploadPollRef.current = null
+            }
             setStatus('failed')
             toast.error('Processing failed. Please try again.')
           }
@@ -392,9 +452,17 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           // Network/parse errors: do not set failed; keep polling.
         }
       }
-      pollIntervalRef.current = setInterval(doPoll, JOB_POLL_INTERVAL_MS)
+      activeUploadPollRef.current = setInterval(doPoll, JOB_POLL_INTERVAL_MS)
       doPoll()
     } catch (error: any) {
+      uploadAbortRef.current = null
+      if (error instanceof Error && error.message === 'Upload cancelled') {
+        setStatus('idle')
+        setUploadPhase('preparing')
+        setUploadProgress(0)
+        setCurrentJobId(null)
+        return
+      }
       if (error instanceof SessionExpiredError) {
         clearPersistedJobId(location.pathname, navigate)
         setStatus('idle')
@@ -408,6 +476,9 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
   const handleProcessAnother = () => {
     clearPersistedJobId(location.pathname, navigate)
     setSelectedFile(null)
+    setFilePreview(null)
+    setCurrentJobId(null)
+    uploadAbortRef.current = null
     setTrimStart(null)
     setTrimEnd(null)
     setAdditionalLanguages([])
@@ -607,6 +678,11 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                 accept={{ 'video/*': ['.mp4', '.mov', '.avi', '.webm', '.mkv'] }}
                 maxSize={10 * 1024 * 1024 * 1024}
               />
+              {selectedFile && filePreview && (
+                <div className="mt-4">
+                  <FilePreviewCard preview={filePreview} />
+                </div>
+              )}
 
               {selectedFile && (
                 <VideoTrimmer
@@ -640,6 +716,21 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
 
         {status === 'processing' && (
           <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
+            <UploadStageIndicator
+              uploadPhase={uploadPhase}
+              status={status}
+              isRehydrating={isRehydrating}
+            />
+            {filePreview && (
+              <div className="flex justify-center mb-4">
+                <FilePreviewCard preview={filePreview} compact />
+              </div>
+            )}
+            {connectionSpeed === 'slow' && uploadPhase === 'uploading' && (
+              <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-4 inline-block" role="status">
+                Slow connection detected — optimizing upload
+              </p>
+            )}
             <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
             <p className="text-lg font-medium text-gray-800 mb-4">
               {isRehydrating && 'Resuming…'}
@@ -664,6 +755,15 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             <p className="text-sm text-gray-500 mt-4">
               {uploadPhase === 'uploading' ? 'Large files may take a minute.' : 'Estimated time: 30-60 seconds'}
             </p>
+            {(uploadPhase === 'preparing' || uploadPhase === 'uploading' || (uploadPhase === 'processing' && currentJobId)) && (
+              <button
+                type="button"
+                onClick={handleCancelUpload}
+                className="mt-4 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            )}
           </div>
         )}
 
