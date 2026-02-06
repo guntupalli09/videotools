@@ -83,6 +83,12 @@ export interface UploadOptions {
   speakerDiarization?: boolean
   glossary?: string
   webhookUrl?: string
+  /** When set, backend treats upload as audio-only and skips server-side extraction (transcript/subtitles only). */
+  uploadMode?: 'audio-only'
+  /** Original video filename when uploadMode is audio-only (for output naming). */
+  originalFileName?: string
+  /** Original video file size in bytes when uploadMode is audio-only (for limits/logging). */
+  originalFileSize?: number
 }
 
 /** Map backend subtitle validation errors to human-friendly messages. */
@@ -121,6 +127,11 @@ function buildUploadFormData(file: File, options: UploadOptions): FormData {
     formData.append('exportFormats', JSON.stringify(options.exportFormats))
   }
   if (options.webhookUrl) formData.append('webhookUrl', options.webhookUrl)
+  if (options.uploadMode === 'audio-only') {
+    formData.append('uploadMode', 'audio-only')
+    if (options.originalFileName) formData.append('originalFileName', options.originalFileName)
+    if (options.originalFileSize !== undefined) formData.append('originalFileSize', String(options.originalFileSize))
+  }
   return formData
 }
 
@@ -248,6 +259,11 @@ function buildInitBody(file: File, options: UploadOptions, totalChunks?: number)
   if (options.glossary) body.glossary = options.glossary
   if (options.exportFormats && options.exportFormats.length > 0) body.exportFormats = options.exportFormats
   if (options.webhookUrl) body.webhookUrl = options.webhookUrl
+  if (options.uploadMode === 'audio-only') {
+    body.uploadMode = 'audio-only'
+    if (options.originalFileName) body.originalFileName = options.originalFileName
+    if (options.originalFileSize !== undefined) body.originalFileSize = options.originalFileSize
+  }
   return body
 }
 

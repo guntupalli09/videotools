@@ -14,6 +14,7 @@ const VideoTrimmer = lazy(() => import('../components/VideoTrimmer'))
 import { incrementUsage } from '../lib/usage'
 import { uploadFileWithProgress, getJobStatus, getCurrentUsage, getConnectionProbeIfNeeded, BACKEND_TOOL_TYPES, SessionExpiredError, getUserFacingMessage, translateTranscript, TRANSCRIPT_TRANSLATION_LANGUAGES } from '../lib/api'
 import { checkVideoPreflight } from '../lib/uploadPreflight'
+import { extractAudioInBrowser, isAudioExtractionSupported } from '../lib/audioExtraction'
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { persistJobId, getPersistedJobId, clearPersistedJobId } from '../lib/jobSession'
@@ -300,21 +301,40 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     }
 
     try {
+      const baseOptions: Parameters<typeof uploadFileWithProgress>[1] = {
+        toolType: BACKEND_TOOL_TYPES.VIDEO_TO_TRANSCRIPT,
+        trimmedStart: trimStart ?? undefined,
+        trimmedEnd: trimEnd ?? undefined,
+        includeSummary,
+        includeChapters,
+        exportFormats: exportFormats.length > 0 ? exportFormats : (['txt'] as const),
+        speakerDiarization,
+        glossary: glossary.trim() || undefined,
+      }
+      let fileToUpload: File = selectedFile
+      const useAudioOnly =
+        trimStart == null &&
+        trimEnd == null &&
+        isAudioExtractionSupported()
+      if (useAudioOnly) {
+        setUploadPhase('preparing')
+        const extracted = await extractAudioInBrowser(selectedFile)
+        if (extracted) {
+          const baseName = selectedFile.name.replace(/\.[^.]+$/, '') || 'audio'
+          fileToUpload = new File([extracted.blob], `${baseName}_audio.mp3`, { type: 'audio/mpeg' })
+          Object.assign(baseOptions, {
+            uploadMode: 'audio-only' as const,
+            originalFileName: selectedFile.name,
+            originalFileSize: selectedFile.size,
+          })
+        }
+      }
       setUploadPhase('uploading')
       trackEvent('processing_started', { tool: 'video-to-transcript' })
 
       const response = await uploadFileWithProgress(
-        selectedFile,
-        {
-          toolType: BACKEND_TOOL_TYPES.VIDEO_TO_TRANSCRIPT,
-          trimmedStart: trimStart ?? undefined,
-          trimmedEnd: trimEnd ?? undefined,
-          includeSummary,
-          includeChapters,
-          exportFormats: exportFormats.length > 0 ? exportFormats : ['txt'],
-          speakerDiarization,
-          glossary: glossary.trim() || undefined,
-        },
+        fileToUpload,
+        baseOptions,
         { onProgress: (p) => setUploadProgress(p), connectionSpeed }
       )
 
@@ -840,7 +860,7 @@ onChange={(startSeconds: number, endSeconds: number) => {
             <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
             <p className="text-lg font-medium text-gray-800 mb-4">
               {isRehydrating && 'Resuming…'}
-              {!isRehydrating && uploadPhase === 'preparing' && 'Preparing video…'}
+              {!isRehydrating && uploadPhase === 'preparing' && 'Preparing audio…'}
               {!isRehydrating && uploadPhase === 'uploading' && `Uploading (${uploadProgress}%)`}
               {!isRehydrating && uploadPhase === 'processing' && 'Processing audio and generating transcript'}
             </p>

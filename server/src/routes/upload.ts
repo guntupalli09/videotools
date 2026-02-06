@@ -177,33 +177,48 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       console.warn('[upload] no file in request', { toolType, bodyKeys: Object.keys(req.body) })
       return res.status(400).json({ message: 'No file uploaded' })
     }
+    const file = req.file
 
     // Validate file size (plan-based)
-    if (req.file.size > user.limits.maxFileSize) {
-      fs.unlinkSync(req.file.path)
+    if (file.size > user.limits.maxFileSize) {
+      fs.unlinkSync(file.path)
       return res.status(400).json({ message: `File exceeds plan limit. Upgrade for larger files.` })
     }
+
+    // Audio-only upload (video-to-transcript / video-to-subtitles): client sent pre-extracted audio; skip server extraction
+    const isAudioOnlyUpload =
+      (toolType === 'video-to-transcript' || toolType === 'video-to-subtitles') &&
+      req.body.uploadMode === 'audio-only'
+    const allowedAudioExt = ['.mp3', '.webm', '.wav', '.m4a']
+    const looksLikeAudio =
+      (file.mimetype && file.mimetype.startsWith('audio/')) ||
+      allowedAudioExt.some((ext) => file.originalname.toLowerCase().endsWith(ext))
+    const inputType: 'video' | 'audio' = isAudioOnlyUpload && looksLikeAudio ? 'audio' : 'video'
+    const originalNameForJob =
+      inputType === 'audio' && req.body.originalFileName
+        ? String(req.body.originalFileName)
+        : file.originalname
 
     // Validate file type based on tool
     let typeError: string | null = null
     if (toolType === 'translate-subtitles' || toolType === 'fix-subtitles' || toolType === 'convert-subtitles') {
-      const subResult = await validateSubtitleFile(req.file.path)
+      const subResult = await validateSubtitleFile(file.path)
       console.log('[upload] subtitle validation', {
         toolType,
-        originalname: req.file.originalname,
+        originalname: file.originalname,
         detectedFormat: subResult.detectedFormat,
         validationError: subResult.error ?? undefined,
       })
       if (subResult.error) {
         typeError = subResult.error
       }
-    } else if (toolType !== 'burn-subtitles') {
-      // For video tools, validate video type
-      typeError = await validateFileType(req.file.path)
+    } else if (toolType !== 'burn-subtitles' && inputType !== 'audio') {
+      // For video tools (and not audio-only), validate video type
+      typeError = await validateFileType(file.path)
     }
 
     if (typeError) {
-      fs.unlinkSync(req.file.path)
+      fs.unlinkSync(file.path)
       return res.status(400).json({ message: typeError })
     }
 
@@ -258,16 +273,19 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     if (toolType === 'video-to-subtitles' && additionalLanguages.length > 0) {
       const langCheck = enforceLanguageLimits(user, additionalLanguages)
       if (!langCheck.allowed) {
-        fs.unlinkSync(req.file.path)
+        fs.unlinkSync(file.path)
         return res.status(403).json({ message: langCheck.reason || 'MULTI_LANGUAGE_NOT_AVAILABLE' })
       }
     }
 
-    // Cache lookup: same user + same file + same tool + same options → instant result (configurable TTL)
+    // Cache lookup: same user + same file + same tool + same options → instant result (configurable TTL). Skip for audio-only (hash would be of audio, not video).
     let videoHash: string | undefined
-    if (toolType === 'video-to-transcript' || toolType === 'video-to-subtitles') {
+    if (
+      (toolType === 'video-to-transcript' || toolType === 'video-to-subtitles') &&
+      inputType !== 'audio'
+    ) {
       try {
-        videoHash = await hashFile(req.file.path)
+        videoHash = await hashFile(file.path)
         const cacheOptions = { ...jobOptions } as Record<string, unknown>
         if (options.trimmedStart != null) cacheOptions.trimmedStart = parseFloat(String(options.trimmedStart))
         if (options.trimmedEnd != null) cacheOptions.trimmedEnd = parseFloat(String(options.trimmedEnd))
@@ -296,16 +314,17 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
 
     const job = await addJobToQueue(plan, {
       toolType,
-      filePath: req.file.path,
+      filePath: file.path,
       userId,
       plan,
       videoHash,
-      originalName: req.file.originalname,
-      fileSize: req.file.size,
+      originalName: originalNameForJob,
+      fileSize: file.size,
       trimmedStart: options.trimmedStart ? parseFloat(options.trimmedStart) : undefined,
       trimmedEnd: options.trimmedEnd ? parseFloat(options.trimmedEnd) : undefined,
       options: Object.keys(jobOptions).length > 0 ? jobOptions : undefined,
       webhookUrl: typeof webhookUrl === 'string' && webhookUrl.trim() ? webhookUrl.trim() : undefined,
+      inputType: inputType === 'audio' ? 'audio' : undefined,
     })
 
     res.status(202).json({
@@ -612,17 +631,21 @@ router.post('/complete', async (req: Request, res: Response) => {
           const opts = meta.options || {}
           const trimmedStart = typeof opts.trimmedStart === 'number' ? opts.trimmedStart : undefined
           const trimmedEnd = typeof opts.trimmedEnd === 'number' ? opts.trimmedEnd : undefined
-          const { trimmedStart: _s, trimmedEnd: _e, ...restOptions } = opts
+          const { trimmedStart: _s, trimmedEnd: _e, uploadMode: _um, originalFileName: _ofn, originalFileSize: _ofs, ...restOptions } = opts
+          const isChunkedAudioOnly =
+            (meta.toolType === 'video-to-transcript' || meta.toolType === 'video-to-subtitles') &&
+            opts.uploadMode === 'audio-only'
           const job = await addJobToQueue(meta.plan, {
             toolType: meta.toolType,
             filePath: outPath,
             userId: meta.userId,
             plan: meta.plan,
-            originalName: meta.filename,
+            originalName: isChunkedAudioOnly && opts.originalFileName ? String(opts.originalFileName) : meta.filename,
             fileSize,
             trimmedStart,
             trimmedEnd,
             options: Object.keys(restOptions).length > 0 ? restOptions : undefined,
+            inputType: isChunkedAudioOnly ? 'audio' : undefined,
           })
           return res.status(202).json({ jobId: job.id, status: 'queued' })
         } catch (error: any) {

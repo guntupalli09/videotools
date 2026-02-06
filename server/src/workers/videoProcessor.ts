@@ -86,6 +86,8 @@ interface JobData {
   batchTotal?: number
   trimmedStart?: number // seconds
   trimmedEnd?: number // seconds
+  /** When set, file at filePath is pre-extracted audio; skip server-side extractAudio. */
+  inputType?: 'audio'
   options?: {
     format?: 'srt' | 'vtt'
     language?: string
@@ -265,8 +267,9 @@ async function processJob(job: import('bull').Job<JobData>) {
           const exportFormats = options?.exportFormats && options.exportFormats.length > 0
             ? options.exportFormats
             : ['txt']
+          const isAlreadyAudio = data.inputType === 'audio'
 
-          // Download from URL if provided
+          // Download from URL if provided (not used for audio-only)
           if (data.url) {
             await job.progress(10)
             const downloadedPath = path.join(tempDir, `video-${Date.now()}.mp4`)
@@ -274,8 +277,12 @@ async function processJob(job: import('bull').Job<JobData>) {
             videoPath = downloadedPath
           }
 
-          // Trim video if start/end times provided
-          if (data.trimmedStart !== undefined && data.trimmedEnd !== undefined) {
+          // Trim video if start/end times provided (not used for audio-only; client sends video when trim requested)
+          if (
+            !isAlreadyAudio &&
+            data.trimmedStart !== undefined &&
+            data.trimmedEnd !== undefined
+          ) {
             await job.progress(12)
             const trimResult = await trimVideoSegment({
               inputPath: videoPath,
@@ -285,7 +292,7 @@ async function processJob(job: import('bull').Job<JobData>) {
             videoPath = trimResult.outputPath
           }
 
-          // Validate duration
+          // Validate duration (works for both video and audio via ffprobe)
           await job.progress(15)
           const durationCheck = await validateVideoDuration(videoPath, getPlanLimits(plan).maxVideoDuration)
           if (!durationCheck.valid) {
@@ -300,30 +307,36 @@ async function processJob(job: import('bull').Job<JobData>) {
 
           if (wantDiarization) {
             await job.progress(22)
-            const diar = await transcribeWithDiarization(videoPath, options?.language)
+            const diar = await transcribeWithDiarization(videoPath, options?.language, { isAlreadyAudio })
             const glossary = options?.glossary?.trim()
             if (diar) {
               fullText = diar.text
               segments = diar.segments
             } else {
-              const verbose = await transcribeVideoVerbose(videoPath, options?.language, glossary)
+              const verbose = await transcribeVideoVerbose(videoPath, options?.language, glossary, isAlreadyAudio)
               fullText = verbose.text
               segments = verbose.segments || []
             }
           } else if (needVerbose) {
             await job.progress(25)
             const glossary = options?.glossary?.trim()
-            const verbose = await transcribeVideoVerbose(videoPath, options?.language, glossary)
+            const verbose = await transcribeVideoVerbose(videoPath, options?.language, glossary, isAlreadyAudio)
             fullText = verbose.text
             segments = verbose.segments || []
           } else {
             await job.progress(30)
             const glossary = options?.glossary?.trim()
-            fullText = await transcribeVideo(videoPath, 'text', options?.language, glossary)
+            fullText = await transcribeVideo(videoPath, 'text', options?.language, glossary, isAlreadyAudio)
           }
 
           const fileReceivedToTranscriptionFinishedMs = Date.now() - processingStartMs
-          console.log('[PROCESSING_TIMING]', { job_id: String(jobId), tool_type: 'video-to-transcript', file_received_to_transcription_finished_ms: fileReceivedToTranscriptionFinishedMs, file_size_bytes: data.fileSize ?? undefined })
+          console.log('[PROCESSING_TIMING]', {
+            job_id: String(jobId),
+            tool_type: 'video-to-transcript',
+            file_received_to_transcription_finished_ms: fileReceivedToTranscriptionFinishedMs,
+            file_size_bytes: data.fileSize ?? undefined,
+            extraction_skipped: isAlreadyAudio,
+          })
 
           const baseName = path.basename(data.originalName || 'video', path.extname(data.originalName || 'video'))
           const filesToZip: { path: string; name: string }[] = []
@@ -433,8 +446,9 @@ async function processJob(job: import('bull').Job<JobData>) {
           let videoPath = data.filePath!
           const userId = data.userId || 'demo-user'
           const plan = data.plan || 'free'
-          
-          // Download from URL if provided
+          const isAlreadyAudio = data.inputType === 'audio'
+
+          // Download from URL if provided (not used for audio-only)
           if (data.url) {
             await job.progress(10)
             const downloadedPath = path.join(tempDir, `video-${Date.now()}.mp4`)
@@ -442,9 +456,12 @@ async function processJob(job: import('bull').Job<JobData>) {
             videoPath = downloadedPath
           }
 
-          // Trim video if start/end times provided
-          // (trimmed duration is what should be metered; metering enforcement is handled upstream)
-          if (data.trimmedStart !== undefined && data.trimmedEnd !== undefined) {
+          // Trim video if start/end times provided (not used for audio-only)
+          if (
+            !isAlreadyAudio &&
+            data.trimmedStart !== undefined &&
+            data.trimmedEnd !== undefined
+          ) {
             await job.progress(12)
             const trimResult = await trimVideoSegment({
               inputPath: videoPath,
@@ -454,7 +471,7 @@ async function processJob(job: import('bull').Job<JobData>) {
             videoPath = trimResult.outputPath
           }
 
-          // Validate duration
+          // Validate duration (works for both video and audio)
           await job.progress(15)
           const durationCheck = await validateVideoDuration(videoPath, getPlanLimits(plan).maxVideoDuration)
           if (!durationCheck.valid) {
@@ -472,10 +489,18 @@ async function processJob(job: import('bull').Job<JobData>) {
               videoPath,
               options?.language || 'en',
               additionalLangs,
-              format
+              format,
+              isAlreadyAudio
             )
             const fileReceivedToTranscriptionFinishedMs = Date.now() - processingStartMs
-            console.log('[PROCESSING_TIMING]', { job_id: String(jobId), tool_type: 'video-to-subtitles', file_received_to_transcription_finished_ms: fileReceivedToTranscriptionFinishedMs, file_size_bytes: data.fileSize ?? undefined, multi_language: true })
+            console.log('[PROCESSING_TIMING]', {
+              job_id: String(jobId),
+              tool_type: 'video-to-subtitles',
+              file_received_to_transcription_finished_ms: fileReceivedToTranscriptionFinishedMs,
+              file_size_bytes: data.fileSize ?? undefined,
+              multi_language: true,
+              extraction_skipped: isAlreadyAudio,
+            })
             
             // Save all language files
             await job.progress(80)
@@ -548,9 +573,15 @@ async function processJob(job: import('bull').Job<JobData>) {
             await job.progress(30)
             const glossary = options?.glossary?.trim()
             const processingStartMs = Date.now()
-            const subtitles = await transcribeVideo(videoPath, format, options?.language, glossary)
+            const subtitles = await transcribeVideo(videoPath, format, options?.language, glossary, isAlreadyAudio)
             const fileReceivedToTranscriptionFinishedMs = Date.now() - processingStartMs
-            console.log('[PROCESSING_TIMING]', { job_id: String(jobId), tool_type: 'video-to-subtitles', file_received_to_transcription_finished_ms: fileReceivedToTranscriptionFinishedMs, file_size_bytes: data.fileSize ?? undefined })
+            console.log('[PROCESSING_TIMING]', {
+              job_id: String(jobId),
+              tool_type: 'video-to-subtitles',
+              file_received_to_transcription_finished_ms: fileReceivedToTranscriptionFinishedMs,
+              file_size_bytes: data.fileSize ?? undefined,
+              extraction_skipped: isAlreadyAudio,
+            })
 
             // Save subtitles
             await job.progress(80)

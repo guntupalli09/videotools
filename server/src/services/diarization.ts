@@ -18,15 +18,19 @@ export interface DiarizedSegment {
 
 export async function transcribeWithDiarization(
   videoPath: string,
-  _language?: string
+  _language?: string,
+  options?: { isAlreadyAudio?: boolean }
 ): Promise<{ text: string; segments: DiarizedSegment[] } | null> {
   const token = process.env.REPLICATE_API_TOKEN
   if (!token?.trim()) return null
 
+  const isAlreadyAudio = options?.isAlreadyAudio === true
   const tempDir = path.dirname(videoPath)
-  const audioPath = path.join(tempDir, `audio-diar-${Date.now()}.mp3`)
+  const audioPath = isAlreadyAudio ? videoPath : path.join(tempDir, `audio-diar-${Date.now()}.mp3`)
   try {
-    await extractAudio(videoPath, audioPath)
+    if (!isAlreadyAudio) {
+      await extractAudio(videoPath, audioPath)
+    }
     const audioBuf = fs.readFileSync(audioPath)
     const base64 = audioBuf.toString('base64')
 
@@ -36,10 +40,12 @@ export async function transcribeWithDiarization(
       input.audio = `data:audio/mpeg;base64,${base64}`
     }
     if (Object.keys(input).length === 0) {
-      try {
-        fs.unlinkSync(audioPath)
-      } catch {
-        // ignore
+      if (!isAlreadyAudio) {
+        try {
+          fs.unlinkSync(audioPath)
+        } catch {
+          // ignore
+        }
       }
       return null
     }
@@ -56,10 +62,12 @@ export async function transcribeWithDiarization(
       }),
       signal: AbortSignal.timeout(10000),
     })
-    try {
-      fs.unlinkSync(audioPath)
-    } catch {
-      // ignore
+    if (!isAlreadyAudio) {
+      try {
+        fs.unlinkSync(audioPath)
+      } catch {
+        // ignore
+      }
     }
     if (!createRes.ok) return null
     const pred = (await createRes.json()) as { id?: string; urls?: { get: string } }
@@ -85,10 +93,12 @@ export async function transcribeWithDiarization(
     return null
   } catch (err: any) {
     console.warn('[diarization]', err?.message || err)
-    try {
-      if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath)
-    } catch {
-      // ignore
+    if (!isAlreadyAudio) {
+      try {
+        if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath)
+      } catch {
+        // ignore
+      }
     }
     return null
   }

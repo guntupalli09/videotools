@@ -23,10 +23,11 @@ export async function generateMultiLanguageSubtitles(
   videoPath: string,
   primaryLanguage: string,
   additionalLanguages: string[],
-  _format: 'srt' | 'vtt' = 'srt'
+  _format: 'srt' | 'vtt' = 'srt',
+  isAlreadyAudio?: boolean
 ): Promise<Record<string, string>> {
   // Phase 1.5: generate SRT primary, then translate the parsed entries to each language, output SRTs.
-  const primarySrt = await transcribeVideo(videoPath, 'srt', primaryLanguage)
+  const primarySrt = await transcribeVideo(videoPath, 'srt', primaryLanguage, undefined, isAlreadyAudio)
 
   const tempDir = path.dirname(videoPath)
   const tempPrimaryPath = path.join(tempDir, `primary-${Date.now()}.srt`)

@@ -57,17 +57,20 @@ async function transcribeChunkVerbose(
   return segments
 }
 
-/** Parallel path: extract audio, split into chunks, transcribe in parallel, merge segments. */
+/** Parallel path: extract audio (or use path as audio when isAlreadyAudio), split into chunks, transcribe in parallel, merge segments. */
 async function transcribeVideoParallel(
   videoPath: string,
   language?: string,
-  prompt?: string
+  prompt?: string,
+  isAlreadyAudio?: boolean
 ): Promise<{ text: string; segments: WhisperSegment[] }> {
   const tempDir = path.dirname(videoPath)
-  const audioPath = path.join(tempDir, `audio-${Date.now()}.mp3`)
+  const audioPath = isAlreadyAudio ? videoPath : path.join(tempDir, `audio-${Date.now()}.mp3`)
   let chunkPaths: string[] = []
   try {
-    await extractAudio(videoPath, audioPath)
+    if (!isAlreadyAudio) {
+      await extractAudio(videoPath, audioPath)
+    }
     chunkPaths = await splitAudioIntoChunks(audioPath, CHUNK_DURATION_SEC, tempDir)
     const offsetStep = CHUNK_DURATION_SEC
     const results = await Promise.all(
@@ -79,9 +82,11 @@ async function transcribeVideoParallel(
     const text = segments.map((s) => s.text).filter(Boolean).join(' ')
     return { text, segments }
   } finally {
-    try {
-      if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath)
-    } catch {}
+    if (!isAlreadyAudio) {
+      try {
+        if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath)
+      } catch {}
+    }
     chunkPaths.forEach((p) => {
       try {
         if (fs.existsSync(p)) fs.unlinkSync(p)
@@ -99,7 +104,8 @@ export async function transcribeVideo(
   videoPath: string,
   responseFormat: 'text' | 'srt' | 'vtt' = 'text',
   language?: string,
-  prompt?: string
+  prompt?: string,
+  isAlreadyAudio?: boolean
 ): Promise<string> {
   let durationSec = 0
   try {
@@ -108,10 +114,11 @@ export async function transcribeVideo(
     // fallback to single-call
   }
   if (durationSec < PARALLEL_THRESHOLD_SEC) {
-    const tempDir = path.dirname(videoPath)
-    const audioPath = path.join(tempDir, `audio-${Date.now()}.mp3`)
+    const audioPath = isAlreadyAudio ? videoPath : path.join(path.dirname(videoPath), `audio-${Date.now()}.mp3`)
     try {
-      await extractAudio(videoPath, audioPath)
+      if (!isAlreadyAudio) {
+        await extractAudio(videoPath, audioPath)
+      }
       const audioFile = fs.createReadStream(audioPath)
       const transcription = await openai.audio.transcriptions.create({
         file: audioFile as any,
@@ -120,22 +127,26 @@ export async function transcribeVideo(
         language: language || undefined,
         prompt: prompt?.trim().slice(0, 1500) || undefined, // Whisper limit ~224 tokens; ~1500 chars safe
       })
-      try {
-        fs.unlinkSync(audioPath)
-      } catch (e) {
-        // Ignore cleanup errors
+      if (!isAlreadyAudio) {
+        try {
+          fs.unlinkSync(audioPath)
+        } catch (e) {
+          // Ignore cleanup errors
+        }
       }
       return transcription as any
     } catch (error) {
-      try {
-        if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath)
-      } catch (e) {
-        // Ignore cleanup errors
+      if (!isAlreadyAudio) {
+        try {
+          if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath)
+        } catch (e) {
+          // Ignore cleanup errors
+        }
       }
       throw error
     }
   }
-  const { text, segments } = await transcribeVideoParallel(videoPath, language, prompt)
+  const { text, segments } = await transcribeVideoParallel(videoPath, language, prompt, isAlreadyAudio)
   if (responseFormat === 'text') return text
   const entries: SubtitleEntry[] = segments.map((s, i) => ({
     index: i + 1,
@@ -153,7 +164,8 @@ export async function transcribeVideo(
 export async function transcribeVideoVerbose(
   videoPath: string,
   language?: string,
-  prompt?: string
+  prompt?: string,
+  isAlreadyAudio?: boolean
 ): Promise<VerboseTranscriptionResult> {
   let durationSec = 0
   try {
@@ -162,13 +174,15 @@ export async function transcribeVideoVerbose(
     // fallback to single-call
   }
   if (durationSec >= PARALLEL_THRESHOLD_SEC) {
-    const { text, segments } = await transcribeVideoParallel(videoPath, language, prompt)
+    const { text, segments } = await transcribeVideoParallel(videoPath, language, prompt, isAlreadyAudio)
     return { text, segments }
   }
   const tempDir = path.dirname(videoPath)
-  const audioPath = path.join(tempDir, `audio-${Date.now()}.mp3`)
+  const audioPath = isAlreadyAudio ? videoPath : path.join(tempDir, `audio-${Date.now()}.mp3`)
   try {
-    await extractAudio(videoPath, audioPath)
+    if (!isAlreadyAudio) {
+      await extractAudio(videoPath, audioPath)
+    }
     const audioFile = fs.createReadStream(audioPath)
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile as any,
@@ -178,10 +192,12 @@ export async function transcribeVideoVerbose(
       language: language || undefined,
       prompt: prompt?.trim().slice(0, 1500) || undefined,
     }) as { text?: string; segments?: Array<{ start: number; end: number; text: string }>; language?: string }
-    try {
-      fs.unlinkSync(audioPath)
-    } catch (e) {
-      // ignore
+    if (!isAlreadyAudio) {
+      try {
+        fs.unlinkSync(audioPath)
+      } catch (e) {
+        // ignore
+      }
     }
     const text = typeof transcription.text === 'string' ? transcription.text : ''
     const segments: WhisperSegment[] = (transcription.segments || []).map((s) => ({
@@ -191,10 +207,12 @@ export async function transcribeVideoVerbose(
     })).filter((s) => s.text)
     return { text, segments, language: transcription.language }
   } catch (error) {
-    try {
-      if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath)
-    } catch (e) {
-      // ignore
+    if (!isAlreadyAudio) {
+      try {
+        if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath)
+      } catch (e) {
+        // ignore
+      }
     }
     throw error
   }
