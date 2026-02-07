@@ -1,5 +1,6 @@
 import { useEffect, useRef, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
+import { trackEvent, identifyUser } from './lib/analytics'
 import { Toaster, toast } from 'react-hot-toast'
 import Navigation from './components/Navigation'
 import { getSessionDetails } from './lib/billing'
@@ -63,6 +64,13 @@ function AppSeo() {
   const { pathname } = useLocation()
   const meta = ROUTE_SEO[pathname] || ROUTE_SEO['/']
   const isHome = pathname === '/'
+  useEffect(() => {
+    try {
+      trackEvent('page_viewed', { pathname })
+    } catch {
+      // non-blocking
+    }
+  }, [pathname])
   return (
     <Seo
       title={meta.title}
@@ -94,6 +102,12 @@ function PostCheckoutHandler() {
         localStorage.setItem('userId', data.userId)
         localStorage.setItem('plan', data.plan.toLowerCase())
         handled.current = true
+        try {
+          identifyUser(data.userId, { plan: data.plan.toLowerCase() })
+          trackEvent('plan_upgraded', { plan: data.plan.toLowerCase() })
+        } catch {
+          // non-blocking
+        }
         navigate(window.location.pathname, { replace: true })
         toast.success(`Welcome! You're now on the ${data.plan} plan.`)
       } catch {

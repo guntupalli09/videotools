@@ -16,6 +16,7 @@ import { uploadFile, getJobStatus, BACKEND_TOOL_TYPES, SessionExpiredError } fro
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { persistJobId, clearPersistedJobId } from '../lib/jobSession'
+import { trackEvent } from '../lib/analytics'
 import toast from 'react-hot-toast'
 import { Film, Languages } from 'lucide-react'
 
@@ -49,6 +50,14 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
   const canEdit = plan !== 'free'
 
   const handleFileSelect = (file: File) => {
+    try {
+      trackEvent('file_selected', {
+        tool_type: BACKEND_TOOL_TYPES.FIX_SUBTITLES,
+        file_size_bytes: file.size,
+      })
+    } catch {
+      // non-blocking
+    }
     setSelectedFile(file)
     setIssues([])
     setShowIssues(false)
@@ -422,6 +431,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
               fileName={result.fileName}
               downloadUrl={getDownloadUrl()}
               onProcessAnother={handleProcessAnother}
+              toolType={BACKEND_TOOL_TYPES.FIX_SUBTITLES}
             />
 
             {subtitleRows.length > 0 && (

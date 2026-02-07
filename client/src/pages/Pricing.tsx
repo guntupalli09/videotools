@@ -39,6 +39,11 @@ export default function Pricing() {
 
   async function handleSubscribe(plan: BillingPlan, annual = false) {
     try {
+      try {
+        trackEvent('plan_clicked', { plan, annual })
+      } catch {
+        // non-blocking
+      }
       const { url } = await createCheckoutSession({
         mode: 'subscription',
         plan,

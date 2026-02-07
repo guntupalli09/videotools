@@ -14,6 +14,7 @@ import { stripeWebhookHandler } from './routes/stripeWebhook'
 import { startWorker } from './workers/videoProcessor'
 import { startFileCleanup } from './utils/fileCleanup'
 import { apiKeyAuth } from './utils/apiKey'
+import { flushAnalytics } from './utils/analytics'
 
 const app = express()
 app.disable('etag')
@@ -139,18 +140,20 @@ server.on('error', (error: NodeJS.ErrnoException) => {
 })
 
 // Handle process termination gracefully
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully...')
+function shutdown() {
+  flushAnalytics()
   server.close(() => {
     console.log('Server closed')
     process.exit(0)
   })
+}
+
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully...')
+  shutdown()
 })
 
 process.on('SIGINT', () => {
   console.log('\nSIGINT received, shutting down gracefully...')
-  server.close(() => {
-    console.log('Server closed')
-    process.exit(0)
-  })
+  shutdown()
 })

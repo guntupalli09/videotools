@@ -16,6 +16,7 @@ import { uploadDualFiles, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, Ses
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { persistJobId, clearPersistedJobId } from '../lib/jobSession'
+import { trackEvent } from '../lib/analytics'
 import toast from 'react-hot-toast'
 import { Minimize2 } from 'lucide-react'
 
@@ -47,12 +48,30 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
   const [usedMinutes, setUsedMinutes] = useState<number | null>(null)
 
   const handleVideoSelect = (file: File) => {
+    try {
+      trackEvent('file_selected', {
+        tool_type: BACKEND_TOOL_TYPES.BURN_SUBTITLES,
+        file_size_bytes: file.size,
+        file_role: 'video',
+      })
+    } catch {
+      // non-blocking
+    }
     setVideoFile(file)
     setTrimStart(null)
     setTrimEnd(null)
   }
 
   const handleSubtitleSelect = (file: File) => {
+    try {
+      trackEvent('file_selected', {
+        tool_type: BACKEND_TOOL_TYPES.BURN_SUBTITLES,
+        file_size_bytes: file.size,
+        file_role: 'subtitle',
+      })
+    } catch {
+      // non-blocking
+    }
     setSubtitleFile(file)
   }
 
@@ -267,6 +286,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
               fileName={result.fileName}
               downloadUrl={getDownloadUrl()}
               onProcessAnother={handleProcessAnother}
+              toolType={BACKEND_TOOL_TYPES.BURN_SUBTITLES}
             />
 
             <CrossToolSuggestions

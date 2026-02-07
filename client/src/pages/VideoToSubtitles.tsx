@@ -72,6 +72,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
   const [translateDropdownOpen, setTranslateDropdownOpen] = useState(false)
   const rehydratePollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const activeUploadPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const jobStartedTrackedRef = useRef<string | null>(null)
 
   const plan = (localStorage.getItem('plan') || 'free').toLowerCase()
   const canEdit = plan !== 'free'
@@ -240,6 +241,14 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
   }, [uploadPhase])
 
   const handleFileSelect = (file: File) => {
+    try {
+      trackEvent('file_selected', {
+        tool_type: BACKEND_TOOL_TYPES.VIDEO_TO_SUBTITLES,
+        file_size_bytes: file.size,
+      })
+    } catch {
+      // non-blocking
+    }
     setSelectedFile(file)
     setTrimStart(null)
     setTrimEnd(null)
@@ -439,7 +448,17 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               }
             }
             incrementUsage('video-to-subtitles')
-            trackEvent('processing_completed', { tool: 'video-to-subtitles' })
+            const processingMs = processingStartedAt != null ? Date.now() - processingStartedAt : undefined
+            try {
+              trackEvent('job_completed', {
+                job_id: response.jobId,
+                tool_type: BACKEND_TOOL_TYPES.VIDEO_TO_SUBTITLES,
+                processing_time_ms: processingMs,
+              })
+              trackEvent('processing_completed', { tool: 'video-to-subtitles' })
+            } catch {
+              // non-blocking
+            }
           } else if (transition === 'failed') {
             if (activeUploadPollRef.current) {
               clearInterval(activeUploadPollRef.current)
@@ -773,6 +792,8 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               fileName={result.fileName}
               downloadUrl={getDownloadUrl()}
               onProcessAnother={handleProcessAnother}
+              toolType={BACKEND_TOOL_TYPES.VIDEO_TO_SUBTITLES}
+              jobId={currentJobId ?? undefined}
             />
 
             {subtitleRows.length > 0 && (

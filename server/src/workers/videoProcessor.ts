@@ -23,6 +23,11 @@ import { saveDuplicateResult } from '../services/duplicate'
 import { createRedisClient } from '../utils/redis'
 import { parseSRT, parseVTT, detectSubtitleFormat } from '../utils/srtParser'
 import { MAX_GLOBAL_WORKERS, PAID_TIER_RESERVATION_QUEUE_THRESHOLD } from '../utils/queueConfig'
+import {
+  trackProcessingStarted,
+  trackProcessingFinished,
+  trackProcessingFailed,
+} from '../utils/analytics'
 
 export const fileQueue = new Queue('file-processing', {
   createClient: createRedisClient,
@@ -950,11 +955,32 @@ async function processJob(job: import('bull').Job<JobData>) {
   try {
     const result = await Promise.race([run(), dynamicRuntimePromise])
     clearInterval(interval)
+    try {
+      trackProcessingFinished({
+        job_id: String(jobId),
+        user_id: data.userId || 'demo-user',
+        tool_type: data.toolType,
+        processing_ms: Date.now() - processingStartMs,
+        extraction_skipped: data.toolType === 'cached-result',
+      })
+    } catch {
+      // non-blocking
+    }
     // Success: return value is persisted by Bull as job.returnvalue; job state becomes "completed"
     console.log('[JOB]', jobId, 'COMPLETED')
     return result
   } catch (err: any) {
     clearInterval(interval)
+    try {
+      trackProcessingFailed({
+        job_id: String(jobId),
+        user_id: data.userId || 'demo-user',
+        tool_type: data.toolType,
+        error_message: err?.message,
+      })
+    } catch {
+      // non-blocking
+    }
     // Failure: rethrow so Bull marks job as "failed" and stores error; no job can exit without terminal state
     console.error('[JOB]', jobId, 'FAILED', err?.message ?? err)
     if (err?.stack) console.error(err.stack)

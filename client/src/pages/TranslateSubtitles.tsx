@@ -17,6 +17,7 @@ import { uploadFile, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionE
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { persistJobId, clearPersistedJobId } from '../lib/jobSession'
+import { trackEvent } from '../lib/analytics'
 import toast from 'react-hot-toast'
 import { Film, Wrench } from 'lucide-react'
 
@@ -51,6 +52,14 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
   const canEdit = plan !== 'free'
 
   const handleFileSelect = (file: File) => {
+    try {
+      trackEvent('file_selected', {
+        tool_type: BACKEND_TOOL_TYPES.TRANSLATE_SUBTITLES,
+        file_size_bytes: file.size,
+      })
+    } catch {
+      // non-blocking
+    }
     setSelectedFile(file)
     setSubtitleRows([])
   }
@@ -307,6 +316,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
               fileName={result.fileName}
               downloadUrl={getDownloadUrl()}
               onProcessAnother={handleProcessAnother}
+              toolType={BACKEND_TOOL_TYPES.TRANSLATE_SUBTITLES}
             />
 
             {result.consistencyIssues && result.consistencyIssues.length > 0 && (

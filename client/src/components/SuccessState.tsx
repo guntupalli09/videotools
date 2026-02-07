@@ -1,5 +1,6 @@
 import { Check, Download, File } from 'lucide-react'
 import { formatFileSize } from '../lib/utils'
+import { trackEvent } from '../lib/analytics'
 import { motion } from 'framer-motion'
 
 interface SuccessStateProps {
@@ -7,6 +8,9 @@ interface SuccessStateProps {
   fileSize?: number
   downloadUrl?: string
   onProcessAnother?: () => void
+  /** Optional: for result_downloaded analytics */
+  toolType?: string
+  jobId?: string
 }
 
 export default function SuccessState({
@@ -14,7 +18,19 @@ export default function SuccessState({
   fileSize,
   downloadUrl,
   onProcessAnother,
+  toolType,
+  jobId,
 }: SuccessStateProps) {
+  const handleDownloadClick = () => {
+    try {
+      trackEvent('result_downloaded', {
+        ...(toolType && { tool_type: toolType }),
+        ...(jobId && { job_id: jobId }),
+      })
+    } catch {
+      // non-blocking
+    }
+  }
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -51,6 +67,7 @@ export default function SuccessState({
         <a
           href={downloadUrl}
           download
+          onClick={handleDownloadClick}
           className="block w-full bg-violet-600 hover:bg-violet-700 text-white font-medium py-4 px-6 rounded-lg transition-colors mb-4"
         >
           <Download className="h-5 w-5 inline-block mr-2" />

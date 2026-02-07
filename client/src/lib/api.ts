@@ -1,4 +1,14 @@
 import { API_ORIGIN } from './apiBase'
+import { trackEvent } from './analytics'
+
+/** Fire-and-forget analytics; never throws. */
+function trackUploadEvent(event: 'upload_started' | 'upload_completed', props: Record<string, unknown>) {
+  try {
+    trackEvent(event, props)
+  } catch {
+    // no-op
+  }
+}
 
 /** RequestInit plus optional timeout (ms). Timeout applies only when no custom signal is provided. */
 export type ApiInit = RequestInit & { timeout?: number }
@@ -281,6 +291,11 @@ async function uploadFileChunked(
   progressOptions?: UploadProgressOptions
 ): Promise<UploadResponse> {
   const uploadStartMs = Date.now()
+  trackUploadEvent('upload_started', {
+    tool_type: options.toolType,
+    file_size_bytes: file.size,
+    upload_mode: 'chunked',
+  })
   const userId = localStorage.getItem('userId') || 'demo-user'
   const plan = localStorage.getItem('plan') || 'free'
   const mobile = isMobile()
@@ -436,6 +451,13 @@ async function uploadFileChunked(
   if (!data?.jobId) throw new Error('Invalid upload response. Please retry.')
   clearChunkedUploadState()
   const uploadDurationMs = Date.now() - uploadStartMs
+  trackUploadEvent('upload_completed', {
+    job_id: data.jobId,
+    tool_type: options.toolType,
+    file_size_bytes: file.size,
+    upload_mode: 'chunked',
+    upload_duration_ms: uploadDurationMs,
+  })
   console.log('[UPLOAD_TIMING]', { file_size_bytes: file.size, upload_duration_ms: uploadDurationMs, tool_type: options.toolType, mode: 'chunked' })
   return data
 }
@@ -452,11 +474,19 @@ export function uploadFileWithProgress(
     return uploadFileChunked(file, options, progressOptions)
   }
 
+  const uploadMode = options.uploadMode === 'audio-only' ? 'audio-only' : 'single'
+  trackUploadEvent('upload_started', {
+    tool_type: options.toolType,
+    file_size_bytes: file.size,
+    upload_mode: uploadMode,
+  })
+
   const formData = buildUploadFormData(file, options)
   const url = `${API_ORIGIN}/api/upload`
   const userId = localStorage.getItem('userId') || 'demo-user'
   const plan = localStorage.getItem('plan') || 'free'
   const signal = progressOptions?.signal
+  const xhrUploadStartMs = Date.now()
 
   const runOne = (): Promise<UploadResponse> =>
     new Promise((resolve, reject) => {
@@ -493,6 +523,13 @@ export function uploadFileWithProgress(
         }
         if (xhr.status >= 200 && xhr.status < 300 && data?.jobId) {
           const uploadDurationMs = uploadStartMs ? Date.now() - uploadStartMs : 0
+          trackUploadEvent('upload_completed', {
+            job_id: data.jobId,
+            tool_type: options.toolType,
+            file_size_bytes: file.size,
+            upload_mode: uploadMode,
+            upload_duration_ms: uploadDurationMs,
+          })
           console.log('[UPLOAD_TIMING]', { file_size_bytes: file.size, upload_duration_ms: uploadDurationMs, tool_type: options.toolType, mode: 'xhr' })
           resolve({ jobId: data.jobId, status: data.status ?? 'queued' })
           return
@@ -541,6 +578,12 @@ export function uploadFileWithProgress(
 
 export async function uploadFile(file: File, options: UploadOptions): Promise<UploadResponse> {
   const uploadStartMs = Date.now()
+  const uploadMode = options.uploadMode === 'audio-only' ? 'audio-only' : 'single'
+  trackUploadEvent('upload_started', {
+    tool_type: options.toolType,
+    file_size_bytes: file.size,
+    upload_mode: uploadMode,
+  })
   const formData = buildUploadFormData(file, options)
   const response = await api('/api/upload', {
     method: 'POST',
@@ -578,11 +621,22 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
     throw new Error('Invalid upload response. Please retry.')
   }
   const uploadDurationMs = Date.now() - uploadStartMs
+  trackUploadEvent('upload_completed', {
+    job_id: data.jobId,
+    tool_type: options.toolType,
+    file_size_bytes: file.size,
+    upload_mode: uploadMode,
+    upload_duration_ms: uploadDurationMs,
+  })
   console.log('[UPLOAD_TIMING]', { file_size_bytes: file.size, upload_duration_ms: uploadDurationMs, tool_type: options.toolType, mode: 'fetch' })
   return data
 }
 
 export async function uploadFromURL(url: string, options: UploadOptions): Promise<UploadResponse> {
+  trackUploadEvent('upload_started', {
+    tool_type: options.toolType,
+    upload_mode: 'url',
+  })
   const formData = new FormData()
   formData.append('toolType', options.toolType)
   formData.append('url', url)
@@ -620,6 +674,11 @@ export async function uploadFromURL(url: string, options: UploadOptions): Promis
   if (!data?.jobId) {
     throw new Error('Invalid upload response. Please retry.')
   }
+  trackUploadEvent('upload_completed', {
+    job_id: data.jobId,
+    tool_type: options.toolType,
+    upload_mode: 'url',
+  })
   return data
 }
 
@@ -635,6 +694,11 @@ export async function uploadDualFiles(
     burnBackgroundOpacity?: 'none' | 'low' | 'high'
   }
 ): Promise<UploadResponse> {
+  trackUploadEvent('upload_started', {
+    tool_type: toolType,
+    file_size_bytes: videoFile.size,
+    upload_mode: 'dual',
+  })
   const formData = new FormData()
   formData.append('video', videoFile)
   formData.append('subtitles', subtitleFile)
@@ -679,6 +743,12 @@ export async function uploadDualFiles(
   if (!data?.jobId) {
     throw new Error('Invalid upload response. Please retry.')
   }
+  trackUploadEvent('upload_completed', {
+    job_id: data.jobId,
+    tool_type: toolType,
+    file_size_bytes: videoFile.size,
+    upload_mode: 'dual',
+  })
   return data
 }
 

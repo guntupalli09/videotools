@@ -16,6 +16,7 @@ import { uploadFile, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionE
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { persistJobId, clearPersistedJobId } from '../lib/jobSession'
+import { trackEvent } from '../lib/analytics'
 import toast from 'react-hot-toast'
 import { MessageSquare } from 'lucide-react'
 import { formatFileSize } from '../lib/utils'
@@ -308,6 +309,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
               fileName={result.fileName}
               downloadUrl={getDownloadUrl()}
               onProcessAnother={handleProcessAnother}
+              toolType={BACKEND_TOOL_TYPES.COMPRESS_VIDEO}
             />
 
             <div className="bg-green-50 rounded-xl p-6 border border-green-200">

@@ -11,6 +11,7 @@ import { hashFile, checkDuplicateProcessing } from '../services/duplicate'
 import { getAuthFromRequest } from '../utils/auth'
 import { isQueueAtHardLimit, isQueueAtSoftLimit } from '../utils/queueConfig'
 import { checkAndRecordUpload } from '../utils/uploadRateLimit'
+import { trackJobCreated } from '../utils/analytics'
 
 const router = express.Router()
 
@@ -165,7 +166,11 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
         options: Object.keys(jobOpts).length > 0 ? jobOpts : undefined,
         webhookUrl: typeof webhookUrl === 'string' && webhookUrl.trim() ? webhookUrl.trim() : undefined,
       })
-
+      try {
+        trackJobCreated({ job_id: String(job.id), user_id: userId, tool_type: toolType, plan })
+      } catch {
+        // non-blocking
+      }
       return res.status(202).json({
         jobId: job.id,
         status: 'queued',
@@ -326,7 +331,17 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       webhookUrl: typeof webhookUrl === 'string' && webhookUrl.trim() ? webhookUrl.trim() : undefined,
       inputType: inputType === 'audio' ? 'audio' : undefined,
     })
-
+    try {
+      trackJobCreated({
+        job_id: String(job.id),
+        user_id: userId,
+        tool_type: toolType,
+        file_size_bytes: file.size,
+        plan,
+      })
+    } catch {
+      // non-blocking
+    }
     res.status(202).json({
       jobId: job.id,
       status: 'queued',
@@ -647,6 +662,17 @@ router.post('/complete', async (req: Request, res: Response) => {
             options: Object.keys(restOptions).length > 0 ? restOptions : undefined,
             inputType: isChunkedAudioOnly ? 'audio' : undefined,
           })
+          try {
+            trackJobCreated({
+              job_id: String(job.id),
+              user_id: meta.userId,
+              tool_type: meta.toolType,
+              file_size_bytes: fileSize,
+              plan: meta.plan,
+            })
+          } catch {
+            // non-blocking
+          }
           return res.status(202).json({ jobId: job.id, status: 'queued' })
         } catch (error: any) {
           onError(error)

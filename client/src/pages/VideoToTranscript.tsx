@@ -108,6 +108,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   const segmentRefsRef = useRef<Map<number, HTMLDivElement>>(new Map())
   const rehydratePollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const activeUploadPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const jobStartedTrackedRef = useRef<string | null>(null)
 
   // Instant file preview (browser only); persists through upload + processing
   useEffect(() => {
@@ -267,6 +268,14 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   }, [uploadPhase])
 
   const handleFileSelect = (file: File) => {
+    try {
+      trackEvent('file_selected', {
+        tool_type: BACKEND_TOOL_TYPES.VIDEO_TO_TRANSCRIPT,
+        file_size_bytes: file.size,
+      })
+    } catch {
+      // non-blocking
+    }
     setSelectedFile(file)
     setTrimStart(null)
     setTrimEnd(null)
@@ -406,12 +415,22 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
           setProgress(jobStatus.progress ?? 0)
           if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
 
+          if (jobStatus.status === 'processing' && jobStartedTrackedRef.current !== response.jobId) {
+            jobStartedTrackedRef.current = response.jobId
+            try {
+              trackEvent('job_started', { job_id: response.jobId, tool_type: BACKEND_TOOL_TYPES.VIDEO_TO_TRANSCRIPT })
+            } catch {
+              // non-blocking
+            }
+          }
+
           const transition = getJobLifecycleTransition(jobStatus)
           if (transition === 'completed') {
             if (activeUploadPollRef.current) {
               clearInterval(activeUploadPollRef.current)
               activeUploadPollRef.current = null
             }
+            jobStartedTrackedRef.current = null
             setStatus('completed')
             setResult(jobStatus.result ?? null)
             const res = jobStatus.result
@@ -430,7 +449,17 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
               }
             }
             incrementUsage('video-to-transcript')
-            trackEvent('processing_completed', { tool: 'video-to-transcript' })
+            const processingMs = processingStartedAt != null ? Date.now() - processingStartedAt : undefined
+            try {
+              trackEvent('job_completed', {
+                job_id: response.jobId,
+                tool_type: BACKEND_TOOL_TYPES.VIDEO_TO_TRANSCRIPT,
+                processing_time_ms: processingMs,
+              })
+              trackEvent('processing_completed', { tool: 'video-to-transcript' })
+            } catch {
+              // non-blocking
+            }
           } else if (transition === 'failed') {
             if (activeUploadPollRef.current) {
               clearInterval(activeUploadPollRef.current)
@@ -990,6 +1019,8 @@ onChange={(startSeconds: number, endSeconds: number) => {
               fileName={result.fileName}
               downloadUrl={getDownloadUrl()}
               onProcessAnother={handleProcessAnother}
+              toolType={BACKEND_TOOL_TYPES.VIDEO_TO_TRANSCRIPT}
+              jobId={currentJobId ?? undefined}
             />
 
             {/* Phase 1 – Trunk (Transcript) or branch content; transcript always preserved */}
