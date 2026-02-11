@@ -135,7 +135,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
       }
 
       persistJobId(location.pathname, response.jobId)
-      const pollIntervalRef = { current: 0 as ReturnType<typeof setInterval> }
+      const pollIntervalRef = { current: 0 as number }
       const doPoll = async () => {
         try {
           const jobStatus = await getJobStatus(response.jobId)
@@ -166,7 +166,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
           // Network/parse errors: do not set failed; keep polling.
         }
       }
-      pollIntervalRef.current = setInterval(doPoll, JOB_POLL_INTERVAL_MS)
+      pollIntervalRef.current = window.setInterval(doPoll, JOB_POLL_INTERVAL_MS)
       doPoll()
     } catch (error: any) {
       if (error instanceof SessionExpiredError) {

@@ -419,12 +419,22 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           setProgress(jobStatus.progress ?? 0)
           if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
 
+          if (jobStatus.status === 'processing' && jobStartedTrackedRef.current !== response.jobId) {
+            jobStartedTrackedRef.current = response.jobId
+            try {
+              trackEvent('job_started', { job_id: response.jobId, tool_type: BACKEND_TOOL_TYPES.VIDEO_TO_SUBTITLES })
+            } catch {
+              // non-blocking
+            }
+          }
+
           const transition = getJobLifecycleTransition(jobStatus)
           if (transition === 'completed') {
             if (activeUploadPollRef.current) {
               clearInterval(activeUploadPollRef.current)
               activeUploadPollRef.current = null
             }
+            jobStartedTrackedRef.current = null
             setStatus('completed')
             setResult(jobStatus.result ?? null)
             if (jobStatus.result?.downloadUrl) {
@@ -535,7 +545,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
         toolType: BACKEND_TOOL_TYPES.CONVERT_SUBTITLES,
         targetFormat: convertTargetFormat,
       })
-      const pollIntervalRef = { current: 0 as ReturnType<typeof setInterval> }
+      const pollIntervalRef = { current: 0 as number }
       const doPoll = async () => {
         try {
           const jobStatus = await getJobStatus(uploadRes.jobId)
@@ -558,7 +568,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           // keep polling
         }
       }
-      pollIntervalRef.current = setInterval(doPoll, JOB_POLL_INTERVAL_MS)
+      pollIntervalRef.current = window.setInterval(doPoll, JOB_POLL_INTERVAL_MS)
       doPoll()
     } catch (e: any) {
       toast.error(e.message || 'Conversion failed')

@@ -486,7 +486,6 @@ export function uploadFileWithProgress(
   const userId = localStorage.getItem('userId') || 'demo-user'
   const plan = localStorage.getItem('plan') || 'free'
   const signal = progressOptions?.signal
-  const xhrUploadStartMs = Date.now()
 
   const runOne = (): Promise<UploadResponse> =>
     new Promise((resolve, reject) => {

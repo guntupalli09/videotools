@@ -50,6 +50,14 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
   const [usedMinutes, setUsedMinutes] = useState<number | null>(null)
 
   const handleFileSelect = (file: File) => {
+    try {
+      trackEvent('file_selected', {
+        tool_type: BACKEND_TOOL_TYPES.COMPRESS_VIDEO,
+        file_size_bytes: file.size,
+      })
+    } catch {
+      // non-blocking
+    }
     setSelectedFile(file)
     setTrimStart(null)
     setTrimEnd(null)
@@ -100,7 +108,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
       })
 
       persistJobId(location.pathname, response.jobId)
-      const pollIntervalRef = { current: 0 as ReturnType<typeof setInterval> }
+      const pollIntervalRef = { current: 0 as number }
       const doPoll = async () => {
         try {
           const jobStatus = await getJobStatus(response.jobId)
@@ -122,7 +130,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
           // Network/parse errors: do not set failed; keep polling.
         }
       }
-      pollIntervalRef.current = setInterval(doPoll, JOB_POLL_INTERVAL_MS)
+      pollIntervalRef.current = window.setInterval(doPoll, JOB_POLL_INTERVAL_MS)
       doPoll()
     } catch (error: any) {
       if (error instanceof SessionExpiredError) {
