@@ -1,6 +1,6 @@
 import { useEffect, useRef, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
-import { trackEvent, identifyUser } from './lib/analytics'
+import { trackEvent, identifyUser, capturePageview } from './lib/analytics'
 import { Toaster, toast } from 'react-hot-toast'
 import Navigation from './components/Navigation'
 import { getSessionDetails } from './lib/billing'
@@ -66,6 +66,7 @@ function AppSeo() {
   const isHome = pathname === '/'
   useEffect(() => {
     try {
+      capturePageview(pathname) // feeds Web analytics dashboard (visitors, page views, sessions)
       trackEvent('page_viewed', { pathname })
     } catch {
       // non-blocking

@@ -17,7 +17,7 @@ export function initAnalytics(): void {
     posthog.init(POSTHOG_KEY, {
       api_host: POSTHOG_HOST,
       person_profiles: 'identified_only',
-      capture_pageview: false, // we send page_viewed manually for SPA
+      capture_pageview: true, // initial load; we also send $pageview on route change for SPA
     })
     initialized = true
     if (import.meta.env.DEV) {
@@ -29,6 +29,17 @@ export function initAnalytics(): void {
       // eslint-disable-next-line no-console
       console.warn('[analytics] PostHog init failed', e)
     }
+  }
+}
+
+/** Send PostHog's standard $pageview so Web analytics dashboard gets SPA route changes. */
+export function capturePageview(pathname: string): void {
+  if (!initialized) return
+  try {
+    const url = typeof window !== 'undefined' ? `${window.location.origin}${pathname}` : ''
+    posthog.capture('$pageview', { $current_url: url })
+  } catch {
+    // no-op
   }
 }
 
