@@ -26,6 +26,7 @@ export default function UserMenu() {
     remaining: number
     totalPlanMinutes: number
     resetDate: string
+    email?: string
   } | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
   const { theme, toggleTheme } = useTheme()
@@ -39,9 +40,14 @@ export default function UserMenu() {
           remaining: data.usage.remaining,
           totalPlanMinutes: total,
           resetDate: data.resetDate,
+          email: data.email || (typeof localStorage !== 'undefined' ? localStorage.getItem('userEmail') || undefined : undefined),
         })
       })
-      .catch(() => setUsage(null))
+      .catch(() => {
+        const plan = typeof localStorage !== 'undefined' ? localStorage.getItem('plan') || 'free' : 'free'
+        const email = typeof localStorage !== 'undefined' ? localStorage.getItem('userEmail') || undefined : undefined
+        setUsage(plan ? { plan, remaining: 0, totalPlanMinutes: 0, resetDate: new Date().toISOString(), email } : null)
+      })
   }, [open])
 
   const isPaidPlan = usage?.plan === 'basic' || usage?.plan === 'pro' || usage?.plan === 'agency'
@@ -106,6 +112,15 @@ export default function UserMenu() {
                 </div>
 
                 <div data-user-menu-body className="flex-1 overflow-y-auto p-4 space-y-6 min-h-[60vh] bg-white dark:bg-gray-800">
+                {/* Account email (paid plans) */}
+                {usage?.email && (
+                  <div className="rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 p-3">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Account</p>
+                    <p className="mt-1 text-sm text-gray-900 dark:text-white break-all">{usage.email}</p>
+                    <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300 capitalize">{usage.plan} plan</p>
+                  </div>
+                )}
+
                 {/* Minutes left — always show a block so content is visible */}
                 {usage ? (
                   <div className="rounded-xl bg-violet-100 dark:bg-violet-900/40 border border-violet-200 dark:border-violet-800 p-4">

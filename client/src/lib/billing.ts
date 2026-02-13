@@ -2,7 +2,7 @@ import { api } from './api'
 
 export type BillingPlan = 'basic' | 'pro' | 'agency'
 
-interface CheckoutParams {
+export interface CheckoutParams {
   mode: 'subscription' | 'payment'
   plan?: BillingPlan
   annual?: boolean
@@ -11,6 +11,8 @@ interface CheckoutParams {
   frontendOrigin?: string
   /** Promo code for early testers (e.g. EARLY30, EARLY50, EARLY70, EARLY100). Applied for Basic and Pro. */
   promotionCode?: string
+  /** From POST /api/auth/verify-otp; required for subscription checkout. */
+  emailVerificationToken?: string
 }
 
 function isNetworkError(e: unknown): boolean {
@@ -66,8 +68,8 @@ export async function createBillingPortalSession(returnUrl: string): Promise<{ u
   return response.json()
 }
 
-/** After checkout success: exchange session_id for userId and plan so the client can set identity. */
-export async function getSessionDetails(sessionId: string): Promise<{ userId: string; plan: string }> {
+/** After checkout success: exchange session_id for userId, plan, and email so the client can set identity. */
+export async function getSessionDetails(sessionId: string): Promise<{ userId: string; plan: string; email?: string }> {
   const response = await api(
     `/api/billing/session-details?session_id=${encodeURIComponent(sessionId)}`,
     { timeout: 25_000 }

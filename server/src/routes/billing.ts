@@ -1,7 +1,9 @@
 import express, { Request, Response } from 'express'
 import { stripe, getStripePriceConfig, BillingPlan } from '../services/stripe'
-import { getUser, getUserByStripeCustomerId } from '../models/User'
-import { getAuthFromRequest } from '../utils/auth'
+import { getUser, getUserByStripeCustomerId, saveUser } from '../models/User'
+import type { User, PlanType } from '../models/User'
+import { getPlanLimits } from '../utils/limits'
+import { getAuthFromRequest, verifyEmailVerificationToken } from '../utils/auth'
 
 const router = express.Router()
 
@@ -15,6 +17,8 @@ interface CheckoutRequestBody {
   frontendOrigin?: string
   /** Promo code for early testers (e.g. EARLY30, EARLY50, EARLY70, EARLY100). Only applied for Basic and Pro. */
   promotionCode?: string
+  /** JWT from POST /api/auth/verify-otp; required for subscription so we use verified email. */
+  emailVerificationToken?: string
 }
 
 // Map customer-facing code (uppercase) to Stripe promotion code ID. Set in env: STRIPE_PROMO_EARLY30, etc.
@@ -28,7 +32,7 @@ function getStripePromotionCodeId(customerCode: string): string | null {
 
 router.post('/checkout', async (req: Request, res: Response) => {
   try {
-    const { mode, plan, returnToPath, email, stripeCustomerId, frontendOrigin, promotionCode } =
+    const { mode, plan, returnToPath, email, stripeCustomerId, frontendOrigin, promotionCode, emailVerificationToken } =
       req.body as CheckoutRequestBody
 
     // Frontend URL for Stripe success/cancel redirects. Client sends frontendOrigin; otherwise use BASE_URL (Hetzner).
@@ -47,6 +51,15 @@ router.post('/checkout', async (req: Request, res: Response) => {
     if (mode === 'subscription') {
       if (!plan) {
         return res.status(400).json({ message: 'plan is required for subscription mode' })
+      }
+
+      // Paid plans require verified email (OTP); get email from verification token
+      const verified = emailVerificationToken ? verifyEmailVerificationToken(emailVerificationToken) : null
+      const checkoutEmail = verified?.email || (stripeCustomerId ? undefined : email)
+      if (!checkoutEmail || !checkoutEmail.includes('@')) {
+        return res.status(400).json({
+          message: 'Please verify your email first (enter your email and the code we sent you) before subscribing.',
+        })
       }
 
       const annual = req.body.annual === true
@@ -69,7 +82,7 @@ router.post('/checkout', async (req: Request, res: Response) => {
       const sessionParams: import('stripe').Stripe.Checkout.SessionCreateParams = {
         mode: 'subscription',
         customer: stripeCustomerId || undefined,
-        customer_email: !stripeCustomerId && email ? email : undefined,
+        customer_email: !stripeCustomerId ? checkoutEmail : undefined,
         line_items: [
           {
             price: priceId,
@@ -183,14 +196,47 @@ router.get('/session-details', async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'No customer on session' })
     }
 
-    const user = getUserByStripeCustomerId(customerId)
+    let user = getUserByStripeCustomerId(customerId)
     if (!user) {
-      return res.status(404).json({ message: 'Account not found yet. Please refresh in a few seconds.' })
+      // Webhook may not have run yet (or server restarted with in-memory store). Create user from session so redirect works.
+      const email = session.customer_details?.email || `${customerId}@checkout.example.com`
+      const planFromMeta = session.metadata?.plan as PlanType | undefined
+      const plan: PlanType =
+        planFromMeta === 'basic' || planFromMeta === 'pro' || planFromMeta === 'agency' ? planFromMeta : 'pro'
+      const now = new Date()
+      const limits = getPlanLimits(plan)
+      user = {
+        id: customerId,
+        email,
+        passwordHash: '',
+        plan,
+        stripeCustomerId: customerId,
+        subscriptionId: typeof session.subscription === 'string' ? session.subscription : undefined,
+        billingPeriodStart: undefined,
+        billingPeriodEnd: undefined,
+        passwordSetupToken: undefined,
+        passwordSetupExpiresAt: undefined,
+        passwordSetupUsed: false,
+        usageThisMonth: {
+          totalMinutes: 0,
+          videoCount: 0,
+          batchCount: 0,
+          languageCount: 0,
+          translatedMinutes: 0,
+          resetDate: now,
+        },
+        limits,
+        overagesThisMonth: { minutes: 0, languages: 0, batches: 0, totalCharge: 0 },
+        createdAt: now,
+        updatedAt: now,
+      }
+      saveUser(user)
     }
 
     return res.json({
       userId: user.id,
       plan: user.plan,
+      email: user.email,
     })
   } catch (error: any) {
     console.error('Session details error:', error)

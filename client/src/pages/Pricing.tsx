@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { createCheckoutSession, createBillingPortalSession } from '../lib/billing'
 import { trackEvent } from '../lib/analytics'
 import type { BillingPlan } from '../lib/billing'
-import { getCurrentUsage } from '../lib/api'
+import { getCurrentUsage, sendOtp, verifyOtp } from '../lib/api'
 
 function CheckIcon({ className = '' }: { className?: string }) {
   return (
@@ -17,6 +17,12 @@ export default function Pricing() {
   const [portalLoading, setPortalLoading] = useState(false)
   const [promoCode, setPromoCode] = useState('')
   const [promoError, setPromoError] = useState<string | null>(null)
+  const [checkoutEmail, setCheckoutEmail] = useState('')
+  const [otpModal, setOtpModal] = useState<{ email: string; plan: BillingPlan; annual: boolean } | null>(null)
+  const [otpSent, setOtpSent] = useState(false)
+  const [otpCode, setOtpCode] = useState('')
+  const [otpLoading, setOtpLoading] = useState(false)
+  const [otpError, setOtpError] = useState<string | null>(null)
 
   useEffect(() => {
     getCurrentUsage()
@@ -41,34 +47,65 @@ export default function Pricing() {
 
   async function handleSubscribe(plan: BillingPlan, annual = false) {
     setPromoError(null)
+    const email = checkoutEmail.trim()
+    if (!email || !email.includes('@')) {
+      // eslint-disable-next-line no-alert
+      alert('Please enter your email above first. We’ll verify it with a code so you can manage your plan.')
+      return
+    }
     try {
-      try {
-        trackEvent('plan_clicked', { plan, annual })
-      } catch {
-        // non-blocking
-      }
-      // Promo codes only apply to Basic and Pro; ignore for Agency
+      trackEvent('plan_clicked', { plan, annual })
+    } catch {
+      // non-blocking
+    }
+    setOtpModal({ email, plan, annual })
+    setOtpSent(false)
+    setOtpCode('')
+    setOtpError(null)
+  }
+
+  async function handleSendOtp() {
+    if (!otpModal) return
+    setOtpLoading(true)
+    setOtpError(null)
+    try {
+      await sendOtp(otpModal.email)
+      setOtpSent(true)
+    } catch (e: any) {
+      setOtpError(e.message || 'Failed to send code')
+    } finally {
+      setOtpLoading(false)
+    }
+  }
+
+  async function handleVerifyAndCheckout() {
+    if (!otpModal || !otpCode.trim()) return
+    setOtpLoading(true)
+    setOtpError(null)
+    try {
+      const { token } = await verifyOtp(otpModal.email, otpCode.trim())
       const promotionCode =
-        (plan === 'basic' || plan === 'pro') ? (promoCode.trim() || undefined) : undefined
+        (otpModal.plan === 'basic' || otpModal.plan === 'pro') ? (promoCode.trim() || undefined) : undefined
       const { url } = await createCheckoutSession({
         mode: 'subscription',
-        plan,
-        annual,
+        plan: otpModal.plan,
+        annual: otpModal.annual,
         returnToPath: '/',
         frontendOrigin: window.location.origin,
         promotionCode,
+        email: otpModal.email,
+        emailVerificationToken: token,
       })
       trackEvent('payment_completed', {
         type: 'subscription_checkout_started',
-        plan,
-        annual,
+        plan: otpModal.plan,
+        annual: otpModal.annual,
       })
       window.location.href = url
-    } catch (error: any) {
-      const msg = error.message || 'Failed to start checkout'
-      if (msg.toLowerCase().includes('promo')) setPromoError(msg)
-      // eslint-disable-next-line no-alert
-      alert(msg)
+    } catch (e: any) {
+      setOtpError(e.message || 'Verification failed')
+    } finally {
+      setOtpLoading(false)
     }
   }
 
@@ -106,15 +143,28 @@ export default function Pricing() {
             </div>
           )}
 
+          {/* Email required for paid plans — verify by OTP for plan management */}
+          <div className="mt-6 mx-auto max-w-md">
+            <p className="text-sm font-medium text-gray-700 mb-1.5">Your email (required for paid plans)</p>
+            <input
+              type="email"
+              value={checkoutEmail}
+              onChange={(e) => setCheckoutEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+              aria-label="Email for checkout"
+            />
+            <p className="mt-1.5 text-xs text-gray-500">We’ll send a verification code to this email before checkout. Used for plan management and receipts.</p>
+          </div>
           {/* Promo code for early testers (Basic & Pro only) */}
-          <div className="mt-8 mx-auto max-w-md">
+          <div className="mt-6 mx-auto max-w-md">
             <p className="text-sm font-medium text-gray-700 mb-1.5">Early tester? Use a promo code</p>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={promoCode}
                 onChange={(e) => {
-                  setPromoCode(e.target.value.toUpperCase()) 
+                  setPromoCode(e.target.value.toUpperCase())
                   setPromoError(null)
                 }}
                 placeholder="e.g. EARLY30, EARLY50"
@@ -296,6 +346,69 @@ export default function Pricing() {
           </p>
         </div>
       </div>
+
+      {/* OTP verification modal for subscription */}
+      {otpModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="otp-title">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-sm w-full p-6">
+            <h2 id="otp-title" className="text-lg font-semibold text-gray-900 dark:text-white">Verify your email</h2>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+              We’ll send a 6-digit code to <strong>{otpModal.email}</strong> so you can manage your plan and get receipts.
+            </p>
+            {!otpSent ? (
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleSendOtp}
+                  disabled={otpLoading}
+                  className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium disabled:opacity-60"
+                >
+                  {otpLoading ? 'Sending…' : 'Send code'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOtpModal(null)}
+                  className="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-3">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Enter 6-digit code</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="000000"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-center text-lg tracking-widest focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                  aria-label="Verification code"
+                />
+                {otpError && <p className="text-sm text-red-600">{otpError}</p>}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleVerifyAndCheckout}
+                    disabled={otpLoading || otpCode.length !== 6}
+                    className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium disabled:opacity-60"
+                  >
+                    {otpLoading ? 'Redirecting…' : 'Verify and continue to checkout'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOtpModal(null)}
+                    className="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -102,9 +102,10 @@ function PostCheckoutHandler() {
         if (cancelled.current) return
         localStorage.setItem('userId', data.userId)
         localStorage.setItem('plan', data.plan.toLowerCase())
+        if (data.email) localStorage.setItem('userEmail', data.email)
         handled.current = true
         try {
-          identifyUser(data.userId, { plan: data.plan.toLowerCase() })
+          identifyUser(data.userId, { plan: data.plan.toLowerCase(), email: data.email })
           trackEvent('plan_upgraded', { plan: data.plan.toLowerCase() })
         } catch {
           // non-blocking

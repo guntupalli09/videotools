@@ -1,9 +1,98 @@
 import express, { Request, Response } from 'express'
 import bcrypt from 'bcryptjs'
 import { getUserByEmail, getUserByPasswordToken, saveUser } from '../models/User'
-import { signAuthToken } from '../utils/auth'
+import { signAuthToken, signEmailVerificationToken } from '../utils/auth'
 
 const router = express.Router()
+
+// OTP store: email (lowercase) -> { code, expiresAt }
+const otpStore = new Map<string, { code: string; expiresAt: Date }>()
+const OTP_EXPIRY_MS = 10 * 60 * 1000 // 10 minutes
+const OTP_LENGTH = 6
+
+function generateOTP(): string {
+  let code = ''
+  for (let i = 0; i < OTP_LENGTH; i++) {
+    code += Math.floor(Math.random() * 10).toString()
+  }
+  return code
+}
+
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
+async function sendOTPEmail(email: string, code: string): Promise<void> {
+  const resendKey = process.env.RESEND_API_KEY
+  if (resendKey) {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${resendKey}`,
+      },
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM_EMAIL || 'VideoText <onboarding@resend.dev>',
+        to: [email],
+        subject: 'Your VideoText verification code',
+        text: `Your verification code is: ${code}. It expires in 10 minutes.`,
+      }),
+    })
+    if (!res.ok) {
+      const err = await res.text()
+      throw new Error(`Failed to send email: ${err}`)
+    }
+  } else {
+    console.log('[OTP] (no RESEND_API_KEY) Code for', email, ':', code)
+  }
+}
+
+router.post('/send-otp', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body as { email?: string }
+    const normalized = (email || '').toString().trim().toLowerCase()
+    if (!normalized || !isValidEmail(normalized)) {
+      return res.status(400).json({ message: 'A valid email address is required.' })
+    }
+
+    const code = generateOTP()
+    otpStore.set(normalized, { code, expiresAt: new Date(Date.now() + OTP_EXPIRY_MS) })
+    await sendOTPEmail(normalized, code)
+    res.json({ ok: true, message: 'Verification code sent.' })
+  } catch (error: any) {
+    console.error('send-otp error:', error)
+    res.status(500).json({ message: error.message || 'Failed to send code.' })
+  }
+})
+
+router.post('/verify-otp', async (req: Request, res: Response) => {
+  try {
+    const { email, code } = req.body as { email?: string; code?: string }
+    const normalized = (email || '').toString().trim().toLowerCase()
+    const enteredCode = (code || '').toString().trim()
+    if (!normalized || !isValidEmail(normalized) || !enteredCode) {
+      return res.status(400).json({ message: 'Email and verification code are required.' })
+    }
+
+    const stored = otpStore.get(normalized)
+    if (!stored) {
+      return res.status(400).json({ message: 'Invalid or expired code. Request a new one.' })
+    }
+    if (stored.expiresAt < new Date()) {
+      otpStore.delete(normalized)
+      return res.status(400).json({ message: 'Code expired. Request a new one.' })
+    }
+    if (stored.code !== enteredCode) {
+      return res.status(400).json({ message: 'Invalid code.' })
+    }
+    otpStore.delete(normalized)
+    const token = signEmailVerificationToken(normalized)
+    res.json({ ok: true, token, email: normalized })
+  } catch (error: any) {
+    console.error('verify-otp error:', error)
+    res.status(500).json({ message: error.message || 'Verification failed.' })
+  }
+})
 
 interface SetupPasswordBody {
   token: string

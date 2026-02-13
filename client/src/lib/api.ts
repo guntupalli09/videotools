@@ -857,9 +857,36 @@ export function getBatchDownloadUrl(batchId: string): string {
   return `${API_ORIGIN}/api/batch/${batchId}/download`
 }
 
+// Email verification (OTP) for paid plan signup
+export async function sendOtp(email: string): Promise<void> {
+  const response = await api('/api/auth/send-otp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email.trim().toLowerCase() }),
+  })
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: 'Failed to send code' }))
+    throw new Error(err.message || 'Failed to send code')
+  }
+}
+
+export async function verifyOtp(email: string, code: string): Promise<{ token: string; email: string }> {
+  const response = await api('/api/auth/verify-otp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email.trim().toLowerCase(), code: code.trim() }),
+  })
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: 'Invalid or expired code' }))
+    throw new Error(err.message || 'Invalid or expired code')
+  }
+  return response.json()
+}
+
 // Usage APIs
 export interface UsageData {
   plan: string
+  email?: string
   limits: {
     minutesPerMonth: number
     maxLanguages: number

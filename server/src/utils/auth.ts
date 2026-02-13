@@ -43,3 +43,29 @@ export function getAuthFromRequest(req: Request): AuthPayload | null {
   return verifyAuthToken(token)
 }
 
+/** Short-lived token issued after OTP verify; used to start subscription checkout. */
+const EMAIL_VERIFY_JWT_EXPIRY = '1h'
+
+export interface EmailVerifiedPayload {
+  email: string
+  emailVerified: true
+}
+
+export function signEmailVerificationToken(email: string): string {
+  return jwt.sign(
+    { email: email.toLowerCase().trim(), emailVerified: true } as EmailVerifiedPayload,
+    JWT_SECRET,
+    { expiresIn: EMAIL_VERIFY_JWT_EXPIRY }
+  )
+}
+
+export function verifyEmailVerificationToken(token: string): EmailVerifiedPayload | null {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as EmailVerifiedPayload
+    if (!decoded?.email || decoded.emailVerified !== true) return null
+    return decoded
+  } catch {
+    return null
+  }
+}
+

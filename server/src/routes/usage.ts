@@ -109,8 +109,13 @@ router.get('/current', (req: Request, res: Response) => {
   const availableMinutes = user.limits.minutesPerMonth + user.overagesThisMonth.minutes
   const remaining = Math.max(0, availableMinutes - user.usageThisMonth.totalMinutes)
 
+  const displayEmail =
+    user.email && !user.email.endsWith('@example.com') && !user.email.endsWith('@checkout.example.com')
+      ? user.email
+      : undefined
   res.json({
     plan: user.plan,
+    email: displayEmail,
     limits: {
       minutesPerMonth: user.limits.minutesPerMonth,
       maxLanguages: user.limits.maxLanguages,

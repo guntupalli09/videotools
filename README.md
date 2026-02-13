@@ -169,7 +169,7 @@ In `server/.env` (or Docker env). Use `server/.env.example` as template.
 | **Redis** | `REDIS_URL` (e.g. `redis://redis:6379` or Upstash `rediss://...`) |
 | **Processing** | `TEMP_FILE_PATH` (default `/tmp`), `DISABLE_WORKER` (set on API-only container if worker runs elsewhere) |
 | **Transcription / translation** | `OPENAI_API_KEY` |
-| **Auth** | `JWT_SECRET` |
+| **Auth** | `JWT_SECRET`. For paid signup OTP: `RESEND_API_KEY` (sends verification code; if unset, code is logged to console). Optional: `RESEND_FROM_EMAIL` (e.g. `VideoText <noreply@yourdomain.com>`). |
 | **Performance (optional)** | `FFMPEG_USE_GPU` = `true` to use GPU decode/encode (e.g. CUDA/NVENC) when available. `FFMPEG_THREADS` (default `4`) for CPU encode. |
 | **Caching (optional)** | `CACHE_TTL_DAYS` = number of days to cache results for repeat processing (same user + same file + same tool + same options). Default `7`. Set to `0` to disable. |
 
