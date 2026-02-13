@@ -10,6 +10,13 @@ export function generatePasswordSetupToken(): { token: string; expiresAt: Date }
   return { token, expiresAt }
 }
 
+/** One-time token for forgot-password reset link. 1h expiry. */
+export function generatePasswordResetToken(): { token: string; expiresAt: Date } {
+  const token = crypto.randomBytes(32).toString('hex')
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000)
+  return { token, expiresAt }
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret'
 const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60
 

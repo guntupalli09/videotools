@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express'
 import bcrypt from 'bcryptjs'
-import { getUserByEmail, getUserByPasswordToken, saveUser } from '../models/User'
-import { signAuthToken, signEmailVerificationToken } from '../utils/auth'
+import { getUserByEmail, getUserByPasswordToken, getUserByPasswordResetToken, saveUser } from '../models/User'
+import { signAuthToken, signEmailVerificationToken, generatePasswordResetToken } from '../utils/auth'
 
 const router = express.Router()
 
@@ -53,6 +53,34 @@ async function sendOTPEmail(email: string, code: string): Promise<void> {
     console.log('[OTP] Sent to', email, 'via Resend, id:', data.id || 'n/a')
   } else {
     console.log('[OTP] (RESEND_API_KEY not set) Code for', email, ':', code)
+  }
+}
+
+async function sendPasswordResetEmail(email: string, resetLink: string): Promise<void> {
+  const resendKey = process.env.RESEND_API_KEY
+  const fromEmail = process.env.RESEND_FROM_EMAIL || 'VideoText <onboarding@resend.dev>'
+  if (resendKey) {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${resendKey}`,
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: [email],
+        subject: 'Reset your VideoText password',
+        text: `You requested a password reset. Click the link below to set a new password (valid for 1 hour):\n\n${resetLink}\n\nIf you didn't request this, you can ignore this email.`,
+      }),
+    })
+    const body = await res.text()
+    if (!res.ok) {
+      console.error('[Reset] Resend error', res.status, body)
+      throw new Error(`Failed to send email: ${body || res.statusText}`)
+    }
+    console.log('[Reset] Password reset email sent to', email)
+  } else {
+    console.log('[Reset] (RESEND_API_KEY not set) Reset link for', email, ':', resetLink)
   }
 }
 
@@ -185,6 +213,73 @@ router.post('/login', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('login error:', error)
     return res.status(500).json({ message: error.message || 'Login failed' })
+  }
+})
+
+/** Forgot password: send reset link to email if account exists and has a password. */
+router.post('/forgot-password', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body as { email?: string }
+    const normalized = (email || '').toString().trim().toLowerCase()
+    if (!normalized || !isValidEmail(normalized)) {
+      return res.status(400).json({ message: 'A valid email address is required.' })
+    }
+
+    const user = getUserByEmail(normalized)
+    const baseUrl = process.env.BASE_URL || process.env.VITE_SITE_URL || 'https://www.videotext.io'
+    const baseOrigin = baseUrl.replace(/\/$/, '')
+
+    if (user?.passwordHash) {
+      const { token, expiresAt } = generatePasswordResetToken()
+      user.passwordResetToken = token
+      user.passwordResetExpiresAt = expiresAt
+      user.updatedAt = new Date()
+      saveUser(user)
+      const resetLink = `${baseOrigin}/reset-password?token=${encodeURIComponent(token)}`
+      await sendPasswordResetEmail(normalized, resetLink)
+    }
+
+    res.json({ ok: true, message: "If an account exists with that email, we've sent a password reset link." })
+  } catch (error: any) {
+    console.error('forgot-password error:', error)
+    res.status(500).json({ message: error.message || 'Failed to send reset link.' })
+  }
+})
+
+/** Reset password using token from email. */
+router.post('/reset-password', async (req: Request, res: Response) => {
+  try {
+    const { token, newPassword } = req.body as { token?: string; newPassword?: string }
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: 'Token and new password are required.' })
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters.' })
+    }
+
+    const user = getUserByPasswordResetToken(token)
+    if (!user || !user.passwordResetToken) {
+      return res.status(400).json({ message: 'Invalid or expired reset link. Request a new one.' })
+    }
+    if (!user.passwordResetExpiresAt || user.passwordResetExpiresAt < new Date()) {
+      user.passwordResetToken = undefined
+      user.passwordResetExpiresAt = undefined
+      user.updatedAt = new Date()
+      saveUser(user)
+      return res.status(400).json({ message: 'Reset link has expired. Request a new one.' })
+    }
+
+    const salt = await bcrypt.genSalt(10)
+    user.passwordHash = await bcrypt.hash(newPassword, salt)
+    user.passwordResetToken = undefined
+    user.passwordResetExpiresAt = undefined
+    user.updatedAt = new Date()
+    saveUser(user)
+
+    res.json({ ok: true, message: 'Password updated. You can now log in.' })
+  } catch (error: any) {
+    console.error('reset-password error:', error)
+    res.status(500).json({ message: error.message || 'Failed to reset password.' })
   }
 })
 

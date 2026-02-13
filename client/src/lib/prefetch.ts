@@ -7,6 +7,8 @@ const prefetchMap: Record<string, () => Promise<unknown>> = {
   '/': () => import('../pages/Home'),
   '/pricing': () => import('../pages/Pricing'),
   '/login': () => import('../pages/Login'),
+  '/forgot-password': () => import('../pages/ForgotPassword'),
+  '/reset-password': () => import('../pages/ResetPassword'),
   '/refer': () => import('../pages/Refer'),
   '/privacy': () => import('../pages/Privacy'),
   '/faq': () => import('../pages/Faq'),

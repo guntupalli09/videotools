@@ -61,6 +61,11 @@ export default function Login() {
               autoComplete="current-password"
               className="w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-900 dark:text-white bg-white dark:bg-gray-800 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
             />
+            <p className="mt-1.5 text-right">
+              <Link to="/forgot-password" className="text-sm text-violet-600 dark:text-violet-400 hover:underline">
+                Forgot password?
+              </Link>
+            </p>
           </label>
           {error && (
             <p className="text-sm text-red-600 dark:text-red-400" role="alert">

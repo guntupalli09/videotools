@@ -51,3 +51,29 @@ export function storeLoginResult(result: { token: string; userId: string; plan: 
   localStorage.setItem(USER_EMAIL_KEY, result.email)
   invalidateUsageCache()
 }
+
+/** Request a password reset email. Does not reveal whether the email exists. */
+export async function requestPasswordReset(email: string): Promise<void> {
+  const response = await api('/api/auth/forgot-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email.trim().toLowerCase() }),
+  })
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: 'Failed to send reset link' }))
+    throw new Error(err.message || 'Failed to send reset link')
+  }
+}
+
+/** Reset password with token from email. */
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  const response = await api('/api/auth/reset-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, newPassword }),
+  })
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: 'Failed to reset password' }))
+    throw new Error(err.message || 'Failed to reset password')
+  }
+}

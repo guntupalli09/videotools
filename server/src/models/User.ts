@@ -54,6 +54,10 @@ export interface User {
   passwordSetupExpiresAt?: Date
   passwordSetupUsed?: boolean
 
+  // Password reset token (forgot password)
+  passwordResetToken?: string
+  passwordResetExpiresAt?: Date
+
   // Usage tracking
   usageThisMonth: UsageThisMonth
 
@@ -103,6 +107,15 @@ export function getUserByEmail(email: string): User | undefined {
 export function getUserByPasswordToken(token: string): User | undefined {
   for (const user of users.values()) {
     if (user.passwordSetupToken === token) {
+      return user
+    }
+  }
+  return undefined
+}
+
+export function getUserByPasswordResetToken(token: string): User | undefined {
+  for (const user of users.values()) {
+    if (user.passwordResetToken === token) {
       return user
     }
   }
