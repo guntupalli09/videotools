@@ -24,6 +24,7 @@ function isValidEmail(email: string): boolean {
 
 async function sendOTPEmail(email: string, code: string): Promise<void> {
   const resendKey = process.env.RESEND_API_KEY
+  const fromEmail = process.env.RESEND_FROM_EMAIL || 'VideoText <onboarding@resend.dev>'
   if (resendKey) {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -32,18 +33,26 @@ async function sendOTPEmail(email: string, code: string): Promise<void> {
         Authorization: `Bearer ${resendKey}`,
       },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || 'VideoText <onboarding@resend.dev>',
+        from: fromEmail,
         to: [email],
         subject: 'Your VideoText verification code',
         text: `Your verification code is: ${code}. It expires in 10 minutes.`,
       }),
     })
+    const body = await res.text()
     if (!res.ok) {
-      const err = await res.text()
-      throw new Error(`Failed to send email: ${err}`)
+      console.error('[OTP] Resend error', res.status, body)
+      throw new Error(`Failed to send email: ${body || res.statusText}`)
     }
+    let data: { id?: string } = {}
+    try {
+      if (body) data = JSON.parse(body)
+    } catch {
+      // ignore
+    }
+    console.log('[OTP] Sent to', email, 'via Resend, id:', data.id || 'n/a')
   } else {
-    console.log('[OTP] (no RESEND_API_KEY) Code for', email, ':', code)
+    console.log('[OTP] (RESEND_API_KEY not set) Code for', email, ':', code)
   }
 }
 
