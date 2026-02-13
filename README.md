@@ -32,7 +32,8 @@ Professional video utilities platform: transcribe video to text, generate and tr
 8. [Deployment (Hetzner + Caddy)](#8-deployment-hetzner--caddy)
 9. [SEO & production URLs](#9-seo--production-urls)
 10. [Client: performance, devices & reliability](#10-client-performance-devices--reliability)
-11. [Project structure](#11-project-structure)
+11. [Performance benchmark (end-to-end)](#11-performance-benchmark-end-to-end)
+12. [Project structure](#12-project-structure)
 
 ---
 
@@ -341,7 +342,22 @@ A more detailed comparison with industry norms and optional next steps (tests, S
 
 ---
 
-## 11. Project structure
+## 11. Performance benchmark (end-to-end)
+
+End-to-end time (upload + transcription) for a **15 min video / 155 MB**:
+
+| Tool | Total time |
+|------|------------|
+| **VideoText (this app)** | **~35 sec** |
+| Descript | 1 min 21 sec |
+| Otter.ai | 1 min 25 sec |
+| Trint | 4 min + |
+
+VideoText is ~2.3× faster than the next-fastest and ~7× faster than Trint on this test. For methodology and how to run benchmarks for marketing, see `docs/BENCHMARKS.md`.
+
+---
+
+## 12. Project structure
 
 ```text
 ├── client/                 # React + Vite; PWA (vite-plugin-pwa)
@@ -387,4 +403,4 @@ A more detailed comparison with industry norms and optional next steps (tests, S
 | Job status | `GET /api/job/:jobId` |
 | Health | `GET /health` → `{"status":"ok"}` |
 
-All product behavior, trees, branches, and features are described in [§1 Features & tools](#1-features--tools-trees-and-branches). Client performance and device/reliability details are in [§10 Client: performance, devices & reliability](#10-client-performance-devices--reliability). Latest upload UX improvements (multi-stage progress, preview, cancel, retry, network-aware messaging) are in [§10 Upload & transcript/subtitles UX](#upload--transcriptsubtitles-ux) and `docs/UX_UPLOAD_IMPROVEMENTS.md`. Pipeline architecture and performance audit are in `docs/PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md`. For env details use `server/.env.example` and the tables in [§3 Environment variables](#3-environment-variables).
+All product behavior, trees, branches, and features are described in [§1 Features & tools](#1-features--tools-trees-and-branches). Client performance and device/reliability details are in [§10 Client: performance, devices & reliability](#10-client-performance-devices--reliability). End-to-end performance vs competitors is in [§11 Performance benchmark](#11-performance-benchmark-end-to-end). Latest upload UX improvements (multi-stage progress, preview, cancel, retry, network-aware messaging) are in [§10 Upload & transcript/subtitles UX](#upload--transcriptsubtitles-ux) and `docs/UX_UPLOAD_IMPROVEMENTS.md`. Pipeline architecture and performance audit are in `docs/PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md`. For env details use `server/.env.example` and the tables in [§3 Environment variables](#3-environment-variables).

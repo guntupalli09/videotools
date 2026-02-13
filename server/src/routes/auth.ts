@@ -64,6 +64,9 @@ router.post('/send-otp', async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'A valid email address is required.' })
     }
 
+    const hasResendKey = !!(process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.trim())
+    console.log('[OTP] send-otp called for', normalized, '| RESEND_API_KEY set:', hasResendKey)
+
     const code = generateOTP()
     otpStore.set(normalized, { code, expiresAt: new Date(Date.now() + OTP_EXPIRY_MS) })
     await sendOTPEmail(normalized, code)
