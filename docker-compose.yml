@@ -11,7 +11,7 @@ services:
     build: .
     image: videotools-api
     container_name: videotools-api
-    # Stripe: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_* must be in .env or API will exit at startup
+    # Env from .env in same dir as this file (not server/.env). Add: Stripe keys, RESEND_API_KEY, RESEND_FROM_EMAIL, JWT_SECRET, etc.
     env_file: .env
     environment:
       # Self-hosted Redis in this stack. To use Upstash instead, set REDIS_URL in .env and remove this line (and the one in worker).

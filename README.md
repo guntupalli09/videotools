@@ -6,6 +6,9 @@ Professional video utilities platform: transcribe video to text, generate and tr
 
 ### Recent updates (high level)
 
+- **Authentication (paid plans):** Email + OTP verification before checkout; **Login** (`/login`) and **Log out** in the user menu. After purchase, users can log out and log in again with email + password (set via "Set password" flow). JWT and `Authorization: Bearer` for API; usage and plan restored from Stripe when `x-user-id` is a Stripe customer ID (e.g. after API restart). See [§5.1 Authentication (OTP, login, logout)](#51-authentication-otp-login-logout).
+- **Post-checkout flow:** Session-details creates user from Stripe session if missing; client stores email and plan; UserMenu shows account email and plan. Stripe restore: if the API has no in-memory user for `cus_*`, it fetches plan/email from Stripe and recreates the user so "Pro still Free" after restart is fixed.
+- **Vercel & SPA:** Root `vercel.json` has rewrites so all routes serve `index.html` (no 404 on `/pricing`, `/login`, etc.). Set Vercel **Root Directory** to **empty** (not `client`) so the root config applies; use Root Directory = `client` only if you duplicate rewrites in `client/vercel.json`.
 - **Upload UX (Video → Transcript & Video → Subtitles):** Multi-stage progress (Preparing → Uploading → Processing → Completed/Error); instant file preview on selection (filename, duration, video thumbnail) using browser APIs only; **Cancel** to abort upload or leave processing and start a new file; automatic retry with exponential backoff (chunk and single-file uploads); “Slow connection detected — optimizing upload” when the connection probe indicates slow links. All additive and backwards compatible. See [§10 Upload & transcript/subtitles UX](#upload--transcriptsubtitles-ux) and `docs/UX_UPLOAD_IMPROVEMENTS.md`.
 - **In-app translation viewers**: Translate transcript text (Video → Transcript) and subtitle cue text (Video → Subtitles) into English, Hindi, Telugu, Spanish, Chinese, or Russian.
 - **Faster long-video transcription**: parallel chunking + merge (same result shape).
@@ -27,13 +30,15 @@ Professional video utilities platform: transcribe video to text, generate and tr
 3. [Environment variables](#3-environment-variables)
 4. [API contract (upload)](#4-api-contract-upload)
 5. [Billing & usage](#5-billing--usage)
+   - [5.1 Authentication (OTP, login, logout)](#51-authentication-otp-login-logout)
 6. [Stripe (go live)](#6-stripe-go-live)
 7. [Redis](#7-redis)
-8. [Deployment (Hetzner + Caddy)](#8-deployment-hetzner--caddy)
+8. [Deployment (Hetzner + Caddy + Vercel)](#8-deployment-hetzner--caddy--vercel)
 9. [SEO & production URLs](#9-seo--production-urls)
 10. [Client: performance, devices & reliability](#10-client-performance-devices--reliability)
 11. [Performance benchmark (end-to-end)](#11-performance-benchmark-end-to-end)
 12. [Project structure](#12-project-structure)
+13. [Troubleshooting](#13-troubleshooting)
 
 ---
 
@@ -170,7 +175,7 @@ In `server/.env` (or Docker env). Use `server/.env.example` as template.
 | **Redis** | `REDIS_URL` (e.g. `redis://redis:6379` or Upstash `rediss://...`) |
 | **Processing** | `TEMP_FILE_PATH` (default `/tmp`), `DISABLE_WORKER` (set on API-only container if worker runs elsewhere) |
 | **Transcription / translation** | `OPENAI_API_KEY` |
-| **Auth** | `JWT_SECRET`. For paid signup OTP: `RESEND_API_KEY` (sends verification code; if unset, code is logged to console). Optional: `RESEND_FROM_EMAIL` (e.g. `VideoText <noreply@yourdomain.com>`). |
+| **Auth** | `JWT_SECRET` (required for login and OTP JWT). For paid signup OTP: `RESEND_API_KEY` (sends verification code via [Resend](https://resend.com); if unset, code is logged to API console). `RESEND_FROM_EMAIL` (e.g. `VideoText <noreply@yourdomain.com>`) must use a **verified domain** in Resend. For **Docker**, put these in the `.env` file in the **same directory as `docker-compose.yml`** (e.g. project root or `/opt/videotools/.env`), not only in `server/.env`; the api/worker containers use `env_file: .env` from the compose file location. |
 | **Performance (optional)** | `FFMPEG_USE_GPU` = `true` to use GPU decode/encode (e.g. CUDA/NVENC) when available. `FFMPEG_THREADS` (default `4`) for CPU encode. |
 | **Caching (optional)** | `CACHE_TTL_DAYS` = number of days to cache results for repeat processing (same user + same file + same tool + same options). Default `7`. Set to `0` to disable. |
 
@@ -212,6 +217,20 @@ Valid `toolType` values: `video-to-transcript`, `video-to-subtitles`, `translate
 - **Client:** Sends `x-user-id` and `x-plan`; after checkout, client stores `userId` and `plan`. Minutes remaining is shown on every tool (UsageCounter + UsageDisplay) and refetches when a job completes.
 - **Server-side enforcement:** Upload and batch routes call `enforceUsageLimits()` before queueing; paid plans are only trusted from auth or from an existing Stripe-backed user (no plan spoofing via headers). See `server/src/utils/limits.ts` and the upload/batch/usage routes.
 
+### 5.1 Authentication (OTP, login, logout)
+
+Paid plans require email verification before checkout; after purchase users can log out and log in again with email + password.
+
+- **Subscribe flow (Pricing):** User enters email → **Send code** → `POST /api/auth/send-otp` (sends 6-digit OTP via Resend, or logs code if `RESEND_API_KEY` is unset). User enters code → **Verify and continue** → `POST /api/auth/verify-otp` returns short-lived `emailVerificationToken`. Checkout is created with that token and email; backend uses verified email for Stripe and the created account.
+- **Post-checkout:** Client calls session-details; if no user exists for the Stripe customer, the API creates one from the session (email, plan, subscriptionId) and returns `email`. Client stores `userId`, `plan`, `userEmail`; UserMenu shows account email and plan.
+- **Stripe restore:** User/usage is in-memory. After an API restart, if the client sends `x-user-id: cus_XXXX` (Stripe customer ID), the usage route calls `getPlanAndEmailForStripeCustomer(cus_XXXX)` and recreates the user with plan/email from Stripe so the UI shows the correct plan.
+- **Login:** `POST /api/auth/login` with `{ email, password }` returns `{ token, userId, plan, email }`. Client stores token in localStorage (`authToken`) and sends `Authorization: Bearer <token>` on API requests. `GET /api/usage/current` uses JWT when present to resolve user and plan.
+- **Logout:** User menu has **Log out** when logged in (or when `userId` is set and not `demo-user`). Log out clears `authToken`, `userId`, `plan`, `userEmail` and reloads so the app shows free/guest state.
+- **Log in link:** When not logged in, the user menu shows **Log in** → `/login`. Login page: email + password; on success stores token and navigates home.
+- **Set password:** Paid users can set a password so they can log in later. `POST /api/auth/setup-password` with `{ token, password }` (token is the one-time `passwordSetupToken` set by the webhook for new paid users). A "Set password" email/link flow can send that token (e.g. welcome email with link to `/set-password?token=...`); the client does not yet have a dedicated set-password page.
+
+**Env:** `JWT_SECRET` (required for login/OTP tokens), `RESEND_API_KEY` and `RESEND_FROM_EMAIL` (OTP emails; see [§3 Environment variables](#3-environment-variables)). For Docker, these must be in the `.env` file **next to `docker-compose.yml`**, not only in `server/.env` (see [§8 Deployment](#8-deployment-hetzner--caddy--vercel) and [§13 Troubleshooting](#13-troubleshooting)).
+
 ### Promo codes (early testers)
 
 You can offer **30%, 50%, 70%, or 100% off** the first payment for **Basic** and **Pro** to attract early testers, testimonials, and feedback.
@@ -225,7 +244,7 @@ You can offer **30%, 50%, 70%, or 100% off** the first payment for **Basic** and
    ```
    This creates four coupons (30/50/70/100% off, first invoice only) and four promotion codes: **EARLY30**, **EARLY50**, **EARLY70**, **EARLY100**. The script prints env vars like `STRIPE_PROMO_EARLY30=promo_xxx`.
 
-2. **Add the printed env vars** to `server/.env`.
+2. **Add the printed env vars** to `server/.env` (local dev) and to the `.env` next to `docker-compose.yml` if you run API/worker in Docker.
 
 3. **On the Pricing page**, users can enter a promo code (e.g. EARLY30) before clicking “Choose Basic” or “Choose Pro”. The code is applied at Stripe Checkout; the discount is shown on the Stripe payment page. Stripe Checkout also has “Add promotion code” so users can enter a code there if they didn’t on your site.
 
@@ -260,14 +279,14 @@ Changing Redis invalidates existing job IDs (queue state is not migrated).
 
 ---
 
-## 8. Deployment (Hetzner + Caddy)
+## 8. Deployment (Hetzner + Caddy + Vercel)
 
 ### Backend on Hetzner (single VM)
 
 1. **Docker:** Install Docker and Compose on Ubuntu 22.04 (see Docker docs).
-2. **Project & env:** Copy repo and create `.env` from `.env.example` (Redis, Stripe, `OPENAI_API_KEY`, `JWT_SECRET`, `BASE_URL`, etc.).
-3. **Start:** From project root: `docker compose up --build -d`. API on port 3001; Redis and worker run in the same stack.
-4. **Restart:** `docker compose up -d --build api worker`.
+2. **Project & env:** Copy repo. Create a **`.env` file in the same directory as `docker-compose.yml`** (e.g. project root or `/opt/videotools/`) with Redis, Stripe, `OPENAI_API_KEY`, `JWT_SECRET`, `BASE_URL`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, etc. The api and worker containers use `env_file: .env` from that directory; `server/.env` is **not** read by Docker.
+3. **Start:** From that directory: `docker compose up --build -d`. API on port 3001; Redis and worker run in the same stack.
+4. **Restart:** `docker compose up -d --build api worker`. To view OTP and auth logs: `docker logs -f videotools-api` (not the worker).
 
 ### Caddy (HTTPS for API)
 
@@ -283,7 +302,8 @@ Changing Redis invalidates existing job IDs (queue state is not migrated).
 
 ### Frontend (Vercel)
 
-- Set **Root directory** to `client`, build command `npm run build`, output `dist`.
+- **Root Directory:** Prefer **empty** (repo root) so the **root `vercel.json`** is used. That file defines `rewrites: [{ "source": "/(.*)", "destination": "/index.html" }]` so SPA routes like `/pricing`, `/login`, `/video-to-transcript` return `index.html` instead of 404. If you set Root Directory to `client`, the root `vercel.json` is ignored and you may get 404s on direct links or refresh; in that case add the same rewrites in `client/vercel.json` or deploy from root with build/output pointing to `client`.
+- **Build:** Root directory = repo root: set **Build command** to `cd client && npm run build`, **Output directory** to `client/dist`. Or Root directory = `client`: build `npm run build`, output `dist`.
 - Set **VITE_API_URL** to your API origin (e.g. `https://api.videotext.io`) — **no** `/api` suffix.
 
 **Mixed content:** If the site is HTTPS, `VITE_API_URL` must be HTTPS (e.g. `https://api.videotext.io`). Do not use `http://IP:port` in production.
@@ -362,32 +382,42 @@ VideoText is ~2.3× faster than the next-fastest and ~7× faster than Trint on t
 ```text
 ├── client/                 # React + Vite; PWA (vite-plugin-pwa)
 │   ├── src/
-│   │   ├── components/     # UI (Navigation, FileUploadZone, FilePreviewCard, UploadStageIndicator,
-│   │   │                   #      SuccessState, OfflineBanner, SessionErrorBoundary, …)
-│   │   ├── lib/            # api, apiBase, billing, filePreview, jobPolling, prefetch, seoMeta, theme, usage, …
-│   │   ├── pages/          # Home, VideoToTranscript, VideoToSubtitles, BatchProcess, … (lazy-loaded)
+│   │   ├── components/     # UI (Navigation, UserMenu with Log in/Log out, FileUploadZone, …)
+│   │   ├── lib/            # api (Bearer token), auth (login/logout), billing, filePreview, jobPolling, prefetch, …
+│   │   ├── pages/          # Home, Pricing (OTP modal), Login, VideoToTranscript, … (lazy-loaded)
 │   │   └── pages/seo/      # SEO entry-point wrappers (same tools, different meta)
 │   ├── public/
 │   └── index.html
 ├── server/
 │   ├── src/
-│   │   ├── routes/         # upload, jobs, download, usage, batch, billing, auth, stripeWebhook, translateTranscript
+│   │   ├── routes/         # upload, jobs, download, usage, batch, billing, auth (send-otp, verify-otp, login, setup-password), stripeWebhook, …
 │   │   ├── services/      # transcription, translation, subtitles, ffmpeg, stripe, …
 │   │   ├── workers/       # videoProcessor (Bull)
 │   │   ├── models/        # User, Job, UsageLog, …
-│   │   └── utils/         # auth, limits, metering, srtParser, redis, …
+│   │   └── utils/         # auth (JWT, email-verification token), limits, metering, srtParser, redis, …
 │   └── package.json
-├── docs/                   # UX_UPLOAD_IMPROVEMENTS.md (upload UX, state machine, regression notes),
-│                          # PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md (bottlenecks, optional optimisations),
-│                          # BENCHMARKS.md (how to run benchmarks for advertising),
-│                          # FRONTEND_BENCHMARK.md (client vs industry), …
+├── docs/                   # UX_UPLOAD_IMPROVEMENTS.md, PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md, BENCHMARKS.md, …
 ├── deploy/
 │   ├── Caddyfile           # Reverse proxy for API
 │   └── (no separate README; see §8 above)
-├── docker-compose.yml      # Redis, api, worker
+├── docker-compose.yml      # Redis, api, worker (env_file: .env from same directory)
 ├── Dockerfile
+├── vercel.json             # SPA rewrites + index.html cache headers (used when Root Directory is repo root)
 └── README.md               # This file
 ```
+
+---
+
+## 13. Troubleshooting
+
+| Issue | Cause | Fix |
+|-------|--------|-----|
+| **404 on `/pricing`, `/login`, or other routes** | Vercel Root Directory set to `client` so root `vercel.json` is ignored; no SPA fallback. | Set Root Directory to **empty** (repo root) and use build command `cd client && npm run build`, output `client/dist`. Or keep Root = `client` and add the same `rewrites` and `headers` from root `vercel.json` into `client/vercel.json`. |
+| **OTP emails not received / RESEND_API_KEY set: false in logs** | Docker Compose loads `.env` from the **directory containing `docker-compose.yml`**, not from `server/.env`. | Put `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, and `JWT_SECRET` in the `.env` file next to `docker-compose.yml` (e.g. project root or `/opt/videotools/.env`). Restart: `docker compose up -d api`. |
+| **Where to see OTP codes when testing** | OTP is logged by the **API** process. | Run `docker logs -f videotools-api` (not the worker). Look for `[OTP] send-otp called for …` and either `Code for … : 123456` (no Resend) or `Sent to … via Resend`. |
+| **Purchased Pro but UI still shows Free** | In-memory user was lost (e.g. API restart); client still sends old `x-user-id` or Stripe customer ID. | Ensure client sends the Stripe customer ID (e.g. from session-details after checkout). The usage route restores the user from Stripe when `x-user-id` starts with `cus_`. If the client was sending a different ID, reload after checkout or log in so the correct ID is used. |
+| **PostHog ERR_BLOCKED_BY_CLIENT / 404s for assets** | Ad blockers or privacy tools block PostHog. | The client detects failed PostHog requests and calls `posthog.opt_out_capturing()`, so analytics is disabled and no further requests are sent. No code change required. |
+| **Permission denied on .env** | Trying to execute the file (e.g. `./.env`). | Edit the file only (e.g. `nano .env` or your editor). Do not run it as a script. |
 
 ---
 
@@ -397,10 +427,15 @@ VideoText is ~2.3× faster than the next-fastest and ~7× faster than Trint on t
 |------|-------------------|
 | Run client | `cd client && npm run dev` |
 | Run server | `cd server && npm run dev` |
+| Build client | `cd client && npm run build` (output: `client/dist`) |
+| Build server | `cd server && npm run build` (output: `server/dist`) |
 | Redis (Docker) | `docker compose up -d` |
 | Deploy backend | `docker compose up --build -d` |
 | Restart API + worker | `docker compose up -d --build api worker` |
+| API logs (OTP, auth) | `docker logs -f videotools-api` |
 | Job status | `GET /api/job/:jobId` |
 | Health | `GET /health` → `{"status":"ok"}` |
 
-All product behavior, trees, branches, and features are described in [§1 Features & tools](#1-features--tools-trees-and-branches). Client performance and device/reliability details are in [§10 Client: performance, devices & reliability](#10-client-performance-devices--reliability). End-to-end performance vs competitors is in [§11 Performance benchmark](#11-performance-benchmark-end-to-end). Latest upload UX improvements (multi-stage progress, preview, cancel, retry, network-aware messaging) are in [§10 Upload & transcript/subtitles UX](#upload--transcriptsubtitles-ux) and `docs/UX_UPLOAD_IMPROVEMENTS.md`. Pipeline architecture and performance audit are in `docs/PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md`. For env details use `server/.env.example` and the tables in [§3 Environment variables](#3-environment-variables).
+---
+
+All product behavior, trees, branches, and features are described in [§1 Features & tools](#1-features--tools-trees-and-branches). Auth (OTP, login, logout) is in [§5.1 Authentication](#51-authentication-otp-login-logout). Client performance and device/reliability details are in [§10 Client: performance, devices & reliability](#10-client-performance-devices--reliability). End-to-end performance vs competitors is in [§11 Performance benchmark](#11-performance-benchmark-end-to-end). Latest upload UX improvements (multi-stage progress, preview, cancel, retry, network-aware messaging) are in [§10 Upload & transcript/subtitles UX](#upload--transcriptsubtitles-ux) and `docs/UX_UPLOAD_IMPROVEMENTS.md`. Pipeline architecture and performance audit are in `docs/PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md`. For env details use the tables in [§3 Environment variables](#3-environment-variables) and the `.env` next to `docker-compose.yml` for Docker [§8](#8-deployment-hetzner--caddy--vercel).

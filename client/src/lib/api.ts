@@ -19,19 +19,30 @@ export type ApiInit = RequestInit & { timeout?: number }
  * VITE_API_URL must be ORIGIN ONLY (e.g. https://api.videotext.io), NOT .../api.
  * Use init.timeout for GET/short requests so slow networks fail fast and can retry (e.g. polling).
  */
+/** Auth token from login; when set, API requests send Authorization: Bearer so the server restores plan. */
+const AUTH_TOKEN_KEY = 'authToken'
+
+export function getAuthToken(): string | null {
+  return typeof localStorage !== 'undefined' ? localStorage.getItem(AUTH_TOKEN_KEY) : null
+}
+
 export function api(path: string, init?: ApiInit): Promise<Response> {
   if (!path.startsWith('/api/')) {
     throw new Error(`API path must start with /api/. Got: ${path}`)
   }
   const { timeout, ...rest } = init ?? {}
-  let signal = rest.signal
+  const token = getAuthToken()
+  const headers = new Headers(rest.headers as HeadersInit)
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+  const options = { ...rest, headers }
+  let signal = options.signal
   if (timeout != null && timeout > 0 && !signal) {
     const controller = new AbortController()
     signal = controller.signal
     const t = setTimeout(() => controller.abort(), timeout)
-    return fetch(`${API_ORIGIN}${path}`, { ...rest, signal }).finally(() => clearTimeout(t))
+    return fetch(`${API_ORIGIN}${path}`, { ...options, signal }).finally(() => clearTimeout(t))
   }
-  return fetch(`${API_ORIGIN}${path}`, rest)
+  return fetch(`${API_ORIGIN}${path}`, options)
 }
 
 /** Backend-supported toolType values. Match server/src/routes/upload.ts and workers/videoProcessor.ts exactly. Do not invent names. */

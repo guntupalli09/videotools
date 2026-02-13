@@ -13,6 +13,7 @@ import OfflineBanner from './components/OfflineBanner'
 // Lazy-load pages for fast initial load on any device; each route loads only when visited.
 const Home = lazy(() => import('./pages/Home'))
 const Pricing = lazy(() => import('./pages/Pricing'))
+const Login = lazy(() => import('./pages/Login'))
 const Refer = lazy(() => import('./pages/Refer'))
 const Privacy = lazy(() => import('./pages/Privacy'))
 const Faq = lazy(() => import('./pages/Faq'))
@@ -145,6 +146,7 @@ function App() {
               <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/pricing" element={<Pricing />} />
+            <Route path="/login" element={<Login />} />
             <Route path="/refer" element={<Refer />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/faq" element={<Faq />} />

@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { getCurrentUsage } from '../lib/api'
 import { createBillingPortalSession } from '../lib/billing'
 import { useTheme } from '../lib/theme'
+import { isLoggedIn, logout } from '../lib/auth'
 
 const tools = [
   { name: 'Video → Transcript', path: '/video-to-transcript' },
@@ -156,6 +157,31 @@ export default function UserMenu() {
                     </span>
                   </button>
                 </div>
+
+                {/* Log in / Log out */}
+                {isLoggedIn() || (typeof localStorage !== 'undefined' && localStorage.getItem('userId') && localStorage.getItem('userId') !== 'demo-user') ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logout()
+                      setOpen(false)
+                      window.location.reload()
+                    }}
+                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <span>Log out</span>
+                  </button>
+                ) : (
+                  <Link
+                    to="/login"
+                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    onClick={() => setOpen(false)}
+                    onMouseEnter={() => prefetchRoute('/login')}
+                    onFocus={() => prefetchRoute('/login')}
+                  >
+                    <span>Log in</span>
+                  </Link>
+                )}
 
                 {/* Contact support */}
                 <a

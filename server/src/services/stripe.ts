@@ -88,3 +88,33 @@ export function getPlanFromPriceId(priceId: string): BillingPlan | null {
   }
 }
 
+/** Fetch active plan and email for a Stripe customer (e.g. after API restart when user is missing from memory). */
+export async function getPlanAndEmailForStripeCustomer(
+  customerId: string
+): Promise<{ plan: BillingPlan; email: string; subscriptionId?: string } | null> {
+  try {
+    const [customer, subs] = await Promise.all([
+      stripe.customers.retrieve(customerId),
+      stripe.subscriptions.list({ customer: customerId, status: 'active', limit: 1 }),
+    ])
+    if (customer.deleted) return null
+    const email =
+      (customer as Stripe.Customer).email ||
+      (customer as Stripe.Customer).metadata?.email ||
+      `${customerId}@customer.example.com`
+    const sub = subs.data[0]
+    if (!sub?.items?.data?.[0]) {
+      return null
+    }
+    const priceId =
+      typeof sub.items.data[0].price === 'string'
+        ? sub.items.data[0].price
+        : sub.items.data[0].price?.id
+    const plan = priceId ? getPlanFromPriceId(priceId) : null
+    if (!plan) return null
+    return { plan, email, subscriptionId: sub.id }
+  } catch {
+    return null
+  }
+}
+

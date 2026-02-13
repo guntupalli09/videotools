@@ -2,17 +2,48 @@ import express, { Request, Response } from 'express'
 import { getUser, saveUser, User, PlanType } from '../models/User'
 import { getPlanLimits, getJobPriority } from '../utils/limits'
 import { getAuthFromRequest } from '../utils/auth'
+import { getPlanAndEmailForStripeCustomer } from '../services/stripe'
 
 const router = express.Router()
 
 // For Phase 1.5 we derive a demo user from a simple header or fall back to free.
-function getOrCreateDemoUser(req: Request): User {
+// When user is missing but x-user-id looks like a Stripe customer (cus_*), we restore from Stripe so paid plan survives API restarts.
+async function getOrCreateDemoUser(req: Request): Promise<User> {
   const auth = getAuthFromRequest(req)
   const headerUserId = (req.headers['x-user-id'] as string) || 'demo-user'
   const userId = auth?.userId || headerUserId
   let user = getUser(userId)
 
   const now = new Date()
+
+  // If no user in memory but header is a Stripe customer id, restore from Stripe (handles API restart after payment)
+  if (!user && typeof headerUserId === 'string' && headerUserId.startsWith('cus_')) {
+    const stripeData = await getPlanAndEmailForStripeCustomer(headerUserId)
+    if (stripeData) {
+      user = {
+        id: headerUserId,
+        email: stripeData.email,
+        passwordHash: '',
+        plan: stripeData.plan,
+        stripeCustomerId: headerUserId,
+        subscriptionId: stripeData.subscriptionId,
+        paymentMethodId: undefined,
+        usageThisMonth: {
+          totalMinutes: 0,
+          videoCount: 0,
+          batchCount: 0,
+          languageCount: 0,
+          translatedMinutes: 0,
+          resetDate: now,
+        },
+        limits: getPlanLimits(stripeData.plan),
+        overagesThisMonth: { minutes: 0, languages: 0, batches: 0, totalCharge: 0 },
+        createdAt: now,
+        updatedAt: now,
+      }
+      saveUser(user)
+    }
+  }
 
   // Paid plans: from auth, or from existing Stripe-backed user; unauthenticated without Stripe = free (abuse-proof)
   const derivedPlan: PlanType =
@@ -44,12 +75,7 @@ function getOrCreateDemoUser(req: Request): User {
         resetDate,
       },
       limits,
-      overagesThisMonth: {
-        minutes: 0,
-        languages: 0,
-        batches: 0,
-        totalCharge: 0,
-      },
+      overagesThisMonth: { minutes: 0, languages: 0, batches: 0, totalCharge: 0 },
       createdAt: now,
       updatedAt: now,
     }
@@ -103,8 +129,8 @@ function getOrCreateDemoUser(req: Request): User {
   return user
 }
 
-router.get('/current', (req: Request, res: Response) => {
-  const user = getOrCreateDemoUser(req)
+router.get('/current', async (req: Request, res: Response) => {
+  const user = await getOrCreateDemoUser(req)
 
   const availableMinutes = user.limits.minutesPerMonth + user.overagesThisMonth.minutes
   const remaining = Math.max(0, availableMinutes - user.usageThisMonth.totalMinutes)

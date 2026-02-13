@@ -173,7 +173,12 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     const jwt = signAuthToken(user)
-    return res.json({ token: jwt })
+    return res.json({
+      token: jwt,
+      userId: user.id,
+      plan: user.plan,
+      email: user.email,
+    })
   } catch (error: any) {
     console.error('login error:', error)
     return res.status(500).json({ message: error.message || 'Login failed' })
