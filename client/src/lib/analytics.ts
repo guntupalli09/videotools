@@ -12,7 +12,13 @@ let initialized = false
 
 export function initAnalytics(): void {
   if (initialized) return
-  if (!POSTHOG_KEY || !POSTHOG_KEY.trim()) return
+  if (!POSTHOG_KEY || !POSTHOG_KEY.trim()) {
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log('[analytics] PostHog disabled (no VITE_POSTHOG_KEY in client env)')
+    }
+    return
+  }
   try {
     posthog.init(POSTHOG_KEY, {
       api_host: POSTHOG_HOST,

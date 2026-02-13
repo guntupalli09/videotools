@@ -123,6 +123,13 @@ function getOrCreateUserForJob(userId: string, plan: PlanType) {
   const existing = getUser(userId)
   if (existing) {
     const now = new Date()
+    // Keep plan/limits in sync with job (free, basic, pro, agency) so minute balance is correct
+    if (existing.plan !== plan) {
+      existing.plan = plan
+      existing.limits = getPlanLimits(plan)
+      existing.updatedAt = now
+      saveUser(existing)
+    }
     if (now > existing.usageThisMonth.resetDate) {
       const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
       existing.usageThisMonth = {
@@ -417,12 +424,19 @@ async function processJob(job: import('bull').Job<JobData>) {
             primaryFileName = zipFilename
           }
 
+          const processedSeconds =
+            data.trimmedStart !== undefined && data.trimmedEnd !== undefined
+              ? Math.max(0, data.trimmedEnd - data.trimmedStart)
+              : durationCheck.duration || 0
           result = {
             downloadUrl: primaryDownloadUrl,
             fileName: primaryFileName,
             ...(segments.length > 0 && { segments }),
             ...(summary && { summary }),
             ...(chapters && chapters.length > 0 && { chapters }),
+            // Benchmark / advertising: server-side processing time and video duration
+            processingMs: fileReceivedToTranscriptionFinishedMs,
+            videoDurationSeconds: processedSeconds,
           }
 
           const outputPath = path.join(tempDir, primaryFileName)
@@ -431,10 +445,6 @@ async function processJob(job: import('bull').Job<JobData>) {
             await saveDuplicateResult(userId, data.videoHash, outputPath, 'video-to-transcript', cacheOpts, primaryFileName)
           }
 
-          const processedSeconds =
-            data.trimmedStart !== undefined && data.trimmedEnd !== undefined
-              ? Math.max(0, data.trimmedEnd - data.trimmedStart)
-              : durationCheck.duration || 0
           const minutes = secondsToMinutes(processedSeconds)
           const user = getOrCreateUserForJob(userId, plan)
           user.usageThisMonth.totalMinutes += minutes
@@ -604,10 +614,16 @@ async function processJob(job: import('bull').Job<JobData>) {
               // Phase 1B: derived validation must not block job
             }
 
+            const processedSecondsSub =
+              data.trimmedStart !== undefined && data.trimmedEnd !== undefined
+                ? Math.max(0, data.trimmedEnd - data.trimmedStart)
+                : durationCheck.duration || 0
             result = {
               downloadUrl: `/api/download/${outputFilename}`,
               fileName: outputFilename,
               warnings: warnings.length > 0 ? warnings : undefined,
+              processingMs: fileReceivedToTranscriptionFinishedMs,
+              videoDurationSeconds: processedSecondsSub,
             }
 
           if (data.videoHash) {
@@ -616,11 +632,7 @@ async function processJob(job: import('bull').Job<JobData>) {
           }
 
             // Metering (minutes)
-            const processedSeconds =
-              data.trimmedStart !== undefined && data.trimmedEnd !== undefined
-                ? Math.max(0, data.trimmedEnd - data.trimmedStart)
-                : durationCheck.duration || 0
-            const minutes = secondsToMinutes(processedSeconds)
+            const minutes = secondsToMinutes(processedSecondsSub)
             const user = getOrCreateUserForJob(userId, plan)
             user.usageThisMonth.totalMinutes += minutes
             user.usageThisMonth.videoCount += 1

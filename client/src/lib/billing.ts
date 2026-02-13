@@ -9,6 +9,8 @@ interface CheckoutParams {
   returnToPath?: string
   email?: string
   frontendOrigin?: string
+  /** Promo code for early testers (e.g. EARLY30, EARLY50, EARLY70, EARLY100). Applied for Basic and Pro. */
+  promotionCode?: string
 }
 
 function isNetworkError(e: unknown): boolean {

@@ -7,7 +7,7 @@ import { getVideoDuration } from '../services/ffmpeg'
 import { validateFileSize, validateFileType } from '../utils/fileValidation'
 import { BatchJob, saveBatch, getBatchById } from '../models/BatchJob'
 import { getUser, saveUser, PlanType, User } from '../models/User'
-import { getPlanLimits, enforceBatchLimits, getJobPriority } from '../utils/limits'
+import { getPlanLimits, enforceBatchLimits, enforceUsageLimits, getJobPriority } from '../utils/limits'
 import { addJobToQueue, getTotalQueueCount } from '../workers/videoProcessor'
 import { getAuthFromRequest } from '../utils/auth'
 import { isQueueAtHardLimit, isQueueAtSoftLimit } from '../utils/queueConfig'
@@ -43,18 +43,18 @@ const upload = multer({
 function getOrCreateDemoUser(req: Request): User {
   const auth = getAuthFromRequest(req)
   const headerUserId = (req.headers['x-user-id'] as string) || 'demo-user'
-  const headerPlan = (req.headers['x-plan'] as string) as PlanType | undefined
-
   const userId = auth?.userId || headerUserId
   let user = getUser(userId)
+  // Paid plans: from auth, or from existing Stripe-backed user; unauthenticated without Stripe = free (abuse-proof)
+  const derivedPlan: PlanType =
+    auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency')
+      ? auth.plan
+      : user?.stripeCustomerId
+        ? user.plan
+        : 'free'
 
   if (!user) {
-    const plan: PlanType =
-      auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency')
-        ? auth.plan
-        : headerPlan === 'basic' || headerPlan === 'pro' || headerPlan === 'agency'
-        ? headerPlan
-        : 'free'
+    const plan = derivedPlan
     const limits = getPlanLimits(plan)
     const now = new Date()
     const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
@@ -87,6 +87,14 @@ function getOrCreateDemoUser(req: Request): User {
     }
 
     saveUser(user)
+  } else {
+    // Keep user plan/limits in sync (free, basic, pro, agency) so minute tracking is correct
+    if (user.plan !== derivedPlan) {
+      user.plan = derivedPlan
+      user.limits = getPlanLimits(derivedPlan)
+      user.updatedAt = new Date()
+      saveUser(user)
+    }
   }
 
   return user
@@ -158,13 +166,22 @@ router.post(
       if (!batchCheck.allowed) {
         const statusCode =
           batchCheck.reason === 'BATCH_NOT_AVAILABLE' ? 403 : 400
+        for (const v of videoMeta) fs.unlinkSync(v.path)
         return res.status(statusCode).json({ message: batchCheck.reason })
       }
 
+      // Server-side minute limit: reject batch if user would exceed plan
       const totalDurationSeconds = videoMeta.reduce(
         (sum, v) => sum + v.duration,
         0
       )
+      const requestedMinutes = Math.ceil(totalDurationSeconds / 60)
+      const limitCheck = await enforceUsageLimits(user, requestedMinutes)
+      if (!limitCheck.allowed) {
+        for (const v of videoMeta) fs.unlinkSync(v.path)
+        return res.status(403).json({ message: 'Monthly minute limit reached. Upgrade or wait for reset.' })
+      }
+
       const estimatedDurationMinutes = Math.ceil(totalDurationSeconds / 60)
 
       const batchId = uuidv4()

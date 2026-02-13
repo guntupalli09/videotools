@@ -13,11 +13,22 @@ interface CheckoutRequestBody {
   email?: string
   stripeCustomerId?: string
   frontendOrigin?: string
+  /** Promo code for early testers (e.g. EARLY30, EARLY50, EARLY70, EARLY100). Only applied for Basic and Pro. */
+  promotionCode?: string
+}
+
+// Map customer-facing code (uppercase) to Stripe promotion code ID. Set in env: STRIPE_PROMO_EARLY30, etc.
+function getStripePromotionCodeId(customerCode: string): string | null {
+  const normalized = String(customerCode || '').trim().toUpperCase().replace(/\s+/g, '')
+  if (!normalized) return null
+  const envKey = `STRIPE_PROMO_${normalized}` as keyof NodeJS.ProcessEnv
+  const id = process.env[envKey]
+  return typeof id === 'string' && id.startsWith('promo_') ? id : null
 }
 
 router.post('/checkout', async (req: Request, res: Response) => {
   try {
-    const { mode, plan, returnToPath, email, stripeCustomerId, frontendOrigin } =
+    const { mode, plan, returnToPath, email, stripeCustomerId, frontendOrigin, promotionCode } =
       req.body as CheckoutRequestBody
 
     // Frontend URL for Stripe success/cancel redirects. Client sends frontendOrigin; otherwise use BASE_URL (Hetzner).
@@ -38,14 +49,24 @@ router.post('/checkout', async (req: Request, res: Response) => {
         return res.status(400).json({ message: 'plan is required for subscription mode' })
       }
 
+      const annual = req.body.annual === true
       const priceId =
         plan === 'basic'
-          ? prices.basicPriceId
+          ? (annual && prices.basicAnnualPriceId ? prices.basicAnnualPriceId : prices.basicPriceId)
           : plan === 'pro'
-          ? prices.proPriceId
-          : prices.agencyPriceId
+          ? (annual && prices.proAnnualPriceId ? prices.proAnnualPriceId : prices.proPriceId)
+          : (annual && prices.agencyAnnualPriceId ? prices.agencyAnnualPriceId : prices.agencyPriceId)
 
-      const session = await stripe.checkout.sessions.create({
+      // Promo codes only for Basic and Pro (30/50/70/100% off for early testers)
+      const promoId =
+        (plan === 'basic' || plan === 'pro') && promotionCode
+          ? getStripePromotionCodeId(promotionCode)
+          : null
+      if (promotionCode && (plan === 'basic' || plan === 'pro') && !promoId) {
+        return res.status(400).json({ message: 'Invalid or expired promo code. Check the code and try again.' })
+      }
+
+      const sessionParams: import('stripe').Stripe.Checkout.SessionCreateParams = {
         mode: 'subscription',
         customer: stripeCustomerId || undefined,
         customer_email: !stripeCustomerId && email ? email : undefined,
@@ -62,7 +83,11 @@ router.post('/checkout', async (req: Request, res: Response) => {
           plan,
           returnToPath: normalizedPath,
         },
-      })
+        allow_promotion_codes: true,
+        ...(promoId ? { discounts: [{ promotion_code: promoId }] } : {}),
+      }
+
+      const session = await stripe.checkout.sessions.create(sessionParams)
 
       return res.json({ url: session.url })
     }

@@ -12,7 +12,8 @@ export default function UsageCounter({ refreshTrigger }: { refreshTrigger?: stri
   useEffect(() => {
     async function fetchUsage() {
       try {
-        const data = await getCurrentUsage()
+        // After a job completes, skip cache so balance updates immediately
+        const data = await getCurrentUsage({ skipCache: refreshTrigger === 'completed' })
         const totalPlanMinutes =
           data.limits.minutesPerMonth + data.overages.minutes
         const remaining = data.usage.remaining
@@ -43,13 +44,12 @@ export default function UsageCounter({ refreshTrigger }: { refreshTrigger?: stri
   const { remaining, totalPlanMinutes, usedPercent } = usage
 
   return (
-    <div className="bg-gray-100 rounded-full px-4 py-1.5 inline-flex items-center space-x-3">
-      <span className="text-sm text-gray-500">
-        {remaining} min of {totalPlanMinutes} min (as per plan) remaining this
-        month
+    <div className="bg-gray-100 dark:bg-gray-800 rounded-full px-4 py-1.5 inline-flex items-center space-x-3">
+      <span className="text-sm text-gray-600 dark:text-gray-300">
+        {remaining} min remaining this month
       </span>
       {totalPlanMinutes > 0 && (
-        <div className="w-24 bg-gray-200 rounded-full h-2">
+        <div className="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
           <div
             className="bg-violet-600 rounded-full h-2 transition-all"
             style={{ width: `${usedPercent}%` }}

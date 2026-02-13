@@ -114,7 +114,7 @@ export default function UserMenu() {
                       Minutes left
                     </div>
                     <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-                      {usage.remaining} <span className="text-base font-normal text-gray-600 dark:text-gray-300">/ {usage.totalPlanMinutes} min</span>
+                      {usage.remaining} <span className="text-base font-normal text-gray-600 dark:text-gray-300">min remaining</span>
                     </p>
                     <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
                       {usage.plan} plan · Resets {new Date(usage.resetDate).toLocaleDateString()}

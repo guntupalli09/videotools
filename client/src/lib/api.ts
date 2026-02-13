@@ -882,9 +882,14 @@ export interface UsageData {
 
 let usageCache: { data: unknown; at: number } | null = null
 
-export async function getCurrentUsage(): Promise<UsageData> {
+/** Invalidate cached usage so the next getCurrentUsage() fetches fresh data. Call after a job completes so minute balance updates immediately. */
+export function invalidateUsageCache(): void {
+  usageCache = null
+}
+
+export async function getCurrentUsage(options?: { skipCache?: boolean }): Promise<UsageData> {
   const now = Date.now()
-  if (usageCache && now - usageCache.at < USAGE_CACHE_MS) return usageCache.data as UsageData
+  if (!options?.skipCache && usageCache && now - usageCache.at < USAGE_CACHE_MS) return usageCache.data as UsageData
   const response = await api('/api/usage/current', {
     timeout: API_GET_TIMEOUT_MS,
     headers: {

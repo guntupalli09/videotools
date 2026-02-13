@@ -5,13 +5,14 @@ import fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
 import { fileQueue, addJobToQueue, getTotalQueueCount as getQueueCountFromWorker } from '../workers/videoProcessor'
 import { validateFileType, validateFileSize, validateSubtitleFile } from '../utils/fileValidation'
-import { enforceLanguageLimits, getJobPriority, getPlanLimits } from '../utils/limits'
+import { enforceLanguageLimits, enforceUsageLimits, getJobPriority, getPlanLimits } from '../utils/limits'
 import { getUser, saveUser, PlanType, User } from '../models/User'
 import { hashFile, checkDuplicateProcessing } from '../services/duplicate'
 import { getAuthFromRequest } from '../utils/auth'
 import { isQueueAtHardLimit, isQueueAtSoftLimit } from '../utils/queueConfig'
 import { checkAndRecordUpload } from '../utils/uploadRateLimit'
 import { trackJobCreated } from '../utils/analytics'
+import { getVideoDuration } from '../services/ffmpeg'
 
 const router = express.Router()
 
@@ -65,15 +66,16 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
 
     const auth = getAuthFromRequest(req)
     const headerUserId = (req.headers['x-user-id'] as string) || 'demo-user'
-    const headerPlan = (req.headers['x-plan'] as string) as PlanType | undefined
 
     const userId = auth?.userId || headerUserId
+    let user = getUser(userId)
+    // Paid plans: from auth, or from existing Stripe-backed user; unauthenticated without Stripe = free (abuse-proof)
     const plan: PlanType =
       auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency')
         ? auth.plan
-        : headerPlan === 'basic' || headerPlan === 'pro' || headerPlan === 'agency'
-        ? headerPlan
-        : 'free'
+        : user?.stripeCustomerId
+          ? user.plan
+          : 'free'
 
     // Phase 2.5: rate limit 3 uploads per minute per user
     if (!checkAndRecordUpload(userId)) {
@@ -90,10 +92,9 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     }
 
     // Ensure user exists (in-memory store for Phase 1.5)
-    let user = getUser(userId)
+    const now = new Date()
     if (!user) {
       const limits = getPlanLimits(plan)
-      const now = new Date()
       const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
       user = {
         id: userId,
@@ -118,8 +119,14 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       }
       saveUser(user)
     } else {
+      // Keep user plan/limits in sync (free, basic, pro, agency) so minute tracking is correct
+      if (user.plan !== plan) {
+        user.plan = plan
+        user.limits = getPlanLimits(plan)
+        user.updatedAt = now
+        saveUser(user)
+      }
       // Monthly reset
-      const now = new Date()
       if (now > user.usageThisMonth.resetDate) {
         const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
         user.usageThisMonth = {
@@ -154,6 +161,13 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
         new URL(url)
       } catch {
         return res.status(400).json({ message: 'Invalid URL' })
+      }
+
+      // Reject when free user has no minutes left (can't get duration before download)
+      const availableMinutes = user.limits.minutesPerMonth + user.overagesThisMonth.minutes
+      const remaining = Math.max(0, availableMinutes - user.usageThisMonth.totalMinutes)
+      if (remaining <= 0 && !user.stripeCustomerId) {
+        return res.status(403).json({ message: 'Monthly minute limit reached. Upgrade or wait for reset.' })
       }
 
       const jobOpts: Record<string, unknown> = options.format || options.language || options.includeSummary || options.includeChapters || options.exportFormats
@@ -283,6 +297,29 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       }
     }
 
+    // Server-side minute limit: reject before queueing if user would exceed plan (abuse-proof)
+    const minuteChargingTools = ['video-to-transcript', 'video-to-subtitles', 'burn-subtitles', 'compress-video']
+    if (minuteChargingTools.includes(toolType)) {
+      let durationSeconds: number
+      try {
+        durationSeconds = await getVideoDuration(file.path)
+      } catch {
+        fs.unlinkSync(file.path)
+        return res.status(400).json({ message: 'Could not read video/audio duration.' })
+      }
+      if (options.trimmedStart != null && options.trimmedEnd != null) {
+        const start = parseFloat(String(options.trimmedStart))
+        const end = parseFloat(String(options.trimmedEnd))
+        durationSeconds = Math.max(0, end - start)
+      }
+      const requestedMinutes = Math.ceil(durationSeconds / 60)
+      const limitCheck = await enforceUsageLimits(user, requestedMinutes)
+      if (!limitCheck.allowed) {
+        fs.unlinkSync(file.path)
+        return res.status(403).json({ message: 'Monthly minute limit reached. Upgrade or wait for reset.' })
+      }
+    }
+
     // Cache lookup: same user + same file + same tool + same options → instant result (configurable TTL). Skip for audio-only (hash would be of audio, not video).
     let videoHash: string | undefined
     if (
@@ -325,8 +362,8 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       videoHash,
       originalName: originalNameForJob,
       fileSize: file.size,
-      trimmedStart: options.trimmedStart ? parseFloat(options.trimmedStart) : undefined,
-      trimmedEnd: options.trimmedEnd ? parseFloat(options.trimmedEnd) : undefined,
+      trimmedStart: options.trimmedStart != null ? parseFloat(String(options.trimmedStart)) : undefined,
+      trimmedEnd: options.trimmedEnd != null ? parseFloat(String(options.trimmedEnd)) : undefined,
       options: Object.keys(jobOptions).length > 0 ? jobOptions : undefined,
       webhookUrl: typeof webhookUrl === 'string' && webhookUrl.trim() ? webhookUrl.trim() : undefined,
       inputType: inputType === 'audio' ? 'audio' : undefined,
@@ -366,12 +403,17 @@ router.post('/dual', upload.fields([
 ]), async (req: Request, res: Response) => {
   try {
     const { toolType, trimmedStart, trimmedEnd, burnFontSize, burnPosition, burnBackgroundOpacity } = req.body
-    const userId = (req.headers['x-user-id'] as string) || 'demo-user'
-    const planHeader = (req.headers['x-plan'] as string) as PlanType | undefined
+    const auth = getAuthFromRequest(req)
+    const headerUserId = (req.headers['x-user-id'] as string) || 'demo-user'
+    const userId = auth?.userId || headerUserId
+    let burnUser = getUser(userId)
+    // Paid plans: from auth, or from existing Stripe-backed user; unauthenticated without Stripe = free (abuse-proof)
     const plan: PlanType =
-      planHeader === 'basic' || planHeader === 'pro' || planHeader === 'agency'
-        ? planHeader
-        : 'free'
+      auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency')
+        ? auth.plan
+        : burnUser?.stripeCustomerId
+          ? burnUser.plan
+          : 'free'
 
     if (!checkAndRecordUpload(userId)) {
       res.setHeader('Retry-After', '60')
@@ -382,13 +424,6 @@ router.post('/dual', upload.fields([
       return res.status(503).json({ message: 'High demand right now. Please retry shortly.' })
     }
 
-    // Enforce max concurrent jobs (simple queue-based check)
-    const activeJobs = await fileQueue.getJobs(['active', 'waiting', 'delayed'])
-    const activeForUser = activeJobs.filter((j) => (j.data as any)?.userId === userId)
-    const limitsForPlan = getPlanLimits(plan)
-    if (activeForUser.length >= limitsForPlan.maxConcurrentJobs) {
-      return res.status(429).json({ message: 'MAX_CONCURRENT_JOBS_REACHED' })
-    }
     const files = req.files as { [fieldname: string]: Express.Multer.File[] }
 
     if (!toolType || toolType !== 'burn-subtitles') {
@@ -404,6 +439,40 @@ router.post('/dual', upload.fields([
 
     const videoFile = files.video[0]
     const subtitleFile = files.subtitles[0]
+
+    // Get or create user for minute enforcement
+    if (!burnUser) {
+      const limits = getPlanLimits(plan)
+      const now = new Date()
+      const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+      burnUser = {
+        id: userId,
+        email: `${userId}@example.com`,
+        passwordHash: '',
+        plan,
+        stripeCustomerId: '',
+        subscriptionId: '',
+        paymentMethodId: undefined,
+        usageThisMonth: { totalMinutes: 0, videoCount: 0, batchCount: 0, languageCount: 0, translatedMinutes: 0, resetDate },
+        limits,
+        overagesThisMonth: { minutes: 0, languages: 0, batches: 0, totalCharge: 0 },
+        createdAt: now,
+        updatedAt: now,
+      }
+      saveUser(burnUser)
+    } else if (burnUser.plan !== plan) {
+      burnUser.plan = plan
+      burnUser.limits = getPlanLimits(plan)
+      burnUser.updatedAt = new Date()
+      saveUser(burnUser)
+    }
+
+    // Enforce max concurrent jobs
+    const activeJobs = await fileQueue.getJobs(['active', 'waiting', 'delayed'])
+    const activeForUser = activeJobs.filter((j) => (j.data as any)?.userId === userId)
+    if (activeForUser.length >= burnUser.limits.maxConcurrentJobs) {
+      return res.status(429).json({ message: 'MAX_CONCURRENT_JOBS_REACHED' })
+    }
 
     // Validate video file (plan-based size)
     const limits = getPlanLimits(plan)
@@ -434,6 +503,28 @@ router.post('/dual', upload.fields([
       return res.status(400).json({ message: subResult.error })
     }
 
+    // Server-side minute limit for burn-subtitles
+    let durationSeconds: number
+    try {
+      durationSeconds = await getVideoDuration(videoFile.path)
+    } catch {
+      fs.unlinkSync(videoFile.path)
+      fs.unlinkSync(subtitleFile.path)
+      return res.status(400).json({ message: 'Could not read video duration.' })
+    }
+    if (trimmedStart != null && trimmedEnd != null) {
+      const start = parseFloat(String(trimmedStart))
+      const end = parseFloat(String(trimmedEnd))
+      durationSeconds = Math.max(0, end - start)
+    }
+    const requestedMinutes = Math.ceil(durationSeconds / 60)
+    const limitCheck = await enforceUsageLimits(burnUser, requestedMinutes)
+    if (!limitCheck.allowed) {
+      fs.unlinkSync(videoFile.path)
+      fs.unlinkSync(subtitleFile.path)
+      return res.status(403).json({ message: 'Monthly minute limit reached. Upgrade or wait for reset.' })
+    }
+
     const job = await addJobToQueue(plan, {
       toolType: 'burn-subtitles',
       filePath: videoFile.path,
@@ -443,8 +534,8 @@ router.post('/dual', upload.fields([
       originalName: videoFile.originalname,
       originalName2: subtitleFile.originalname,
       fileSize: videoFile.size,
-      trimmedStart: trimmedStart ? parseFloat(trimmedStart) : undefined,
-      trimmedEnd: trimmedEnd ? parseFloat(trimmedEnd) : undefined,
+      trimmedStart: trimmedStart != null ? parseFloat(String(trimmedStart)) : undefined,
+      trimmedEnd: trimmedEnd != null ? parseFloat(String(trimmedEnd)) : undefined,
       options:
         burnFontSize || burnPosition || burnBackgroundOpacity
           ? {
@@ -485,14 +576,15 @@ router.post('/init', async (req: Request, res: Response) => {
   try {
     const auth = getAuthFromRequest(req)
     const headerUserId = (req.headers['x-user-id'] as string) || 'demo-user'
-    const headerPlan = (req.headers['x-plan'] as string) as PlanType | undefined
     const userId = auth?.userId || headerUserId
+    const user = getUser(userId)
+    // Paid plans: from auth, or from existing Stripe-backed user; unauthenticated without Stripe = free (abuse-proof)
     const plan: PlanType =
       auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency')
         ? auth.plan
-        : headerPlan === 'basic' || headerPlan === 'pro' || headerPlan === 'agency'
-        ? headerPlan
-        : 'free'
+        : user?.stripeCustomerId
+          ? user.plan
+          : 'free'
 
     if (!checkAndRecordUpload(userId)) {
       res.setHeader('Retry-After', '60')
@@ -644,8 +736,8 @@ router.post('/complete', async (req: Request, res: Response) => {
             return res.status(400).json({ message: 'File exceeds plan limit. Upgrade for larger files.' })
           }
           const opts = meta.options || {}
-          const trimmedStart = typeof opts.trimmedStart === 'number' ? opts.trimmedStart : undefined
-          const trimmedEnd = typeof opts.trimmedEnd === 'number' ? opts.trimmedEnd : undefined
+          const trimmedStart = opts.trimmedStart != null ? (typeof opts.trimmedStart === 'number' ? opts.trimmedStart : parseFloat(String(opts.trimmedStart))) : undefined
+          const trimmedEnd = opts.trimmedEnd != null ? (typeof opts.trimmedEnd === 'number' ? opts.trimmedEnd : parseFloat(String(opts.trimmedEnd))) : undefined
           const { trimmedStart: _s, trimmedEnd: _e, uploadMode: _um, originalFileName: _ofn, originalFileSize: _ofs, ...restOptions } = opts
           const isChunkedAudioOnly =
             (meta.toolType === 'video-to-transcript' || meta.toolType === 'video-to-subtitles') &&

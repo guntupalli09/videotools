@@ -9,20 +9,20 @@ const router = express.Router()
 function getOrCreateDemoUser(req: Request): User {
   const auth = getAuthFromRequest(req)
   const headerUserId = (req.headers['x-user-id'] as string) || 'demo-user'
-  const headerPlan = (req.headers['x-plan'] as string) as PlanType | undefined
-
   const userId = auth?.userId || headerUserId
   let user = getUser(userId)
 
   const now = new Date()
 
-  if (!user) {
-    const derivedPlan: PlanType =
-      auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency')
-        ? auth.plan
-        : headerPlan === 'basic' || headerPlan === 'pro' || headerPlan === 'agency'
-        ? headerPlan
+  // Paid plans: from auth, or from existing Stripe-backed user; unauthenticated without Stripe = free (abuse-proof)
+  const derivedPlan: PlanType =
+    auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency')
+      ? auth.plan
+      : user?.stripeCustomerId
+        ? user.plan
         : 'free'
+
+  if (!user) {
     const plan = derivedPlan
     const limits = getPlanLimits(plan)
     const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
@@ -56,6 +56,16 @@ function getOrCreateDemoUser(req: Request): User {
 
     saveUser(user)
   } else {
+    // Keep user plan/limits in sync with request (free, basic, pro, agency) so minute balance is correct
+    if (user.plan !== derivedPlan) {
+      user.plan = derivedPlan
+      user.limits = getPlanLimits(derivedPlan)
+      user.updatedAt = now
+      saveUser(user)
+    }
+  }
+
+  if (user) {
     // Stripe-driven reset: if a paid user with billingPeriodEnd and no active subscription
     // has passed their period end, downgrade them to Free.
     if (user.billingPeriodEnd && user.billingPeriodEnd < now && !user.subscriptionId) {

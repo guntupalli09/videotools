@@ -28,7 +28,8 @@ export default function UsageDisplay({ refreshTrigger }: { refreshTrigger?: stri
   useEffect(() => {
     async function fetchUsage() {
       try {
-        const usage = await getCurrentUsage()
+        // After a job completes, skip cache so balance updates immediately
+        const usage = await getCurrentUsage({ skipCache: refreshTrigger === 'completed' })
         setData(usage)
       } catch {
         // Silent failure – usage display is non-critical
@@ -50,18 +51,20 @@ export default function UsageDisplay({ refreshTrigger }: { refreshTrigger?: stri
         )
   const showWarning = usedPercent >= 80 && usedPercent < 100
 
+  const remainingMinutes = data.usage.remaining
+
   return (
     <div className="mt-4 flex flex-col space-y-1 text-xs text-gray-700">
       <div className="inline-flex items-center space-x-3 rounded-lg bg-violet-50 px-3 py-2">
         <span className="font-semibold uppercase tracking-wide text-violet-700">
           Plan: {data.plan.toUpperCase()}
         </span>
-        <span>
-          {data.usage.totalMinutes}/{totalAvailableMinutes} min used
+        <span className="text-violet-800 font-medium">
+          {remainingMinutes} min remaining
         </span>
         <div className="h-1 w-24 overflow-hidden rounded-full bg-violet-100">
           <div
-            className="h-1 rounded-full bg-violet-600"
+            className="h-1 rounded-full bg-violet-600 transition-all"
             style={{ width: `${usedPercent}%` }}
           />
         </div>

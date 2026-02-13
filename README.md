@@ -164,7 +164,7 @@ In `server/.env` (or Docker env). Use `server/.env.example` as template.
 | Area | Variables |
 |------|-----------|
 | **API** | `PORT` (default 3001), `NODE_ENV`, `CORS_ORIGINS` (comma-separated) |
-| **Stripe** | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_BASIC`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_AGENCY`, `STRIPE_PRICE_OVERAGE`; optional `STRIPE_PRICE_*_ANNUAL` |
+| **Stripe** | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_BASIC`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_AGENCY`, `STRIPE_PRICE_OVERAGE`; optional `STRIPE_PRICE_*_ANNUAL`. For promo codes: `STRIPE_PROMO_EARLY30`, `STRIPE_PROMO_EARLY50`, `STRIPE_PROMO_EARLY70`, `STRIPE_PROMO_EARLY100` (Stripe promotion code IDs). See [§5 Promo codes](#promo-codes-early-testers) to create them. |
 | **Redirects** | `BASE_URL` (frontend URL for Stripe success/cancel) |
 | **Redis** | `REDIS_URL` (e.g. `redis://redis:6379` or Upstash `rediss://...`) |
 | **Processing** | `TEMP_FILE_PATH` (default `/tmp`), `DISABLE_WORKER` (set on API-only container if worker runs elsewhere) |
@@ -209,6 +209,31 @@ Valid `toolType` values: `video-to-transcript`, `video-to-subtitles`, `translate
 - **Other limits:** max subtitle languages (Basic: 2, Pro: 5, Agency: 10), batch enabled (Pro/Agency), batch max videos and max duration, translation minutes cap (Pro/Agency). All in `server/src/utils/limits.ts`.
 - **Usage:** Recorded in the **worker** when a job **completes** (totalMinutes, translatedMinutes for multi-language, etc.). Batch jobs charge minutes per video. Reset on invoice period (paid) or calendar month (free). Overage allowed only for users with `stripeCustomerId`.
 - **Client:** Sends `x-user-id` and `x-plan`; after checkout, client stores `userId` and `plan`. Minutes remaining is shown on every tool (UsageCounter + UsageDisplay) and refetches when a job completes.
+- **Server-side enforcement:** Upload and batch routes call `enforceUsageLimits()` before queueing; paid plans are only trusted from auth or from an existing Stripe-backed user (no plan spoofing via headers). See `server/src/utils/limits.ts` and the upload/batch/usage routes.
+
+### Promo codes (early testers)
+
+You can offer **30%, 50%, 70%, or 100% off** the first payment for **Basic** and **Pro** to attract early testers, testimonials, and feedback.
+
+1. **Create coupons and promotion codes in Stripe** (one-time):
+   ```bash
+   # From repo root:
+   node server/scripts/create-promo-codes.js
+   # Or from server directory:
+   cd server && node scripts/create-promo-codes.js
+   ```
+   This creates four coupons (30/50/70/100% off, first invoice only) and four promotion codes: **EARLY30**, **EARLY50**, **EARLY70**, **EARLY100**. The script prints env vars like `STRIPE_PROMO_EARLY30=promo_xxx`.
+
+2. **Add the printed env vars** to `server/.env`.
+
+3. **On the Pricing page**, users can enter a promo code (e.g. EARLY30) before clicking “Choose Basic” or “Choose Pro”. The code is applied at Stripe Checkout; the discount is shown on the Stripe payment page. Stripe Checkout also has “Add promotion code” so users can enter a code there if they didn’t on your site.
+
+Promo codes apply only to Basic and Pro (not Agency or one-time overage). Invalid or unconfigured codes return a clear error.
+
+### Remaining improvements for full robustness
+
+- **Persisting usage:** The current user and usage store is **in-memory** (`server/src/models/User.ts`). On server restart, all usage data is lost and limits effectively reset. For production at scale, persist users and usage (e.g. PostgreSQL, or Redis with a durable schema) so that minute counts and plan state survive restarts and are consistent across multiple API/worker instances.
+- **Hardening identity:** Anonymous users are identified only by the `x-user-id` header (default `demo-user`). Anyone can send a new `x-user-id` and receive a fresh free-tier bucket. To reduce abuse, consider: **rate- or cap-by-IP** (e.g. max minutes or uploads per IP per day), **device fingerprinting**, or **requiring sign-in** (e.g. email or OAuth) for any usage beyond a very small demo allowance.
 
 ---
 
@@ -338,6 +363,7 @@ A more detailed comparison with industry norms and optional next steps (tests, S
 │   └── package.json
 ├── docs/                   # UX_UPLOAD_IMPROVEMENTS.md (upload UX, state machine, regression notes),
 │                          # PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md (bottlenecks, optional optimisations),
+│                          # BENCHMARKS.md (how to run benchmarks for advertising),
 │                          # FRONTEND_BENCHMARK.md (client vs industry), …
 ├── deploy/
 │   ├── Caddyfile           # Reverse proxy for API

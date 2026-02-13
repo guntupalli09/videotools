@@ -15,6 +15,8 @@ function CheckIcon({ className = '' }: { className?: string }) {
 export default function Pricing() {
   const [currentPlan, setCurrentPlan] = useState<string | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
+  const [promoCode, setPromoCode] = useState('')
+  const [promoError, setPromoError] = useState<string | null>(null)
 
   useEffect(() => {
     getCurrentUsage()
@@ -38,18 +40,23 @@ export default function Pricing() {
   }
 
   async function handleSubscribe(plan: BillingPlan, annual = false) {
+    setPromoError(null)
     try {
       try {
         trackEvent('plan_clicked', { plan, annual })
       } catch {
         // non-blocking
       }
+      // Promo codes only apply to Basic and Pro; ignore for Agency
+      const promotionCode =
+        (plan === 'basic' || plan === 'pro') ? (promoCode.trim() || undefined) : undefined
       const { url } = await createCheckoutSession({
         mode: 'subscription',
         plan,
         annual,
         returnToPath: '/',
         frontendOrigin: window.location.origin,
+        promotionCode,
       })
       trackEvent('payment_completed', {
         type: 'subscription_checkout_started',
@@ -58,8 +65,10 @@ export default function Pricing() {
       })
       window.location.href = url
     } catch (error: any) {
+      const msg = error.message || 'Failed to start checkout'
+      if (msg.toLowerCase().includes('promo')) setPromoError(msg)
       // eslint-disable-next-line no-alert
-      alert(error.message || 'Failed to start checkout')
+      alert(msg)
     }
   }
 
@@ -96,6 +105,26 @@ export default function Pricing() {
               </button>
             </div>
           )}
+
+          {/* Promo code for early testers (Basic & Pro only) */}
+          <div className="mt-8 mx-auto max-w-md">
+            <p className="text-sm font-medium text-gray-700 mb-1.5">Early tester? Use a promo code</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={promoCode}
+                onChange={(e) => {
+                  setPromoCode(e.target.value.toUpperCase()) 
+                  setPromoError(null)
+                }}
+                placeholder="e.g. EARLY30, EARLY50"
+                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                aria-label="Promotion code"
+              />
+            </div>
+            {promoError && <p className="mt-1.5 text-sm text-red-600">{promoError}</p>}
+            <p className="mt-1.5 text-xs text-gray-500">30%, 50%, 70%, or 100% off Basic and Pro. Applied at checkout.</p>
+          </div>
         </header>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8 items-stretch">
