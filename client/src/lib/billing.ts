@@ -68,8 +68,16 @@ export async function createBillingPortalSession(returnUrl: string): Promise<{ u
   return response.json()
 }
 
-/** After checkout success: exchange session_id for userId, plan, and email so the client can set identity. */
-export async function getSessionDetails(sessionId: string): Promise<{ userId: string; plan: string; email?: string }> {
+/** After checkout success: exchange session_id for userId, plan, email, and optional password-setup token. */
+export async function getSessionDetails(
+  sessionId: string
+): Promise<{
+  userId: string
+  plan: string
+  email?: string
+  passwordSetupToken?: string
+  passwordSetupExpiresAt?: string
+}> {
   const response = await api(
     `/api/billing/session-details?session_id=${encodeURIComponent(sessionId)}`,
     { timeout: 25_000 }
@@ -81,4 +89,17 @@ export async function getSessionDetails(sessionId: string): Promise<{ userId: st
   }
 
   return response.json()
+}
+
+/** One-time setup password after checkout (token from session-details). */
+export async function setupPassword(token: string, password: string): Promise<void> {
+  const response = await api('/api/auth/setup-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, password }),
+  })
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: 'Failed to set password' }))
+    throw new Error(err.message || 'Failed to set password')
+  }
 }

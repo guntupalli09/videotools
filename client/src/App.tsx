@@ -1,9 +1,9 @@
-import { useEffect, useRef, lazy, Suspense } from 'react'
+import { useEffect, useRef, useState, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import { trackEvent, identifyUser, capturePageview } from './lib/analytics'
 import { Toaster, toast } from 'react-hot-toast'
 import Navigation from './components/Navigation'
-import { getSessionDetails } from './lib/billing'
+import { getSessionDetails, setupPassword } from './lib/billing'
 import Footer from './components/Footer'
 import Seo from './components/Seo'
 import { ROUTE_SEO, getOrganizationJsonLd, getWebApplicationJsonLd } from './lib/seoMeta'
@@ -83,12 +83,17 @@ function AppSeo() {
   )
 }
 
-/** After Stripe checkout success: set identity (userId, plan) so the app shows the right plan and portal works. */
+/** After Stripe checkout success: set identity (userId, plan), then prompt to set password so user can log in later. */
 function PostCheckoutHandler() {
-  const { search } = useLocation()
+  const { search, pathname } = useLocation()
   const navigate = useNavigate()
   const handled = useRef(false)
   const cancelled = useRef(false)
+  const [setPasswordPending, setSetPasswordPending] = useState<{ token: string; plan: string } | null>(null)
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     const params = new URLSearchParams(search)
@@ -111,8 +116,12 @@ function PostCheckoutHandler() {
         } catch {
           // non-blocking
         }
-        navigate(window.location.pathname, { replace: true })
-        toast.success(`Welcome! You're now on the ${data.plan} plan.`)
+        if (data.passwordSetupToken) {
+          setSetPasswordPending({ token: data.passwordSetupToken, plan: data.plan })
+        } else {
+          navigate(pathname, { replace: true })
+          toast.success(`Welcome! You're now on the ${data.plan} plan.`)
+        }
       } catch {
         if (cancelled.current) return
         if (retries > 0) {
@@ -124,7 +133,99 @@ function PostCheckoutHandler() {
     }
     run()
     return () => { cancelled.current = true }
-  }, [search, navigate])
+  }, [search, pathname, navigate])
+
+  const finishCheckout = (showWelcomeToast = false) => {
+    const plan = setPasswordPending?.plan
+    setSetPasswordPending(null)
+    setPassword('')
+    setConfirmPassword('')
+    setPasswordError('')
+    navigate(pathname, { replace: true })
+    if (showWelcomeToast && plan) {
+      toast.success(`Welcome! You're now on the ${plan} plan.`)
+    }
+  }
+
+  const handleSetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setPasswordError('')
+    if (password.length < 8) {
+      setPasswordError('Password must be at least 8 characters.')
+      return
+    }
+    if (password !== confirmPassword) {
+      setPasswordError('Passwords do not match.')
+      return
+    }
+    if (!setPasswordPending) return
+    setSubmitting(true)
+    try {
+      await setupPassword(setPasswordPending.token, password)
+      toast.success('Password set. You can log in anytime from the menu.')
+      finishCheckout(false)
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : 'Failed to set password.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleSkip = () => {
+    finishCheckout(true)
+  }
+
+  if (setPasswordPending) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="set-password-title">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-sm w-full p-6">
+          <h2 id="set-password-title" className="text-lg font-semibold text-gray-900 dark:text-white">Set your password</h2>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+            So you can log in later and access your plan from any device.
+          </p>
+          <form onSubmit={handleSetPassword} className="mt-4 space-y-3">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Password (min 8 characters)</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2.5 text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+              autoComplete="new-password"
+              minLength={8}
+            />
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Confirm password</label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2.5 text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+              autoComplete="new-password"
+            />
+            {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium disabled:opacity-60"
+              >
+                {submitting ? 'Setting…' : 'Set password'}
+              </button>
+              <button
+                type="button"
+                onClick={handleSkip}
+                disabled={submitting}
+                className="w-full py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Skip for now
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )
+  }
 
   return null
 }

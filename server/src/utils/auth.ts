@@ -1,6 +1,14 @@
+import crypto from 'crypto'
 import jwt from 'jsonwebtoken'
 import type { Request } from 'express'
 import type { PlanType, User } from '../models/User'
+
+/** One-time token for setting password after checkout. 24h expiry. */
+export function generatePasswordSetupToken(): { token: string; expiresAt: Date } {
+  const token = crypto.randomBytes(32).toString('hex')
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
+  return { token, expiresAt }
+}
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret'
 const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60

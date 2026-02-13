@@ -9,6 +9,7 @@ import {
   PlanType,
 } from '../models/User'
 import { getPlanLimits } from '../utils/limits'
+import { generatePasswordSetupToken } from '../utils/auth'
 import { hasProcessedStripeEvent, markStripeEventProcessed } from '../models/StripeEventLog'
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
@@ -63,12 +64,6 @@ function ensureUserForStripeCustomer(
   return user
 }
 
-function generatePasswordToken(): { token: string; expiresAt: Date } {
-  const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
-  return { token, expiresAt }
-}
-
 async function handleCheckoutSessionCompleted(event: Stripe.Event): Promise<void> {
   const session = event.data.object as Stripe.Checkout.Session
 
@@ -104,9 +99,9 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event): Promise<void
     user.overagesThisMonth.totalCharge += 5
   }
 
-  // Generate password setup token for new paid users (only once, single-use)
-  if (!user.passwordHash) {
-    const { token, expiresAt } = generatePasswordToken()
+  // Generate password setup token for new paid users (only if not already set by session-details)
+  if (!user.passwordHash && !user.passwordSetupToken) {
+    const { token, expiresAt } = generatePasswordSetupToken()
     user.passwordSetupToken = token
     user.passwordSetupExpiresAt = expiresAt
     user.passwordSetupUsed = false
