@@ -1,4 +1,6 @@
 import 'dotenv/config'
+import path from 'path'
+import fs from 'fs'
 import express from 'express'
 import cors from 'cors'
 import rateLimit from 'express-rate-limit'
@@ -107,6 +109,18 @@ app.use('/api/translate-transcript', translateTranscriptRoutes)
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' })
 })
+
+// Optional: serve client SPA from a dist folder (avoids 404 for /video-to-transcript and assets when running combined).
+// Set CLIENT_DIST to the absolute path to the client build (e.g. /app/dist or path.join(__dirname, '../../dist')).
+const clientDist = process.env.CLIENT_DIST || path.join(__dirname, '../../dist')
+if (fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist, { index: false }))
+  // SPA fallback: any GET not served by static (e.g. /video-to-transcript) returns index.html
+  app.get('*', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache')
+    res.sendFile(path.join(clientDist, 'index.html'))
+  })
+}
 
 // Start server
 const server = app.listen(PORT, () => {
