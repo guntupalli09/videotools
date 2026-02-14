@@ -64,9 +64,43 @@ const corsOptions: cors.CorsOptions = {
   optionsSuccessStatus: 204,
 }
 
+// Ensure CORS headers are on every response (including errors). Run first so preflight and error responses get them.
+const corsHeaders = [
+  'Content-Type',
+  'Authorization',
+  'X-User-Id',
+  'X-Plan',
+  'X-Upload-Id',
+  'X-Chunk-Index',
+]
+app.use((req, res, next) => {
+  const origin = req.headers.origin
+  if (origin && isAllowedOrigin(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin)
+    res.setHeader('Access-Control-Allow-Credentials', 'true')
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+    res.setHeader('Access-Control-Allow-Headers', corsHeaders.join(', '))
+    res.setHeader('Access-Control-Max-Age', '86400')
+  }
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204)
+  }
+  next()
+})
+
 app.use(cors(corsOptions))
-// Preflight must use the same CORS config so browser gets Access-Control-Allow-Origin
-app.options('*', cors(corsOptions))
+// Preflight fallback (in case OPTIONS is not caught above)
+app.options('*', (req, res) => {
+  const origin = req.headers.origin
+  if (origin && isAllowedOrigin(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin)
+    res.setHeader('Access-Control-Allow-Credentials', 'true')
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+    res.setHeader('Access-Control-Allow-Headers', corsHeaders.join(', '))
+    res.setHeader('Access-Control-Max-Age', '86400')
+  }
+  res.sendStatus(204)
+})
 
 // Stripe webhook must receive the raw body for signature verification
 app.post(
