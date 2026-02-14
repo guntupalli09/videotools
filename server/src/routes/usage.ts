@@ -2,7 +2,10 @@ import express, { Request, Response } from 'express'
 import { getUser, saveUser, User, PlanType } from '../models/User'
 import { getPlanLimits, getJobPriority } from '../utils/limits'
 import { getAuthFromRequest } from '../utils/auth'
-import { getPlanAndEmailForStripeCustomer } from '../services/stripe'
+import {
+  getPlanAndEmailForStripeCustomer,
+  getSubscriptionPeriodEnd,
+} from '../services/stripe'
 
 const router = express.Router()
 

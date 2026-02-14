@@ -112,11 +112,12 @@ export async function getPlanAndEmailForStripeCustomer(
         : sub.items.data[0].price?.id
     const plan = priceId ? getPlanFromPriceId(priceId) : null
     if (!plan) return null
+    const subWithPeriod = sub as { current_period_end?: number }
     return {
       plan,
       email,
       subscriptionId: sub.id,
-      currentPeriodEnd: sub.current_period_end ?? undefined,
+      currentPeriodEnd: subWithPeriod.current_period_end ?? undefined,
     }
   } catch {
     return null
@@ -128,11 +129,17 @@ export async function getSubscriptionPeriodEnd(
   subscriptionId: string
 ): Promise<{ currentPeriodEnd: Date; currentPeriodStart: Date } | null> {
   try {
-    const sub = await stripe.subscriptions.retrieve(subscriptionId)
+    const sub = (await stripe.subscriptions.retrieve(subscriptionId)) as {
+      status: string
+      current_period_end?: number
+      current_period_start?: number
+    }
     if (sub.status !== 'active' || !sub.current_period_end) return null
     return {
       currentPeriodEnd: new Date(sub.current_period_end * 1000),
-      currentPeriodStart: new Date(sub.current_period_start * 1000),
+      currentPeriodStart: new Date(
+        (sub.current_period_start ?? sub.current_period_end) * 1000
+      ),
     }
   } catch {
     return null

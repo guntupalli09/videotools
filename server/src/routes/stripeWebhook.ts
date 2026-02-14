@@ -83,11 +83,15 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event): Promise<void
   if (session.mode === 'subscription' && typeof session.subscription === 'string') {
     user.subscriptionId = session.subscription
     try {
-      const subscription = await stripe.subscriptions.retrieve(session.subscription)
+      const subscription = (await stripe.subscriptions.retrieve(
+        session.subscription
+      )) as { current_period_end?: number; current_period_start?: number }
       const periodEnd = subscription.current_period_end
       if (periodEnd) {
         const endDate = new Date(periodEnd * 1000)
-        user.billingPeriodStart = new Date(subscription.current_period_start * 1000)
+        user.billingPeriodStart = subscription.current_period_start
+          ? new Date(subscription.current_period_start * 1000)
+          : undefined
         user.billingPeriodEnd = endDate
         user.usageThisMonth = {
           ...user.usageThisMonth,
