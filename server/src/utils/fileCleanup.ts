@@ -28,6 +28,10 @@ function cleanupFiles() {
     const filePath = path.join(tempDir, file)
     try {
       const stats = fs.statSync(filePath)
+      if (!stats.isFile()) {
+        // Skip directories (e.g. /tmp/chunks); only delete stale files
+        return
+      }
       const age = now - stats.mtimeMs
 
       if (age > FILE_MAX_AGE) {
