@@ -9,6 +9,14 @@ export default defineConfig({
     'import.meta.env.VITE_SITE_URL': JSON.stringify(
       process.env.VITE_SITE_URL || 'https://www.videotext.io'
     ),
+    // Release ID for debugging (git SHA + build time in CI; "dev" locally)
+    'import.meta.env.VITE_RELEASE': JSON.stringify(
+      process.env.VITE_RELEASE || process.env.RELEASE || 'dev'
+    ),
+    // Sentry (optional; only used when VITE_SENTRY_DSN is set at build)
+    'import.meta.env.VITE_SENTRY_DSN': JSON.stringify(process.env.VITE_SENTRY_DSN || ''),
+    'import.meta.env.VITE_SENTRY_ENV': JSON.stringify(process.env.VITE_SENTRY_ENV || process.env.NODE_ENV || ''),
+    'import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE': JSON.stringify(process.env.VITE_SENTRY_TRACES_SAMPLE_RATE || '0.05'),
   },
   plugins: [
     react(),

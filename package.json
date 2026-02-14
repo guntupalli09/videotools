@@ -11,7 +11,8 @@
     "seo:smoke": "tsx scripts/seo/smoke-seo-output.ts",
     "seo:apply-proposals": "tsx scripts/seo/apply-proposals-to-registry.ts",
     "seo:changelog": "tsx scripts/seo/write-changelog.ts",
-    "seo:verify": "tsx scripts/seo/verify.ts"
+    "seo:verify": "tsx scripts/seo/verify.ts",
+    "seo:health": "tsx scripts/ops/seo-health-check.ts"
   },
   "devDependencies": {
     "tsx": "^4.7.0"

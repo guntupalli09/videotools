@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import Queue from 'bull'
 import path from 'path'
 import fs from 'fs'
@@ -21,6 +22,7 @@ import { getPlanLimits, getJobPriority, getMaxJobRuntimeMinutes } from '../utils
 import { calculateTranslationMinutes, secondsToMinutes } from '../utils/metering'
 import { saveDuplicateResult } from '../services/duplicate'
 import { createRedisClient } from '../utils/redis'
+import { WORKER_HEARTBEAT_KEY, HEARTBEAT_TTL_SEC } from '../utils/workerHeartbeat'
 import { parseSRT, parseVTT, detectSubtitleFormat } from '../utils/srtParser'
 import { MAX_GLOBAL_WORKERS, PAID_TIER_RESERVATION_QUEUE_THRESHOLD } from '../utils/queueConfig'
 import {
@@ -28,6 +30,10 @@ import {
   trackProcessingFinished,
   trackProcessingFailed,
 } from '../utils/analytics'
+import { withJobContext, getLogger } from '../lib/logger'
+import { initSentry, captureJobError } from '../lib/sentry'
+
+const workerLog = getLogger('worker')
 
 export const fileQueue = new Queue('file-processing', {
   createClient: createRedisClient,
@@ -93,6 +99,8 @@ interface JobData {
   trimmedEnd?: number // seconds
   /** When set, file at filePath is pre-extracted audio; skip server-side extractAudio. */
   inputType?: 'audio'
+  /** Request ID from API for correlation (UI → API → worker). */
+  requestId?: string
   options?: {
     format?: 'srt' | 'vtt'
     language?: string
@@ -241,22 +249,23 @@ const RUNTIME_CHECK_INTERVAL_MS = 15 * 1000
 
 async function processJob(job: import('bull').Job<JobData>) {
   const jobId = job.id
-  console.log('[JOB]', jobId, 'RECEIVED')
-
   const data = job.data as JobData
+  const requestId = data.requestId
+  const log = withJobContext(jobId, requestId)
+  log.info({ msg: 'job_received', toolType: data.toolType })
   const plan = (data.plan || 'free') as PlanType
   const maxRuntimeMs = getMaxJobRuntimeMinutes(plan) * 60 * 1000
   const processingStartMs = Date.now()
 
   const run = async (): Promise<any> => {
-    console.log('[JOB]', jobId, 'STARTED')
+    log.info({ msg: 'job_started', toolType: data.toolType })
     const { toolType, options } = data
 
     // Instrument progress so every update is logged; Bull persists progress for status endpoint
     const progressFn = job.progress.bind(job)
     ;(job as any).progress = async (value?: number | object) => {
       const out = await progressFn(value)
-      if (typeof value === 'number') console.log('[JOB]', jobId, 'PROGRESS', value)
+      if (typeof value === 'number') log.debug({ msg: 'job_progress', progress: value })
       return out
     }
 
@@ -342,8 +351,8 @@ async function processJob(job: import('bull').Job<JobData>) {
           }
 
           const fileReceivedToTranscriptionFinishedMs = Date.now() - processingStartMs
-          console.log('[PROCESSING_TIMING]', {
-            job_id: String(jobId),
+          log.info({
+            msg: 'processing_timing',
             tool_type: 'video-to-transcript',
             file_received_to_transcription_finished_ms: fileReceivedToTranscriptionFinishedMs,
             file_size_bytes: data.fileSize ?? undefined,
@@ -590,8 +599,8 @@ async function processJob(job: import('bull').Job<JobData>) {
             const processingStartMs = Date.now()
             const subtitles = await transcribeVideo(videoPath, format, options?.language, glossary, isAlreadyAudio)
             const fileReceivedToTranscriptionFinishedMs = Date.now() - processingStartMs
-            console.log('[PROCESSING_TIMING]', {
-              job_id: String(jobId),
+            log.info({
+              msg: 'processing_timing',
               tool_type: 'video-to-subtitles',
               file_received_to_transcription_finished_ms: fileReceivedToTranscriptionFinishedMs,
               file_size_bytes: data.fileSize ?? undefined,
@@ -672,7 +681,13 @@ async function processJob(job: import('bull').Job<JobData>) {
             const processingStartMs = Date.now()
             const subtitles = await transcribeVideo(videoPath, format, options?.language, glossary)
             const fileReceivedToTranscriptionFinishedMs = Date.now() - processingStartMs
-            console.log('[PROCESSING_TIMING]', { job_id: String(jobId), tool_type: 'batch-video-to-subtitles', file_received_to_transcription_finished_ms: fileReceivedToTranscriptionFinishedMs, file_size_bytes: data.fileSize ?? undefined, batch_id: batchId })
+            log.info({
+              msg: 'processing_timing',
+              tool_type: 'batch-video-to-subtitles',
+              file_received_to_transcription_finished_ms: fileReceivedToTranscriptionFinishedMs,
+              file_size_bytes: data.fileSize ?? undefined,
+              batch_id: batchId,
+            })
 
             // Save SRT file (preserve original name for ZIP)
             await job.progress(80)
@@ -937,9 +952,8 @@ async function processJob(job: import('bull').Job<JobData>) {
       await job.progress(100)
       return result
     } catch (error: any) {
-      // Log and rethrow so Bull marks job as failed; outer handler also logs for consistency
-      console.error('[JOB]', jobId, 'FAILED', error?.message ?? error)
-      if (error?.stack) console.error(error.stack)
+      captureJobError(jobId, data.requestId, data.toolType, error)
+      log.error({ err: error, msg: 'job_failed', error_message: error?.message ?? String(error) })
       throw error
     }
   }
@@ -979,7 +993,7 @@ async function processJob(job: import('bull').Job<JobData>) {
       // non-blocking
     }
     // Success: return value is persisted by Bull as job.returnvalue; job state becomes "completed"
-    console.log('[JOB]', jobId, 'COMPLETED')
+    log.info({ msg: 'job_completed' })
     return result
   } catch (err: any) {
     clearInterval(interval)
@@ -994,15 +1008,14 @@ async function processJob(job: import('bull').Job<JobData>) {
       // non-blocking
     }
     // Failure: rethrow so Bull marks job as "failed" and stores error; no job can exit without terminal state
-    console.error('[JOB]', jobId, 'FAILED', err?.message ?? err)
-    if (err?.stack) console.error(err.stack)
+    log.error({ err, msg: 'job_failed', error_message: err?.message ?? String(err) })
     throw err
   }
 }
 
 function attachQueueEvents(queue: import('bull').Queue<JobData>) {
   queue.on('completed', async (job) => {
-    console.log(`Job ${job.id} completed`)
+    workerLog.info({ jobId: job.id, msg: 'job_completed' })
     const data = job.data as JobData
     if (data.batchId) {
       const batch = getBatchById(data.batchId)
@@ -1017,9 +1030,13 @@ function attachQueueEvents(queue: import('bull').Queue<JobData>) {
   })
   queue.on('failed', async (job, err) => {
     if (err?.message === HUNG_JOB_MESSAGE) {
-      console.warn(`Job ${job?.id} hung (no FFmpeg output 90s); ${(job?.opts?.attempts ?? 2) - (job?.attemptsMade ?? 1) > 0 ? 'will retry' : 'final failure, minutes not charged'}`)
+      workerLog.warn({
+        jobId: job?.id,
+        msg: 'job_hung',
+        willRetry: (job?.opts?.attempts ?? 2) - (job?.attemptsMade ?? 1) > 0,
+      })
     } else {
-      console.error(`Job ${job?.id} failed:`, err)
+      workerLog.error({ jobId: job?.id, err, msg: 'job_failed' })
     }
     const data = job?.data as JobData
     if (data?.webhookUrl) {
@@ -1046,15 +1063,26 @@ function attachQueueEvents(queue: import('bull').Queue<JobData>) {
   })
 }
 
+/** Write heartbeat to Redis so API /ops/queue can report last heartbeat age. */
+function startHeartbeat() {
+  const intervalMs = Math.min(HEARTBEAT_TTL_SEC * 1000, 30_000)
+  setInterval(() => {
+    const redis = createRedisClient('client')
+    redis.setex(WORKER_HEARTBEAT_KEY, HEARTBEAT_TTL_SEC, String(Date.now())).finally(() => redis.disconnect())
+  }, intervalMs)
+}
+
 export function startWorker() {
   fileQueue.process(NORMAL_CONCURRENCY, processJob)
   priorityQueue.process(PRIORITY_CONCURRENCY, processJob)
   attachQueueEvents(fileQueue)
   attachQueueEvents(priorityQueue)
+  startHeartbeat()
 }
 
 // When run as main (worker container): node dist/workers/videoProcessor.js
 if (require.main === module) {
+  initSentry()
   startWorker()
-  console.log('Worker process started (normal: 2, priority: 1)')
+  workerLog.info({ msg: 'Worker process started', normalConcurrency: NORMAL_CONCURRENCY, priorityConcurrency: PRIORITY_CONCURRENCY })
 }

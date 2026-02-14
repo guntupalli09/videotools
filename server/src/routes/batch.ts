@@ -9,6 +9,7 @@ import { BatchJob, saveBatch, getBatchById } from '../models/BatchJob'
 import { getUser, saveUser, PlanType, User } from '../models/User'
 import { getPlanLimits, enforceBatchLimits, enforceUsageLimits, getJobPriority } from '../utils/limits'
 import { addJobToQueue, getTotalQueueCount } from '../workers/videoProcessor'
+import { RequestWithId } from '../middleware/requestId'
 import { getAuthFromRequest } from '../utils/auth'
 import { isQueueAtHardLimit, isQueueAtSoftLimit } from '../utils/queueConfig'
 import { checkAndRecordUpload } from '../utils/uploadRateLimit'
@@ -232,6 +233,7 @@ router.post(
             language: primaryLanguage || 'en',
             additionalLanguages: additionalLangs,
           },
+          requestId: (req as RequestWithId).requestId,
         })
       }
 

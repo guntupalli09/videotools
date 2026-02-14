@@ -1,0 +1,245 @@
+You are a principal SRE + full-stack engineer. Your task is to implement a production-grade “single control plane” for debugging ANY issue (UI/API/worker/Caddy/env/SEO) in THIS repo by inspecting the codebase and applying minimal, safe, reversible changes.
+
+NON-NEGOTIABLES
+- Do NOT break existing functionality, routes, upload/process/export flows, auth/payments, or performance.
+- Do NOT change public URLs.
+- Do NOT add heavy runtime overhead (no verbose logging in hot paths; sampling for traces).
+- All changes must be gated by env flags and safe defaults (if env is missing → feature disabled).
+- Every new capability must be verifiable via a checklist + commands at the end.
+- Prefer incremental commits (or clearly separated diffs) and keep changes minimal.
+
+GOAL
+After this change, I should have ONE place to diagnose:
+- client errors (JS exceptions, failed API calls, slow pages)
+- server/API errors (exceptions, request logs, slow endpoints)
+- worker/queue errors (job failures, retries, latency)
+- reverse proxy issues (Caddy access + upstream errors)
+- environment/config drift (missing env vars, wrong mode)
+- SEO regressions (sitemap/robots/schema/canonical checks)
+…and correlate all of the above using a single Request ID + Release ID.
+
+=====================================================================
+PHASE 0 — REPO DISCOVERY (MANDATORY; NO CODE CHANGES YET)
+=====================================================================
+Scan the repo and produce a short map:
+1) Client framework and entrypoints (likely Vite/React): where HTML template is, where client boots.
+2) Server/API: framework (Express/Fastify/etc), entry file, router structure, error handler.
+3) Worker/queue: where jobs are processed, queue library (Bull/Redis/etc), entry file.
+4) Reverse proxy: presence of Caddyfile or config; where logs are configured.
+5) Deployment: Docker compose/systemd scripts/railway/vercel/hetzner, env handling.
+6) Existing logging/monitoring: any Sentry/PostHog/GA/Plausible already present.
+
+Output: docs/OBSERVABILITY-BASELINE.md with the above findings + “integration plan”.
+
+Stop. THEN implement.
+
+=====================================================================
+PHASE 1 — RELEASE + REQUEST CORRELATION (FOUNDATION)
+=====================================================================
+Implement two correlation primitives used everywhere:
+
+A) RELEASE ID
+- Generate RELEASE at build time (git SHA + build timestamp).
+- Expose it to:
+  - client (window.__RELEASE__ or import.meta.env)
+  - server (process.env.RELEASE or fallback “dev”)
+  - worker (same)
+
+B) REQUEST ID (x-request-id)
+- At the edge (Caddy), if possible: add/forward x-request-id.
+- In API server: middleware that:
+  - reads x-request-id or generates a UUID
+  - attaches to request context
+  - returns it in response header
+- In worker: when enqueueing a job, include requestId in job payload; worker logs must include it.
+
+This enables “find the exact failure across UI → API → worker”.
+
+=====================================================================
+PHASE 2 — STRUCTURED LOGGING (ONE FORMAT)
+=====================================================================
+Implement structured JSON logs for:
+- API server
+- worker
+- (optional) client breadcrumbs via Sentry only
+
+Requirements:
+- Use a single logger module (e.g., pino/winston) with:
+  - level, timestamp, service (“api”/“worker”), env, release, requestId, route/jobName
+- Avoid logging large payloads or PII (redact file names, tokens, emails).
+- Add a log redaction utility for known sensitive keys.
+- Ensure every error log includes stack trace + requestId/jobId.
+
+Deliverables:
+- server/src/lib/logger.(ts|js)
+- worker/src/lib/logger.(ts|js) (or shared)
+- Replace console.log in hot paths with logger.info/debug and keep debug off by default.
+
+=====================================================================
+PHASE 3 — SENTRY (ERRORS + PERFORMANCE) END-TO-END
+=====================================================================
+Implement Sentry as the single error/perf debugger across client + server + worker.
+
+Rules:
+- Enabled only when SENTRY_DSN is set.
+- Use sampling for performance (e.g., 0.05–0.1) and errors always.
+- Attach tags: service, env, release, requestId.
+- Attach requestId to Sentry scope in API middleware.
+- Capture unhandled rejections/exceptions in worker.
+
+Implementation steps:
+1) Client:
+   - Add @sentry/react (or framework-appropriate)
+   - Initialize early in boot
+   - Configure release, environment, tracesSampleRate, integrations (browser tracing)
+   - Capture fetch/XHR breadcrumbs (default)
+2) API:
+   - Add @sentry/node
+   - Add request handler middleware early
+   - Add error handler middleware late
+   - Ensure requestId is added to scope
+3) Worker:
+   - Add @sentry/node
+   - Initialize at startup with service=worker
+   - Capture job exceptions and tag jobName/jobId/requestId
+
+Env vars:
+- SENTRY_DSN
+- SENTRY_ENV (default “development”)
+- SENTRY_TRACES_SAMPLE_RATE (default 0.05)
+- RELEASE (optional; auto derived)
+
+Document setup in docs/OBSERVABILITY-SETUP.md.
+
+=====================================================================
+PHASE 4 — HEALTH + READINESS + VERSION + CONFIG CHECKS (ONE TRUTH SOURCE)
+=====================================================================
+Add endpoints to API:
+
+- GET /healthz
+  returns 200 if process up (no dependency checks)
+- GET /readyz
+  returns 200 only if critical dependencies reachable:
+    - redis (if used)
+    - queue backend
+    - storage access (if cheap to check; otherwise a lightweight “can write temp” is optional)
+- GET /version
+  returns { service, release, buildTime, env }
+- GET /configz
+  returns a REDACTED config presence report (never values):
+    { hasRedisUrl: true, hasStripeKey: false, hasSentryDsn: true, ... }
+  + include “mode” flags (dev/prod), and which optional integrations are enabled.
+
+Worker:
+- Add a periodic heartbeat key in Redis (or in-memory if no redis) and expose:
+  - GET /ops/queue (in API): queue depth, active, failed last hour, last heartbeat age
+
+All endpoints must be FAST (sub-100ms) and safe.
+
+=====================================================================
+PHASE 5 — CADDY ACCESS LOGS + UPSTREAM ERROR VISIBILITY
+=====================================================================
+If Caddy is in repo:
+- Enable JSON access logs with requestId propagation.
+- Include upstream status, duration, path, method, user agent, remote IP (optional).
+- Ensure x-request-id is forwarded to upstream.
+- Add an “ops” doc section: how to tail logs and correlate with requestId.
+
+If Caddy config is not in repo:
+- Add docs/CADDY-LOGGING.md with exact recommended snippet, but do not guess deploy config.
+
+=====================================================================
+PHASE 6 — SEO HEALTH CHECKS (AUTOMATED, NO PAID APIs)
+=====================================================================
+Add a lightweight “SEO monitor” script that runs in CI and optionally on a schedule:
+
+scripts/ops/seo-health-check.ts
+Checks:
+- GET /robots.txt → 200 and not blocking important paths
+- GET /sitemap.xml → 200, parse XML, no duplicate <loc>
+- Sample N (e.g., 10) URLs from sitemap:
+  - fetch HTML
+  - assert <title> non-empty
+  - meta description non-empty
+  - canonical present and points to production domain (config SITE_URL)
+  - BreadcrumbList JSON-LD present for tool/SEO pages
+  - FAQPage JSON-LD present when FAQs exist (use registry if available)
+Output:
+- prints a clear PASS/FAIL report with the first failing URL and reason
+- exits non-zero on failure
+
+Env:
+- SITE_URL (required for canonical validation; default to https://videotext.io in prod CI)
+
+Do NOT add heavyweight headless browser unless absolutely necessary. If SPA shell prevents validation, add a mode:
+- “shell-mode”: only checks sitemap/robots + HTTP 200
+- “strict-mode”: checks meta/schema when SSR/prerender exists
+Autodetect which mode based on presence of server-rendered meta (e.g., title differs per page).
+
+=====================================================================
+PHASE 7 — ONE “OPS DASHBOARD” PAGE (OPTIONAL BUT HIGH VALUE)
+=====================================================================
+Add an internal-only ops page (noindex, not in sitemap) accessible at:
+- /ops (client route) OR /ops.html
+It should display:
+- release
+- API healthz/readyz status
+- queue depth + worker heartbeat
+- last 10 errors link (just link to Sentry project; don’t embed)
+- last deploy timestamp (if available)
+Guard:
+- show only in non-prod OR require an env flag OPS_ENABLED=true (and optionally basic auth if you already have it).
+
+If this introduces risk, skip and just document endpoints.
+
+=====================================================================
+PHASE 8 — CI / AUTOMATIONS (DISCIPLINE)
+=====================================================================
+Update CI to run:
+- build
+- unit tests (if any)
+- smoke tests (existing)
+- seo-health-check in shell-mode at minimum
+- lint/typecheck (if present)
+
+Add a “release stamp” step:
+- ensures RELEASE is set in build artifacts
+
+Add a “config presence check” step:
+- validates required env vars are present in production deployment docs (not in CI secrets)
+
+=====================================================================
+PHASE 9 — FINAL VERIFICATION CHECKLIST (MUST PRODUCE)
+=====================================================================
+Create docs/OBSERVABILITY-VERIFICATION.md with:
+A) Local verification commands:
+- start stack (client+api+worker)
+- curl /healthz, /readyz, /version, /configz, /ops/queue
+- simulate an error in API and confirm it appears in Sentry with requestId
+- simulate a job failure and confirm it appears in Sentry with requestId
+- check logs include requestId and release
+
+B) Production verification steps:
+- confirm Sentry release matches deployed SHA
+- confirm Caddy forwards x-request-id
+- confirm uptime checks for /healthz and /sitemap.xml
+
+=====================================================================
+IMPLEMENTATION INSTRUCTIONS
+=====================================================================
+- Make changes in small atomic commits (or clearly separated diffs).
+- Do not add new dependencies unless justified; prefer Sentry + one logger library.
+- Use feature flags: nothing should “turn on” unless env is set.
+- Ensure no performance regression: keep logging minimal and use sampling.
+
+START NOW:
+1) Write docs/OBSERVABILITY-BASELINE.md after scanning.
+2) Implement phases 1–4 first (requestId + release + logs + Sentry + health endpoints).
+3) Then Caddy logging and SEO health check.
+4) Then CI wiring.
+5) Produce verification doc.
+
+At the end, output a short summary:
+- Files added/changed
+- Env vars needed (only names, not values)
+- How to debug a real incident end-to-end in under 2 minutes (example workflow).

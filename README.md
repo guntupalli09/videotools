@@ -21,6 +21,7 @@ Professional video utilities platform: transcribe video to text, generate and tr
 - **Client: cross-browser** — Build target `es2020` and `browserslist` (last 2 Chrome, Firefox, Safari, Edge) for a clear compatibility baseline.
 - **Pipeline & architecture:** Upload → queue → worker flow is documented; performance audit (bottlenecks, optional future optimisations) in `docs/PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md`.
 - **Programmatic SEO:** Single source of truth (`client/src/lib/seoRegistry.ts`) for 27+ SEO pages; registry-driven meta, breadcrumbs, related links (4–6 per page), FAQ, and sitemap. Optional weekly automation (keyword discovery → proposals → PR). **Production:** `JWT_SECRET` must be set in production; server refuses to start otherwise. See [§9 SEO](#9-seo--production-urls).
+- **Observability:** Release ID + request ID (`x-request-id`), structured JSON logs (pino), Sentry (API + worker + client), health/ops endpoints (`/healthz`, `/readyz`, `/version`, `/configz`, `/ops/queue`). One place to trace a request from UI → API → worker. See [§14 Observability](#14-observability-logging-sentry-health) and **docs/OBSERVABILITY.md**.
 
 ---
 
@@ -40,6 +41,7 @@ Professional video utilities platform: transcribe video to text, generate and tr
 11. [Performance benchmark (end-to-end)](#11-performance-benchmark-end-to-end)
 12. [Project structure](#12-project-structure)
 13. [Troubleshooting](#13-troubleshooting)
+14. [Observability (logging, Sentry, health)](#14-observability-logging-sentry-health)
 
 ---
 
@@ -474,6 +476,21 @@ VideoText is ~2.3× faster than the next-fastest and ~7× faster than Trint on t
 | **Where to see OTP codes when testing** | OTP is logged by the **API** process. | Run `docker logs -f videotools-api` (not the worker). Look for `[OTP] send-otp called for …` and either `Code for … : 123456` (no Resend) or `Sent to … via Resend`. |
 | **Purchased Pro but UI still shows Free** | In-memory user was lost (e.g. API restart); client still sends old `x-user-id` or Stripe customer ID. | Ensure client sends the Stripe customer ID (e.g. from session-details after checkout). The usage route restores the user from Stripe when `x-user-id` starts with `cus_`. If the client was sending a different ID, reload after checkout or log in so the correct ID is used. |
 | **PostHog ERR_BLOCKED_BY_CLIENT / 404s for assets** | Ad blockers or privacy tools block PostHog. | The client detects failed PostHog requests and calls `posthog.opt_out_capturing()`, so analytics is disabled and no further requests are sent. No code change required. |
+
+---
+
+## 14. Observability (logging, Sentry, health)
+
+VideoText has a single **observability stack** for debugging across UI, API, and worker: **release ID**, **request ID** (`x-request-id`), **structured JSON logs** (pino), **Sentry** (errors + optional performance), and **health/ops endpoints**.
+
+**Full guide:** **[docs/OBSERVABILITY.md](docs/OBSERVABILITY.md)** — where to view logs, how to use the Sentry dashboard, DSN setup (server + client), health endpoints, and how to trace one request from UI → API → worker using `request_id`.
+
+**Short summary:**
+
+- **Logs:** No in-repo dashboard. API and worker log JSON to stdout; view them in the terminal (local) or your host’s log viewer (Docker, Railway, Render, etc.).
+- **Sentry:** Set **SENTRY_DSN** in `server/.env` (backend) and **VITE_SENTRY_DSN** in `client/.env` (frontend, then rebuild). Open [sentry.io](https://sentry.io) → your project → **Issues** to see errors; filter by **request_id** or **job_id** to follow a single request.
+- **Health:** `GET /healthz`, `GET /readyz`, `GET /version`, `GET /configz`, `GET /ops/queue` on the API (see [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) for details).
+- **Incident workflow:** Get `x-request-id` from the response → search in Sentry and logs → check `/ops/queue` for worker heartbeat.
 | **CORS errors or 502 on API from frontend** | API not running (e.g. Prisma crash), or Caddy not using the updated Caddyfile. | Check API logs: `docker logs videotools-api --tail 100`. If you see "Table \`User\` does not exist", migrations didn’t run — ensure the API command in docker-compose runs `prisma migrate deploy` then `node dist/index.js`. If you see Prisma adapter/constructor errors, ensure `DATABASE_URL` is set and the image was rebuilt. For CORS, copy `deploy/Caddyfile` to `/etc/caddy/Caddyfile` and `sudo systemctl reload caddy`. |
 | **Permission denied on .env** | Trying to execute the file (e.g. `./.env`). | Edit the file only (e.g. `nano .env` or your editor). Do not run it as a script. |
 | **Server won't start: JWT_SECRET must be set in production** | `NODE_ENV=production` and `JWT_SECRET` is missing, empty, or `dev-secret`. | Set `JWT_SECRET` in the `.env` used by the API (e.g. next to `docker-compose.yml`) to a strong random value. Generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. Restart the API. |
@@ -500,7 +517,10 @@ VideoText is ~2.3× faster than the next-fastest and ~7× faster than Trint on t
 | SEO: validate registry | `npm run seo:validate-registry` |
 | SEO: sitemap | `npm run seo:sitemap` (optional: `SITE_URL`, `SITEMAP_PING`) |
 | SEO: smoke test | `BASE_URL=http://localhost:4173 npm run seo:smoke` (after building and serving client) |
+| SEO: health check | `npm run seo:health` (robots + sitemap; set `SEO_HEALTH_MODE=strict` for full URL checks) |
+| Observability | **[docs/OBSERVABILITY.md](docs/OBSERVABILITY.md)** — logs, Sentry, health endpoints, request ID |
+| Health / version / queue | `curl http://localhost:3001/healthz`, `curl http://localhost:3001/version`, `curl http://localhost:3001/ops/queue` |
 
 ---
 
-All product behavior, trees, branches, and features are described in [§1 Features & tools](#1-features--tools-trees-and-branches). Auth (OTP, login, logout) is in [§5.1 Authentication](#51-authentication-otp-login-logout). **SEO** (registry, structure, automation, commands, production env) is in [§9 SEO & production URLs](#9-seo--production-urls). Client performance and device/reliability details are in [§10 Client: performance, devices & reliability](#10-client-performance-devices--reliability). End-to-end performance vs competitors is in [§11 Performance benchmark](#11-performance-benchmark-end-to-end). Latest upload UX improvements (multi-stage progress, preview, cancel, retry, network-aware messaging) are in [§10 Upload & transcript/subtitles UX](#upload--transcriptsubtitles-ux) and `docs/UX_UPLOAD_IMPROVEMENTS.md`. Pipeline architecture and performance audit are in `docs/PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md`. For env details use the tables in [§3 Environment variables](#3-environment-variables) and the `.env` next to `docker-compose.yml` for Docker [§8](#8-deployment-hetzner--caddy--vercel).
+All product behavior, trees, branches, and features are described in [§1 Features & tools](#1-features--tools-trees-and-branches). Auth (OTP, login, logout) is in [§5.1 Authentication](#51-authentication-otp-login-logout). **SEO** (registry, structure, automation, commands, production env) is in [§9 SEO & production URLs](#9-seo--production-urls). Client performance and device/reliability details are in [§10 Client: performance, devices & reliability](#10-client-performance-devices--reliability). End-to-end performance vs competitors is in [§11 Performance benchmark](#11-performance-benchmark-end-to-end). **Observability** (logs, Sentry, health, request ID) is in [§14 Observability](#14-observability-logging-sentry-health) and **docs/OBSERVABILITY.md**. Latest upload UX improvements (multi-stage progress, preview, cancel, retry, network-aware messaging) are in [§10 Upload & transcript/subtitles UX](#upload--transcriptsubtitles-ux) and `docs/UX_UPLOAD_IMPROVEMENTS.md`. Pipeline architecture and performance audit are in `docs/PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md`. For env details use the tables in [§3 Environment variables](#3-environment-variables) and the `.env` next to `docker-compose.yml` for Docker [§8](#8-deployment-hetzner--caddy--vercel).

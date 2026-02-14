@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express'
+import { RequestWithId } from '../middleware/requestId'
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
@@ -179,6 +180,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
         plan,
         options: Object.keys(jobOpts).length > 0 ? jobOpts : undefined,
         webhookUrl: typeof webhookUrl === 'string' && webhookUrl.trim() ? webhookUrl.trim() : undefined,
+        requestId: (req as RequestWithId).requestId,
       })
       try {
         trackJobCreated({ job_id: String(job.id), user_id: userId, tool_type: toolType, plan })
@@ -342,6 +344,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
               downloadUrl: `/api/download/${cachedFileName}`,
               fileName: cachedFileName,
             },
+            requestId: (req as RequestWithId).requestId,
           })
 
           return res.status(202).json({
@@ -367,6 +370,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       options: Object.keys(jobOptions).length > 0 ? jobOptions : undefined,
       webhookUrl: typeof webhookUrl === 'string' && webhookUrl.trim() ? webhookUrl.trim() : undefined,
       inputType: inputType === 'audio' ? 'audio' : undefined,
+      requestId: (req as RequestWithId).requestId,
     })
     try {
       trackJobCreated({
@@ -544,6 +548,7 @@ router.post('/dual', upload.fields([
               burnBackgroundOpacity: burnBackgroundOpacity || undefined,
             }
           : undefined,
+      requestId: (req as RequestWithId).requestId,
     })
 
     res.status(202).json({
@@ -753,6 +758,7 @@ router.post('/complete', async (req: Request, res: Response) => {
             trimmedEnd,
             options: Object.keys(restOptions).length > 0 ? restOptions : undefined,
             inputType: isChunkedAudioOnly ? 'audio' : undefined,
+            requestId: (req as RequestWithId).requestId,
           })
           try {
             trackJobCreated({

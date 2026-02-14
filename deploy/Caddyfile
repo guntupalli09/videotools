@@ -1,4 +1,6 @@
 api.videotext.io {
+    # Request ID for correlation (UI → API → worker); upstream receives X-Request-Id
+    request_id
     # Respond to CORS preflight (OPTIONS) with allowed headers so browser gets Access-Control-* before hitting backend
     @options method OPTIONS
     handle @options {
@@ -10,6 +12,8 @@ api.videotext.io {
         respond 204
     }
     handle {
-        reverse_proxy localhost:3001
+        reverse_proxy localhost:3001 {
+            header_up X-Request-Id {request_id}
+        }
     }
 }

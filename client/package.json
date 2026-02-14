@@ -12,6 +12,7 @@
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
+    "@sentry/react": "^8.55.0",
     "clsx": "^2.1.0",
     "framer-motion": "^10.16.4",
     "lucide-react": "^0.294.0",

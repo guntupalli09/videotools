@@ -3,6 +3,9 @@ import path from 'path'
 import fs from 'fs'
 import express from 'express'
 import cors from 'cors'
+import { initSentry, setupSentryErrorHandler, sentryRequestIdScope } from './lib/sentry'
+
+initSentry()
 import rateLimit from 'express-rate-limit'
 import uploadRoutes, { handleUploadChunk } from './routes/upload'
 import jobRoutes from './routes/jobs'
@@ -17,7 +20,11 @@ import { startWorker } from './workers/videoProcessor'
 import { startFileCleanup } from './utils/fileCleanup'
 import { apiKeyAuth } from './utils/apiKey'
 import { flushAnalytics } from './utils/analytics'
+import { requestIdMiddleware } from './middleware/requestId'
+import { getLogger } from './lib/logger'
+import healthRoutes from './routes/health'
 
+const log = getLogger('api')
 const app = express()
 app.disable('etag')
 const PORT = process.env.PORT || 3001
@@ -43,10 +50,15 @@ const allowedExactOrigins = new Set([
 const envOrigins = (process.env.CORS_ORIGINS || '').split(',').map((o) => o.trim()).filter(Boolean)
 envOrigins.forEach((o) => allowedExactOrigins.add(o))
 
+function normalizeOrigin(origin: string): string {
+  return origin.trim().replace(/\/$/, '') // trim and strip trailing slash
+}
+
 function isAllowedOrigin(origin?: string) {
   if (!origin) return true // curl, server-to-server
-  if (allowedExactOrigins.has(origin)) return true
-  if (origin.endsWith('.vercel.app')) return true
+  const norm = normalizeOrigin(origin)
+  if (allowedExactOrigins.has(norm)) return true
+  if (norm.endsWith('.vercel.app')) return true
   return false
 }
 
@@ -74,7 +86,8 @@ const corsHeaders = [
   'X-Chunk-Index',
 ]
 app.use((req, res, next) => {
-  const origin = req.headers.origin
+  const rawOrigin = req.headers.origin
+  const origin = typeof rawOrigin === 'string' ? normalizeOrigin(rawOrigin) || rawOrigin : rawOrigin
   if (origin && isAllowedOrigin(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin)
     res.setHeader('Access-Control-Allow-Credentials', 'true')
@@ -91,7 +104,8 @@ app.use((req, res, next) => {
 app.use(cors(corsOptions))
 // Preflight fallback (in case OPTIONS is not caught above)
 app.options('*', (req, res) => {
-  const origin = req.headers.origin
+  const rawOrigin = req.headers.origin
+  const origin = typeof rawOrigin === 'string' ? normalizeOrigin(rawOrigin) || rawOrigin : rawOrigin
   if (origin && isAllowedOrigin(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin)
     res.setHeader('Access-Control-Allow-Credentials', 'true')
@@ -101,6 +115,10 @@ app.options('*', (req, res) => {
   }
   res.sendStatus(204)
 })
+
+// Request ID: correlate UI → API → worker (read from edge or generate)
+app.use(requestIdMiddleware)
+app.use(sentryRequestIdScope)
 
 // Stripe webhook must receive the raw body for signature verification
 app.post(
@@ -141,10 +159,16 @@ app.use('/api/billing', billingRoutes)
 app.use('/api/auth', authRoutes)
 app.use('/api/translate-transcript', translateTranscriptRoutes)
 
-// Health check
-app.get('/health', (req, res) => {
+// Health and ops (no /api prefix)
+app.use(healthRoutes)
+
+// Legacy health check (keep for backward compat)
+app.get('/health', (_req, res) => {
   res.json({ status: 'ok' })
 })
+
+// Sentry error handler (after all routes; captures errors and sends response)
+setupSentryErrorHandler(app)
 
 // Optional: serve client SPA from a dist folder (avoids 404 for /video-to-transcript and assets when running combined).
 // Set CLIENT_DIST to the absolute path to the client build (e.g. /app/dist or path.join(__dirname, '../../dist')).
@@ -160,18 +184,18 @@ if (fs.existsSync(clientDist)) {
 
 // Start server
 const server = app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`)
-  console.log('[Stripe] Configured (secret key and price IDs present)')
+  log.info({ msg: 'Server listening', port: PORT })
+  log.info({ msg: 'Stripe configured (secret key and price IDs present)' })
 
   // Worker runs in a separate container when Dockerized (DISABLE_WORKER=true).
   if (process.env.DISABLE_WORKER !== 'true') {
     startWorker()
-    console.log('Background worker started')
+    log.info({ msg: 'Background worker started' })
   }
 
   // Start file cleanup cron
   startFileCleanup()
-  console.log('File cleanup cron started')
+  log.info({ msg: 'File cleanup cron started' })
 })
 
 // Handle server errors gracefully
@@ -193,17 +217,17 @@ server.on('error', (error: NodeJS.ErrnoException) => {
 function shutdown() {
   flushAnalytics()
   server.close(() => {
-    console.log('Server closed')
+    log.info({ msg: 'Server closed' })
     process.exit(0)
   })
 }
 
 process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully...')
+  log.info({ msg: 'SIGTERM received, shutting down gracefully' })
   shutdown()
 })
 
 process.on('SIGINT', () => {
-  console.log('\nSIGINT received, shutting down gracefully...')
+  log.info({ msg: 'SIGINT received, shutting down gracefully' })
   shutdown()
 })
