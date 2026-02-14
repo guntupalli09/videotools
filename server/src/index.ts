@@ -35,11 +35,13 @@ const generalLimiter = rateLimit({
   legacyHeaders: false,
 })
 
-// CORS: production allowlist + any *.vercel.app
+// CORS: production allowlist + env CORS_ORIGINS (comma-separated) + any *.vercel.app
 const allowedExactOrigins = new Set([
   'https://videotext.io',
   'https://www.videotext.io',
 ])
+const envOrigins = (process.env.CORS_ORIGINS || '').split(',').map((o) => o.trim()).filter(Boolean)
+envOrigins.forEach((o) => allowedExactOrigins.add(o))
 
 function isAllowedOrigin(origin?: string) {
   if (!origin) return true // curl, server-to-server
@@ -48,23 +50,23 @@ function isAllowedOrigin(origin?: string) {
   return false
 }
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (isAllowedOrigin(origin)) {
-        callback(null, true)
-      } else {
-        callback(new Error('Not allowed by CORS'))
-      }
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Id', 'X-Plan', 'X-Upload-Id', 'X-Chunk-Index'],
-    credentials: true,
-  })
-)
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    if (isAllowedOrigin(origin)) {
+      callback(null, true)
+    } else {
+      callback(new Error('Not allowed by CORS'))
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Id', 'X-Plan', 'X-Upload-Id', 'X-Chunk-Index'],
+  credentials: true,
+  optionsSuccessStatus: 204,
+}
 
-// Explicit preflight for all routes
-app.options('*', cors())
+app.use(cors(corsOptions))
+// Preflight must use the same CORS config so browser gets Access-Control-Allow-Origin
+app.options('*', cors(corsOptions))
 
 // Stripe webhook must receive the raw body for signature verification
 app.post(
