@@ -2,12 +2,5 @@
 User-agent: *
 Allow: /
 
-# Sitemap (update domain if different)
-Sitemap: https://www.videotext.io/sitemap.xml
-
-# https://www.robotstxt.org/robotstxt.html
-User-agent: *
-Allow: /
-
-# Sitemap (update domain if different)
+# Sitemap (set VITE_SITE_URL in .env for production; update domain here if different)
 Sitemap: https://www.videotext.io/sitemap.xml

@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom'
+import { getPopularFooterLinks } from '../lib/seoRegistry'
 
 export default function Footer() {
+  const popularLinks = getPopularFooterLinks()
   return (
     <footer className="bg-gray-900 text-gray-400">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand */}
           <div>
             <div className="flex items-center space-x-2 mb-4">
@@ -22,7 +24,7 @@ export default function Footer() {
             <ul className="space-y-2 text-sm">
               <li>
                 <Link to="/" className="hover:text-white transition-colors">
-                  Tools
+                  All tools
                 </Link>
               </li>
               <li>
@@ -40,6 +42,19 @@ export default function Footer() {
                   How it works
                 </a>
               </li>
+            </ul>
+          </div>
+          {/* Popular tools: from registry (core + selected SEO paths). */}
+          <div>
+            <h3 className="text-white font-semibold mb-4">Popular tools</h3>
+            <ul className="space-y-2 text-sm">
+              {popularLinks.map(({ path, label }) => (
+                <li key={path}>
+                  <Link to={path} className="hover:text-white transition-colors">
+                    {label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 

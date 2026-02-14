@@ -17,7 +17,20 @@ export function generatePasswordResetToken(): { token: string; expiresAt: Date }
   return { token, expiresAt }
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret'
+function getJwtSecret(): string {
+  const raw = process.env.JWT_SECRET
+  if (process.env.NODE_ENV === 'production') {
+    if (!raw || raw.trim() === '' || raw === 'dev-secret') {
+      throw new Error(
+        'JWT_SECRET must be set in production (strong random value). Do not use "dev-secret".'
+      )
+    }
+    return raw
+  }
+  return raw?.trim() || 'dev-secret'
+}
+
+const JWT_SECRET = getJwtSecret()
 const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60
 
 export interface AuthPayload {

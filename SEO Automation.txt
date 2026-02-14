@@ -1,0 +1,194 @@
+You are a principal SEO engineer + staff-level full-stack engineer. Design and implement a PRODUCTION-GRADE “Automatic SEO” pipeline for this SaaS website that (1) discovers trending/high-demand keywords weekly using credible sources (Google Trends, SERP PAA/autocomplete, YouTube suggestions, Reddit, and optionally Ahrefs/SEMrush IF API keys are provided), (2) maps those trends to responsible SEO actions (page updates vs new pages), (3) applies changes safely without breaking any existing functionality or UI/UX, and (4) avoids spam/thin-content patterns that could tank rankings.
+
+HARD CONSTRAINTS (NON-NEGOTIABLE):
+- Do NOT break: upload/transcribe/export/payment/auth/core routing/APIs.
+- Do NOT create mass low-quality pages. Hard caps enforced.
+- Do NOT rewrite pages weekly. Only additive + targeted edits.
+- Do NOT keyword-stuff. All additions must improve UX.
+- Every automated change must be logged, reviewable, and reversible (git commits + changelog).
+- If any external API (Ahrefs/SEMrush) requires keys, implement as OPTIONAL integrations; default to free/credible sources. Never assume keys exist.
+
+TARGET OUTCOME:
+- Week-1 uplift: improved index coverage + SERP CTR + impressions (via technical SEO + metadata + internal linking + selective FAQ/section updates).
+- Long-term: scalable programmatic SEO with guardrails and a human-in-the-loop option.
+
+DELIVERABLES:
+1) Architecture doc (in-repo): /docs/seo-automation.md
+2) A runnable weekly job (cron/GitHub Actions) that:
+   - collects trends
+   - scores + filters keywords
+   - proposes actions
+   - applies changes (or opens a PR for approval)
+3) A typed config system to define:
+   - existing SEO pages inventory
+   - programmatic page templates
+   - caps/thresholds/allowlists/blacklists
+4) Safe page generation + update system:
+   - 10–20 new pages maximum per month (default 5/week cap, configurable)
+   - 1–3 existing page updates per week (default cap)
+5) Automated sitemap refresh + ping mechanism
+6) Verification checklist + tests (as applicable to the framework)
+
+========================================================
+PHASE 0 — REPO DISCOVERY (NO BREAKING CHANGES)
+========================================================
+- Detect framework (Next.js/Remix/Nuxt/React+Vite/Express/etc).
+- Identify routing + rendering mode (SSR/SSG/CSR).
+- Identify where SEO head tags live.
+- Inventory current pages and their SEO metadata.
+- Identify existing robots.txt, sitemap, canonical, redirects.
+
+Output a concise “SEO Automation Readiness Report” with:
+- current issues (P0/P1/P2)
+- recommended safe integration approach for this stack
+
+========================================================
+PHASE 1 — DATA SOURCES (TREND DISCOVERY)
+========================================================
+Implement data collectors with strict rate limits + caching.
+
+REQUIRED SOURCES (no paid keys):
+A) Google Trends (pytrends or equivalent) for:
+   - related queries (rising/top)
+   - interest over time
+B) SERP autocomplete + People Also Ask:
+   - use a light-weight method (no aggressive scraping)
+   - cache results
+C) YouTube search suggestions for creator-intent keywords
+D) Reddit keyword discovery via search endpoints or HTML fetch with strict limits
+
+E) Ahrefs API / Semrush API:
+   - implement adapters that read keys from env
+   - if missing, skip gracefully and log “not configured”
+   - NEVER fail the job due to missing keys
+LET ME KNOW WHAT API we need ( only free tier)
+Define a unified KeywordCandidate schema:
+- phrase
+- source(s)
+- trend_signal (rising/top/seasonal)
+- estimated intent (transactional/informational)
+- relevance score to product
+- risk score (spam/unsafe/brand mismatch)
+- suggested page type (new landing page vs update existing vs FAQ-only vs ignore)
+
+========================================================
+PHASE 2 — DECISION ENGINE (GUARDRAILS TO AVOID TANKING)
+========================================================
+Build a rules-based decision engine (deterministic, auditable) that:
+- maps candidate keywords to ONE of:
+  1) UPDATE_EXISTING_PAGE (add a section + 2–5 FAQs + internal links)
+  2) CREATE_NEW_PAGE (only if high intent + no existing page fits)
+  3) FAQ_ONLY (add FAQ to best-fit page if minor variant)
+  4) IGNORE (low relevance, risky, too broad, or duplicate)
+
+GUARDRAILS (DEFAULTS; configurable in seo.config.ts/json):
+- weekly_new_pages_cap = 2 (start conservative)
+- weekly_updates_cap = 3
+- monthly_new_pages_cap = 8
+- minimum_relevance_score threshold
+- duplicate detection (near-duplicate + canonical)
+- “thin content” prevention: each new page must include:
+  - unique title/meta
+  - strong above-the-fold value prop
+  - CTA to existing flow
+  - 300–800 words of genuinely useful content (template-driven + curated copy blocks)
+  - 3–8 internal links
+  - FAQ 3–6 Qs (only real questions)
+  - Breadcrumbs + canonical + OG tags
+  - included in sitemap
+
+NEVER:
+- create pages for ultra-broad head terms (“transcription”, “video editor”) unless strategy explicitly approves
+- create hundreds of pages in one run
+- rewrite existing pages wholesale
+- change URL structures unexpectedly
+
+========================================================
+PHASE 3 — IMPLEMENTATION (SAFE, FRAMEWORK-NATIVE)
+========================================================
+Implement SEO core (if missing or weak):
+- robots.txt with sitemap reference
+- sitemap generator (dynamic) including programmatic pages
+- canonical + URL normalization (www/non-www, https, trailing slash policy)
+- structured data utilities:
+  - Organization
+  - SoftwareApplication (product/tool pages)
+  - BreadcrumbList (nested pages)
+  - FAQPage (only where FAQs exist)
+
+Add a “SEO content registry”:
+- /seo/registry.(ts|json)
+- defines:
+  - programmatic page definitions (slug, title, meta, H1, sections, FAQs, related links)
+  - mappings from keyword groups to pages
+- supports safe generation and updates
+
+Programmatic pages should be created from a typed config file, not ad-hoc code.
+
+========================================================
+PHASE 4 — WEEKLY JOB (CRON / GITHUB ACTIONS)
+========================================================
+Create a weekly scheduled workflow:
+- runs collectors
+- produces a “seo-proposals.json” artifact (keywords + planned actions)
+- by default opens a PR with:
+  - new/updated pages
+  - updated sitemap if needed
+  - changelog entry
+  - summary report
+- optionally can “auto-merge” ONLY if an env flag is enabled AND changes are below strict caps
+
+The PR must include:
+- list of pages touched/created
+- what keywords triggered changes
+- guardrails checks passed
+- verification steps
+
+========================================================
+PHASE 5 — “RESPONSIBLE UPDATES” (FAQ/SECTIONS ONLY)
+========================================================
+When UPDATE_EXISTING_PAGE:
+- add a small “What’s new / Popular this week” subsection only if it fits UX
+- add 2–5 FAQs max
+- update meta description ONLY if it improves CTR (not keyword stuffing)
+- add 1–3 contextual internal links
+
+When CREATE_NEW_PAGE:
+- create 1–2 pages max per run
+- ensure no duplicate intent with existing pages
+- ensure clean, minimal UI consistent with current design
+- ensure CTA uses existing upload/transcribe flow without new business logic
+
+========================================================
+PHASE 6 — SAFETY CHECKS + VERIFICATION
+========================================================
+Implement automated checks:
+- ensure noindex not accidentally applied to public pages
+- ensure canonical present
+- ensure sitemap includes new pages
+- ensure build passes
+- ensure route resolves + returns 200
+- ensure no more than caps
+- ensure content length and uniqueness thresholds met
+
+Provide a verification doc:
+- View-source checks for meta + JSON-LD
+- Lighthouse quick checks (no major regressions)
+- Rich results test instructions
+- Search Console URL Inspection + indexing request instructions
+
+========================================================
+OUTPUT REQUIRED NOW
+========================================================
+1) Create /docs/seo-automation.md describing the architecture + guardrails + operation.
+2) Implement the pipeline (collectors, decision engine, registry, generators, weekly workflow).
+3) Do it with minimal risk and without breaking existing functionality.
+
+START:
+- Run repo discovery and produce the “SEO Automation Readiness Report”.
+- Then implement Phase 1 collectors with caching and safe rate limits.
+- Then implement Phase 2 decision engine + caps.
+- Then implement weekly job that opens a PR (human-in-the-loop by default).
+- Only after that, wire in page generation/updates.
+
+Do NOT proceed with mass content creation. Begin with conservative defaults and a small starter set.

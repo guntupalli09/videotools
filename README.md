@@ -20,6 +20,7 @@ Professional video utilities platform: transcribe video to text, generate and tr
 - **Client: mobile & reliability** — Chunked upload is mobile-optimised (smaller chunks, sequential, per-chunk timeout and retry with exponential backoff); “keep tab open” reminder during upload; offline banner when the app loses connection; user-facing “Check your connection” message on network/abort errors; error boundary and unhandled-rejection safety net.
 - **Client: cross-browser** — Build target `es2020` and `browserslist` (last 2 Chrome, Firefox, Safari, Edge) for a clear compatibility baseline.
 - **Pipeline & architecture:** Upload → queue → worker flow is documented; performance audit (bottlenecks, optional future optimisations) in `docs/PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md`.
+- **Programmatic SEO:** Single source of truth (`client/src/lib/seoRegistry.ts`) for 27+ SEO pages; registry-driven meta, breadcrumbs, related links (4–6 per page), FAQ, and sitemap. Optional weekly automation (keyword discovery → proposals → PR). **Production:** `JWT_SECRET` must be set in production; server refuses to start otherwise. See [§9 SEO](#9-seo--production-urls).
 
 ---
 
@@ -176,7 +177,7 @@ In `server/.env` (or Docker env). Use `server/.env.example` as template.
 | **Database** | `DATABASE_URL` (PostgreSQL connection string, e.g. `postgresql://videotools:videotools@postgres:5432/videotext` for Docker). Required for user/auth storage. With Docker, the API runs `prisma migrate deploy` on startup so tables are created/updated automatically. |
 | **Processing** | `TEMP_FILE_PATH` (default `/tmp`), `DISABLE_WORKER` (set on API-only container if worker runs elsewhere) |
 | **Transcription / translation** | `OPENAI_API_KEY` |
-| **Auth** | `JWT_SECRET` (required for login and OTP JWT). For paid signup OTP: `RESEND_API_KEY` (sends verification code via [Resend](https://resend.com); if unset, code is logged to API console). `RESEND_FROM_EMAIL` (e.g. `VideoText <noreply@yourdomain.com>`) must use a **verified domain** in Resend. For **Docker**, put these in the `.env` file in the **same directory as `docker-compose.yml`** (e.g. project root or `/opt/videotools/.env`), not only in `server/.env`; the api/worker containers use `env_file: .env` from the compose file location. |
+| **Auth** | **`JWT_SECRET`** — required for login and OTP JWT. **In production** the server will not start unless `JWT_SECRET` is set to a strong random value (not empty, not `dev-secret`). Generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` and add to the `.env` used by the API. For paid signup OTP: `RESEND_API_KEY` (sends verification code via [Resend](https://resend.com); if unset, code is logged to API console). `RESEND_FROM_EMAIL` (e.g. `VideoText <noreply@yourdomain.com>`) must use a **verified domain** in Resend. For **Docker**, put these in the `.env` file in the **same directory as `docker-compose.yml`** (e.g. project root or `/opt/videotools/.env`), not only in `server/.env`; the api/worker containers use `env_file: .env` from the compose file location. |
 | **Performance (optional)** | `FFMPEG_USE_GPU` = `true` to use GPU decode/encode (e.g. CUDA/NVENC) when available. `FFMPEG_THREADS` (default `4`) for CPU encode. |
 | **Caching (optional)** | `CACHE_TTL_DAYS` = number of days to cache results for repeat processing (same user + same file + same tool + same options). Default `7`. Set to `0` to disable. |
 
@@ -322,9 +323,56 @@ Postgres is not exposed on the host by default; add `ports: ["5432:5432"]` to th
 
 ## 9. SEO & production URLs
 
-- **Per-route meta:** Each route has `<title>` and `<meta name="description">` via `react-helmet-async` and `client/src/lib/seoMeta.ts`.
-- **Canonical & sitemap:** Set `VITE_SITE_URL` for canonicals and OG. Update `client/public/sitemap.xml` and `robots.txt` if the domain changes.
-- **Structured data:** Homepage includes JSON-LD (Organization, WebApplication). Add `client/public/og-image.png` (e.g. 1200×630) for social sharing.
+VideoText uses a **programmatic SEO** system: one registry defines all SEO pages; the app and automation derive meta, routes, sitemap, and internal linking from it. No duplicate logic; no hardcoded SEO paths in routing.
+
+### 9.1 What we have
+
+- **Single source of truth:** `client/src/lib/seoRegistry.ts` — each entry has `path`, `title`, `description`, `h1`, `intro`, `faq`, `breadcrumbLabel`, `toolKey`, `relatedSlugs`, `indexable`, and `intentKey`. All SEO pages share the same seven core tools; the registry only changes which URL and meta are shown.
+- **27+ SEO entry points:** Alternate URLs such as `/video-to-text`, `/mp4-to-srt`, `/subtitle-generator`, `/srt-translator`, `/meeting-transcript`, `/video-compressor`, etc. Each resolves to the correct tool (Video → Transcript, Video → Subtitles, etc.) with its own title, description, H1, intro, FAQ, and breadcrumb.
+- **Registry-driven UI:** `<title>`, `<meta name="description">`, canonical, and Open Graph come from the registry (or from static route meta in `seoMeta.ts`). Breadcrumb nav and **BreadcrumbList** JSON-LD use the registry. **FAQPage** JSON-LD is emitted when the registry entry has FAQs. A “Related tools” block (4–6 links) is built from `relatedSlugs` and same-toolKey entries so every SEO page gets a consistent internal link mesh.
+- **One template, all paths:** `client/src/pages/SeoToolPage.tsx` — looks up the current path in the registry, renders the right tool with that entry’s `h1`, `intro`, and `faq`, and shows related links. Routing in `App.tsx` is generated from `getAllSeoPaths()`; no hand-written routes for SEO URLs.
+- **Sitemap & robots:** `client/public/sitemap.xml` lists all indexable URLs (static + registry). `client/public/robots.txt` points to the sitemap. Sitemap can be regenerated with `npm run seo:sitemap` (see [§9.3 Automation](#93-seo-automation-optional)).
+- **Production URLs:** Set `VITE_SITE_URL` (e.g. `https://www.videotext.io`) so canonicals and OG tags use your real domain. The registry and app do not hardcode the domain.
+
+### 9.2 SEO structure (where things live)
+
+| Piece | Location | Purpose |
+|-------|----------|--------|
+| **Registry** | `client/src/lib/seoRegistry.ts` | Single source: path, title, description, h1, intro, faq, breadcrumbLabel, toolKey, relatedSlugs, indexable, intentKey. |
+| **Meta & breadcrumbs** | `client/src/lib/seoMeta.ts` | Builds `ROUTE_SEO` and `ROUTE_BREADCRUMB` from registry + static routes; provides JSON-LD helpers (Organization, WebApplication, FAQPage, BreadcrumbList). |
+| **SEO template** | `client/src/pages/SeoToolPage.tsx` | Renders the tool for the current path using registry; shows related links (4–6) from `getRelatedSuggestionsForEntry()`. |
+| **Breadcrumb UI** | `client/src/components/Breadcrumb.tsx` | Renders breadcrumb nav when `ROUTE_BREADCRUMB[pathname]` exists. |
+| **Footer popular links** | `client/src/components/Footer.tsx` | Uses `getPopularFooterLinks()` from the registry so “Popular tools” (including e.g. Subtitle generator) stay in sync with the registry. |
+| **Sitemap** | `client/public/sitemap.xml` | Static file; can be regenerated by `scripts/seo/generate-sitemap.ts`. |
+| **Robots** | `client/public/robots.txt` | Allows all; Sitemap URL. |
+| **Validation** | `scripts/seo/validate-registry.js`, `scripts/seo/validate-sitemap.ts` | Check duplicate paths/intentKeys, relatedSlugs targets, and that sitemap matches indexable inventory. |
+
+### 9.3 SEO automation (optional)
+
+A weekly pipeline can suggest new or updated SEO pages and open a PR:
+
+- **Collectors** (free): Google suggest, YouTube suggest, Reddit. **Optional API:** SerpApi (`SERP_API_KEY`); Ahrefs/SEMrush are stubbed.
+- **Decision engine:** Turns keyword candidates into `CREATE_NEW_PAGE`, `UPDATE_EXISTING_PAGE`, or `FAQ_ONLY` with caps (e.g. max new pages per run). Blocks duplicate `intentKey` to avoid cannibalization.
+- **Apply step:** `npm run seo:apply-proposals` patches the registry from `scripts/seo/output/seo-proposals.json`; then `npm run seo:sync`, `seo:validate-registry`, `seo:sitemap`, `seo:validate-sitemap` keep routes and sitemap in sync.
+- **CI:** `.github/workflows/seo-weekly.yml` runs weekly (and on demand); can open a PR with registry changes and updated sitemap. No API keys required for the pipeline to run (free sources only).
+
+**Setup and keys:** See `docs/SEO-SETUP.md` (quick checklist) and `docs/seo-api-keys.md` (optional SerpApi/Ahrefs/SEMrush). SEO keys go in **repo root `.env`** for local runs; for GitHub Actions, add secrets and pass them in the workflow. No GSC integration; use Google Search Console manually.
+
+### 9.4 Commands (SEO)
+
+| Command | Purpose |
+|---------|--------|
+| `npm run seo:sync` | Refresh `scripts/seo/routes-inventory.json` from registry (used by sitemap and automation). |
+| `npm run seo:validate-registry` | Validate registry (paths, intentKey, relatedSlugs, indexable). |
+| `npm run seo:sitemap` | Regenerate `client/public/sitemap.xml` from indexable routes. Set `SITE_URL` if needed. |
+| `npm run seo:validate-sitemap` | Ensure sitemap matches indexable inventory. |
+| `npm run seo:smoke` | Smoke-test 10 URLs (title, meta, canonical, BreadcrumbList, FAQPage). Run after build with `BASE_URL` pointing at the deployed or served client. |
+| `npm run seo:weekly` | Run collectors + decision engine; write `scripts/seo/output/seo-proposals.json` and changelog (no keys required). |
+
+### 9.5 Production env (SEO and auth)
+
+- **Client:** `VITE_SITE_URL` (canonical/OG base), `VITE_API_URL` (API origin). See [§3 Environment variables](#3-environment-variables).
+- **Server:** In **production**, `JWT_SECRET` **must** be set to a strong random value (e.g. `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`). The server will not start if `NODE_ENV=production` and `JWT_SECRET` is missing, empty, or `dev-secret`. Use the same `.env` next to `docker-compose.yml` as for Stripe, DB, and Redis.
 
 ---
 
@@ -393,9 +441,8 @@ VideoText is ~2.3× faster than the next-fastest and ~7× faster than Trint on t
 ├── client/                 # React + Vite; PWA (vite-plugin-pwa)
 │   ├── src/
 │   │   ├── components/     # UI (Navigation, UserMenu with Log in/Log out, FileUploadZone, …)
-│   │   ├── lib/            # api (Bearer token), auth (login/logout), billing, filePreview, jobPolling, prefetch, …
-│   │   ├── pages/          # Home, Pricing (OTP modal), Login, VideoToTranscript, … (lazy-loaded)
-│   │   └── pages/seo/      # SEO entry-point wrappers (same tools, different meta)
+│   │   ├── lib/            # api, auth, billing, filePreview, jobPolling, prefetch, seoMeta, seoRegistry (SEO single source of truth), …
+│   │   ├── pages/          # Home, Pricing, Login, VideoToTranscript, SeoToolPage (registry-driven SEO), NotFound, … (lazy-loaded)
 │   ├── public/
 │   └── index.html
 ├── server/
@@ -406,7 +453,8 @@ VideoText is ~2.3× faster than the next-fastest and ~7× faster than Trint on t
 │   │   ├── models/        # User, Job, UsageLog, …
 │   │   └── utils/         # auth (JWT, email-verification token), limits, metering, srtParser, redis, …
 │   └── package.json
-├── docs/                   # UX_UPLOAD_IMPROVEMENTS.md, PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md, BENCHMARKS.md, …
+├── docs/                   # UX_UPLOAD_IMPROVEMENTS.md, PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md, BENCHMARKS.md, SEO-SETUP.md, seo-api-keys.md, …
+├── scripts/seo/            # Registry sync, sitemap, validate-registry, validate-sitemap, smoke, weekly pipeline (run-weekly, apply-proposals), …
 ├── deploy/
 │   └── Caddyfile           # Reverse proxy for API + CORS preflight (OPTIONS)
 ├── docker-compose.yml      # Redis, api, worker (env_file: .env from same directory)
@@ -428,6 +476,7 @@ VideoText is ~2.3× faster than the next-fastest and ~7× faster than Trint on t
 | **PostHog ERR_BLOCKED_BY_CLIENT / 404s for assets** | Ad blockers or privacy tools block PostHog. | The client detects failed PostHog requests and calls `posthog.opt_out_capturing()`, so analytics is disabled and no further requests are sent. No code change required. |
 | **CORS errors or 502 on API from frontend** | API not running (e.g. Prisma crash), or Caddy not using the updated Caddyfile. | Check API logs: `docker logs videotools-api --tail 100`. If you see "Table \`User\` does not exist", migrations didn’t run — ensure the API command in docker-compose runs `prisma migrate deploy` then `node dist/index.js`. If you see Prisma adapter/constructor errors, ensure `DATABASE_URL` is set and the image was rebuilt. For CORS, copy `deploy/Caddyfile` to `/etc/caddy/Caddyfile` and `sudo systemctl reload caddy`. |
 | **Permission denied on .env** | Trying to execute the file (e.g. `./.env`). | Edit the file only (e.g. `nano .env` or your editor). Do not run it as a script. |
+| **Server won't start: JWT_SECRET must be set in production** | `NODE_ENV=production` and `JWT_SECRET` is missing, empty, or `dev-secret`. | Set `JWT_SECRET` in the `.env` used by the API (e.g. next to `docker-compose.yml`) to a strong random value. Generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. Restart the API. |
 
 ---
 
@@ -447,7 +496,11 @@ VideoText is ~2.3× faster than the next-fastest and ~7× faster than Trint on t
 | Prisma Studio | `docker exec -it videotools-api npx prisma studio` (then open http://localhost:5555 via port-forward if needed) |
 | Job status | `GET /api/job/:jobId` |
 | Health | `GET /health` → `{"status":"ok"}` |
+| SEO: sync routes | `npm run seo:sync` |
+| SEO: validate registry | `npm run seo:validate-registry` |
+| SEO: sitemap | `npm run seo:sitemap` (optional: `SITE_URL`, `SITEMAP_PING`) |
+| SEO: smoke test | `BASE_URL=http://localhost:4173 npm run seo:smoke` (after building and serving client) |
 
 ---
 
-All product behavior, trees, branches, and features are described in [§1 Features & tools](#1-features--tools-trees-and-branches). Auth (OTP, login, logout) is in [§5.1 Authentication](#51-authentication-otp-login-logout). Client performance and device/reliability details are in [§10 Client: performance, devices & reliability](#10-client-performance-devices--reliability). End-to-end performance vs competitors is in [§11 Performance benchmark](#11-performance-benchmark-end-to-end). Latest upload UX improvements (multi-stage progress, preview, cancel, retry, network-aware messaging) are in [§10 Upload & transcript/subtitles UX](#upload--transcriptsubtitles-ux) and `docs/UX_UPLOAD_IMPROVEMENTS.md`. Pipeline architecture and performance audit are in `docs/PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md`. For env details use the tables in [§3 Environment variables](#3-environment-variables) and the `.env` next to `docker-compose.yml` for Docker [§8](#8-deployment-hetzner--caddy--vercel).
+All product behavior, trees, branches, and features are described in [§1 Features & tools](#1-features--tools-trees-and-branches). Auth (OTP, login, logout) is in [§5.1 Authentication](#51-authentication-otp-login-logout). **SEO** (registry, structure, automation, commands, production env) is in [§9 SEO & production URLs](#9-seo--production-urls); see also `docs/SEO-SETUP.md` and `docs/seo-api-keys.md`. Client performance and device/reliability details are in [§10 Client: performance, devices & reliability](#10-client-performance-devices--reliability). End-to-end performance vs competitors is in [§11 Performance benchmark](#11-performance-benchmark-end-to-end). Latest upload UX improvements (multi-stage progress, preview, cancel, retry, network-aware messaging) are in [§10 Upload & transcript/subtitles UX](#upload--transcriptsubtitles-ux) and `docs/UX_UPLOAD_IMPROVEMENTS.md`. Pipeline architecture and performance audit are in `docs/PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md`. For env details use the tables in [§3 Environment variables](#3-environment-variables) and the `.env` next to `docker-compose.yml` for Docker [§8](#8-deployment-hetzner--caddy--vercel).

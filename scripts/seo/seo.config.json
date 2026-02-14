@@ -1,0 +1,49 @@
+{
+  "caps": {
+    "weekly_new_pages_cap": 2,
+    "weekly_updates_cap": 3,
+    "monthly_new_pages_cap": 8,
+    "max_new_pages_per_run": 2,
+    "max_updates_per_run": 3
+  },
+  "thresholds": {
+    "minimum_relevance_score": 0.35,
+    "min_content_words": 300,
+    "max_content_words": 800,
+    "min_internal_links": 3,
+    "max_internal_links": 8,
+    "min_faq_per_page": 3,
+    "max_faq_per_update": 5,
+    "max_faq_per_new_page": 6
+  },
+  "sources": {
+    "serp_suggest": { "enabled": true, "cache_hours": 24, "max_queries": 20 },
+    "youtube_suggest": { "enabled": true, "cache_hours": 24, "max_queries": 20 },
+    "reddit": { "enabled": true, "cache_hours": 24, "max_posts": 50, "rate_limit_delay_ms": 2000 },
+    "serp_api": { "enabled": false, "env_key": "SERP_API_KEY", "cache_hours": 24 }
+  },
+  "blacklist_keywords": [
+    "transcription",
+    "video editor",
+    "free movie",
+    "download movie",
+    "torrent"
+  ],
+  "allowlist_head_terms": [],
+  "product_keywords": [
+    "video to text",
+    "video to transcript",
+    "subtitle",
+    "srt",
+    "vtt",
+    "transcript",
+    "caption",
+    "burn subtitle",
+    "compress video",
+    "translate subtitle",
+    "fix subtitle",
+    "mp4 to text",
+    "mp4 to srt"
+  ],
+  "canonical_group_allowlist": []
+}

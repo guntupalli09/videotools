@@ -1,0 +1,183 @@
+You are a principal SEO architect and senior full-stack engineer.
+
+CRITICAL CONTEXT:
+This repository ALREADY contains:
+• a working SEO automation pipeline (trend discovery + PR workflow + guardrails)
+• many manually implemented SEO wrapper pages that embed real tool flows
+
+Your mission is to refactor the current SEO page system into an iLovePDF-style programmatic SEO engine
+WITHOUT breaking any functionality, URLs, routing, UI/UX, analytics, or server behavior.
+
+NO regressions are acceptable.
+
+=====================================================
+ABSOLUTE SAFETY RULES
+=====================================================
+
+- DO NOT change existing public URLs.
+- DO NOT change tool components or their props/behavior.
+- DO NOT alter upload, processing, auth, payment, or APIs.
+- DO NOT break analytics hooks or events.
+- DO NOT degrade performance or UX.
+- All refactors must be reversible.
+- Add tests or verification steps where possible.
+- If uncertain, preserve the old implementation.
+
+=====================================================
+PHASE 1 — BASELINE SNAPSHOT (MANDATORY)
+=====================================================
+
+Before refactoring:
+
+1) Record current behavior for:
+   - all public SEO pages
+   - tool flows (upload → process → export)
+   - navigation paths
+   - metadata output (title/meta/schema)
+
+2) Create a quick verification checklist:
+   - list of URLs
+   - expected H1
+   - expected CTA presence
+   - expected tool rendered
+   - expected meta tags
+
+This becomes the regression baseline.
+
+=====================================================
+PHASE 2 — EXTRACT SEO REGISTRY
+=====================================================
+
+Extract ALL existing SEO wrapper pages into a single structured registry (TS/JSON):
+
+For each page capture:
+- slug
+- title
+- description
+- H1
+- intro text
+- FAQ content
+- primary tool component reference
+- related tool slugs (existing CrossToolSuggestions)
+- breadcrumb label
+
+No content rewriting — pure migration.
+
+=====================================================
+PHASE 3 — BUILD PROGRAMMATIC TEMPLATE (SAFE)
+=====================================================
+
+Create ONE SEO page template that:
+
+- renders identical UI output to current pages
+- injects same meta values
+- includes:
+  • breadcrumbs
+  • cross-tool suggestions
+  • tool component
+  • FAQs
+
+Add structured data generation:
+- BreadcrumbList
+- FAQPage (only when FAQs exist)
+- Organization/SoftwareApplication where appropriate
+
+Ensure HTML output matches current behavior.
+
+=====================================================
+PHASE 4 — ROUTING MIGRATION (NON-BREAKING)
+=====================================================
+
+Implement dynamic routing using slug lookup from registry.
+
+Rules:
+- existing URLs resolve identically
+- unknown slugs return proper 404
+- no redirect loops
+- same canonical URLs preserved
+
+=====================================================
+PHASE 5 — AUTOMATION INTEGRATION
+=====================================================
+
+Update existing SEO automation so that:
+
+- new pages = new registry entries
+- updates modify registry content
+- sitemap builds from registry
+
+Do NOT allow automation to create new route files.
+
+=====================================================
+PHASE 6 — REGRESSION VERIFICATION
+=====================================================
+
+Programmatically or manually verify:
+
+- every original SEO URL still works
+- same tool renders
+- same CTA visible
+- same metadata present
+- same breadcrumbs
+- server APIs unaffected
+- build passes
+- no console errors
+
+Flag any deviation.
+
+=====================================================
+PHASE 7 — POST-REFACTOR iLovePDF-STYLE SEO AUDIT
+=====================================================
+
+Re-run a full SEO audit against the iLovePDF programmatic SEO model including:
+
+- intent coverage
+- internal linking mesh
+- registry-driven scale readiness
+- schema completeness
+- automation compatibility
+
+Produce:
+
+• new maturity score
+• gaps remaining
+• readiness for automated scaling
+
+=====================================================
+PHASE 8 — SEO MACHINE READINESS CHECK
+=====================================================
+
+Explicitly assess:
+
+- Is the UI compatible with programmatic scale?
+- Is server routing performant for many dynamic pages?
+- Is sitemap generation safe for large registry?
+- Is automation safe to modify registry weekly?
+
+Provide go/no-go verdict for:
+
+“Production SEO automation at scale.”
+
+=====================================================
+FINAL OUTPUT REQUIRED
+=====================================================
+
+1) seoRegistry file with all existing pages migrated  
+2) single SEO template component  
+3) dynamic routing implementation  
+4) updated automation integration  
+5) regression verification checklist + results  
+6) new SEO maturity score  
+7) readiness verdict for full automation  
+
+=====================================================
+START NOW
+=====================================================
+
+Begin with baseline snapshot before touching code.
+
+Proceed carefully phase by phase.
+
+If any regression risk appears, stop and preserve old behavior.
+
+No shortcuts. No silent breaking changes.

@@ -2,6 +2,18 @@
   "name": "videotext-root",
   "private": true,
   "scripts": {
-    "build": "cd client && npm ci && npm run build && node -e \"require('fs').cpSync('dist','../dist',{recursive:true})\""
+    "build": "cd client && npm ci && npm run build && node -e \"require('fs').cpSync('dist','../dist',{recursive:true})\"",
+    "seo:weekly": "tsx scripts/seo/run-weekly.ts",
+    "seo:sync": "npx tsx scripts/seo/sync-routes-from-registry.ts",
+    "seo:sitemap": "tsx scripts/seo/generate-sitemap.ts",
+    "seo:validate-registry": "node scripts/seo/validate-registry.js",
+    "seo:validate-sitemap": "tsx scripts/seo/validate-sitemap.ts",
+    "seo:smoke": "tsx scripts/seo/smoke-seo-output.ts",
+    "seo:apply-proposals": "tsx scripts/seo/apply-proposals-to-registry.ts",
+    "seo:changelog": "tsx scripts/seo/write-changelog.ts",
+    "seo:verify": "tsx scripts/seo/verify.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0"
   }
 }

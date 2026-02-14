@@ -1,0 +1,102 @@
+# Weekly SEO pipeline: collect trends, run decision engine, produce proposals, open PR (human-in-the-loop).
+name: SEO Weekly
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'  # Monday 00:00 UTC
+  workflow_dispatch:
+
+jobs:
+  seo-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install root deps
+        run: npm install
+
+      - name: Run SEO weekly job
+        run: npm run seo:weekly
+        env:
+          SERP_API_KEY: ${{ secrets.SERP_API_KEY }}
+
+      - name: Run SEO verify
+        run: npm run seo:verify
+
+      - name: Upload seo output artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: seo-output
+          path: |
+            scripts/seo/output/seo-proposals.json
+            scripts/seo/output/changelog.md
+
+  # Open PR with proposals, changelog, and sitemap refresh (default: human-in-the-loop).
+  open-pr:
+    needs: seo-pipeline
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install root deps
+        run: npm install
+
+      - name: Download seo output
+        uses: actions/download-artifact@v4
+        with:
+          name: seo-output
+          path: scripts/seo/output
+
+      - name: Apply proposals to registry (CREATE_NEW_PAGE only)
+        run: npm run seo:apply-proposals
+
+      - name: Sync routes from registry
+        run: npm run seo:sync
+
+      - name: Validate registry
+        run: npm run seo:validate-registry
+
+      - name: Regenerate changelog (from proposals)
+        run: npm run seo:changelog
+
+      - name: Generate sitemap
+        run: npm run seo:sitemap
+        env:
+          SITE_URL: https://www.videotext.io
+
+      - name: Validate sitemap
+        run: npm run seo:validate-sitemap
+        env:
+          SITE_URL: https://www.videotext.io
+
+      - name: Create SEO branch and PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: seo/weekly-proposals
+          delete-branch: true
+          title: 'SEO Weekly: proposals, registry edits, and sitemap'
+          body: |
+            ## SEO Weekly Run
+            - **Proposals:** `scripts/seo/output/seo-proposals.json`
+            - **Changelog:** `scripts/seo/output/changelog.md`
+            - **Registry:** Patched for CREATE_NEW_PAGE proposals (if any).
+            - **Sitemap:** Regenerated from indexable routes; ping Google/Bing when merged.
+            - **Guardrails:** validate-registry and validate-sitemap passed.
+            **Review before merging.** Ensure caps and content quality are satisfied.
+          commit-message: 'chore(seo): weekly proposals, registry edits, sitemap'

@@ -1,7 +1,12 @@
+/**
+ * Thin SEO meta adapter. Single source of truth for SEO pages is seoRegistry.
+ * Static routes (home, pricing, core tools, legal) are defined here only.
+ */
 import { SITE_URL, SITE_NAME } from './seo'
+import { getAllSeoEntries } from './seoRegistry'
 
-/** Per-route SEO meta. Used by Seo component on each page. Descriptions match product behavior and target search intent. */
-export const ROUTE_SEO: Record<string, { title: string; description: string }> = {
+/** Static (non-SEO-registry) routes: title + description. */
+const STATIC_ROUTE_SEO: Record<string, { title: string; description: string }> = {
   '/': {
     title: 'Video to Text & Subtitles — Free Online Tools',
     description:
@@ -10,22 +15,22 @@ export const ROUTE_SEO: Record<string, { title: string; description: string }> =
   '/pricing': {
     title: 'Pricing — Free, Basic, Pro & Agency Plans',
     description:
-      'VideoText pricing: Free 60 min/month, Basic $19 (450 min), Pro $49 (1,200 min), Agency $129 (3,000 min). Multi-language, batch on Pro+. We don’t store your data. Upgrade when you need more.',
+      "VideoText pricing: Free 60 min/month, Basic $19 (450 min), Pro $49 (1,200 min), Agency $129 (3,000 min). Multi-language, batch on Pro+. We don't store your data. Upgrade when you need more.",
   },
   '/privacy': {
-    title: 'Privacy Policy — We Don’t Store Your Data | VideoText',
+    title: 'Privacy Policy — We Don\'t Store Your Data | VideoText',
     description:
-      'VideoText privacy: We process your files and delete them. We don’t keep your uploads, transcripts, or outputs. Your content stays yours. Read our full policy.',
+      "VideoText privacy: We process your files and delete them. We don't keep your uploads, transcripts, or outputs. Your content stays yours. Read our full policy.",
   },
   '/faq': {
     title: 'FAQ — Privacy, Billing, Tools | VideoText',
     description:
-      'Frequently asked questions about VideoText: privacy and data (we don’t store your files), billing, free tier, translation, and tools. Your files are processed and deleted.',
+      "Frequently asked questions about VideoText: privacy and data (we don't store your files), billing, free tier, translation, and tools. Your files are processed and deleted.",
   },
   '/terms': {
     title: 'Terms of Service | VideoText',
     description:
-      'Terms of use for VideoText. We don’t store your data; see our Privacy Policy for details. Billing via Stripe. Use the service in accordance with these terms.',
+      "Terms of use for VideoText. We don't store your data; see our Privacy Policy for details. Billing via Stripe. Use the service in accordance with these terms.",
   },
   '/video-to-transcript': {
     title: 'Video to Transcript — Free AI Transcription & Translation',
@@ -62,147 +67,52 @@ export const ROUTE_SEO: Record<string, { title: string; description: string }> =
     description:
       'Generate SRT subtitles for many videos in one go. Upload multiple videos, get one ZIP of subtitle files. Pro and Agency plans. Multi-language optional.',
   },
-  // SEO utility pages: same tools, alternate entry points. No new API or logic.
-  '/video-to-text': {
-    title: 'Video to Text Online – Fast & Accurate | VideoText',
-    description:
-      'Convert video to text online. Get a transcript in seconds, then view it in English, Hindi, Telugu, Spanish, Chinese, or Russian. No signup required for the free tier.',
-  },
-  '/mp4-to-text': {
-    title: 'MP4 to Text Online – Fast & Accurate | VideoText',
-    description:
-      'Convert MP4 to text online. Get an accurate transcript, then translate it to Hindi, Telugu, Spanish, Chinese, Russian, or English. Fast. No signup for free tier.',
-  },
-  '/mp4-to-srt': {
-    title: 'MP4 to SRT Online – Fast & Accurate | VideoText',
-    description:
-      'Generate SRT subtitles from MP4 video. Upload your file, pick SRT or VTT, download timed captions. No signup required for the free tier.',
-  },
-  '/subtitle-generator': {
-    title: 'Subtitle Generator Online – Fast & Accurate | VideoText',
-    description:
-      'Generate subtitles from video in one click. Upload any video, get SRT or VTT with accurate timestamps. Fast and free tier available.',
-  },
-  '/srt-translator': {
-    title: 'SRT Translator Online – Fast & Accurate | VideoText',
-    description:
-      'Translate SRT subtitle files to another language. Upload your SRT or VTT, choose target language, download translated captions with timestamps intact.',
-  },
-  // VIDEO → TRANSCRIPT tree (SEO entry points; same tool as /video-to-transcript)
-  '/meeting-transcript': {
-    title: 'Meeting Transcript — Turn Meetings into Text | VideoText',
-    description:
-      'Convert meeting recordings to text. Get a transcript in seconds, then view it in English, Hindi, Telugu, Spanish, Chinese, or Russian. Download or copy. No signup for free tier.',
-  },
-  '/speaker-diarization': {
-    title: 'Speaker-Separated Video Transcripts — Instantly Online | VideoText',
-    description:
-      'Get video transcripts with speaker labels. Transcribe, then view Speakers branch and translate transcript to Hindi, Telugu, Spanish, Chinese, Russian, or English. Free tier.',
-  },
-  '/video-summary-generator': {
-    title: 'Video Summary Generator — Decisions, Actions, Key Points | VideoText',
-    description:
-      'Extract structured summaries from video: decisions, action items, key points. Transcribe, use Summary branch, and translate transcript to 6 languages. Free tier.',
-  },
-  '/video-chapters-generator': {
-    title: 'Video Chapters Generator — Section Headings from Transcript | VideoText',
-    description:
-      'Generate chapter headings from your video transcript. Upload, transcribe, use Chapters branch. View or translate transcript in English, Hindi, Telugu, Spanish, Chinese, Russian. Free.',
-  },
-  '/keyword-indexed-transcript': {
-    title: 'Keyword-Indexed Transcript — Topic Index from Video | VideoText',
-    description:
-      'Get a keyword index from your video transcript. Repeated terms link to sections. Translate transcript to Hindi, Telugu, Spanish, Chinese, Russian, or English. Upload, transcribe, open Keywords branch.',
-  },
-  // VIDEO → SUBTITLES tree (SEO entry points; same tool as /video-to-subtitles)
-  '/srt-to-vtt': {
-    title: 'SRT to VTT Converter — Subtitle Format Conversion | VideoText',
-    description:
-      'Generate VTT from video or convert SRT to VTT. Upload video for SRT/VTT, or use the convert step after generating. Free tier.',
-  },
-  '/subtitle-converter': {
-    title: 'Subtitle Converter — SRT, VTT, TXT | VideoText',
-    description:
-      'Convert subtitle formats: SRT, VTT, plain text. Generate from video or convert after download. One tool, multiple formats. Free tier.',
-  },
-  '/subtitle-timing-fixer': {
-    title: 'Subtitle Timing Fixer — Fix Overlaps and Gaps | VideoText',
-    description:
-      'Fix overlapping timestamps and gaps in SRT/VTT files. Upload your subtitle file, get corrected timing. Free. Same tool as Fix Subtitles.',
-  },
-  '/subtitle-validation': {
-    title: 'Subtitle Validation — Check Timing and Format | VideoText',
-    description:
-      'Validate and fix SRT/VTT files: timing, line length, formatting. Upload subtitles, get a corrected file. Free. Same tool as Fix Subtitles.',
-  },
-  // TRANSLATE SUBTITLES tree (SEO entry points; same tool as /translate-subtitles)
-  '/subtitle-translator': {
-    title: 'Subtitle Translator — SRT/VTT to Any Language | VideoText',
-    description:
-      'Translate SRT or VTT subtitles to 50+ languages. Upload, pick target language, download. Timestamps stay intact. Free tier.',
-  },
-  '/multilingual-subtitles': {
-    title: 'Multilingual Subtitles — Multiple Languages from One File | VideoText',
-    description:
-      'Get subtitles in multiple languages. Translate SRT/VTT to Arabic, Hindi, Spanish, and more. One upload, many languages. Free tier.',
-  },
-  '/subtitle-language-checker': {
-    title: 'Subtitle Language Checker — Detect and Translate | VideoText',
-    description:
-      'Check subtitle language and translate to another. Upload SRT/VTT, choose target language, download. Free tier available.',
-  },
-  // FIX SUBTITLES tree (SEO entry points; same tool as /fix-subtitles)
-  '/subtitle-grammar-fixer': {
-    title: 'Subtitle Grammar Fixer — Auto-Correct Caption Text | VideoText',
-    description:
-      'Fix grammar and formatting in SRT/VTT files. Upload subtitles, get corrected text and timing. Free. Same tool as Fix Subtitles.',
-  },
-  '/subtitle-line-break-fixer': {
-    title: 'Subtitle Line Break Fixer — Fix Long Lines and Wrapping | VideoText',
-    description:
-      'Fix long lines and line breaks in SRT/VTT for readability and platform limits. Upload, download corrected file. Free.',
-  },
-  // BURN SUBTITLES tree (SEO entry points; same tool as /burn-subtitles)
-  '/hardcoded-captions': {
-    title: 'Hardcoded Captions — Burn Subtitles into Video | VideoText',
-    description:
-      'Burn SRT or VTT subtitles into your video. Upload video + subtitle file, get one video with hardcoded captions. Free tier.',
-  },
-  '/video-with-subtitles': {
-    title: 'Video with Subtitles — Add Captions to Video | VideoText',
-    description:
-      'Add subtitles to video permanently. Upload video and SRT/VTT, get a single video with captions baked in. No signup for free tier.',
-  },
-  // COMPRESS VIDEO tree (SEO entry points; same tool as /compress-video)
-  '/video-compressor': {
-    title: 'Video Compressor — Reduce File Size Online | VideoText',
-    description:
-      'Compress video online: light, medium, or heavy. Reduce file size for sharing and uploads. Free. No signup required.',
-  },
-  '/reduce-video-size': {
-    title: 'Reduce Video Size — Compress Without Losing Quality | VideoText',
-    description:
-      'Reduce video file size with adjustable compression. Upload, choose level, download smaller file. Free tier available.',
-  },
-  // BATCH PROCESSING tree (SEO entry points; same tool as /batch-process)
-  '/batch-video-processing': {
-    title: 'Batch Video Processing — Multiple Videos at Once | VideoText',
-    description:
-      'Process multiple videos in one batch. Upload many videos, get one ZIP of subtitle files. Pro and Agency plans. Same tool as Batch Process.',
-  },
-  '/bulk-subtitle-export': {
-    title: 'Bulk Subtitle Export — SRT for Many Videos | VideoText',
-    description:
-      'Export SRT subtitles for many videos in one go. Upload multiple videos, download ZIP. Pro+ plans. Same tool as Batch Process.',
-  },
-  '/bulk-transcript-export': {
-    title: 'Bulk Transcript Export — Text for Many Videos | VideoText',
-    description:
-      'Get transcripts for many videos in one batch. Upload multiple videos, receive one ZIP. Pro+ plans. Same tool as Batch Process.',
-  },
 }
 
-/** JSON-LD Organization + WebApplication for rich results (homepage or global). */
+/** Static breadcrumb items (non-SEO-registry routes). */
+const STATIC_ROUTE_BREADCRUMB: Record<string, { name: string; path: string }[]> = {
+  '/pricing': [{ name: 'Home', path: '/' }, { name: 'Pricing', path: '/pricing' }],
+  '/faq': [{ name: 'Home', path: '/' }, { name: 'FAQ', path: '/faq' }],
+  '/privacy': [{ name: 'Home', path: '/' }, { name: 'Privacy', path: '/privacy' }],
+  '/terms': [{ name: 'Home', path: '/' }, { name: 'Terms', path: '/terms' }],
+  '/video-to-transcript': [{ name: 'Home', path: '/' }, { name: 'Video to Transcript', path: '/video-to-transcript' }],
+  '/video-to-subtitles': [{ name: 'Home', path: '/' }, { name: 'Video to Subtitles', path: '/video-to-subtitles' }],
+  '/translate-subtitles': [{ name: 'Home', path: '/' }, { name: 'Translate Subtitles', path: '/translate-subtitles' }],
+  '/fix-subtitles': [{ name: 'Home', path: '/' }, { name: 'Fix Subtitles', path: '/fix-subtitles' }],
+  '/burn-subtitles': [{ name: 'Home', path: '/' }, { name: 'Burn Subtitles', path: '/burn-subtitles' }],
+  '/compress-video': [{ name: 'Home', path: '/' }, { name: 'Compress Video', path: '/compress-video' }],
+  '/batch-process': [{ name: 'Home', path: '/' }, { name: 'Batch Process', path: '/batch-process' }],
+}
+
+/** Per-route SEO meta. SEO pages from registry; rest from static. */
+export const ROUTE_SEO: Record<string, { title: string; description: string }> = {
+  ...STATIC_ROUTE_SEO,
+  ...Object.fromEntries(
+    getAllSeoEntries().map((e) => [e.path, { title: e.title, description: e.description }])
+  ),
+}
+
+/** Breadcrumb items per path. SEO pages from registry; rest from static. */
+export const ROUTE_BREADCRUMB: Record<string, { name: string; path: string }[]> = {
+  ...STATIC_ROUTE_BREADCRUMB,
+  ...Object.fromEntries(
+    getAllSeoEntries().map((e) => [
+      e.path,
+      [{ name: 'Home', path: '/' }, { name: e.breadcrumbLabel, path: e.path }],
+    ])
+  ),
+}
+
+/** FAQ items for /faq page (global FAQ; not from registry). */
+const FAQ_SCHEMA_ITEMS = [
+  { q: 'Do you store my videos or files?', a: "No. We process your files and then delete them. We don't keep your uploads, transcripts, or generated outputs." },
+  { q: 'Is my content used for AI training?', a: "No. Your content is used only to deliver the service you requested. We do not use it for training models." },
+  { q: 'Do I need to sign up?', a: "No. You can use the free tier without creating an account. Sign up when you want to track usage or subscribe to a plan." },
+  { q: 'What file formats are supported?', a: "Videos: MP4, MOV, AVI, WebM (and optionally MKV). Subtitles: SRT and VTT. You can also paste a video URL." },
+  { q: 'How does the free tier work?', a: "Free tier includes 60 minutes per month, single language, and a watermark on subtitle exports. No credit card required." },
+  { q: 'Can I translate subtitles or transcripts?', a: "Yes. Use Translate Subtitles for SRT/VTT. For transcripts, use the Translate button after generating to view in 6 languages." },
+]
+
 export function getOrganizationJsonLd() {
   return {
     '@context': 'https://schema.org',
@@ -225,5 +135,45 @@ export function getWebApplicationJsonLd() {
       'Free online tools: video to transcript (with translation to Hindi, Telugu, Spanish, Chinese, Russian), video to subtitles (SRT/VTT), translate subtitles, fix, burn, compress video. AI-powered. No signup.',
     applicationCategory: 'MultimediaApplication',
     offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  }
+}
+
+/** FAQPage JSON-LD for /faq. */
+export function getFaqJsonLd() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: FAQ_SCHEMA_ITEMS.map(({ q, a }) => ({
+      '@type': 'Question',
+      name: q,
+      acceptedAnswer: { '@type': 'Answer', text: a },
+    })),
+  }
+}
+
+/** FAQPage JSON-LD from arbitrary FAQ items (e.g. SEO tool pages from registry). */
+export function getFaqJsonLdFromItems(faq: { q: string; a: string }[]) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faq.map(({ q, a }) => ({
+      '@type': 'Question',
+      name: q,
+      acceptedAnswer: { '@type': 'Answer', text: a },
+    })),
+  }
+}
+
+/** BreadcrumbList JSON-LD for a given path and items. */
+export function getBreadcrumbJsonLd(_pathname: string, items: { name: string; path: string }[]) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((item, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: item.name,
+      item: `${SITE_URL}${item.path === '/' ? '' : item.path}`,
+    })),
   }
 }

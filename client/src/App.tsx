@@ -3,10 +3,12 @@ import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-ro
 import { trackEvent, identifyUser, capturePageview } from './lib/analytics'
 import { Toaster, toast } from 'react-hot-toast'
 import Navigation from './components/Navigation'
+import Breadcrumb from './components/Breadcrumb'
 import { getSessionDetails, setupPassword } from './lib/billing'
 import Footer from './components/Footer'
 import Seo from './components/Seo'
-import { ROUTE_SEO, getOrganizationJsonLd, getWebApplicationJsonLd } from './lib/seoMeta'
+import { ROUTE_SEO, ROUTE_BREADCRUMB, getOrganizationJsonLd, getWebApplicationJsonLd, getFaqJsonLd, getFaqJsonLdFromItems, getBreadcrumbJsonLd } from './lib/seoMeta'
+import { getSeoEntry, getAllSeoPaths } from './lib/seoRegistry'
 import SessionErrorBoundary from './components/SessionErrorBoundary'
 import OfflineBanner from './components/OfflineBanner'
 
@@ -27,32 +29,8 @@ const TranslateSubtitles = lazy(() => import('./pages/TranslateSubtitles'))
 const FixSubtitles = lazy(() => import('./pages/FixSubtitles'))
 const BurnSubtitles = lazy(() => import('./pages/BurnSubtitles'))
 const CompressVideo = lazy(() => import('./pages/CompressVideo'))
-const VideoToTextPage = lazy(() => import('./pages/seo/VideoToTextPage'))
-const Mp4ToTextPage = lazy(() => import('./pages/seo/Mp4ToTextPage'))
-const Mp4ToSrtPage = lazy(() => import('./pages/seo/Mp4ToSrtPage'))
-const SubtitleGeneratorPage = lazy(() => import('./pages/seo/SubtitleGeneratorPage'))
-const SrtTranslatorPage = lazy(() => import('./pages/seo/SrtTranslatorPage'))
-const MeetingTranscriptPage = lazy(() => import('./pages/seo/MeetingTranscriptPage'))
-const SpeakerDiarizationPage = lazy(() => import('./pages/seo/SpeakerDiarizationPage'))
-const VideoSummaryGeneratorPage = lazy(() => import('./pages/seo/VideoSummaryGeneratorPage'))
-const VideoChaptersGeneratorPage = lazy(() => import('./pages/seo/VideoChaptersGeneratorPage'))
-const KeywordIndexedTranscriptPage = lazy(() => import('./pages/seo/KeywordIndexedTranscriptPage'))
-const SrtToVttPage = lazy(() => import('./pages/seo/SrtToVttPage'))
-const SubtitleConverterPage = lazy(() => import('./pages/seo/SubtitleConverterPage'))
-const SubtitleTimingFixerPage = lazy(() => import('./pages/seo/SubtitleTimingFixerPage'))
-const SubtitleValidationPage = lazy(() => import('./pages/seo/SubtitleValidationPage'))
-const SubtitleTranslatorPage = lazy(() => import('./pages/seo/SubtitleTranslatorPage'))
-const MultilingualSubtitlesPage = lazy(() => import('./pages/seo/MultilingualSubtitlesPage'))
-const SubtitleLanguageCheckerPage = lazy(() => import('./pages/seo/SubtitleLanguageCheckerPage'))
-const SubtitleGrammarFixerPage = lazy(() => import('./pages/seo/SubtitleGrammarFixerPage'))
-const SubtitleLineBreakFixerPage = lazy(() => import('./pages/seo/SubtitleLineBreakFixerPage'))
-const HardcodedCaptionsPage = lazy(() => import('./pages/seo/HardcodedCaptionsPage'))
-const VideoWithSubtitlesPage = lazy(() => import('./pages/seo/VideoWithSubtitlesPage'))
-const VideoCompressorPage = lazy(() => import('./pages/seo/VideoCompressorPage'))
-const ReduceVideoSizePage = lazy(() => import('./pages/seo/ReduceVideoSizePage'))
-const BatchVideoProcessingPage = lazy(() => import('./pages/seo/BatchVideoProcessingPage'))
-const BulkSubtitleExportPage = lazy(() => import('./pages/seo/BulkSubtitleExportPage'))
-const BulkTranscriptExportPage = lazy(() => import('./pages/seo/BulkTranscriptExportPage'))
+const SeoToolPage = lazy(() => import('./pages/SeoToolPage'))
+const NotFound = lazy(() => import('./pages/NotFound'))
 
 /** Minimal loading fallback for route chunks — fast, accessible, no layout shift. */
 function RouteFallback() {
@@ -65,8 +43,26 @@ function RouteFallback() {
 
 function AppSeo() {
   const { pathname } = useLocation()
-  const meta = ROUTE_SEO[pathname] || ROUTE_SEO['/']
+  const hasRoute = pathname in ROUTE_SEO
+  const meta = ROUTE_SEO[pathname] || {
+    title: 'Page not found',
+    description: "The page you're looking for doesn't exist or has been moved.",
+  }
   const isHome = pathname === '/'
+  const is404 = !hasRoute
+  const breadcrumb = ROUTE_BREADCRUMB[pathname]
+  const seoEntry = getSeoEntry(pathname)
+  const jsonLd = is404
+    ? undefined
+    : isHome
+      ? [getOrganizationJsonLd(), getWebApplicationJsonLd()]
+      : pathname === '/faq'
+        ? [getFaqJsonLd()]
+        : breadcrumb
+          ? seoEntry?.faq?.length
+            ? [getBreadcrumbJsonLd(pathname, breadcrumb), getFaqJsonLdFromItems(seoEntry.faq)]
+            : [getBreadcrumbJsonLd(pathname, breadcrumb)]
+          : undefined
   useEffect(() => {
     try {
       capturePageview(pathname) // feeds Web analytics dashboard (visitors, page views, sessions)
@@ -79,8 +75,9 @@ function AppSeo() {
     <Seo
       title={meta.title}
       description={meta.description}
-      canonicalPath={pathname}
-      jsonLd={isHome ? [getOrganizationJsonLd(), getWebApplicationJsonLd()] : undefined}
+      canonicalPath={is404 ? '/' : pathname}
+      jsonLd={jsonLd}
+      noindex={is404}
     />
   )
 }
@@ -244,6 +241,7 @@ function App() {
         <Navigation />
         <OfflineBanner />
         <main id="main" className="flex-grow" role="main">
+          <Breadcrumb />
           <SessionErrorBoundary>
             <Suspense fallback={<RouteFallback />}>
               <Routes>
@@ -263,33 +261,11 @@ function App() {
             <Route path="/fix-subtitles" element={<FixSubtitles />} />
             <Route path="/burn-subtitles" element={<BurnSubtitles />} />
             <Route path="/compress-video" element={<CompressVideo />} />
-            {/* SEO utility routes: same tools, alternate URLs. No backend or behavior change. */}
-            <Route path="/video-to-text" element={<VideoToTextPage />} />
-            <Route path="/mp4-to-text" element={<Mp4ToTextPage />} />
-            <Route path="/mp4-to-srt" element={<Mp4ToSrtPage />} />
-            <Route path="/subtitle-generator" element={<SubtitleGeneratorPage />} />
-            <Route path="/srt-translator" element={<SrtTranslatorPage />} />
-            <Route path="/meeting-transcript" element={<MeetingTranscriptPage />} />
-            <Route path="/speaker-diarization" element={<SpeakerDiarizationPage />} />
-            <Route path="/video-summary-generator" element={<VideoSummaryGeneratorPage />} />
-            <Route path="/video-chapters-generator" element={<VideoChaptersGeneratorPage />} />
-            <Route path="/keyword-indexed-transcript" element={<KeywordIndexedTranscriptPage />} />
-            <Route path="/srt-to-vtt" element={<SrtToVttPage />} />
-            <Route path="/subtitle-converter" element={<SubtitleConverterPage />} />
-            <Route path="/subtitle-timing-fixer" element={<SubtitleTimingFixerPage />} />
-            <Route path="/subtitle-validation" element={<SubtitleValidationPage />} />
-            <Route path="/subtitle-translator" element={<SubtitleTranslatorPage />} />
-            <Route path="/multilingual-subtitles" element={<MultilingualSubtitlesPage />} />
-            <Route path="/subtitle-language-checker" element={<SubtitleLanguageCheckerPage />} />
-            <Route path="/subtitle-grammar-fixer" element={<SubtitleGrammarFixerPage />} />
-            <Route path="/subtitle-line-break-fixer" element={<SubtitleLineBreakFixerPage />} />
-            <Route path="/hardcoded-captions" element={<HardcodedCaptionsPage />} />
-            <Route path="/video-with-subtitles" element={<VideoWithSubtitlesPage />} />
-            <Route path="/video-compressor" element={<VideoCompressorPage />} />
-            <Route path="/reduce-video-size" element={<ReduceVideoSizePage />} />
-            <Route path="/batch-video-processing" element={<BatchVideoProcessingPage />} />
-            <Route path="/bulk-subtitle-export" element={<BulkSubtitleExportPage />} />
-            <Route path="/bulk-transcript-export" element={<BulkTranscriptExportPage />} />
+            {/* SEO utility routes: registry-driven; same tools, alternate URLs. No backend or behavior change. */}
+            {getAllSeoPaths().map((path) => (
+              <Route key={path} path={path} element={<SeoToolPage />} />
+            ))}
+            <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
           </SessionErrorBoundary>

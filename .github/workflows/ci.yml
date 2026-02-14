@@ -1,0 +1,42 @@
+# Build and SEO smoke tests. Runs on push/PR to main.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install root deps
+        run: npm install
+
+      - name: Build (SITE_URL for smoke canonical assertion)
+        run: npm run build
+        env:
+          VITE_SITE_URL: http://localhost:4173
+
+      - name: Install serve and wait-on
+        run: npm install -D serve wait-on
+
+      - name: Serve built client (background, SPA mode for client-side routes)
+        run: npx serve dist -l 4173 -s &
+
+      - name: Wait for server
+        run: npx wait-on http://localhost:4173 -t 15000
+
+      - name: SEO smoke test (10 URLs)
+        run: npm run seo:smoke
+        env:
+          BASE_URL: http://localhost:4173
