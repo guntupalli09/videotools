@@ -4,6 +4,12 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  define: {
+    // Ensure build uses VITE_SITE_URL from env (e.g. CI smoke test). Fallback only when unset.
+    'import.meta.env.VITE_SITE_URL': JSON.stringify(
+      process.env.VITE_SITE_URL || 'https://www.videotext.io'
+    ),
+  },
   plugins: [
     react(),
     VitePWA({
