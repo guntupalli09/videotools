@@ -24,10 +24,9 @@ jobs:
 
       - name: Build (SITE_URL for smoke canonical assertion)
         run: |
-          export VITE_SITE_URL=http://localhost:4173
-          cd client && npm ci && npm run build && node -e "require('fs').cpSync('dist','../dist',{recursive:true})"
-        env:
-          VITE_SITE_URL: http://localhost:4173
+          cd client
+          echo 'VITE_SITE_URL=http://localhost:4173' > .env.production.local
+          npm ci && npm run build && node -e "require('fs').cpSync('dist','../dist',{recursive:true})"
 
       - name: Install serve and wait-on
         run: npm install -D serve wait-on
