@@ -1,3 +1,15 @@
 api.videotext.io {
-    reverse_proxy localhost:3001
+    # Respond to CORS preflight (OPTIONS) with allowed headers so browser gets Access-Control-* before hitting backend
+    @options method OPTIONS
+    handle @options {
+        header Access-Control-Allow-Origin {http.request.header.Origin}
+        header Access-Control-Allow-Credentials true
+        header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        header Access-Control-Allow-Headers "Content-Type, Authorization, X-User-Id, X-Plan, X-Upload-Id, X-Chunk-Index"
+        header Access-Control-Max-Age 86400
+        respond 204
+    }
+    handle {
+        reverse_proxy localhost:3001
+    }
 }
