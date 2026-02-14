@@ -1,9 +1,9 @@
 /**
  * Site base URL for canonical, OG, sitemap. Set VITE_SITE_URL in .env for production.
- * Must not end with slash.
+ * Must not end with slash. Use import.meta.env.VITE_SITE_URL so Vite replaces it at build time (e.g. CI smoke).
  */
 export const SITE_URL =
-  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SITE_URL) ||
+  (typeof import.meta.env?.VITE_SITE_URL === 'string' && import.meta.env.VITE_SITE_URL) ||
   (typeof window !== 'undefined' && window.location?.origin) ||
   'https://www.videotext.io'
 
