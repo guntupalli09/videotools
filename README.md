@@ -356,7 +356,7 @@ A weekly pipeline can suggest new or updated SEO pages and open a PR:
 - **Apply step:** `npm run seo:apply-proposals` patches the registry from `scripts/seo/output/seo-proposals.json`; then `npm run seo:sync`, `seo:validate-registry`, `seo:sitemap`, `seo:validate-sitemap` keep routes and sitemap in sync.
 - **CI:** `.github/workflows/seo-weekly.yml` runs weekly (and on demand); can open a PR with registry changes and updated sitemap. No API keys required for the pipeline to run (free sources only).
 
-**Setup and keys:** See `docs/SEO-SETUP.md` (quick checklist) and `docs/seo-api-keys.md` (optional SerpApi/Ahrefs/SEMrush). SEO keys go in **repo root `.env`** for local runs; for GitHub Actions, add secrets and pass them in the workflow. No GSC integration; use Google Search Console manually.
+**Setup and keys:** SEO keys (optional) go in **repo root `.env`** for local runs (e.g. `SERP_API_KEY` for SerpApi); set `serp_api.enabled: true` in `scripts/seo/seo.config.json` to use SerpApi. For GitHub Actions, add secrets and pass them in the workflow. No GSC integration; use Google Search Console manually.
 
 ### 9.4 Commands (SEO)
 
@@ -453,7 +453,7 @@ VideoText is ~2.3× faster than the next-fastest and ~7× faster than Trint on t
 │   │   ├── models/        # User, Job, UsageLog, …
 │   │   └── utils/         # auth (JWT, email-verification token), limits, metering, srtParser, redis, …
 │   └── package.json
-├── docs/                   # UX_UPLOAD_IMPROVEMENTS.md, PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md, BENCHMARKS.md, SEO-SETUP.md, seo-api-keys.md, …
+├── docs/                   # UX_UPLOAD_IMPROVEMENTS.md, PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md, BENCHMARKS.md, …
 ├── scripts/seo/            # Registry sync, sitemap, validate-registry, validate-sitemap, smoke, weekly pipeline (run-weekly, apply-proposals), …
 ├── deploy/
 │   └── Caddyfile           # Reverse proxy for API + CORS preflight (OPTIONS)
@@ -503,4 +503,4 @@ VideoText is ~2.3× faster than the next-fastest and ~7× faster than Trint on t
 
 ---
 
-All product behavior, trees, branches, and features are described in [§1 Features & tools](#1-features--tools-trees-and-branches). Auth (OTP, login, logout) is in [§5.1 Authentication](#51-authentication-otp-login-logout). **SEO** (registry, structure, automation, commands, production env) is in [§9 SEO & production URLs](#9-seo--production-urls); see also `docs/SEO-SETUP.md` and `docs/seo-api-keys.md`. Client performance and device/reliability details are in [§10 Client: performance, devices & reliability](#10-client-performance-devices--reliability). End-to-end performance vs competitors is in [§11 Performance benchmark](#11-performance-benchmark-end-to-end). Latest upload UX improvements (multi-stage progress, preview, cancel, retry, network-aware messaging) are in [§10 Upload & transcript/subtitles UX](#upload--transcriptsubtitles-ux) and `docs/UX_UPLOAD_IMPROVEMENTS.md`. Pipeline architecture and performance audit are in `docs/PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md`. For env details use the tables in [§3 Environment variables](#3-environment-variables) and the `.env` next to `docker-compose.yml` for Docker [§8](#8-deployment-hetzner--caddy--vercel).
+All product behavior, trees, branches, and features are described in [§1 Features & tools](#1-features--tools-trees-and-branches). Auth (OTP, login, logout) is in [§5.1 Authentication](#51-authentication-otp-login-logout). **SEO** (registry, structure, automation, commands, production env) is in [§9 SEO & production URLs](#9-seo--production-urls). Client performance and device/reliability details are in [§10 Client: performance, devices & reliability](#10-client-performance-devices--reliability). End-to-end performance vs competitors is in [§11 Performance benchmark](#11-performance-benchmark-end-to-end). Latest upload UX improvements (multi-stage progress, preview, cancel, retry, network-aware messaging) are in [§10 Upload & transcript/subtitles UX](#upload--transcriptsubtitles-ux) and `docs/UX_UPLOAD_IMPROVEMENTS.md`. Pipeline architecture and performance audit are in `docs/PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md`. For env details use the tables in [§3 Environment variables](#3-environment-variables) and the `.env` next to `docker-compose.yml` for Docker [§8](#8-deployment-hetzner--caddy--vercel).

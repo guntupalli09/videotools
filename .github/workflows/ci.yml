@@ -23,7 +23,8 @@ jobs:
         run: npm install
 
       - name: Build (SITE_URL for smoke canonical assertion)
-        run: npm run build
+        run: |
+          cd client && npm ci && VITE_SITE_URL=http://localhost:4173 npm run build && node -e "require('fs').cpSync('dist','../dist',{recursive:true})"
         env:
           VITE_SITE_URL: http://localhost:4173
 
