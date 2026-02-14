@@ -173,6 +173,7 @@ In `server/.env` (or Docker env). Use `server/.env.example` as template.
 | **Stripe** | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_BASIC`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_AGENCY`, `STRIPE_PRICE_OVERAGE`; optional `STRIPE_PRICE_*_ANNUAL`. For promo codes: `STRIPE_PROMO_EARLY30`, `STRIPE_PROMO_EARLY50`, `STRIPE_PROMO_EARLY70`, `STRIPE_PROMO_EARLY100` (Stripe promotion code IDs). See [§5 Promo codes](#promo-codes-early-testers) to create them. |
 | **Redirects** | `BASE_URL` (frontend URL for Stripe success/cancel) |
 | **Redis** | `REDIS_URL` (e.g. `redis://redis:6379` or Upstash `rediss://...`) |
+| **Database** | `DATABASE_URL` (PostgreSQL connection string, e.g. `postgresql://videotools:videotools@postgres:5432/videotext` for Docker). Required for user/auth storage. Run `npx prisma migrate deploy` once after Postgres is up to create tables. |
 | **Processing** | `TEMP_FILE_PATH` (default `/tmp`), `DISABLE_WORKER` (set on API-only container if worker runs elsewhere) |
 | **Transcription / translation** | `OPENAI_API_KEY` |
 | **Auth** | `JWT_SECRET` (required for login and OTP JWT). For paid signup OTP: `RESEND_API_KEY` (sends verification code via [Resend](https://resend.com); if unset, code is logged to API console). `RESEND_FROM_EMAIL` (e.g. `VideoText <noreply@yourdomain.com>`) must use a **verified domain** in Resend. For **Docker**, put these in the `.env` file in the **same directory as `docker-compose.yml`** (e.g. project root or `/opt/videotools/.env`), not only in `server/.env`; the api/worker containers use `env_file: .env` from the compose file location. |
@@ -284,8 +285,8 @@ Changing Redis invalidates existing job IDs (queue state is not migrated).
 ### Backend on Hetzner (single VM)
 
 1. **Docker:** Install Docker and Compose on Ubuntu 22.04 (see Docker docs).
-2. **Project & env:** Copy repo. Create a **`.env` file in the same directory as `docker-compose.yml`** (e.g. project root or `/opt/videotools/`) with Redis, Stripe, `OPENAI_API_KEY`, `JWT_SECRET`, `BASE_URL`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, etc. The api and worker containers use `env_file: .env` from that directory; `server/.env` is **not** read by Docker.
-3. **Start:** From that directory: `docker compose up --build -d`. API on port 3001; Redis and worker run in the same stack.
+2. **Project & env:** Copy repo. Create a **`.env` file in the same directory as `docker-compose.yml`** (e.g. project root or `/opt/videotools/`) with Redis, Stripe, `DATABASE_URL` (e.g. `postgresql://videotools:videotools@postgres:5432/videotext`), `OPENAI_API_KEY`, `JWT_SECRET`, `BASE_URL`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, etc. The api and worker containers use `env_file: .env` from that directory; `server/.env` is **not** read by Docker.
+3. **Start:** From that directory: `docker compose up --build -d`. API on port 3001; Redis, Postgres, and worker run in the same stack. **First run:** apply the DB schema with `docker compose exec api npx prisma migrate deploy` (or from the server directory with `DATABASE_URL` set: `npx prisma migrate deploy`).
 4. **Restart:** `docker compose up -d --build api worker`. To view OTP and auth logs: `docker logs -f videotools-api` (not the worker).
 
 ### Caddy (HTTPS for API)

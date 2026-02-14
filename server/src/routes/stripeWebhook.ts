@@ -14,11 +14,11 @@ import { hasProcessedStripeEvent, markStripeEventProcessed } from '../models/Str
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
 
-function ensureUserForStripeCustomer(
+async function ensureUserForStripeCustomer(
   stripeCustomerId: string,
   emailHint?: string | null
-): User {
-  const existing = getUserByStripeCustomerId(stripeCustomerId)
+): Promise<User> {
+  const existing = await getUserByStripeCustomerId(stripeCustomerId)
   if (existing) {
     return existing
   }
@@ -46,7 +46,6 @@ function ensureUserForStripeCustomer(
       batchCount: 0,
       languageCount: 0,
       translatedMinutes: 0,
-      // For paid users this will be overwritten by invoice.payment_succeeded
       resetDate: now,
     },
     limits,
@@ -60,7 +59,7 @@ function ensureUserForStripeCustomer(
     updatedAt: now,
   }
 
-  saveUser(user)
+  await saveUser(user)
   return user
 }
 
@@ -77,7 +76,7 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event): Promise<void
   const purchaseType = session.metadata?.purchaseType
   const planFromMetadata = session.metadata?.plan as PlanType | undefined
 
-  let user = ensureUserForStripeCustomer(stripeCustomerId, email)
+  let user = await ensureUserForStripeCustomer(stripeCustomerId, email)
   const now = new Date()
 
   // Link subscription if present
@@ -108,7 +107,7 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event): Promise<void
   }
 
   user.updatedAt = now
-  saveUser(user)
+  await saveUser(user)
 }
 
 async function handleInvoicePaymentSucceeded(event: Stripe.Event): Promise<void> {
@@ -119,7 +118,7 @@ async function handleInvoicePaymentSucceeded(event: Stripe.Event): Promise<void>
     return
   }
 
-  let user = ensureUserForStripeCustomer(
+  let user = await ensureUserForStripeCustomer(
     stripeCustomerId,
     invoice.customer_email || undefined
   )
@@ -190,7 +189,7 @@ async function handleCustomerSubscriptionDeleted(event: Stripe.Event): Promise<v
     return
   }
 
-  const user = getUserByStripeCustomerId(stripeCustomerId)
+  const user = await getUserByStripeCustomerId(stripeCustomerId)
   if (!user) {
     return
   }
@@ -208,7 +207,7 @@ async function handleCustomerSubscriptionDeleted(event: Stripe.Event): Promise<v
   user.billingPeriodEnd = endDate
   user.usageThisMonth.resetDate = endDate
   user.updatedAt = new Date()
-  saveUser(user)
+  await saveUser(user)
 }
 
 export async function stripeWebhookHandler(req: Request, res: Response) {

@@ -1,0 +1,31 @@
+// VideoText production user store. Run: npx prisma generate, npx prisma migrate deploy
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Connection URL is set in prisma.config.ts (Prisma 7+)
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                       String   @id
+  email                    String
+  passwordHash             String   @default("")
+  plan                     String   // free | basic | pro | agency
+  stripeCustomerId         String?  @unique
+  subscriptionId           String?
+  paymentMethodId          String?
+  billingPeriodStart       DateTime?
+  billingPeriodEnd         DateTime?
+  passwordSetupToken       String?
+  passwordSetupExpiresAt   DateTime?
+  passwordSetupUsed        Boolean  @default(false)
+  passwordResetToken       String?
+  passwordResetExpiresAt   DateTime?
+  usageThisMonth           Json     // { totalMinutes, videoCount, ... resetDate (ISO string) }
+  limits                   Json     // PlanLimits
+  overagesThisMonth        Json     // { minutes, languages, batches, totalCharge }
+  createdAt                DateTime
+  updatedAt                DateTime
+}

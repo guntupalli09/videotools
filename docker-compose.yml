@@ -2,26 +2,40 @@ services:
   redis:
     image: redis:7-alpine
     container_name: videotools-redis
-    # No host port: API and worker use redis:6379 on the Docker network. Add "ports: - 6379:6379" only if you need redis-cli from the host.
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: videotools-postgres
+    environment:
+      POSTGRES_USER: videotools
+      POSTGRES_PASSWORD: videotools
+      POSTGRES_DB: videotext
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U videotools -d videotext"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   api:
     build: .
     image: videotools-api
     container_name: videotools-api
-    # Env from .env in same dir as this file (not server/.env). Add: Stripe keys, RESEND_API_KEY, RESEND_FROM_EMAIL, JWT_SECRET, etc.
     env_file: .env
     environment:
-      # Self-hosted Redis in this stack. To use Upstash instead, set REDIS_URL in .env and remove this line (and the one in worker).
       REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://videotools:videotools@postgres:5432/videotext
       TEMP_FILE_PATH: /tmp
       DISABLE_WORKER: "true"
       FFMPEG_PATH: /usr/bin/ffmpeg
       FFPROBE_PATH: /usr/bin/ffprobe
     depends_on:
-      - redis
+      redis: { condition: service_started }
+      postgres: { condition: service_healthy }
     volumes:
       - tmp-files:/tmp
     ports:
@@ -46,4 +60,5 @@ services:
 
 volumes:
   redis-data:
+  postgres-data:
   tmp-files:

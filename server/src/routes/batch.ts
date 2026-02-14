@@ -40,11 +40,11 @@ const upload = multer({
   },
 })
 
-function getOrCreateDemoUser(req: Request): User {
+async function getOrCreateDemoUser(req: Request): Promise<User> {
   const auth = getAuthFromRequest(req)
   const headerUserId = (req.headers['x-user-id'] as string) || 'demo-user'
   const userId = auth?.userId || headerUserId
-  let user = getUser(userId)
+  let user = await getUser(userId)
   // Paid plans: from auth, or from existing Stripe-backed user; unauthenticated without Stripe = free (abuse-proof)
   const derivedPlan: PlanType =
     auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency')
@@ -86,14 +86,14 @@ function getOrCreateDemoUser(req: Request): User {
       updatedAt: now,
     }
 
-    saveUser(user)
+    await saveUser(user)
   } else {
     // Keep user plan/limits in sync (free, basic, pro, agency) so minute tracking is correct
     if (user.plan !== derivedPlan) {
       user.plan = derivedPlan
       user.limits = getPlanLimits(derivedPlan)
       user.updatedAt = new Date()
-      saveUser(user)
+      await saveUser(user)
     }
   }
 
@@ -105,7 +105,7 @@ router.post(
   '/upload',
   upload.array('files'),
   async (req: Request, res: Response) => {
-    const user = getOrCreateDemoUser(req)
+    const user = await getOrCreateDemoUser(req)
 
     try {
       const files = req.files as Express.Multer.File[]
@@ -208,7 +208,7 @@ router.post(
       // Track batch usage count; minute charging happens per video jobs
       user.usageThisMonth.batchCount += 1
       user.updatedAt = new Date()
-      saveUser(user)
+      await saveUser(user)
 
       // Queue individual video jobs for batch processing
       const additionalLangs = Array.isArray(additionalLanguages) 

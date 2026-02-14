@@ -1,3 +1,6 @@
+import { prisma } from '../db'
+import type { Prisma, User as DbUser } from '@prisma/client'
+
 export type PlanType = 'free' | 'basic' | 'pro' | 'agency'
 
 export interface UsageThisMonth {
@@ -6,8 +9,6 @@ export interface UsageThisMonth {
   batchCount: number
   languageCount: number
   translatedMinutes: number
-  // For free/demo users this is the calendar-based reset date.
-  // For paid users this should align with Stripe's billing period_end.
   resetDate: Date
 }
 
@@ -25,8 +26,6 @@ export interface PlanLimits {
 
 export interface OveragesThisMonth {
   minutes: number
-  // For Phase 2 we only actively use minutes and totalCharge,
-  // but we keep these extra counters for compatibility with Phase 1.5 logic.
   languages: number
   batches: number
   totalCharge: number
@@ -36,90 +35,120 @@ export interface User {
   id: string
   email: string
   passwordHash: string
-
-  // Plan details
   plan: PlanType
-  // Stripe Customer ID is the PRIMARY identity for paid users
   stripeCustomerId?: string
   subscriptionId?: string
-  // Kept for Phase 1.5 compatibility; not actively used in Phase 2
   paymentMethodId?: string
-
-  // Billing period (Stripe-driven for paid users)
   billingPeriodStart?: Date
   billingPeriodEnd?: Date
-
-  // Password setup token for paid users (Phase 2)
   passwordSetupToken?: string
   passwordSetupExpiresAt?: Date
   passwordSetupUsed?: boolean
-
-  // Password reset token (forgot password)
   passwordResetToken?: string
   passwordResetExpiresAt?: Date
-
-  // Usage tracking
   usageThisMonth: UsageThisMonth
-
-  // Plan limits (cached from pricing tier)
   limits: PlanLimits
-
-  // Overage tracking
   overagesThisMonth: OveragesThisMonth
-
   createdAt: Date
   updatedAt: Date
 }
 
-// NOTE:
-// For Phase 1.5 we keep a very lightweight in-memory user store.
-// In a real production environment this should be backed by a database.
-
-const users = new Map<string, User>()
-
-export function getUser(userId: string): User | undefined {
-  return users.get(userId)
-}
-
-export function saveUser(user: User): void {
-  users.set(user.id, user)
-}
-
-export function getUserByStripeCustomerId(stripeCustomerId: string): User | undefined {
-  for (const user of users.values()) {
-    if (user.stripeCustomerId === stripeCustomerId) {
-      return user
-    }
+function rowToUser(row: DbUser): User {
+  const usage = row.usageThisMonth as Record<string, unknown>
+  const limits = row.limits as unknown as PlanLimits
+  const overages = row.overagesThisMonth as unknown as OveragesThisMonth
+  return {
+    id: row.id,
+    email: row.email,
+    passwordHash: row.passwordHash,
+    plan: row.plan as PlanType,
+    stripeCustomerId: row.stripeCustomerId ?? undefined,
+    subscriptionId: row.subscriptionId ?? undefined,
+    paymentMethodId: row.paymentMethodId ?? undefined,
+    billingPeriodStart: row.billingPeriodStart ?? undefined,
+    billingPeriodEnd: row.billingPeriodEnd ?? undefined,
+    passwordSetupToken: row.passwordSetupToken ?? undefined,
+    passwordSetupExpiresAt: row.passwordSetupExpiresAt ?? undefined,
+    passwordSetupUsed: row.passwordSetupUsed ?? false,
+    passwordResetToken: row.passwordResetToken ?? undefined,
+    passwordResetExpiresAt: row.passwordResetExpiresAt ?? undefined,
+    usageThisMonth: {
+      totalMinutes: Number(usage?.totalMinutes ?? 0),
+      videoCount: Number(usage?.videoCount ?? 0),
+      batchCount: Number(usage?.batchCount ?? 0),
+      languageCount: Number(usage?.languageCount ?? 0),
+      translatedMinutes: Number(usage?.translatedMinutes ?? 0),
+      resetDate: usage?.resetDate ? new Date(usage.resetDate as string) : new Date(),
+    },
+    limits: limits as PlanLimits,
+    overagesThisMonth: (overages ?? { minutes: 0, languages: 0, batches: 0, totalCharge: 0 }) as OveragesThisMonth,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   }
-  return undefined
 }
 
-export function getUserByEmail(email: string): User | undefined {
+function userToDb(user: User) {
+  return {
+    id: user.id,
+    email: user.email,
+    passwordHash: user.passwordHash,
+    plan: user.plan,
+    stripeCustomerId: user.stripeCustomerId ?? null,
+    subscriptionId: user.subscriptionId ?? null,
+    paymentMethodId: user.paymentMethodId ?? null,
+    billingPeriodStart: user.billingPeriodStart ?? null,
+    billingPeriodEnd: user.billingPeriodEnd ?? null,
+    passwordSetupToken: user.passwordSetupToken ?? null,
+    passwordSetupExpiresAt: user.passwordSetupExpiresAt ?? null,
+    passwordSetupUsed: user.passwordSetupUsed ?? false,
+    passwordResetToken: user.passwordResetToken ?? null,
+    passwordResetExpiresAt: user.passwordResetExpiresAt ?? null,
+    usageThisMonth: {
+      ...user.usageThisMonth,
+      resetDate: user.usageThisMonth.resetDate instanceof Date
+        ? user.usageThisMonth.resetDate.toISOString()
+        : user.usageThisMonth.resetDate,
+    },
+    limits: user.limits as unknown as Record<string, unknown>,
+    overagesThisMonth: user.overagesThisMonth as unknown as Record<string, unknown>,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  }
+}
+
+export async function getUser(userId: string): Promise<User | undefined> {
+  const row = await prisma.user.findUnique({ where: { id: userId } })
+  return row ? rowToUser(row) : undefined
+}
+
+export async function saveUser(user: User): Promise<void> {
+  const data = userToDb(user) as Prisma.UserCreateInput
+  await prisma.user.upsert({
+    where: { id: user.id },
+    create: data,
+    update: data as Prisma.UserUpdateInput,
+  })
+}
+
+export async function getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined> {
+  const row = await prisma.user.findUnique({ where: { stripeCustomerId } })
+  return row ? rowToUser(row) : undefined
+}
+
+export async function getUserByEmail(email: string): Promise<User | undefined> {
   const normalized = email.toLowerCase()
-  for (const user of users.values()) {
-    if (user.email.toLowerCase() === normalized) {
-      return user
-    }
-  }
-  return undefined
+  const row = await prisma.user.findFirst({
+    where: { email: { equals: normalized, mode: 'insensitive' } },
+  })
+  return row ? rowToUser(row) : undefined
 }
 
-export function getUserByPasswordToken(token: string): User | undefined {
-  for (const user of users.values()) {
-    if (user.passwordSetupToken === token) {
-      return user
-    }
-  }
-  return undefined
+export async function getUserByPasswordToken(token: string): Promise<User | undefined> {
+  const row = await prisma.user.findFirst({ where: { passwordSetupToken: token } })
+  return row ? rowToUser(row) : undefined
 }
 
-export function getUserByPasswordResetToken(token: string): User | undefined {
-  for (const user of users.values()) {
-    if (user.passwordResetToken === token) {
-      return user
-    }
-  }
-  return undefined
+export async function getUserByPasswordResetToken(token: string): Promise<User | undefined> {
+  const row = await prisma.user.findFirst({ where: { passwordResetToken: token } })
+  return row ? rowToUser(row) : undefined
 }
-
-

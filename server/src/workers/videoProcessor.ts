@@ -119,16 +119,15 @@ interface JobData {
   webhookUrl?: string
 }
 
-function getOrCreateUserForJob(userId: string, plan: PlanType) {
-  const existing = getUser(userId)
+async function getOrCreateUserForJob(userId: string, plan: PlanType) {
+  const existing = await getUser(userId)
   if (existing) {
     const now = new Date()
-    // Keep plan/limits in sync with job (free, basic, pro, agency) so minute balance is correct
     if (existing.plan !== plan) {
       existing.plan = plan
       existing.limits = getPlanLimits(plan)
       existing.updatedAt = now
-      saveUser(existing)
+      await saveUser(existing)
     }
     if (now > existing.usageThisMonth.resetDate) {
       const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
@@ -142,7 +141,7 @@ function getOrCreateUserForJob(userId: string, plan: PlanType) {
       }
       existing.overagesThisMonth = { minutes: 0, languages: 0, batches: 0, totalCharge: 0 }
       existing.updatedAt = now
-      saveUser(existing)
+      await saveUser(existing)
     }
     return existing
   }
@@ -171,7 +170,7 @@ function getOrCreateUserForJob(userId: string, plan: PlanType) {
     createdAt: now,
     updatedAt: now,
   }
-  saveUser(user)
+  await saveUser(user)
   return user
 }
 
@@ -446,11 +445,11 @@ async function processJob(job: import('bull').Job<JobData>) {
           }
 
           const minutes = secondsToMinutes(processedSeconds)
-          const user = getOrCreateUserForJob(userId, plan)
+          const user = await getOrCreateUserForJob(userId, plan)
           user.usageThisMonth.totalMinutes += minutes
           user.usageThisMonth.videoCount += 1
           user.updatedAt = new Date()
-          saveUser(user)
+          await saveUser(user)
 
           if (data.webhookUrl) {
             fireWebhook(data.webhookUrl, { jobId: String(jobId), status: 'completed', result }).catch(() => {})
@@ -577,13 +576,13 @@ async function processJob(job: import('bull').Job<JobData>) {
                 : durationCheck.duration || 0
             const baseMinutes = secondsToMinutes(processedSeconds)
             const translatedMinutes = calculateTranslationMinutes(processedSeconds, additionalLangs.length)
-            const user = getOrCreateUserForJob(userId, plan)
+            const user = await getOrCreateUserForJob(userId, plan)
             user.usageThisMonth.totalMinutes += baseMinutes + translatedMinutes
             user.usageThisMonth.translatedMinutes += translatedMinutes
             user.usageThisMonth.languageCount += additionalLangs.length
             user.usageThisMonth.videoCount += 1
             user.updatedAt = new Date()
-            saveUser(user)
+            await saveUser(user)
           } else {
             // Single language
             await job.progress(30)
@@ -633,11 +632,11 @@ async function processJob(job: import('bull').Job<JobData>) {
 
             // Metering (minutes)
             const minutes = secondsToMinutes(processedSecondsSub)
-            const user = getOrCreateUserForJob(userId, plan)
+            const user = await getOrCreateUserForJob(userId, plan)
             user.usageThisMonth.totalMinutes += minutes
             user.usageThisMonth.videoCount += 1
             user.updatedAt = new Date()
-            saveUser(user)
+            await saveUser(user)
           }
           break
         }
@@ -692,11 +691,11 @@ async function processJob(job: import('bull').Job<JobData>) {
             const plan = (data.plan || 'free') as PlanType
             const processedSeconds = trimmedDuration > 0 ? trimmedDuration : await getVideoDuration(videoPath)
             const minutes = secondsToMinutes(processedSeconds)
-            const user = getOrCreateUserForJob(userId, plan)
+            const user = await getOrCreateUserForJob(userId, plan)
             user.usageThisMonth.totalMinutes += minutes
             user.usageThisMonth.videoCount += 1
             user.updatedAt = new Date()
-            saveUser(user)
+            await saveUser(user)
 
             // Check if batch is complete
             if (batch.processedVideos + batch.failedVideos >= batch.totalVideos) {
@@ -862,11 +861,11 @@ async function processJob(job: import('bull').Job<JobData>) {
               ? Math.max(0, data.trimmedEnd - data.trimmedStart)
               : durationCheck.duration || 0
           const minutes = secondsToMinutes(processedSeconds)
-          const user = getOrCreateUserForJob(userId, plan)
+          const user = await getOrCreateUserForJob(userId, plan)
           user.usageThisMonth.totalMinutes += minutes
           user.usageThisMonth.videoCount += 1
           user.updatedAt = new Date()
-          saveUser(user)
+          await saveUser(user)
           break
         }
 
@@ -923,11 +922,11 @@ async function processJob(job: import('bull').Job<JobData>) {
               ? Math.max(0, data.trimmedEnd - data.trimmedStart)
               : durationCheck.duration || 0
           const minutes = secondsToMinutes(processedSeconds)
-          const user = getOrCreateUserForJob(userId, plan)
+          const user = await getOrCreateUserForJob(userId, plan)
           user.usageThisMonth.totalMinutes += minutes
           user.usageThisMonth.videoCount += 1
           user.updatedAt = new Date()
-          saveUser(user)
+          await saveUser(user)
           break
         }
 

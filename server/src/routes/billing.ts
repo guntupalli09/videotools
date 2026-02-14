@@ -151,7 +151,7 @@ router.post('/portal', async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Not signed in. Complete a purchase or sign in to manage your subscription.' })
     }
 
-    const user = getUser(userId)
+    const user = await getUser(userId)
     if (!user) {
       return res.status(404).json({ message: 'No account found. Complete a purchase first, then you can manage your subscription here.' })
     }
@@ -196,7 +196,7 @@ router.get('/session-details', async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'No customer on session' })
     }
 
-    let user = getUserByStripeCustomerId(customerId)
+    let user = await getUserByStripeCustomerId(customerId)
     if (!user) {
       // Webhook may not have run yet (or server restarted with in-memory store). Create user from session so redirect works.
       const email = session.customer_details?.email || `${customerId}@checkout.example.com`
@@ -230,7 +230,7 @@ router.get('/session-details', async (req: Request, res: Response) => {
         createdAt: now,
         updatedAt: now,
       }
-      saveUser(user)
+      await saveUser(user)
     }
 
     // If user has no password yet, issue or reuse a one-time setup token so the client can show "Set password" after checkout.
@@ -243,7 +243,7 @@ router.get('/session-details', async (req: Request, res: Response) => {
         user.passwordSetupToken = token
         user.passwordSetupExpiresAt = expiresAt
         user.updatedAt = new Date()
-        saveUser(user)
+        await saveUser(user)
       }
       if (user.passwordSetupToken && user.passwordSetupExpiresAt) {
         passwordSetupToken = user.passwordSetupToken

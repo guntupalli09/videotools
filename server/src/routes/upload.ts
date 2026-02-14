@@ -68,7 +68,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     const headerUserId = (req.headers['x-user-id'] as string) || 'demo-user'
 
     const userId = auth?.userId || headerUserId
-    let user = getUser(userId)
+    let user = await getUser(userId)
     // Paid plans: from auth, or from existing Stripe-backed user; unauthenticated without Stripe = free (abuse-proof)
     const plan: PlanType =
       auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency')
@@ -117,7 +117,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
         createdAt: now,
         updatedAt: now,
       }
-      saveUser(user)
+      await saveUser(user)
     } else {
       // Keep user plan/limits in sync (free, basic, pro, agency) so minute tracking is correct
       if (user.plan !== plan) {
@@ -139,7 +139,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
         }
         user.overagesThisMonth = { minutes: 0, languages: 0, batches: 0, totalCharge: 0 }
         user.updatedAt = now
-        saveUser(user)
+        await saveUser(user)
       }
     }
 
@@ -406,7 +406,7 @@ router.post('/dual', upload.fields([
     const auth = getAuthFromRequest(req)
     const headerUserId = (req.headers['x-user-id'] as string) || 'demo-user'
     const userId = auth?.userId || headerUserId
-    let burnUser = getUser(userId)
+    let burnUser = await getUser(userId)
     // Paid plans: from auth, or from existing Stripe-backed user; unauthenticated without Stripe = free (abuse-proof)
     const plan: PlanType =
       auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency')
@@ -459,12 +459,12 @@ router.post('/dual', upload.fields([
         createdAt: now,
         updatedAt: now,
       }
-      saveUser(burnUser)
+      await saveUser(burnUser)
     } else if (burnUser.plan !== plan) {
       burnUser.plan = plan
       burnUser.limits = getPlanLimits(plan)
       burnUser.updatedAt = new Date()
-      saveUser(burnUser)
+      await saveUser(burnUser)
     }
 
     // Enforce max concurrent jobs
@@ -577,7 +577,7 @@ router.post('/init', async (req: Request, res: Response) => {
     const auth = getAuthFromRequest(req)
     const headerUserId = (req.headers['x-user-id'] as string) || 'demo-user'
     const userId = auth?.userId || headerUserId
-    const user = getUser(userId)
+    const user = await getUser(userId)
     // Paid plans: from auth, or from existing Stripe-backed user; unauthenticated without Stripe = free (abuse-proof)
     const plan: PlanType =
       auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency')
@@ -702,7 +702,7 @@ router.post('/complete', async (req: Request, res: Response) => {
       out.removeListener('error', onError)
       try {
         try { fs.rmdirSync(dir) } catch { /* ignore if not empty or missing */ }
-        let user = getUser(meta.userId)
+        let user = await getUser(meta.userId)
           if (!user) {
             const limits = getPlanLimits(meta.plan)
             const now = new Date()
@@ -728,7 +728,7 @@ router.post('/complete', async (req: Request, res: Response) => {
               createdAt: now,
               updatedAt: now,
             }
-            saveUser(user)
+            await saveUser(user)
           }
           const fileSize = fs.statSync(outPath).size
           if (user.limits.maxFileSize && fileSize > user.limits.maxFileSize) {

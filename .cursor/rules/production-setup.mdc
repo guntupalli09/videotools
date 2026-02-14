@@ -1,0 +1,15 @@
+---
+description: This project is a production setup; assume production constraints
+alwaysApply: true
+---
+
+# Production Setup
+
+This project (VideoText) is a **production** deployment, not a dev or demo environment.
+
+When making changes or giving advice:
+
+- **Persistence**: Assume users, auth, and usage must survive restarts and scale (e.g. database or durable store).
+- **Security**: No hardcoded secrets, proper env for keys, safe handling of tokens and passwords.
+- **Operations**: Config, logging, and errors should be suitable for production (no dev shortcuts).
+- **Recommendations**: Prefer production-ready solutions (e.g. recommend a database for login/user data when relevant).

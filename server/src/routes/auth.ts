@@ -150,7 +150,7 @@ router.post('/setup-password', async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Password must be at least 8 characters' })
     }
 
-    const user = getUserByPasswordToken(token)
+    const user = await getUserByPasswordToken(token)
     if (!user || !user.passwordSetupToken) {
       return res.status(400).json({ message: 'Invalid or already used token' })
     }
@@ -193,7 +193,7 @@ router.post('/login', async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'email and password are required' })
     }
 
-    const user = getUserByEmail(email)
+    const user = await getUserByEmail(email)
     if (!user || !user.passwordHash) {
       return res.status(401).json({ message: 'Invalid email or password' })
     }
@@ -225,7 +225,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'A valid email address is required.' })
     }
 
-    const user = getUserByEmail(normalized)
+    const user = await getUserByEmail(normalized)
     const baseUrl = process.env.BASE_URL || process.env.VITE_SITE_URL || 'https://www.videotext.io'
     const baseOrigin = baseUrl.replace(/\/$/, '')
 
@@ -234,7 +234,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
       user.passwordResetToken = token
       user.passwordResetExpiresAt = expiresAt
       user.updatedAt = new Date()
-      saveUser(user)
+      await saveUser(user)
       const resetLink = `${baseOrigin}/reset-password?token=${encodeURIComponent(token)}`
       await sendPasswordResetEmail(normalized, resetLink)
     }
@@ -257,7 +257,7 @@ router.post('/reset-password', async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Password must be at least 8 characters.' })
     }
 
-    const user = getUserByPasswordResetToken(token)
+    const user = await getUserByPasswordResetToken(token)
     if (!user || !user.passwordResetToken) {
       return res.status(400).json({ message: 'Invalid or expired reset link. Request a new one.' })
     }
@@ -265,7 +265,7 @@ router.post('/reset-password', async (req: Request, res: Response) => {
       user.passwordResetToken = undefined
       user.passwordResetExpiresAt = undefined
       user.updatedAt = new Date()
-      saveUser(user)
+      await saveUser(user)
       return res.status(400).json({ message: 'Reset link has expired. Request a new one.' })
     }
 
@@ -274,7 +274,7 @@ router.post('/reset-password', async (req: Request, res: Response) => {
     user.passwordResetToken = undefined
     user.passwordResetExpiresAt = undefined
     user.updatedAt = new Date()
-    saveUser(user)
+    await saveUser(user)
 
     res.json({ ok: true, message: 'Password updated. You can now log in.' })
   } catch (error: any) {

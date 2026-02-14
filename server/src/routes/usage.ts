@@ -12,7 +12,7 @@ async function getOrCreateDemoUser(req: Request): Promise<User> {
   const auth = getAuthFromRequest(req)
   const headerUserId = (req.headers['x-user-id'] as string) || 'demo-user'
   const userId = auth?.userId || headerUserId
-  let user = getUser(userId)
+  let user = await getUser(userId)
 
   const now = new Date()
 
@@ -41,7 +41,7 @@ async function getOrCreateDemoUser(req: Request): Promise<User> {
         createdAt: now,
         updatedAt: now,
       }
-      saveUser(user)
+      await saveUser(user)
     }
   }
 
@@ -80,14 +80,14 @@ async function getOrCreateDemoUser(req: Request): Promise<User> {
       updatedAt: now,
     }
 
-    saveUser(user)
+    await saveUser(user)
   } else {
     // Keep user plan/limits in sync with request (free, basic, pro, agency) so minute balance is correct
     if (user.plan !== derivedPlan) {
       user.plan = derivedPlan
       user.limits = getPlanLimits(derivedPlan)
       user.updatedAt = now
-      saveUser(user)
+      await saveUser(user)
     }
   }
 
@@ -108,7 +108,7 @@ async function getOrCreateDemoUser(req: Request): Promise<User> {
       }
       user.overagesThisMonth = { minutes: 0, languages: 0, batches: 0, totalCharge: 0 }
       user.updatedAt = now
-      saveUser(user)
+      await saveUser(user)
     } else if (now > user.usageThisMonth.resetDate) {
       // Fallback monthly reset for free/demo users
       const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
@@ -122,7 +122,7 @@ async function getOrCreateDemoUser(req: Request): Promise<User> {
       }
       user.overagesThisMonth = { minutes: 0, languages: 0, batches: 0, totalCharge: 0 }
       user.updatedAt = now
-      saveUser(user)
+      await saveUser(user)
     }
   }
 
