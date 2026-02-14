@@ -20,6 +20,9 @@ async function getOrCreateDemoUser(req: Request): Promise<User> {
   if (!user && typeof headerUserId === 'string' && headerUserId.startsWith('cus_')) {
     const stripeData = await getPlanAndEmailForStripeCustomer(headerUserId)
     if (stripeData) {
+      const resetDate = stripeData.currentPeriodEnd
+        ? new Date(stripeData.currentPeriodEnd * 1000)
+        : now
       user = {
         id: headerUserId,
         email: stripeData.email,
@@ -34,7 +37,7 @@ async function getOrCreateDemoUser(req: Request): Promise<User> {
           batchCount: 0,
           languageCount: 0,
           translatedMinutes: 0,
-          resetDate: now,
+          resetDate,
         },
         limits: getPlanLimits(stripeData.plan),
         overagesThisMonth: { minutes: 0, languages: 0, batches: 0, totalCharge: 0 },
@@ -92,6 +95,21 @@ async function getOrCreateDemoUser(req: Request): Promise<User> {
   }
 
   if (user) {
+    // Sync billing period from Stripe for paid users with subscription (fixes wrong reset date e.g. 28/2 instead of 14/3)
+    if (user.subscriptionId) {
+      const period = await getSubscriptionPeriodEnd(user.subscriptionId)
+      if (period && period.currentPeriodEnd > now) {
+        const resetTime = period.currentPeriodEnd.getTime()
+        const currentResetTime = user.usageThisMonth.resetDate.getTime()
+        if (!user.billingPeriodEnd || Math.abs(currentResetTime - resetTime) > 60_000) {
+          user.billingPeriodEnd = period.currentPeriodEnd
+          user.billingPeriodStart = period.currentPeriodStart
+          user.usageThisMonth = { ...user.usageThisMonth, resetDate: period.currentPeriodEnd }
+          user.updatedAt = now
+          await saveUser(user)
+        }
+      }
+    }
     // Stripe-driven reset: if a paid user with billingPeriodEnd and no active subscription
     // has passed their period end, downgrade them to Free.
     if (user.billingPeriodEnd && user.billingPeriodEnd < now && !user.subscriptionId) {

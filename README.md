@@ -145,7 +145,7 @@ cd server && npm install && npm run dev
 
 Start Redis so the job queue works:
 
-- **Docker:** from project root run `docker compose up -d` (Redis + optional API/worker).
+- **Docker:** from project root run `docker compose up -d` (Redis, Postgres, API, worker). The API runs Prisma migrations on startup.
 - **Local:** e.g. `brew install redis && brew services start redis` (macOS), or install Redis on Windows/Linux and ensure it listens on `localhost:6379`.
 
 See [§7 Redis](#7-redis) for URL and migration options.
@@ -173,7 +173,7 @@ In `server/.env` (or Docker env). Use `server/.env.example` as template.
 | **Stripe** | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_BASIC`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_AGENCY`, `STRIPE_PRICE_OVERAGE`; optional `STRIPE_PRICE_*_ANNUAL`. For promo codes: `STRIPE_PROMO_EARLY30`, `STRIPE_PROMO_EARLY50`, `STRIPE_PROMO_EARLY70`, `STRIPE_PROMO_EARLY100` (Stripe promotion code IDs). See [§5 Promo codes](#promo-codes-early-testers) to create them. |
 | **Redirects** | `BASE_URL` (frontend URL for Stripe success/cancel) |
 | **Redis** | `REDIS_URL` (e.g. `redis://redis:6379` or Upstash `rediss://...`) |
-| **Database** | `DATABASE_URL` (PostgreSQL connection string, e.g. `postgresql://videotools:videotools@postgres:5432/videotext` for Docker). Required for user/auth storage. Run `npx prisma migrate deploy` once after Postgres is up to create tables. |
+| **Database** | `DATABASE_URL` (PostgreSQL connection string, e.g. `postgresql://videotools:videotools@postgres:5432/videotext` for Docker). Required for user/auth storage. With Docker, the API runs `prisma migrate deploy` on startup so tables are created/updated automatically. |
 | **Processing** | `TEMP_FILE_PATH` (default `/tmp`), `DISABLE_WORKER` (set on API-only container if worker runs elsewhere) |
 | **Transcription / translation** | `OPENAI_API_KEY` |
 | **Auth** | `JWT_SECRET` (required for login and OTP JWT). For paid signup OTP: `RESEND_API_KEY` (sends verification code via [Resend](https://resend.com); if unset, code is logged to API console). `RESEND_FROM_EMAIL` (e.g. `VideoText <noreply@yourdomain.com>`) must use a **verified domain** in Resend. For **Docker**, put these in the `.env` file in the **same directory as `docker-compose.yml`** (e.g. project root or `/opt/videotools/.env`), not only in `server/.env`; the api/worker containers use `env_file: .env` from the compose file location. |
@@ -278,6 +278,15 @@ Used for the **Bull job queue** only (not auth or Stripe). Switch by changing `R
 
 Changing Redis invalidates existing job IDs (queue state is not migrated).
 
+### Database (PostgreSQL)
+
+Used for **user and usage persistence** (Prisma). The API uses the `@prisma/adapter-pg` driver; migrations are in `server/prisma/migrations` and run automatically when the API container starts.
+
+- **Inspect from the server:** `docker exec -it videotools-postgres psql -U videotools -d videotext` (then e.g. `\dt` to list tables, `SELECT * FROM "User";` to list users, `\q` to quit).
+- **Prisma Studio (web UI):** From the server with DB access: `docker exec -it videotools-api npx prisma studio` (bind to `0.0.0.0:5555` if you need to open it from your machine; or run `npx prisma studio` locally with `DATABASE_URL` in `server/.env` pointing at the DB). Open http://localhost:5555 in a browser.
+
+Postgres is not exposed on the host by default; add `ports: ["5432:5432"]` to the postgres service in `docker-compose.yml` if you want to connect with a GUI (DBeaver, pgAdmin, etc.) from your machine.
+
 ---
 
 ## 8. Deployment (Hetzner + Caddy + Vercel)
@@ -286,7 +295,7 @@ Changing Redis invalidates existing job IDs (queue state is not migrated).
 
 1. **Docker:** Install Docker and Compose on Ubuntu 22.04 (see Docker docs).
 2. **Project & env:** Copy repo. Create a **`.env` file in the same directory as `docker-compose.yml`** (e.g. project root or `/opt/videotools/`) with Redis, Stripe, `DATABASE_URL` (e.g. `postgresql://videotools:videotools@postgres:5432/videotext`), `OPENAI_API_KEY`, `JWT_SECRET`, `BASE_URL`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, etc. The api and worker containers use `env_file: .env` from that directory; `server/.env` is **not** read by Docker.
-3. **Start:** From that directory: `docker compose up --build -d`. API on port 3001; Redis, Postgres, and worker run in the same stack. **First run:** apply the DB schema with `docker compose exec api npx prisma migrate deploy` (or from the server directory with `DATABASE_URL` set: `npx prisma migrate deploy`).
+3. **Start:** From that directory: `docker compose up --build -d`. API on port 3001; Redis, Postgres, and worker run in the same stack. The API runs **Prisma migrations on startup** (`prisma migrate deploy` then `node dist/index.js`), so the DB schema is applied automatically.
 4. **Restart:** `docker compose up -d --build api worker`. To view OTP and auth logs: `docker logs -f videotools-api` (not the worker).
 
 ### Caddy (HTTPS for API)
@@ -399,8 +408,7 @@ VideoText is ~2.3× faster than the next-fastest and ~7× faster than Trint on t
 │   └── package.json
 ├── docs/                   # UX_UPLOAD_IMPROVEMENTS.md, PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md, BENCHMARKS.md, …
 ├── deploy/
-│   ├── Caddyfile           # Reverse proxy for API
-│   └── (no separate README; see §8 above)
+│   └── Caddyfile           # Reverse proxy for API + CORS preflight (OPTIONS)
 ├── docker-compose.yml      # Redis, api, worker (env_file: .env from same directory)
 ├── Dockerfile
 ├── vercel.json             # SPA rewrites + index.html cache headers (used when Root Directory is repo root)
@@ -418,6 +426,7 @@ VideoText is ~2.3× faster than the next-fastest and ~7× faster than Trint on t
 | **Where to see OTP codes when testing** | OTP is logged by the **API** process. | Run `docker logs -f videotools-api` (not the worker). Look for `[OTP] send-otp called for …` and either `Code for … : 123456` (no Resend) or `Sent to … via Resend`. |
 | **Purchased Pro but UI still shows Free** | In-memory user was lost (e.g. API restart); client still sends old `x-user-id` or Stripe customer ID. | Ensure client sends the Stripe customer ID (e.g. from session-details after checkout). The usage route restores the user from Stripe when `x-user-id` starts with `cus_`. If the client was sending a different ID, reload after checkout or log in so the correct ID is used. |
 | **PostHog ERR_BLOCKED_BY_CLIENT / 404s for assets** | Ad blockers or privacy tools block PostHog. | The client detects failed PostHog requests and calls `posthog.opt_out_capturing()`, so analytics is disabled and no further requests are sent. No code change required. |
+| **CORS errors or 502 on API from frontend** | API not running (e.g. Prisma crash), or Caddy not using the updated Caddyfile. | Check API logs: `docker logs videotools-api --tail 100`. If you see "Table \`User\` does not exist", migrations didn’t run — ensure the API command in docker-compose runs `prisma migrate deploy` then `node dist/index.js`. If you see Prisma adapter/constructor errors, ensure `DATABASE_URL` is set and the image was rebuilt. For CORS, copy `deploy/Caddyfile` to `/etc/caddy/Caddyfile` and `sudo systemctl reload caddy`. |
 | **Permission denied on .env** | Trying to execute the file (e.g. `./.env`). | Edit the file only (e.g. `nano .env` or your editor). Do not run it as a script. |
 
 ---
@@ -430,10 +439,12 @@ VideoText is ~2.3× faster than the next-fastest and ~7× faster than Trint on t
 | Run server | `cd server && npm run dev` |
 | Build client | `cd client && npm run build` (output: `client/dist`) |
 | Build server | `cd server && npm run build` (output: `server/dist`) |
-| Redis (Docker) | `docker compose up -d` |
+| Redis (Docker) | `docker compose up -d` (Redis + Postgres + API + worker) |
 | Deploy backend | `docker compose up --build -d` |
 | Restart API + worker | `docker compose up -d --build api worker` |
 | API logs (OTP, auth) | `docker logs -f videotools-api` |
+| Inspect DB (psql) | `docker exec -it videotools-postgres psql -U videotools -d videotext` |
+| Prisma Studio | `docker exec -it videotools-api npx prisma studio` (then open http://localhost:5555 via port-forward if needed) |
 | Job status | `GET /api/job/:jobId` |
 | Health | `GET /health` → `{"status":"ok"}` |
 

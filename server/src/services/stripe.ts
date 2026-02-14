@@ -91,7 +91,7 @@ export function getPlanFromPriceId(priceId: string): BillingPlan | null {
 /** Fetch active plan and email for a Stripe customer (e.g. after API restart when user is missing from memory). */
 export async function getPlanAndEmailForStripeCustomer(
   customerId: string
-): Promise<{ plan: BillingPlan; email: string; subscriptionId?: string } | null> {
+): Promise<{ plan: BillingPlan; email: string; subscriptionId?: string; currentPeriodEnd?: number } | null> {
   try {
     const [customer, subs] = await Promise.all([
       stripe.customers.retrieve(customerId),
@@ -112,7 +112,28 @@ export async function getPlanAndEmailForStripeCustomer(
         : sub.items.data[0].price?.id
     const plan = priceId ? getPlanFromPriceId(priceId) : null
     if (!plan) return null
-    return { plan, email, subscriptionId: sub.id }
+    return {
+      plan,
+      email,
+      subscriptionId: sub.id,
+      currentPeriodEnd: sub.current_period_end ?? undefined,
+    }
+  } catch {
+    return null
+  }
+}
+
+/** Fetch subscription period end (for correcting reset date display). Returns null if not found or inactive. */
+export async function getSubscriptionPeriodEnd(
+  subscriptionId: string
+): Promise<{ currentPeriodEnd: Date; currentPeriodStart: Date } | null> {
+  try {
+    const sub = await stripe.subscriptions.retrieve(subscriptionId)
+    if (sub.status !== 'active' || !sub.current_period_end) return null
+    return {
+      currentPeriodEnd: new Date(sub.current_period_end * 1000),
+      currentPeriodStart: new Date(sub.current_period_start * 1000),
+    }
   } catch {
     return null
   }

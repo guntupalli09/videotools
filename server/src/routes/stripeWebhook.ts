@@ -79,9 +79,24 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event): Promise<void
   let user = await ensureUserForStripeCustomer(stripeCustomerId, email)
   const now = new Date()
 
-  // Link subscription if present
+  // Link subscription and set billing period from Stripe (so "Resets" shows correct date, e.g. 1 month after purchase)
   if (session.mode === 'subscription' && typeof session.subscription === 'string') {
     user.subscriptionId = session.subscription
+    try {
+      const subscription = await stripe.subscriptions.retrieve(session.subscription)
+      const periodEnd = subscription.current_period_end
+      if (periodEnd) {
+        const endDate = new Date(periodEnd * 1000)
+        user.billingPeriodStart = new Date(subscription.current_period_start * 1000)
+        user.billingPeriodEnd = endDate
+        user.usageThisMonth = {
+          ...user.usageThisMonth,
+          resetDate: endDate,
+        }
+      }
+    } catch (e) {
+      console.warn('[Stripe] Could not fetch subscription for billing period:', (e as Error).message)
+    }
   }
 
   // Activate subscription plan

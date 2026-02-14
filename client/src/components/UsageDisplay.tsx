@@ -51,16 +51,11 @@ export default function UsageDisplay({ refreshTrigger }: { refreshTrigger?: stri
         )
   const showWarning = usedPercent >= 80 && usedPercent < 100
 
-  const remainingMinutes = data.usage.remaining
-
   return (
     <div className="mt-4 flex flex-col space-y-1 text-xs text-gray-700">
       <div className="inline-flex items-center space-x-3 rounded-lg bg-violet-50 px-3 py-2">
         <span className="font-semibold uppercase tracking-wide text-violet-700">
           Plan: {data.plan.toUpperCase()}
-        </span>
-        <span className="text-violet-800 font-medium">
-          {remainingMinutes} min remaining
         </span>
         <div className="h-1 w-24 overflow-hidden rounded-full bg-violet-100">
           <div
