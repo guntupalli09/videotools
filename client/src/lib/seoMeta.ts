@@ -27,6 +27,11 @@ const STATIC_ROUTE_SEO: Record<string, { title: string; description: string }> =
     description:
       "Frequently asked questions about VideoText: privacy and data (we don't store your files), billing, free tier, translation, and tools. Your files are processed and deleted.",
   },
+  '/guide': {
+    title: 'How to Use VideoText — Tool Guide & Features | VideoText',
+    description:
+      'Step-by-step guide to every VideoText tool: Video to Transcript, Video to Subtitles, Translate, Fix, Burn, Compress, Batch. What we expect, what you get, and plan limits. Authoritative and practical.',
+  },
   '/terms': {
     title: 'Terms of Service | VideoText',
     description:
@@ -73,6 +78,7 @@ const STATIC_ROUTE_SEO: Record<string, { title: string; description: string }> =
 const STATIC_ROUTE_BREADCRUMB: Record<string, { name: string; path: string }[]> = {
   '/pricing': [{ name: 'Home', path: '/' }, { name: 'Pricing', path: '/pricing' }],
   '/faq': [{ name: 'Home', path: '/' }, { name: 'FAQ', path: '/faq' }],
+  '/guide': [{ name: 'Home', path: '/' }, { name: 'Guide', path: '/guide' }],
   '/privacy': [{ name: 'Home', path: '/' }, { name: 'Privacy', path: '/privacy' }],
   '/terms': [{ name: 'Home', path: '/' }, { name: 'Terms', path: '/terms' }],
   '/video-to-transcript': [{ name: 'Home', path: '/' }, { name: 'Video to Transcript', path: '/video-to-transcript' }],

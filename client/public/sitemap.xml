@@ -25,6 +25,12 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://www.videotext.io/guide</loc>
+    <lastmod>2026-02-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://www.videotext.io/terms</loc>
     <lastmod>2026-02-16</lastmod>
     <changefreq>monthly</changefreq>

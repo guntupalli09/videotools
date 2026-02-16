@@ -71,7 +71,7 @@ export default function Faq() {
 
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Frequently asked questions</h1>
         <p className="text-gray-600 mb-10">
-          Quick answers about privacy, usage, and features. For more on data handling, see our <Link to="/privacy" className="text-violet-600 hover:text-violet-700 font-medium">Privacy Policy</Link>.
+          Quick answers about privacy, usage, and features. For a full guide to each tool (how to use, what we expect, what you get), see our <Link to="/guide" className="text-violet-600 hover:text-violet-700 font-medium">Guide</Link>. For data handling, see our <Link to="/privacy" className="text-violet-600 hover:text-violet-700 font-medium">Privacy Policy</Link>.
         </p>
 
         {/* Trust highlight */}

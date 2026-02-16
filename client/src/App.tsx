@@ -21,6 +21,7 @@ const ResetPassword = lazy(() => import('./pages/ResetPassword'))
 const Refer = lazy(() => import('./pages/Refer'))
 const Privacy = lazy(() => import('./pages/Privacy'))
 const Faq = lazy(() => import('./pages/Faq'))
+const Guide = lazy(() => import('./pages/Guide'))
 const Terms = lazy(() => import('./pages/Terms'))
 const VideoToTranscript = lazy(() => import('./pages/VideoToTranscript'))
 const VideoToSubtitles = lazy(() => import('./pages/VideoToSubtitles'))
@@ -253,6 +254,7 @@ function App() {
             <Route path="/refer" element={<Refer />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/faq" element={<Faq />} />
+            <Route path="/guide" element={<Guide />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/video-to-transcript" element={<VideoToTranscript />} />
             <Route path="/video-to-subtitles" element={<VideoToSubtitles />} />
