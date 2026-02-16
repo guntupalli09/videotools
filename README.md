@@ -19,7 +19,7 @@ Professional video utilities platform: transcribe video to text, generate and tr
 - **Client: fast load & revisits** — Route-level code splitting (lazy-loaded pages), prefetch on link hover/focus, and PWA (precache of static assets; API is never cached). See [§10 Client: performance, devices & reliability](#10-client-performance-devices--reliability).
 - **Client: mobile & reliability** — Chunked upload is mobile-optimised (smaller chunks, sequential, per-chunk timeout and retry with exponential backoff); “keep tab open” reminder during upload; offline banner when the app loses connection; user-facing “Check your connection” message on network/abort errors; error boundary and unhandled-rejection safety net.
 - **Client: cross-browser** — Build target `es2020` and `browserslist` (last 2 Chrome, Firefox, Safari, Edge) for a clear compatibility baseline.
-- **Pipeline & architecture:** Upload → queue → worker flow is documented; performance audit (bottlenecks, optional future optimisations) in `docs/PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md`.
+- **Pipeline & architecture:** Upload → queue → worker flow; **tier limits** (e.g. concurrent jobs: Pro = 2, Agency = 3), queue routing, and **per-tool pipeline mindmaps** (e.g. 120 min / 10 GB Pro file flow) in **docs/ARCHITECTURE.md**. Performance audit in `docs/PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md`.
 - **Programmatic SEO:** Single source of truth (`client/src/lib/seoRegistry.ts`) for 27+ SEO pages; registry-driven meta, breadcrumbs, related links (4–6 per page), FAQ, and sitemap. Optional weekly automation (keyword discovery → proposals → PR). **Production:** `JWT_SECRET` must be set in production; server refuses to start otherwise. See [§9 SEO](#9-seo--production-urls).
 - **Observability:** Release ID + request ID (`x-request-id`), structured JSON logs (pino), Sentry (API + worker + client), health/ops endpoints (`/healthz`, `/readyz`, `/version`, `/configz`, `/ops/queue`). One place to trace a request from UI → API → worker. See [§14 Observability](#14-observability-logging-sentry-health) and **docs/OBSERVABILITY.md**.
 
@@ -32,6 +32,7 @@ Professional video utilities platform: transcribe video to text, generate and tr
 3. [Environment variables](#3-environment-variables)
 4. [API contract (upload)](#4-api-contract-upload)
 5. [Billing & usage](#5-billing--usage)
+   - [Tier limits](#tier-limits)
    - [5.1 Authentication (OTP, login, logout)](#51-authentication-otp-login-logout)
 6. [Stripe (go live)](#6-stripe-go-live)
 7. [Redis](#7-redis)
@@ -40,6 +41,7 @@ Professional video utilities platform: transcribe video to text, generate and tr
 10. [Client: performance, devices & reliability](#10-client-performance-devices--reliability)
 11. [Performance benchmark (end-to-end)](#11-performance-benchmark-end-to-end)
 12. [Project structure](#12-project-structure)
+    - [Architecture (pipeline, tier limits, mindmaps)](docs/ARCHITECTURE.md)
 13. [Troubleshooting](#13-troubleshooting)
 14. [Observability (logging, Sentry, health)](#14-observability-logging-sentry-health)
 
@@ -92,9 +94,11 @@ Internal (worker-only) tool type: `batch-video-to-subtitles` (queued by `/api/ba
 All tools share the same backbone:
 
 - **Client uploads** to the API (`/api/upload`, `/api/upload/dual`, or `/api/batch/upload`).
-- API enqueues a Bull job (Redis).
+- API enqueues a Bull job (Redis). **Tier limits** (max concurrent jobs, max duration/size per plan) are enforced at upload; Pro/Agency jobs may go to a **priority queue** when the queue is long.
 - **Worker** (`server/src/workers/videoProcessor.ts`) runs the tool pipeline and writes outputs into `TEMP_FILE_PATH` (or `/tmp`).
 - Client polls `GET /api/job/:jobId` and downloads via `GET /api/download/:filename`.
+
+**Detailed architecture:** Tier limits that affect the pipeline (e.g. **Pro = 2 concurrent jobs**, 120 min / 10 GB max), queue routing, and **visual pipeline mindmaps per tool** (Video → Transcript, Video → Subtitles, Burn, Compress, Batch, etc.) are in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 
 | Tool | Frontend entry | API entry | Worker `toolType` | Key services | Output (download) |
 |------|----------------|----------|-------------------|-------------|-------------------|
@@ -207,16 +211,21 @@ Valid `toolType` values: `video-to-transcript`, `video-to-subtitles`, `translate
 ## 5. Billing & usage
 
 - **Plans:** free, basic, pro, agency. Stored in user model; set by Stripe webhooks (checkout, invoice, subscription deleted) or by headers `x-user-id` / `x-plan` when no JWT.
-- **Plan limits (reference)** — see `server/src/utils/limits.ts` for the source of truth:
 
-| Plan   | Minutes/month | Max video duration | Max file size |
-|--------|----------------|--------------------|---------------|
-| Free   | 60             | 15 min             | 2 GB          |
-| Basic  | 450            | 45 min             | 5 GB          |
-| Pro    | 1200           | 120 min (2 h)      | 10 GB         |
-| Agency | 3000           | 240 min (4 h)      | 20 GB         |
+### Tier limits
 
-- **Other limits:** max subtitle languages (Basic: 2, Pro: 5, Agency: 10), batch enabled (Pro/Agency), batch max videos and max duration, translation minutes cap (Pro/Agency). All in `server/src/utils/limits.ts`.
+Source of truth: `server/src/utils/limits.ts`.
+
+| Tier   | Minutes/month | Max video duration | Max file size | Max concurrent jobs | Max languages | Batch | Batch max videos | Batch max duration |
+|--------|----------------|--------------------|---------------|---------------------|---------------|-------|-------------------|---------------------|
+| **Free**   | 60   | 15 min   | 2 GB   | 1 | 1 | No  | —  | —  |
+| **Basic**  | 450  | 45 min   | 5 GB   | 1 | 2 | No  | —  | —  |
+| **Pro**    | 1200 | 120 min (2 h) | 10 GB  | 2 | 5 | Yes | 20  | 60 min total  |
+| **Agency** | 3000 | 240 min (4 h) | 20 GB  | 3 | 10 | Yes | 100 | 300 min total |
+
+- **Per-video:** Upload and worker enforce **max video duration** and **max file size** per tier; exceeding either returns a clear error (upgrade message).
+- **Monthly:** Usage is charged when a job completes; **minutes per month** resets on billing period (paid) or calendar month (free). Overage is allowed only for users with a Stripe customer ID.
+- **Batch (Pro/Agency):** Batch upload is allowed only when `batchEnabled` is true. Each batch is limited by **batch max videos** and **batch max duration** (total duration of all videos in that batch). Translation minutes cap applies for multi-language; see `server/src/utils/metering.ts`.
 - **Usage:** Recorded in the **worker** when a job **completes** (totalMinutes, translatedMinutes for multi-language, etc.). Batch jobs charge minutes per video. Reset on invoice period (paid) or calendar month (free). Overage allowed only for users with `stripeCustomerId`.
 - **Client:** Sends `x-user-id` and `x-plan`; after checkout, client stores `userId` and `plan`. Minutes remaining is shown on every tool (UsageCounter + UsageDisplay) and refetches when a job completes.
 - **Server-side enforcement:** Upload and batch routes call `enforceUsageLimits()` before queueing; paid plans are only trusted from auth or from an existing Stripe-backed user (no plan spoofing via headers). See `server/src/utils/limits.ts` and the upload/batch/usage routes.
@@ -455,7 +464,7 @@ VideoText is ~2.3× faster than the next-fastest and ~7× faster than Trint on t
 │   │   ├── models/        # User, Job, UsageLog, …
 │   │   └── utils/         # auth (JWT, email-verification token), limits, metering, srtParser, redis, …
 │   └── package.json
-├── docs/                   # UX_UPLOAD_IMPROVEMENTS.md, PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md, BENCHMARKS.md, …
+├── docs/                   # ARCHITECTURE.md (pipeline, tier limits, mindmaps), UX_UPLOAD_IMPROVEMENTS.md, PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md, BENCHMARKS.md, …
 ├── scripts/seo/            # Registry sync, sitemap, validate-registry, validate-sitemap, smoke, weekly pipeline (run-weekly, apply-proposals), …
 ├── deploy/
 │   └── Caddyfile           # Reverse proxy for API + CORS preflight (OPTIONS)
@@ -523,4 +532,4 @@ VideoText has a single **observability stack** for debugging across UI, API, and
 
 ---
 
-All product behavior, trees, branches, and features are described in [§1 Features & tools](#1-features--tools-trees-and-branches). Auth (OTP, login, logout) is in [§5.1 Authentication](#51-authentication-otp-login-logout). **SEO** (registry, structure, automation, commands, production env) is in [§9 SEO & production URLs](#9-seo--production-urls). Client performance and device/reliability details are in [§10 Client: performance, devices & reliability](#10-client-performance-devices--reliability). End-to-end performance vs competitors is in [§11 Performance benchmark](#11-performance-benchmark-end-to-end). **Observability** (logs, Sentry, health, request ID) is in [§14 Observability](#14-observability-logging-sentry-health) and **docs/OBSERVABILITY.md**. Latest upload UX improvements (multi-stage progress, preview, cancel, retry, network-aware messaging) are in [§10 Upload & transcript/subtitles UX](#upload--transcriptsubtitles-ux) and `docs/UX_UPLOAD_IMPROVEMENTS.md`. Pipeline architecture and performance audit are in `docs/PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md`. For env details use the tables in [§3 Environment variables](#3-environment-variables) and the `.env` next to `docker-compose.yml` for Docker [§8](#8-deployment-hetzner--caddy--vercel).
+All product behavior, trees, branches, and features are described in [§1 Features & tools](#1-features--tools-trees-and-branches). Auth (OTP, login, logout) is in [§5.1 Authentication](#51-authentication-otp-login-logout). **SEO** (registry, structure, automation, commands, production env) is in [§9 SEO & production URLs](#9-seo--production-urls). Client performance and device/reliability details are in [§10 Client: performance, devices & reliability](#10-client-performance-devices--reliability). End-to-end performance vs competitors is in [§11 Performance benchmark](#11-performance-benchmark-end-to-end). **Observability** (logs, Sentry, health, request ID) is in [§14 Observability](#14-observability-logging-sentry-health) and **docs/OBSERVABILITY.md**. Latest upload UX improvements (multi-stage progress, preview, cancel, retry, network-aware messaging) are in [§10 Upload & transcript/subtitles UX](#upload--transcriptsubtitles-ux) and `docs/UX_UPLOAD_IMPROVEMENTS.md`. **Architecture** (tier limits, concurrent jobs, queue routing, per-tool pipeline mindmaps) is in **docs/ARCHITECTURE.md**. Performance audit is in `docs/PERFORMANCE_AUDIT_UPLOAD_PIPELINE.md`. For env details use the tables in [§3 Environment variables](#3-environment-variables) and the `.env` next to `docker-compose.yml` for Docker [§8](#8-deployment-hetzner--caddy--vercel).
