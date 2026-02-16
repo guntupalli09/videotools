@@ -43,7 +43,7 @@ jobs:
         env:
           BASE_URL: http://localhost:4173
 
-      - name: SEO health check (shell-mode: robots + sitemap)
+      - name: "SEO health check (shell-mode: robots + sitemap)"
         run: npm run seo:health
         env:
           BASE_URL: http://localhost:4173
