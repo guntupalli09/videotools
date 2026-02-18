@@ -8,10 +8,17 @@ services:
       - "6379:6379"   # Expose for local dev (server on host connecting to Redis in Docker)
     volumes:
       - redis-data:/data
+    # Less aggressive persistence to reduce fork() and blocking; AOF only keeps durability with fewer spikes.
     command: >
-      sh -c "if [ -n \"$$REDIS_PASSWORD\" ]; then redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\"; else redis-server --appendonly yes; fi"
+      sh -c "if [ -n \"$$REDIS_PASSWORD\" ]; then redis-server --save \"\" --appendonly yes --requirepass \"$$REDIS_PASSWORD\"; else redis-server --save \"\" --appendonly yes; fi"
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
 
   postgres:
     image: postgres:16-alpine
@@ -44,7 +51,7 @@ services:
       FFMPEG_PATH: /usr/bin/ffmpeg
       FFPROBE_PATH: /usr/bin/ffprobe
     depends_on:
-      redis: { condition: service_started }
+      redis: { condition: service_healthy }
       postgres: { condition: service_healthy }
     volumes:
       - tmp-files:/tmp
@@ -65,7 +72,7 @@ services:
       FFPROBE_PATH: /usr/bin/ffprobe
     depends_on:
       postgres: { condition: service_healthy }
-      redis: { condition: service_started }
+      redis: { condition: service_healthy }
     volumes:
       - tmp-files:/tmp
     command: node dist/workers/videoProcessor.js
