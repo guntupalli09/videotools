@@ -4,6 +4,7 @@
  */
 import { Router, Request, Response, NextFunction } from 'express'
 import { createRedisClient } from '../utils/redis'
+import { prisma } from '../db'
 import { fileQueue, priorityQueue, getTotalQueueCount } from '../workers/videoProcessor'
 import { getAuthFromRequest } from '../utils/auth'
 import { apiKeyAuth } from '../utils/apiKey'
@@ -29,17 +30,31 @@ router.get('/healthz', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' })
 })
 
-/** GET /readyz — 200 only if Redis and queue backend reachable */
+/** GET /readyz — 200 only if Redis and Postgres reachable; 503 with details if not */
 router.get('/readyz', async (_req: Request, res: Response) => {
+  const errors: { redis?: string; database?: string } = {}
   try {
     const redis = createRedisClient('client')
     await redis.ping()
     redis.disconnect()
-    const _ = await getTotalQueueCount()
-    res.status(200).json({ status: 'ok' })
   } catch (err: any) {
-    res.status(503).json({ status: 'unhealthy', error: err?.message || 'dependency check failed' })
+    errors.redis = err?.message || 'Redis unreachable'
   }
+  try {
+    await prisma.$queryRaw`SELECT 1`
+  } catch (err: any) {
+    errors.database = err?.message || 'Postgres unreachable'
+  }
+  if (Object.keys(errors).length > 0) {
+    res.status(503).json({ status: 'unhealthy', ...errors })
+    return
+  }
+  try {
+    await getTotalQueueCount()
+  } catch {
+    // queue count is best-effort; Redis already passed
+  }
+  res.status(200).json({ status: 'ok' })
 })
 
 /** GET /version — service, release, buildTime, env */

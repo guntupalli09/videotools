@@ -540,6 +540,18 @@ router.post('/dual', upload.fields([
   }
 })
 
+// Timeout for init (Redis/DB can hang; respond 503 instead of leaving client pending).
+const INIT_TIMEOUT_MS = 15_000
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    ),
+  ])
+}
+
 // ─── Chunked upload (init + chunk + complete) for large files ─────────────────
 router.post('/init', async (req: Request, res: Response) => {
   try {
@@ -549,8 +561,12 @@ router.post('/init', async (req: Request, res: Response) => {
     let user: User | null = null
     if (userId) {
       try {
-        user = (await getUser(userId)) ?? null
+        user = (await withTimeout(getUser(userId), INIT_TIMEOUT_MS, 'getUser')) ?? null
       } catch (e) {
+        if ((e as Error)?.message?.includes('timed out')) {
+          console.error('[upload/init] getUser timeout')
+          return res.status(503).json({ message: 'Service temporarily busy. Please retry.' })
+        }
         console.warn('[upload/init] getUser failed', (e as Error)?.message)
       }
     }
@@ -568,8 +584,12 @@ router.post('/init', async (req: Request, res: Response) => {
 
     let queueCount: number
     try {
-      queueCount = await getTotalQueueCount()
+      queueCount = await withTimeout(getTotalQueueCount(), INIT_TIMEOUT_MS, 'getTotalQueueCount')
     } catch (e) {
+      if ((e as Error)?.message?.includes('timed out')) {
+        console.error('[upload/init] queue count timeout (Redis slow or unreachable)')
+        return res.status(503).json({ message: 'Queue temporarily unavailable. Please retry in a moment.' })
+      }
       console.error('[upload/init] queue count failed', (e as Error)?.message)
       return res.status(503).json({ message: 'Queue unavailable. Please retry in a moment.' })
     }
