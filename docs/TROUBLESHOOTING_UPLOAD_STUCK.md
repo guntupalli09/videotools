@@ -88,7 +88,7 @@ After setting `VITE_API_URL` and redeploying, large uploads should hit the API a
 
 ## 6. Init request stuck Pending
 
-If **POST .../api/upload/init** stays **Pending** in the Network tab, the server got the request but never responded. The handler can block on **Redis** (`getTotalQueueCount`) or **Postgres** (`getUser`). The server returns **503** after 15s if those calls hang—redeploy the API so the client gets a response; then fix Redis/DB connectivity.
+If **POST .../api/upload/init** stays **Pending** in the Network tab, the server got the request but never responded. The handler can block on **Redis** (`getTotalQueueCount`) or **Postgres** (`getUser`). The server returns **503** after 25s if those calls hang—redeploy the API so the client gets a response; then fix Redis/DB connectivity.
 
 **Check Redis and Postgres from the API:**
 

@@ -26,7 +26,9 @@ if (!process.env.DATABASE_URL || (typeof process.env.DATABASE_URL === 'string' &
   process.env.DATABASE_URL = 'postgresql://videotools:videotools@localhost:5433/videotext'
 }
 
-// When running on host (not in Docker), redis://redis:6379 won't resolve — use localhost
-if (process.env.REDIS_URL === 'redis://redis:6379') {
+// When running on host (not in Docker), redis://redis:6379 won't resolve — use localhost.
+// Inside Docker, keep redis://redis:6379 so the API container can reach the Redis service.
+const inDocker = fs.existsSync('/.dockerenv')
+if (process.env.REDIS_URL === 'redis://redis:6379' && !inDocker) {
   process.env.REDIS_URL = 'redis://localhost:6379'
 }
