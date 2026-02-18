@@ -41,32 +41,22 @@ router.get('/healthz', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' })
 })
 
-/** GET /readyz — 200 only if Redis and Postgres reachable; 503 with details if not. Uses timeouts so the endpoint never hangs. */
+/** GET /readyz — 200 only if Redis and Postgres reachable; 503 with details if not. Uses Bull's existing Redis connection (no new client per request) so we avoid connection churn. */
 router.get('/readyz', async (_req: Request, res: Response) => {
   const errors: { redis?: string; database?: string } = {}
-  try {
-    const redis = createRedisClient('client')
-    try {
-      await withTimeout(redis.ping(), READYZ_TIMEOUT_MS, 'Redis')
-    } finally {
-      redis.disconnect()
-    }
-  } catch (err: any) {
-    errors.redis = err?.message || 'Redis unreachable'
-  }
   try {
     await withTimeout(prisma.$queryRaw`SELECT 1`, READYZ_TIMEOUT_MS, 'Postgres')
   } catch (err: any) {
     errors.database = err?.message || 'Postgres unreachable'
   }
+  try {
+    await withTimeout(getTotalQueueCount(), READYZ_TIMEOUT_MS, 'Redis')
+  } catch (err: any) {
+    errors.redis = err?.message || 'Redis unreachable'
+  }
   if (Object.keys(errors).length > 0) {
     res.status(503).json({ status: 'unhealthy', ...errors })
     return
-  }
-  try {
-    await withTimeout(getTotalQueueCount(), READYZ_TIMEOUT_MS, 'queueCount')
-  } catch {
-    // queue count is best-effort; Redis already passed
   }
   res.status(200).json({ status: 'ok' })
 })
