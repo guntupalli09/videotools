@@ -20,7 +20,7 @@ import { getFilePreview, type FilePreviewData } from '../lib/filePreview'
 import { extractAudioInBrowser, isAudioExtractionSupported } from '../lib/audioExtraction'
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
-import { persistJobId, getPersistedJobId, clearPersistedJobId } from '../lib/jobSession'
+import { persistJobId, getPersistedJobId, getPersistedJobToken, clearPersistedJobId } from '../lib/jobSession'
 import { trackEvent } from '../lib/analytics'
 import { segmentsToSrt, segmentsToVtt, formatTimestamp, type Segment } from '../lib/srtExport'
 import toast from 'react-hot-toast'
@@ -154,10 +154,11 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     setIsRehydrating(true)
     setProcessingStartedAt(Date.now())
 
+    const jobToken = getPersistedJobToken(pathname)
     let cancelled = false
     const run = async () => {
       try {
-        const jobStatus = await getJobStatus(jobId)
+        const jobStatus = await getJobStatus(jobId, jobToken ? { jobToken } : undefined)
         if (cancelled) return
         setIsRehydrating(false)
         setProgress(jobStatus.progress ?? 0)
@@ -200,7 +201,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
         const doPoll = async () => {
           if (cancelled) return
           try {
-            const s = await getJobStatus(jobId)
+            const s = await getJobStatus(jobId, jobToken ? { jobToken } : undefined)
             if (cancelled) return
             setProgress(s.progress ?? 0)
             if (s.queuePosition !== undefined) setQueuePosition(s.queuePosition)
@@ -402,16 +403,17 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
 
       uploadAbortRef.current = null
       setCurrentJobId(response.jobId)
-      persistJobId(location.pathname, response.jobId)
+      persistJobId(location.pathname, response.jobId, response.jobToken)
       setUploadPhase('processing')
       setUploadProgress(100)
       setProcessingStartedAt(Date.now())
 
       // Poll for status: run first poll immediately, then every 2s.
       // Lifecycle depends ONLY on jobStatus.status; missing result never causes failure.
+      const jobToken = response.jobToken
       const doPoll = async () => {
         try {
-          const jobStatus = await getJobStatus(response.jobId)
+          const jobStatus = await getJobStatus(response.jobId, jobToken ? { jobToken } : undefined)
           setProgress(jobStatus.progress ?? 0)
           if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
 

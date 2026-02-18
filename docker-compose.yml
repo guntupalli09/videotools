@@ -1,17 +1,26 @@
+# Redis: set REDIS_PASSWORD in .env (or leave unset for no auth in local dev only).
+# When set, use REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379 in api/worker env.
 services:
   redis:
     image: redis:7-alpine
     container_name: videotools-redis
+    ports:
+      - "6379:6379"   # Expose for local dev (server on host connecting to Redis in Docker)
     volumes:
       - redis-data:/data
-    command: redis-server --appendonly yes
+    command: >
+      sh -c "if [ -n \"$$REDIS_PASSWORD\" ]; then redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\"; else redis-server --appendonly yes; fi"
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
 
   postgres:
     image: postgres:16-alpine
     container_name: videotools-postgres
+    ports:
+      - "5433:5432"   # Host 5433 to avoid conflict with local Postgres on 5432
     environment:
       POSTGRES_USER: videotools
-      POSTGRES_PASSWORD: videotools
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-videotools}
       POSTGRES_DB: videotext
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -27,8 +36,9 @@ services:
     container_name: videotools-api
     env_file: .env
     environment:
+      # When REDIS_PASSWORD is set, use REDIS_URL=redis://:$$REDIS_PASSWORD@redis:6379 in .env and override here or omit.
       REDIS_URL: redis://redis:6379
-      DATABASE_URL: postgresql://videotools:videotools@postgres:5432/videotext
+      DATABASE_URL: postgresql://videotools:${POSTGRES_PASSWORD:-videotools}@postgres:5432/videotext
       TEMP_FILE_PATH: /tmp
       DISABLE_WORKER: "true"
       FFMPEG_PATH: /usr/bin/ffmpeg
@@ -47,13 +57,15 @@ services:
     container_name: videotools-worker
     env_file: .env
     environment:
-      # Must match api. To use Upstash, set REDIS_URL in .env and remove this line (and the one in api).
+      # Must match api. With Redis AUTH set REDIS_URL=redis://:$$REDIS_PASSWORD@redis:6379 in .env.
       REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://videotools:${POSTGRES_PASSWORD:-videotools}@postgres:5432/videotext
       TEMP_FILE_PATH: /tmp
       FFMPEG_PATH: /usr/bin/ffmpeg
       FFPROBE_PATH: /usr/bin/ffprobe
     depends_on:
-      - redis
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
     volumes:
       - tmp-files:/tmp
     command: node dist/workers/videoProcessor.js

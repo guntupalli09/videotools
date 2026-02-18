@@ -61,6 +61,8 @@ export type BackendToolType = (typeof BACKEND_TOOL_TYPES)[keyof typeof BACKEND_T
 export interface UploadResponse {
   jobId: string
   status: 'queued'
+  /** Required for polling when not logged in; send with getJobStatus so status works. */
+  jobToken?: string
 }
 
 export interface JobStatus {
@@ -363,8 +365,15 @@ async function uploadFileChunked(
       body: JSON.stringify(buildInitBody(file, options, totalChunks)),
     })
     if (!initRes.ok) {
-      const err = await initRes.json().catch(() => ({ message: 'Upload init failed' }))
-      throw new Error(err.message || 'Upload init failed')
+      const text = await initRes.text()
+      let msg = 'Upload init failed'
+      try {
+        const err = text ? JSON.parse(text) : {}
+        if (err.message) msg = err.message
+      } catch {
+        if (text) msg = text.slice(0, 200)
+      }
+      throw new Error(`${msg} (${initRes.status})`)
     }
     const initData = (await initRes.json()) as { uploadId: string }
     uploadId = initData.uploadId
@@ -541,7 +550,7 @@ export function uploadFileWithProgress(
             upload_duration_ms: uploadDurationMs,
           })
           console.log('[UPLOAD_TIMING]', { file_size_bytes: file.size, upload_duration_ms: uploadDurationMs, tool_type: options.toolType, mode: 'xhr' })
-          resolve({ jobId: data.jobId, status: data.status ?? 'queued' })
+          resolve({ jobId: data.jobId, status: data.status ?? 'queued', jobToken: data.jobToken })
           return
         }
         const err = data?.message || 'Upload failed'
@@ -787,8 +796,12 @@ export function getUserFacingMessage(e: unknown): string {
 /** Timeout for status/usage GET requests so slow networks fail fast and polling can retry. */
 const API_GET_TIMEOUT_MS = 25_000
 
-export async function getJobStatus(jobId: string): Promise<JobStatus> {
-  const response = await api(`/api/job/${jobId}`, { timeout: API_GET_TIMEOUT_MS })
+export async function getJobStatus(jobId: string, options?: { jobToken?: string }): Promise<JobStatus> {
+  let path = `/api/job/${jobId}`
+  if (options?.jobToken) {
+    path += `?jobToken=${encodeURIComponent(options.jobToken)}`
+  }
+  const response = await api(path, { timeout: API_GET_TIMEOUT_MS })
 
   if (response.status === 404) {
     throw new SessionExpiredError('Session expired. Please upload again.')

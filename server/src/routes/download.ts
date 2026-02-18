@@ -25,8 +25,10 @@ router.get('/:filename', (req: Request, res: Response) => {
       return res.status(404).json({ message: 'File not found' })
     }
 
-    // Set appropriate headers
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+    // Safe filename for Content-Disposition: no CR/LF/control chars, escape quotes (F10)
+    const safeForHeader = filename.replace(/[\0\r\n]/g, '').replace(/"/g, '\\"')
+    const asciiSafe = safeForHeader.replace(/[^\x20-\x7E]/g, '_')
+    res.setHeader('Content-Disposition', `attachment; filename="${asciiSafe}"`)
     res.setHeader('Content-Type', 'application/octet-stream')
 
     // Stream file

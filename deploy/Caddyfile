@@ -1,15 +1,38 @@
+# CORS preflight: allowlist only (F9). Do not reflect arbitrary Origin.
 api.videotext.io {
-    # Request ID for correlation (UI → API → worker); upstream receives X-Request-Id
     request_id
-    # Respond to CORS preflight (OPTIONS) with allowed headers so browser gets Access-Control-* before hitting backend
     @options method OPTIONS
     handle @options {
-        header Access-Control-Allow-Origin {http.request.header.Origin}
-        header Access-Control-Allow-Credentials true
-        header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-        header Access-Control-Allow-Headers "Content-Type, Authorization, X-User-Id, X-Plan, X-Upload-Id, X-Chunk-Index"
-        header Access-Control-Max-Age 86400
-        respond 204
+        @origin_videotext header Origin https://videotext.io
+        @origin_www header Origin https://www.videotext.io
+        @origin_vercel header_regexp Origin https://.*\.vercel\.app$
+        handle @origin_videotext {
+            header Access-Control-Allow-Origin https://videotext.io
+            header Access-Control-Allow-Credentials true
+            header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            header Access-Control-Allow-Headers "Content-Type, Authorization, X-User-Id, X-Plan, X-Upload-Id, X-Chunk-Index"
+            header Access-Control-Max-Age 86400
+            respond 204
+        }
+        handle @origin_www {
+            header Access-Control-Allow-Origin https://www.videotext.io
+            header Access-Control-Allow-Credentials true
+            header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            header Access-Control-Allow-Headers "Content-Type, Authorization, X-User-Id, X-Plan, X-Upload-Id, X-Chunk-Index"
+            header Access-Control-Max-Age 86400
+            respond 204
+        }
+        handle @origin_vercel {
+            header Access-Control-Allow-Origin {http.request.header.Origin}
+            header Access-Control-Allow-Credentials true
+            header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            header Access-Control-Allow-Headers "Content-Type, Authorization, X-User-Id, X-Plan, X-Upload-Id, X-Chunk-Index"
+            header Access-Control-Max-Age 86400
+            respond 204
+        }
+        handle {
+            respond 204
+        }
     }
     handle {
         reverse_proxy localhost:3001 {

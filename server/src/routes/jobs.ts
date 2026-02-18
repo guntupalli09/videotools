@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express'
 import { getJobById } from '../workers/videoProcessor'
+import { getAuthFromRequest, getEffectiveUserId } from '../utils/auth'
 
 const router = express.Router()
 
@@ -13,6 +14,8 @@ async function getQueuePosition(job: import('bull').Job): Promise<number> {
 
 router.get('/:jobId', async (req: Request, res: Response) => {
   try {
+    const userId = getEffectiveUserId(req)
+    const clientJobToken = (req.query.jobToken as string)?.trim() || (req.headers['x-job-token'] as string)?.trim()
     const { jobId } = req.params
     const job = await getJobById(jobId)
 
@@ -24,6 +27,14 @@ router.get('/:jobId', async (req: Request, res: Response) => {
         'Surrogate-Control': 'no-store',
       })
       return res.status(404).json({ message: 'Job not found' })
+    }
+
+    const jobUserId = (job.data as any)?.userId
+    const jobToken = (job.data as any)?.jobToken
+    const allowedByUser = userId != null && jobUserId != null && userId === jobUserId
+    const allowedByToken = clientJobToken && jobToken && clientJobToken === jobToken
+    if (!allowedByUser && !allowedByToken) {
+      return res.status(403).json({ message: 'Access denied. Provide Authorization, API key, or jobToken (query or x-job-token header).' })
     }
 
     const state = await job.getState()
@@ -47,12 +58,14 @@ router.get('/:jobId', async (req: Request, res: Response) => {
       'Expires': '0',
       'Surrogate-Control': 'no-store',
     })
-    res.json({
+    const payload: { status: string; progress: number; result?: unknown; queuePosition?: number; jobToken?: string } = {
       status,
       progress,
       result,
       queuePosition,
-    })
+    }
+    if (jobToken) payload.jobToken = jobToken
+    res.json(payload)
   } catch (error: any) {
     console.error('Job status error:', error)
     res.set({

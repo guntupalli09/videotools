@@ -55,12 +55,12 @@ export function flushAnalytics(): void {
 
 export function trackJobCreated(params: {
   job_id: string
-  user_id: string
+  user_id?: string
   tool_type: string
   file_size_bytes?: number
   plan?: string
 }): void {
-  capture('job_created', params.user_id, {
+  capture('job_created', params.user_id ?? 'anonymous', {
     job_id: params.job_id,
     tool_type: params.tool_type,
     ...(params.file_size_bytes != null && { file_size_bytes: params.file_size_bytes }),
@@ -101,13 +101,13 @@ export function trackProcessingFinished(params: {
 
 export function trackProcessingFailed(params: {
   job_id: string
-  user_id: string
+  user_id?: string
   tool_type: string
   error_message?: string
 }): void {
   capture('processing_failed', params.job_id, {
     job_id: params.job_id,
-    user_id: params.user_id,
+    user_id: params.user_id ?? 'anonymous',
     tool_type: params.tool_type,
     success: false,
     ...(params.error_message && { error_message: params.error_message }),

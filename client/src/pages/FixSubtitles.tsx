@@ -110,11 +110,11 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         toolType: BACKEND_TOOL_TYPES.FIX_SUBTITLES,
       })
 
-      persistJobId(location.pathname, response.jobId)
+      persistJobId(location.pathname, response.jobId, response.jobToken)
       const pollIntervalRef = { current: 0 as number }
       const doPoll = async () => {
         try {
-          const jobStatus = await getJobStatus(response.jobId)
+          const jobStatus = await getJobStatus(response.jobId, response.jobToken ? { jobToken: response.jobToken } : undefined)
           setProgress(jobStatus.progress ?? 0)
           if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
 
@@ -164,11 +164,11 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         removeFillers,
       })
 
-      persistJobId(location.pathname, response.jobId)
+      persistJobId(location.pathname, response.jobId, response.jobToken)
       const pollIntervalRef = { current: 0 as number }
       const doPoll = async () => {
         try {
-          const jobStatus = await getJobStatus(response.jobId)
+          const jobStatus = await getJobStatus(response.jobId, response.jobToken ? { jobToken: response.jobToken } : undefined)
           setProgress(jobStatus.progress ?? 0)
           if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
 

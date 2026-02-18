@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import crypto from 'crypto'
 import Queue from 'bull'
 import path from 'path'
 import fs from 'fs'
@@ -55,12 +56,13 @@ export async function getTotalQueueCount(): Promise<number> {
   )
 }
 
-/** Add job to the appropriate queue by plan (Pro/Agency → priority when reservation active). Phase 2.5: auto-retry once on failure (e.g. HUNG_JOB). */
+/** Add job to the appropriate queue by plan (Pro/Agency → priority when reservation active). Always attaches jobToken for polling. */
 export async function addJobToQueue(
   plan: PlanType,
   data: JobData,
   options?: { priority?: number }
 ) {
+  const jobData: JobData = { ...data, jobToken: data.jobToken ?? crypto.randomUUID() }
   const priority = options?.priority ?? getJobPriority(plan)
   const totalCount = await getTotalQueueCount()
   const usePriorityQueue =
@@ -68,9 +70,9 @@ export async function addJobToQueue(
     totalCount > PAID_TIER_RESERVATION_QUEUE_THRESHOLD
   const jobOptions = { priority, attempts: 2 }
   if (usePriorityQueue) {
-    return priorityQueue.add(data, jobOptions)
+    return priorityQueue.add(jobData, jobOptions)
   }
-  return fileQueue.add(data, jobOptions)
+  return fileQueue.add(jobData, jobOptions)
 }
 
 /** Get job by ID from either queue (for status endpoint). */
@@ -83,6 +85,8 @@ export async function getJobById(jobId: string) {
 interface JobData {
   toolType: string
   userId?: string
+  /** Token for anonymous job polling; always set at job creation. */
+  jobToken?: string
   plan?: PlanType
   videoHash?: string
   cachedResult?: { downloadUrl: string; fileName?: string }
@@ -91,7 +95,7 @@ interface JobData {
   originalName?: string
   originalName2?: string
   fileSize?: number
-  url?: string // For URL-based inputs
+  url?: string // Legacy; URL downloads disabled — worker rejects if present
   batchId?: string // For batch processing
   batchPosition?: number
   batchTotal?: number
@@ -192,13 +196,13 @@ async function generateBatchZip(batchId: string, batch: BatchJob): Promise<void>
   const archive = archiver('zip', { zlib: { level: 9 } })
 
   return new Promise((resolve, reject) => {
-    output.on('close', () => {
+    output.on('close', async () => {
       const zipSize = archive.pointer()
       batch.zipPath = zipPath
       batch.zipSize = zipSize
       batch.status = batch.failedVideos > 0 ? 'partial' : 'completed'
       batch.completedAt = new Date()
-      saveBatch(batch)
+      await saveBatch(batch)
       resolve()
     })
 
@@ -280,8 +284,11 @@ async function processJob(job: import('bull').Job<JobData>) {
           return data.cachedResult
         }
         case 'video-to-transcript': {
+          if (data.url) {
+            throw new Error('URL downloads are temporarily disabled.')
+          }
           let videoPath = data.filePath!
-          const userId = data.userId || 'demo-user'
+          const userId = data.userId
           const plan = data.plan || 'free'
           const includeSummary = options?.includeSummary === true
           const includeChapters = options?.includeChapters === true
@@ -289,14 +296,6 @@ async function processJob(job: import('bull').Job<JobData>) {
             ? options.exportFormats
             : ['txt']
           const isAlreadyAudio = data.inputType === 'audio'
-
-          // Download from URL if provided (not used for audio-only)
-          if (data.url) {
-            await job.progress(10)
-            const downloadedPath = path.join(tempDir, `video-${Date.now()}.mp4`)
-            await downloadVideoFromURL(data.url, downloadedPath)
-            videoPath = downloadedPath
-          }
 
           // Trim video if start/end times provided (not used for audio-only; client sends video when trim requested)
           if (
@@ -448,17 +447,19 @@ async function processJob(job: import('bull').Job<JobData>) {
           }
 
           const outputPath = path.join(tempDir, primaryFileName)
-          if (data.videoHash) {
+          if (data.videoHash && userId) {
             const cacheOpts = { ...data.options, trimmedStart: data.trimmedStart, trimmedEnd: data.trimmedEnd }
             await saveDuplicateResult(userId, data.videoHash, outputPath, 'video-to-transcript', cacheOpts, primaryFileName)
           }
 
           const minutes = secondsToMinutes(processedSeconds)
-          const user = await getOrCreateUserForJob(userId, plan)
-          user.usageThisMonth.totalMinutes += minutes
-          user.usageThisMonth.videoCount += 1
-          user.updatedAt = new Date()
-          await saveUser(user)
+          if (userId) {
+            const user = await getOrCreateUserForJob(userId, plan)
+            user.usageThisMonth.totalMinutes += minutes
+            user.usageThisMonth.videoCount += 1
+            user.updatedAt = new Date()
+            await saveUser(user)
+          }
 
           if (data.webhookUrl) {
             fireWebhook(data.webhookUrl, { jobId: String(jobId), status: 'completed', result }).catch(() => {})
@@ -467,18 +468,13 @@ async function processJob(job: import('bull').Job<JobData>) {
         }
 
         case 'video-to-subtitles': {
+          if (data.url) {
+            throw new Error('URL downloads are temporarily disabled.')
+          }
           let videoPath = data.filePath!
-          const userId = data.userId || 'demo-user'
+          const userId = data.userId
           const plan = data.plan || 'free'
           const isAlreadyAudio = data.inputType === 'audio'
-
-          // Download from URL if provided (not used for audio-only)
-          if (data.url) {
-            await job.progress(10)
-            const downloadedPath = path.join(tempDir, `video-${Date.now()}.mp4`)
-            await downloadVideoFromURL(data.url, downloadedPath)
-            videoPath = downloadedPath
-          }
 
           // Trim video if start/end times provided (not used for audio-only)
           if (
@@ -573,7 +569,7 @@ async function processJob(job: import('bull').Job<JobData>) {
               multiLanguage: outputFiles,
             }
 
-            if (data.videoHash) {
+            if (data.videoHash && userId) {
               const cacheOpts = { ...data.options, trimmedStart: data.trimmedStart, trimmedEnd: data.trimmedEnd }
               await saveDuplicateResult(userId, data.videoHash, zipPath, 'video-to-subtitles', cacheOpts, zipFilename)
             }
@@ -585,13 +581,15 @@ async function processJob(job: import('bull').Job<JobData>) {
                 : durationCheck.duration || 0
             const baseMinutes = secondsToMinutes(processedSeconds)
             const translatedMinutes = calculateTranslationMinutes(processedSeconds, additionalLangs.length)
-            const user = await getOrCreateUserForJob(userId, plan)
-            user.usageThisMonth.totalMinutes += baseMinutes + translatedMinutes
-            user.usageThisMonth.translatedMinutes += translatedMinutes
-            user.usageThisMonth.languageCount += additionalLangs.length
-            user.usageThisMonth.videoCount += 1
-            user.updatedAt = new Date()
-            await saveUser(user)
+            if (userId) {
+              const user = await getOrCreateUserForJob(userId, plan)
+              user.usageThisMonth.totalMinutes += baseMinutes + translatedMinutes
+              user.usageThisMonth.translatedMinutes += translatedMinutes
+              user.usageThisMonth.languageCount += additionalLangs.length
+              user.usageThisMonth.videoCount += 1
+              user.updatedAt = new Date()
+              await saveUser(user)
+            }
           } else {
             // Single language
             await job.progress(30)
@@ -634,18 +632,20 @@ async function processJob(job: import('bull').Job<JobData>) {
               videoDurationSeconds: processedSecondsSub,
             }
 
-          if (data.videoHash) {
+          if (data.videoHash && userId) {
             const cacheOpts = { ...data.options, trimmedStart: data.trimmedStart, trimmedEnd: data.trimmedEnd }
             await saveDuplicateResult(userId, data.videoHash, outputPath, 'video-to-subtitles', cacheOpts, outputFilename)
           }
 
             // Metering (minutes)
             const minutes = secondsToMinutes(processedSecondsSub)
-            const user = await getOrCreateUserForJob(userId, plan)
-            user.usageThisMonth.totalMinutes += minutes
-            user.usageThisMonth.videoCount += 1
-            user.updatedAt = new Date()
-            await saveUser(user)
+            if (userId) {
+              const user = await getOrCreateUserForJob(userId, plan)
+              user.usageThisMonth.totalMinutes += minutes
+              user.usageThisMonth.videoCount += 1
+              user.updatedAt = new Date()
+              await saveUser(user)
+            }
           }
           break
         }
@@ -654,7 +654,7 @@ async function processJob(job: import('bull').Job<JobData>) {
           // Batch processing: process single video, save SRT, update batch status
           let videoPath = data.filePath!
           const batchId = data.batchId!
-          const batch = getBatchById(batchId)
+          const batch = await getBatchById(batchId)
           
           if (!batch) {
             throw new Error('Batch not found')
@@ -699,18 +699,20 @@ async function processJob(job: import('bull').Job<JobData>) {
 
             // Update batch progress
             batch.processedVideos += 1
-            saveBatch(batch)
+            await saveBatch(batch)
 
             // Metering: charge minutes for this batch video (same as single video-to-subtitles)
-            const userId = data.userId || 'demo-user'
+            const userId = data.userId
             const plan = (data.plan || 'free') as PlanType
             const processedSeconds = trimmedDuration > 0 ? trimmedDuration : await getVideoDuration(videoPath)
             const minutes = secondsToMinutes(processedSeconds)
-            const user = await getOrCreateUserForJob(userId, plan)
-            user.usageThisMonth.totalMinutes += minutes
-            user.usageThisMonth.videoCount += 1
-            user.updatedAt = new Date()
-            await saveUser(user)
+            if (userId) {
+              const user = await getOrCreateUserForJob(userId, plan)
+              user.usageThisMonth.totalMinutes += minutes
+              user.usageThisMonth.videoCount += 1
+              user.updatedAt = new Date()
+              await saveUser(user)
+            }
 
             // Check if batch is complete
             if (batch.processedVideos + batch.failedVideos >= batch.totalVideos) {
@@ -730,7 +732,7 @@ async function processJob(job: import('bull').Job<JobData>) {
               videoName: data.originalName || 'unknown',
               reason: error.message || 'Processing failed',
             })
-            saveBatch(batch)
+            await saveBatch(batch)
 
             // Check if batch is complete (even with failures)
             if (batch.processedVideos + batch.failedVideos >= batch.totalVideos) {
@@ -876,18 +878,20 @@ async function processJob(job: import('bull').Job<JobData>) {
               ? Math.max(0, data.trimmedEnd - data.trimmedStart)
               : durationCheck.duration || 0
           const minutes = secondsToMinutes(processedSeconds)
-          const user = await getOrCreateUserForJob(userId, plan)
-          user.usageThisMonth.totalMinutes += minutes
-          user.usageThisMonth.videoCount += 1
-          user.updatedAt = new Date()
-          await saveUser(user)
+          if (userId) {
+            const user = await getOrCreateUserForJob(userId, plan)
+            user.usageThisMonth.totalMinutes += minutes
+            user.usageThisMonth.videoCount += 1
+            user.updatedAt = new Date()
+            await saveUser(user)
+          }
           break
         }
 
         case 'compress-video': {
           await job.progress(10)
           let videoPath = data.filePath!
-          const userId = data.userId || 'demo-user'
+          const userId = data.userId
           const plan = data.plan || 'free'
 
           // Trim video if start/end times provided
@@ -937,11 +941,13 @@ async function processJob(job: import('bull').Job<JobData>) {
               ? Math.max(0, data.trimmedEnd - data.trimmedStart)
               : durationCheck.duration || 0
           const minutes = secondsToMinutes(processedSeconds)
-          const user = await getOrCreateUserForJob(userId, plan)
-          user.usageThisMonth.totalMinutes += minutes
-          user.usageThisMonth.videoCount += 1
-          user.updatedAt = new Date()
-          await saveUser(user)
+          if (userId) {
+            const user = await getOrCreateUserForJob(userId, plan)
+            user.usageThisMonth.totalMinutes += minutes
+            user.usageThisMonth.videoCount += 1
+            user.updatedAt = new Date()
+            await saveUser(user)
+          }
           break
         }
 
@@ -1000,7 +1006,7 @@ async function processJob(job: import('bull').Job<JobData>) {
     try {
       trackProcessingFailed({
         job_id: String(jobId),
-        user_id: data.userId || 'demo-user',
+        user_id: data.userId ?? undefined,
         tool_type: data.toolType,
         error_message: err?.message,
       })
@@ -1018,7 +1024,7 @@ function attachQueueEvents(queue: import('bull').Queue<JobData>) {
     workerLog.info({ jobId: job.id, msg: 'job_completed' })
     const data = job.data as JobData
     if (data.batchId) {
-      const batch = getBatchById(data.batchId)
+      const batch = await getBatchById(data.batchId)
       if (batch) {
         const allJobs = await queue.getJobs(['completed', 'failed'])
         const batchJobs = allJobs.filter((j) => (j.data as JobData).batchId === data.batchId)
@@ -1047,14 +1053,14 @@ function attachQueueEvents(queue: import('bull').Queue<JobData>) {
       }).catch(() => {})
     }
     if (data?.batchId) {
-      const batch = getBatchById(data.batchId)
+      const batch = await getBatchById(data.batchId)
       if (batch) {
         batch.failedVideos += 1
         batch.errors.push({
           videoName: data.originalName || 'unknown',
           reason: err?.message || 'Processing failed',
         })
-        saveBatch(batch)
+        await saveBatch(batch)
         if (batch.processedVideos + batch.failedVideos >= batch.totalVideos && !batch.zipPath) {
           await generateBatchZip(data.batchId, batch)
         }

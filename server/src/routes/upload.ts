@@ -9,7 +9,9 @@ import { validateFileType, validateFileSize, validateSubtitleFile } from '../uti
 import { enforceLanguageLimits, enforceUsageLimits, getJobPriority, getPlanLimits } from '../utils/limits'
 import { getUser, saveUser, PlanType, User } from '../models/User'
 import { hashFile, checkDuplicateProcessing } from '../services/duplicate'
-import { getAuthFromRequest } from '../utils/auth'
+import { getAuthFromRequest, getEffectiveUserId } from '../utils/auth'
+import { sanitizeFilename } from '../utils/sanitizeFilename'
+import { assertPathWithinDir } from '../utils/assertPathWithinDir'
 import { isQueueAtHardLimit, isQueueAtSoftLimit } from '../utils/queueConfig'
 import { checkAndRecordUpload } from '../utils/uploadRateLimit'
 import { trackJobCreated } from '../utils/analytics'
@@ -25,12 +27,15 @@ if (!fs.existsSync(tempDir)) {
   fs.mkdirSync(tempDir, { recursive: true })
 }
 
-// Chunked upload metadata (uploadId -> { userId, plan, filename, totalChunks, toolType, options })
+const MAX_CHUNKS = 300
+
+// Chunked upload metadata (uploadId -> { userId?, plan, filename, totalChunks, totalSize, toolType, options })
 const chunkUploadMeta = new Map<string, {
-  userId: string
+  userId: string | null
   plan: PlanType
   filename: string
   totalChunks: number
+  totalSize: number
   toolType: string
   options: Record<string, unknown>
 }>()
@@ -44,7 +49,8 @@ const storage = multer.diskStorage({
     cb(null, tempDir)
   },
   filename: (req, file, cb) => {
-    const uniqueName = `${uuidv4()}-${file.originalname}`
+    const safe = sanitizeFilename(file.originalname)
+    const uniqueName = `${uuidv4()}-${safe}`
     cb(null, uniqueName)
   },
 })
@@ -65,12 +71,14 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
   try {
     const { toolType, url, webhookUrl, ...options } = req.body
 
-    const auth = getAuthFromRequest(req)
-    const headerUserId = (req.headers['x-user-id'] as string) || 'demo-user'
+    if (url && (toolType === 'video-to-transcript' || toolType === 'video-to-subtitles')) {
+      return res.status(400).json({ message: 'URL downloads are temporarily disabled.' })
+    }
 
-    const userId = auth?.userId || headerUserId
-    let user = await getUser(userId)
-    // Paid plans: from auth, or from existing Stripe-backed user; unauthenticated without Stripe = free (abuse-proof)
+    const auth = getAuthFromRequest(req)
+    const userId = getEffectiveUserId(req)
+    const rateLimitKey = userId ?? (req.ip ?? 'anonymous')
+    let user = userId ? await getUser(userId) : null
     const plan: PlanType =
       auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency')
         ? auth.plan
@@ -78,8 +86,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
           ? user.plan
           : 'free'
 
-    // Phase 2.5: rate limit 3 uploads per minute per user
-    if (!checkAndRecordUpload(userId)) {
+    if (!checkAndRecordUpload(rateLimitKey)) {
       res.setHeader('Retry-After', '60')
       return res.status(429).json({ message: 'Too many uploads. Please wait a minute before trying again.' })
     }
@@ -88,14 +95,10 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     if (isQueueAtHardLimit(queueCount)) {
       return res.status(503).json({ message: 'High demand right now. Please retry shortly.' })
     }
-    if (url && (toolType === 'video-to-transcript' || toolType === 'video-to-subtitles') && isQueueAtSoftLimit(queueCount)) {
-      return res.status(503).json({ message: 'High demand right now. URL imports are temporarily disabled. Please retry shortly.' })
-    }
 
-    // Ensure user exists (in-memory store for Phase 1.5)
     const now = new Date()
-    if (!user) {
-      const limits = getPlanLimits(plan)
+    const limits = user?.limits ?? getPlanLimits(plan)
+    if (!user && userId) {
       const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
       user = {
         id: userId,
@@ -119,15 +122,13 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
         updatedAt: now,
       }
       await saveUser(user)
-    } else {
-      // Keep user plan/limits in sync (free, basic, pro, agency) so minute tracking is correct
+    } else if (user) {
       if (user.plan !== plan) {
         user.plan = plan
         user.limits = getPlanLimits(plan)
         user.updatedAt = now
         saveUser(user)
       }
-      // Monthly reset
       if (now > user.usageThisMonth.resetDate) {
         const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
         user.usageThisMonth = {
@@ -144,53 +145,14 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       }
     }
 
-    // Enforce max concurrent jobs (simple queue-based check)
     const activeJobs = await fileQueue.getJobs(['active', 'waiting', 'delayed'])
     const activeForUser = activeJobs.filter((j) => (j.data as any)?.userId === userId)
-    if (activeForUser.length >= user.limits.maxConcurrentJobs) {
+    if (activeForUser.length >= limits.maxConcurrentJobs) {
       return res.status(429).json({ message: 'MAX_CONCURRENT_JOBS_REACHED' })
     }
 
     if (!toolType) {
       return res.status(400).json({ message: 'toolType is required' })
-    }
-
-    // Handle URL-based input (for video-to-transcript and video-to-subtitles)
-    if (url && (toolType === 'video-to-transcript' || toolType === 'video-to-subtitles')) {
-      // Validate URL
-      try {
-        new URL(url)
-      } catch {
-        return res.status(400).json({ message: 'Invalid URL' })
-      }
-
-      // Reject when free user has no minutes left (can't get duration before download)
-      const availableMinutes = user.limits.minutesPerMonth + user.overagesThisMonth.minutes
-      const remaining = Math.max(0, availableMinutes - user.usageThisMonth.totalMinutes)
-      if (remaining <= 0 && !user.stripeCustomerId) {
-        return res.status(403).json({ message: 'Monthly minute limit reached. Upgrade or wait for reset.' })
-      }
-
-      const jobOpts: Record<string, unknown> = options.format || options.language || options.includeSummary || options.includeChapters || options.exportFormats
-        ? { ...options } : {}
-      const job = await addJobToQueue(plan, {
-        toolType,
-        url,
-        userId,
-        plan,
-        options: Object.keys(jobOpts).length > 0 ? jobOpts : undefined,
-        webhookUrl: typeof webhookUrl === 'string' && webhookUrl.trim() ? webhookUrl.trim() : undefined,
-        requestId: (req as RequestWithId).requestId,
-      })
-      try {
-        trackJobCreated({ job_id: String(job.id), user_id: userId, tool_type: toolType, plan })
-      } catch {
-        // non-blocking
-      }
-      return res.status(202).json({
-        jobId: job.id,
-        status: 'queued',
-      })
     }
 
     // File-based input
@@ -200,8 +162,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     }
     const file = req.file
 
-    // Validate file size (plan-based)
-    if (file.size > user.limits.maxFileSize) {
+    if (file.size > limits.maxFileSize) {
       fs.unlinkSync(file.path)
       return res.status(400).json({ message: `File exceeds plan limit. Upgrade for larger files.` })
     }
@@ -234,8 +195,8 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
         typeError = subResult.error
       }
     } else if (toolType !== 'burn-subtitles' && inputType !== 'audio') {
-      // For video tools (and not audio-only), validate video type
-      typeError = await validateFileType(file.path)
+      // For video tools (and not audio-only), validate video type (extension fallback for AVI etc.)
+      typeError = await validateFileType(file.path, file.originalname)
     }
 
     if (typeError) {
@@ -290,8 +251,8 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       jobOptions.additionalLanguages = additionalLanguages
     }
 
-    // Enforce multi-language limits (plan-based)
-    if (toolType === 'video-to-subtitles' && additionalLanguages.length > 0) {
+    // Enforce multi-language limits (plan-based); requires authenticated user
+    if (user && toolType === 'video-to-subtitles' && additionalLanguages.length > 0) {
       const langCheck = enforceLanguageLimits(user, additionalLanguages)
       if (!langCheck.allowed) {
         fs.unlinkSync(file.path)
@@ -299,9 +260,9 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       }
     }
 
-    // Server-side minute limit: reject before queueing if user would exceed plan (abuse-proof)
+    // Server-side minute limit: reject before queueing if user would exceed plan (abuse-proof); only for authenticated users
     const minuteChargingTools = ['video-to-transcript', 'video-to-subtitles', 'burn-subtitles', 'compress-video']
-    if (minuteChargingTools.includes(toolType)) {
+    if (user && minuteChargingTools.includes(toolType)) {
       let durationSeconds: number
       try {
         durationSeconds = await getVideoDuration(file.path)
@@ -325,6 +286,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     // Cache lookup: same user + same file + same tool + same options → instant result (configurable TTL). Skip for audio-only (hash would be of audio, not video).
     let videoHash: string | undefined
     if (
+      userId &&
       (toolType === 'video-to-transcript' || toolType === 'video-to-subtitles') &&
       inputType !== 'audio'
     ) {
@@ -350,6 +312,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
           return res.status(202).json({
             jobId: cachedJob.id,
             status: 'queued',
+            jobToken: (cachedJob.data as any)?.jobToken,
           })
         }
       } catch {
@@ -360,7 +323,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     const job = await addJobToQueue(plan, {
       toolType,
       filePath: file.path,
-      userId,
+      userId: userId ?? undefined,
       plan,
       videoHash,
       originalName: originalNameForJob,
@@ -375,7 +338,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     try {
       trackJobCreated({
         job_id: String(job.id),
-        user_id: userId,
+        user_id: userId ?? undefined,
         tool_type: toolType,
         file_size_bytes: file.size,
         plan,
@@ -386,6 +349,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     res.status(202).json({
       jobId: job.id,
       status: 'queued',
+      jobToken: (job.data as any)?.jobToken,
     })
   } catch (error: any) {
     console.error('Upload error:', error)
@@ -444,9 +408,8 @@ router.post('/dual', upload.fields([
     const videoFile = files.video[0]
     const subtitleFile = files.subtitles[0]
 
-    // Get or create user for minute enforcement
-    if (!burnUser) {
-      const limits = getPlanLimits(plan)
+    const burnLimits = getPlanLimits(plan)
+    if (!burnUser && userId) {
       const now = new Date()
       const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
       burnUser = {
@@ -458,35 +421,33 @@ router.post('/dual', upload.fields([
         subscriptionId: '',
         paymentMethodId: undefined,
         usageThisMonth: { totalMinutes: 0, videoCount: 0, batchCount: 0, languageCount: 0, translatedMinutes: 0, resetDate },
-        limits,
+        limits: burnLimits,
         overagesThisMonth: { minutes: 0, languages: 0, batches: 0, totalCharge: 0 },
         createdAt: now,
         updatedAt: now,
       }
       await saveUser(burnUser)
-    } else if (burnUser.plan !== plan) {
+    } else if (burnUser && burnUser.plan !== plan) {
       burnUser.plan = plan
       burnUser.limits = getPlanLimits(plan)
       burnUser.updatedAt = new Date()
       await saveUser(burnUser)
     }
 
-    // Enforce max concurrent jobs
     const activeJobs = await fileQueue.getJobs(['active', 'waiting', 'delayed'])
     const activeForUser = activeJobs.filter((j) => (j.data as any)?.userId === userId)
-    if (activeForUser.length >= burnUser.limits.maxConcurrentJobs) {
+    if (activeForUser.length >= burnLimits.maxConcurrentJobs) {
       return res.status(429).json({ message: 'MAX_CONCURRENT_JOBS_REACHED' })
     }
 
     // Validate video file (plan-based size)
-    const limits = getPlanLimits(plan)
-    if (videoFile.size > limits.maxFileSize) {
+    if (videoFile.size > burnLimits.maxFileSize) {
       fs.unlinkSync(videoFile.path)
       fs.unlinkSync(subtitleFile.path)
       return res.status(400).json({ message: `File exceeds plan limit. Upgrade for larger files.` })
     }
 
-    const videoTypeError = await validateFileType(videoFile.path)
+    const videoTypeError = await validateFileType(videoFile.path, videoFile.originalname)
     if (videoTypeError) {
       fs.unlinkSync(videoFile.path)
       fs.unlinkSync(subtitleFile.path)
@@ -522,18 +483,20 @@ router.post('/dual', upload.fields([
       durationSeconds = Math.max(0, end - start)
     }
     const requestedMinutes = Math.ceil(durationSeconds / 60)
-    const limitCheck = await enforceUsageLimits(burnUser, requestedMinutes)
-    if (!limitCheck.allowed) {
-      fs.unlinkSync(videoFile.path)
-      fs.unlinkSync(subtitleFile.path)
-      return res.status(403).json({ message: 'Monthly minute limit reached. Upgrade or wait for reset.' })
+    if (burnUser != null) {
+      const limitCheck = await enforceUsageLimits(burnUser, requestedMinutes)
+      if (!limitCheck.allowed) {
+        fs.unlinkSync(videoFile.path)
+        fs.unlinkSync(subtitleFile.path)
+        return res.status(403).json({ message: 'Monthly minute limit reached. Upgrade or wait for reset.' })
+      }
     }
 
     const job = await addJobToQueue(plan, {
       toolType: 'burn-subtitles',
       filePath: videoFile.path,
       filePath2: subtitleFile.path,
-      userId,
+      userId: userId ?? undefined,
       plan,
       originalName: videoFile.originalname,
       originalName2: subtitleFile.originalname,
@@ -554,6 +517,7 @@ router.post('/dual', upload.fields([
     res.status(202).json({
       jobId: job.id,
       status: 'queued',
+      jobToken: (job.data as any)?.jobToken,
     })
   } catch (error: any) {
     console.error('Upload error:', error)
@@ -580,10 +544,16 @@ router.post('/dual', upload.fields([
 router.post('/init', async (req: Request, res: Response) => {
   try {
     const auth = getAuthFromRequest(req)
-    const headerUserId = (req.headers['x-user-id'] as string) || 'demo-user'
-    const userId = auth?.userId || headerUserId
-    const user = await getUser(userId)
-    // Paid plans: from auth, or from existing Stripe-backed user; unauthenticated without Stripe = free (abuse-proof)
+    const userId = getEffectiveUserId(req)
+    const rateLimitKey = userId ?? (req.ip ?? 'anonymous')
+    let user: User | null = null
+    if (userId) {
+      try {
+        user = (await getUser(userId)) ?? null
+      } catch (e) {
+        console.warn('[upload/init] getUser failed', (e as Error)?.message)
+      }
+    }
     const plan: PlanType =
       auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency')
         ? auth.plan
@@ -591,19 +561,25 @@ router.post('/init', async (req: Request, res: Response) => {
           ? user.plan
           : 'free'
 
-    if (!checkAndRecordUpload(userId)) {
+    if (!checkAndRecordUpload(rateLimitKey)) {
       res.setHeader('Retry-After', '60')
       return res.status(429).json({ message: 'Too many uploads. Please wait a minute before trying again.' })
     }
 
-    const queueCount = await getTotalQueueCount()
+    let queueCount: number
+    try {
+      queueCount = await getTotalQueueCount()
+    } catch (e) {
+      console.error('[upload/init] queue count failed', (e as Error)?.message)
+      return res.status(503).json({ message: 'Queue unavailable. Please retry in a moment.' })
+    }
     if (isQueueAtHardLimit(queueCount)) {
       return res.status(503).json({ message: 'High demand right now. Please retry shortly.' })
     }
 
     const { filename, totalSize, totalChunks, toolType, ...rest } = req.body as {
       filename: string
-      totalSize: number
+      totalSize?: number
       totalChunks: number
       toolType: string
       [k: string]: unknown
@@ -611,16 +587,33 @@ router.post('/init', async (req: Request, res: Response) => {
     if (!filename || !totalChunks || !toolType) {
       return res.status(400).json({ message: 'filename, totalChunks, and toolType are required' })
     }
+    if (typeof totalSize !== 'number' || totalSize < 0) {
+      return res.status(400).json({ message: 'totalSize is required and must be a non-negative number' })
+    }
+    if (totalChunks > MAX_CHUNKS || totalChunks < 1) {
+      return res.status(400).json({ message: `totalChunks must be between 1 and ${MAX_CHUNKS}` })
+    }
+
+    const limits = getPlanLimits(user?.plan || plan)
+    if (totalSize > limits.maxFileSize) {
+      return res.status(400).json({ message: 'Total size exceeds plan limit. Upgrade for larger files.' })
+    }
 
     const uploadId = uuidv4()
     const dir = path.join(chunksDir, uploadId)
-    fs.mkdirSync(dir, { recursive: true })
+    try {
+      fs.mkdirSync(dir, { recursive: true })
+    } catch (e) {
+      console.error('[upload/init] mkdir failed', dir, (e as Error)?.message)
+      return res.status(500).json({ message: 'Upload storage unavailable. Please retry.' })
+    }
 
     chunkUploadMeta.set(uploadId, {
       userId,
       plan,
       filename,
       totalChunks,
+      totalSize,
       toolType,
       options: rest || {},
     })
@@ -681,15 +674,36 @@ router.post('/complete', async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'No chunks found' })
     }
 
-    const totalChunks = meta.totalChunks
-    const outPath = path.join(tempDir, `${uuidv4()}-${meta.filename}`)
+    const totalChunks = Math.min(meta.totalChunks, MAX_CHUNKS)
+    const safeFilename = sanitizeFilename(meta.filename)
+    const outPath = path.join(tempDir, `${uuidv4()}-${safeFilename}`)
+    try {
+      assertPathWithinDir(tempDir, path.resolve(outPath))
+    } catch {
+      return res.status(400).json({ message: 'Invalid filename' })
+    }
     const out = fs.createWriteStream(outPath, { flags: 'a' })
+    let totalSizeSoFar = 0
+    const maxFileSize = getPlanLimits(meta.plan).maxFileSize
+    const declaredTotal = meta.totalSize
     for (let i = 0; i < totalChunks; i++) {
       const chunkPath = path.join(dir, `chunk_${i}`)
       if (!fs.existsSync(chunkPath)) {
         out.destroy()
         try { fs.unlinkSync(outPath) } catch { /* ignore */ }
         return res.status(400).json({ message: `Missing chunk ${i}` })
+      }
+      const stat = fs.statSync(chunkPath)
+      totalSizeSoFar += stat.size
+      if (totalSizeSoFar > maxFileSize) {
+        out.destroy()
+        try { fs.unlinkSync(outPath) } catch { /* ignore */ }
+        return res.status(400).json({ message: 'Total size exceeds plan limit. Upgrade for larger files.' })
+      }
+      if (declaredTotal != null && totalSizeSoFar > declaredTotal) {
+        out.destroy()
+        try { fs.unlinkSync(outPath) } catch { /* ignore */ }
+        return res.status(400).json({ message: 'Chunk total exceeds declared totalSize.' })
       }
       const buf = fs.readFileSync(chunkPath)
       out.write(buf)
@@ -703,17 +717,17 @@ router.post('/complete', async (req: Request, res: Response) => {
       res.status(500).json({ message: err?.message || 'Upload complete failed' })
     }
     out.once('error', onError)
-    out.once('finish', async () => {
+      out.once('finish', async () => {
       out.removeListener('error', onError)
       try {
         try { fs.rmdirSync(dir) } catch { /* ignore if not empty or missing */ }
-        let user = await getUser(meta.userId)
-          if (!user) {
+        let user = meta.userId ? await getUser(meta.userId) : null
+          if (!user && meta.userId) {
             const limits = getPlanLimits(meta.plan)
             const now = new Date()
             const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
             user = {
-              id: meta.userId,
+              id: meta.userId!,
               email: `${meta.userId}@example.com`,
               passwordHash: '',
               plan: meta.plan,
@@ -736,7 +750,8 @@ router.post('/complete', async (req: Request, res: Response) => {
             await saveUser(user)
           }
           const fileSize = fs.statSync(outPath).size
-          if (user.limits.maxFileSize && fileSize > user.limits.maxFileSize) {
+          const planLimit = getPlanLimits(meta.plan).maxFileSize
+          if (fileSize > planLimit) {
             fs.unlinkSync(outPath)
             return res.status(400).json({ message: 'File exceeds plan limit. Upgrade for larger files.' })
           }
@@ -750,9 +765,9 @@ router.post('/complete', async (req: Request, res: Response) => {
           const job = await addJobToQueue(meta.plan, {
             toolType: meta.toolType,
             filePath: outPath,
-            userId: meta.userId,
+            userId: meta.userId ?? undefined,
             plan: meta.plan,
-            originalName: isChunkedAudioOnly && opts.originalFileName ? String(opts.originalFileName) : meta.filename,
+            originalName: isChunkedAudioOnly && opts.originalFileName ? String(opts.originalFileName) : safeFilename,
             fileSize,
             trimmedStart,
             trimmedEnd,
@@ -763,7 +778,7 @@ router.post('/complete', async (req: Request, res: Response) => {
           try {
             trackJobCreated({
               job_id: String(job.id),
-              user_id: meta.userId,
+              user_id: meta.userId ?? undefined,
               tool_type: meta.toolType,
               file_size_bytes: fileSize,
               plan: meta.plan,
@@ -771,7 +786,11 @@ router.post('/complete', async (req: Request, res: Response) => {
           } catch {
             // non-blocking
           }
-          return res.status(202).json({ jobId: job.id, status: 'queued' })
+          return res.status(202).json({
+            jobId: job.id,
+            status: 'queued',
+            jobToken: (job.data as any)?.jobToken,
+          })
         } catch (error: any) {
           onError(error)
         }

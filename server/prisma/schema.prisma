@@ -29,3 +29,20 @@ model User {
   createdAt                DateTime
   updatedAt                DateTime
 }
+
+// Batch job state shared by API and worker (persisted so separate containers see same state).
+model BatchJobRecord {
+  id               String    @id
+  userId           String
+  totalVideos      Int
+  totalDuration    Int       // seconds
+  processedVideos  Int       @default(0)
+  failedVideos     Int       @default(0)
+  status           String    // queued | processing | completed | failed | partial
+  zipPath          String?
+  zipSize          Int?
+  errors           Json      @default("[]") // [{ videoName, reason }]
+  createdAt        DateTime
+  completedAt      DateTime?
+  expiresAt        DateTime
+}

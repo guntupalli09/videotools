@@ -1,4 +1,4 @@
-import 'dotenv/config'
+import './env'
 import path from 'path'
 import fs from 'fs'
 import express from 'express'
@@ -42,11 +42,15 @@ const generalLimiter = rateLimit({
   legacyHeaders: false,
 })
 
-// CORS: production allowlist + env CORS_ORIGINS (comma-separated) + any *.vercel.app
+// CORS: production allowlist + env CORS_ORIGINS (comma-separated) + any *.vercel.app; in dev allow any localhost/127.0.0.1/[::1] (any port)
 const allowedExactOrigins = new Set([
   'https://videotext.io',
   'https://www.videotext.io',
 ])
+if (process.env.NODE_ENV !== 'production') {
+  allowedExactOrigins.add('http://localhost:3000')
+  allowedExactOrigins.add('http://127.0.0.1:3000')
+}
 const envOrigins = (process.env.CORS_ORIGINS || '').split(',').map((o) => o.trim()).filter(Boolean)
 envOrigins.forEach((o) => allowedExactOrigins.add(o))
 
@@ -54,11 +58,28 @@ function normalizeOrigin(origin: string): string {
   return origin.trim().replace(/\/$/, '') // trim and strip trailing slash
 }
 
+/** In dev, allow any origin that is localhost, 127.0.0.1, or [::1] (any port). */
+function isLocalOrigin(origin: string): boolean {
+  try {
+    const u = new URL(origin)
+    const host = u.hostname.toLowerCase()
+    return (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '[::1]' ||
+      host === '::1'
+    )
+  } catch {
+    return false
+  }
+}
+
 function isAllowedOrigin(origin?: string) {
   if (!origin) return true // curl, server-to-server
   const norm = normalizeOrigin(origin)
   if (allowedExactOrigins.has(norm)) return true
   if (norm.endsWith('.vercel.app')) return true
+  if (process.env.NODE_ENV !== 'production' && isLocalOrigin(norm)) return true
   return false
 }
 
@@ -144,10 +165,11 @@ app.all('/api/upload/chunk', (req, res) => {
 app.use(express.json())
 app.use('/api', generalLimiter)
 
-// Optional API key auth (sets x-user-id from Bearer / X-Api-Key)
+// Optional API key auth (sets trusted identity on req.apiKeyUser)
 app.use('/api/upload', apiKeyAuth)
 app.use('/api/job', apiKeyAuth)
 app.use('/api/batch', apiKeyAuth)
+app.use('/api/translate-transcript', apiKeyAuth)
 
 // Routes
 app.use('/api/upload', uploadRoutes)

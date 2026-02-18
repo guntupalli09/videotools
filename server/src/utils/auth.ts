@@ -3,6 +3,11 @@ import jwt from 'jsonwebtoken'
 import type { Request } from 'express'
 import type { PlanType, User } from '../models/User'
 
+/** Request may carry apiKeyUser set by apiKeyAuth middleware. */
+interface RequestWithApiKey extends Request {
+  apiKeyUser?: { userId: string; plan: PlanType }
+}
+
 /** One-time token for setting password after checkout. 24h expiry. */
 export function generatePasswordSetupToken(): { token: string; expiresAt: Date } {
   const token = crypto.randomBytes(32).toString('hex')
@@ -71,6 +76,18 @@ export function getAuthFromRequest(req: Request): AuthPayload | null {
   return verifyAuthToken(token)
 }
 
+/**
+ * Effective userId for this request: JWT first, then validated API key identity, else null (anonymous).
+ * Do not use x-user-id header for identity (spoofable); use this helper.
+ */
+export function getEffectiveUserId(req: Request): string | null {
+  const auth = getAuthFromRequest(req)
+  if (auth?.userId) return auth.userId
+  const apiKeyUser = (req as RequestWithApiKey).apiKeyUser
+  if (apiKeyUser?.userId) return apiKeyUser.userId
+  return null
+}
+
 /** Short-lived token issued after OTP verify; used to start subscription checkout. */
 const EMAIL_VERIFY_JWT_EXPIRY = '1h'
 
@@ -95,5 +112,10 @@ export function verifyEmailVerificationToken(token: string): EmailVerifiedPayloa
   } catch {
     return null
   }
+}
+
+/** Generate a crypto-random job token for anonymous polling. */
+export function generateJobToken(): string {
+  return crypto.randomUUID()
 }
 

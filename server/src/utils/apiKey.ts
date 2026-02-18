@@ -1,4 +1,22 @@
 import { Request, Response, NextFunction } from 'express'
+import type { PlanType } from '../models/User'
+
+/**
+ * Trusted identity set by apiKeyAuth when a valid API key is present.
+ * Routes must use this (or JWT) for userId/plan; do not trust x-user-id/x-plan headers from client.
+ */
+export interface ApiKeyUser {
+  userId: string
+  plan: PlanType
+}
+
+declare global {
+  namespace Express {
+    interface Request {
+      apiKeyUser?: ApiKeyUser
+    }
+  }
+}
 
 /**
  * In-memory API key store. Format: API_KEYS=key1:userId1,key2:userId2
@@ -21,9 +39,8 @@ function loadApiKeys() {
 }
 
 /**
- * Middleware: if Authorization: Bearer <key> or X-Api-Key: <key> is present,
- * resolve to userId and set req.headers['x-user-id'] (and optionally x-plan).
- * Does not reject requests without a key (other auth can apply).
+ * Middleware: if Authorization: Bearer <key> or X-Api-Key: <key> is present and valid,
+ * set req.apiKeyUser only. Identity must not be read from headers.
  */
 export function apiKeyAuth(req: Request, _res: Response, next: NextFunction) {
   loadApiKeys()
@@ -32,8 +49,7 @@ export function apiKeyAuth(req: Request, _res: Response, next: NextFunction) {
   const key = apiKey?.trim() || (authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : undefined)
   if (key && keyToUser.has(key)) {
     const userId = keyToUser.get(key)!
-    req.headers['x-user-id'] = userId
-    if (!req.headers['x-plan']) req.headers['x-plan'] = 'free'
+    req.apiKeyUser = { userId, plan: 'free' }
   }
   next()
 }

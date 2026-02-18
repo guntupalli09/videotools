@@ -10,7 +10,8 @@ import { getUser, saveUser, PlanType, User } from '../models/User'
 import { getPlanLimits, enforceBatchLimits, enforceUsageLimits, getJobPriority } from '../utils/limits'
 import { addJobToQueue, getTotalQueueCount } from '../workers/videoProcessor'
 import { RequestWithId } from '../middleware/requestId'
-import { getAuthFromRequest } from '../utils/auth'
+import { getAuthFromRequest, getEffectiveUserId } from '../utils/auth'
+import { sanitizeFilename } from '../utils/sanitizeFilename'
 import { isQueueAtHardLimit, isQueueAtSoftLimit } from '../utils/queueConfig'
 import { checkAndRecordUpload } from '../utils/uploadRateLimit'
 
@@ -29,7 +30,8 @@ const storage = multer.diskStorage({
     cb(null, tempDir)
   },
   filename: (_req, file, cb) => {
-    const uniqueName = `${uuidv4()}-${file.originalname}`
+    const safe = sanitizeFilename(file.originalname)
+    const uniqueName = `${uuidv4()}-${safe}`
     cb(null, uniqueName)
   },
 })
@@ -43,10 +45,13 @@ const upload = multer({
 
 async function getOrCreateDemoUser(req: Request): Promise<User> {
   const auth = getAuthFromRequest(req)
-  const headerUserId = (req.headers['x-user-id'] as string) || 'demo-user'
-  const userId = auth?.userId || headerUserId
+  const userId = getEffectiveUserId(req)
+  if (!userId) {
+    const err = new Error('Authentication required for batch uploads.') as Error & { statusCode?: number }
+    err.statusCode = 401
+    throw err
+  }
   let user = await getUser(userId)
-  // Paid plans: from auth, or from existing Stripe-backed user; unauthenticated without Stripe = free (abuse-proof)
   const derivedPlan: PlanType =
     auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency')
       ? auth.plan
@@ -106,7 +111,16 @@ router.post(
   '/upload',
   upload.array('files'),
   async (req: Request, res: Response) => {
-    const user = await getOrCreateDemoUser(req)
+    let user: User
+    try {
+      user = await getOrCreateDemoUser(req)
+    } catch (err: unknown) {
+      const e = err as Error & { statusCode?: number }
+      if (e.statusCode === 401) {
+        return res.status(401).json({ message: e.message })
+      }
+      throw err
+    }
 
     try {
       const files = req.files as Express.Multer.File[]
@@ -143,7 +157,7 @@ router.post(
           return res.status(400).json({ message: `File exceeds plan limit. Upgrade for larger files.` })
         }
 
-        const typeError = await validateFileType(file.path)
+        const typeError = await validateFileType(file.path, file.originalname)
         if (typeError) {
           fs.unlinkSync(file.path)
           return res.status(400).json({ message: typeError })
@@ -204,7 +218,7 @@ router.post(
         expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),
       }
 
-      saveBatch(batch)
+      await saveBatch(batch)
 
       // Track batch usage count; minute charging happens per video jobs
       user.usageThisMonth.batchCount += 1
@@ -239,7 +253,7 @@ router.post(
 
       // Update batch status to processing
       batch.status = 'processing'
-      saveBatch(batch)
+      await saveBatch(batch)
 
       res.json({
         batchId,
@@ -258,9 +272,9 @@ router.post(
 )
 
 // GET /api/batch/:batchId/status
-router.get('/:batchId/status', (req: Request, res: Response) => {
+router.get('/:batchId/status', async (req: Request, res: Response) => {
   const { batchId } = req.params
-  const batch = getBatchById(batchId)
+  const batch = await getBatchById(batchId)
 
   if (!batch) {
     return res.status(404).json({ message: 'Batch not found' })
@@ -286,9 +300,9 @@ router.get('/:batchId/status', (req: Request, res: Response) => {
 })
 
 // GET /api/batch/:batchId/download
-router.get('/:batchId/download', (req: Request, res: Response) => {
+router.get('/:batchId/download', async (req: Request, res: Response) => {
   const { batchId } = req.params
-  const batch = getBatchById(batchId)
+  const batch = await getBatchById(batchId)
 
   if (!batch) {
     return res.status(404).json({ message: 'Batch not found' })

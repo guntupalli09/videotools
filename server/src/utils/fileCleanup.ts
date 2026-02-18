@@ -27,9 +27,11 @@ function cleanupFiles() {
   files.forEach((file) => {
     const filePath = path.join(tempDir, file)
     try {
-      const stats = fs.statSync(filePath)
+      const stats = fs.lstatSync(filePath)
+      if (stats.isSymbolicLink()) {
+        return
+      }
       if (!stats.isFile()) {
-        // Skip directories (e.g. /tmp/chunks); only delete stale files
         return
       }
       const age = now - stats.mtimeMs

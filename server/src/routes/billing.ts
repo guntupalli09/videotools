@@ -3,7 +3,7 @@ import { stripe, getStripePriceConfig, BillingPlan } from '../services/stripe'
 import { getUser, getUserByStripeCustomerId, saveUser } from '../models/User'
 import type { User, PlanType } from '../models/User'
 import { getPlanLimits } from '../utils/limits'
-import { getAuthFromRequest, verifyEmailVerificationToken, generatePasswordSetupToken } from '../utils/auth'
+import { getAuthFromRequest, getEffectiveUserId, verifyEmailVerificationToken, generatePasswordSetupToken } from '../utils/auth'
 
 const router = express.Router()
 
@@ -140,9 +140,10 @@ router.post('/checkout', async (req: Request, res: Response) => {
 /** Create a Stripe Customer Billing Portal session. User can upgrade, downgrade, cancel, update payment. */
 router.post('/portal', async (req: Request, res: Response) => {
   try {
-    const auth = getAuthFromRequest(req)
-    const headerUserId = (req.headers['x-user-id'] as string) || ''
-    const userId = auth?.userId || headerUserId
+    const userId = getEffectiveUserId(req)
+    if (!userId) {
+      return res.status(401).json({ message: 'Not signed in. Complete a purchase or sign in to manage your subscription.' })
+    }
     const returnUrl =
       (req.body && typeof req.body.returnUrl === 'string' && req.body.returnUrl) ||
       (process.env.BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) || 'https://www.videotext.io') + '/pricing'

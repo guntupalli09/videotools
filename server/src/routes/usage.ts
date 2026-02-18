@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express'
 import { getUser, saveUser, User, PlanType } from '../models/User'
 import { getPlanLimits, getJobPriority } from '../utils/limits'
-import { getAuthFromRequest } from '../utils/auth'
+import { getAuthFromRequest, getEffectiveUserId } from '../utils/auth'
 import {
   getPlanAndEmailForStripeCustomer,
   getSubscriptionPeriodEnd,
@@ -11,27 +11,27 @@ const router = express.Router()
 
 // For Phase 1.5 we derive a demo user from a simple header or fall back to free.
 // When user is missing but x-user-id looks like a Stripe customer (cus_*), we restore from Stripe so paid plan survives API restarts.
-async function getOrCreateDemoUser(req: Request): Promise<User> {
+async function getOrCreateDemoUser(req: Request): Promise<User | null> {
   const auth = getAuthFromRequest(req)
-  const headerUserId = (req.headers['x-user-id'] as string) || 'demo-user'
-  const userId = auth?.userId || headerUserId
+  const userId = getEffectiveUserId(req)
+  if (!userId) return null
   let user = await getUser(userId)
 
   const now = new Date()
 
-  // If no user in memory but header is a Stripe customer id, restore from Stripe (handles API restart after payment)
-  if (!user && typeof headerUserId === 'string' && headerUserId.startsWith('cus_')) {
-    const stripeData = await getPlanAndEmailForStripeCustomer(headerUserId)
+  // If no user in memory but identity is a Stripe customer id (from JWT/apiKey), restore from Stripe (handles API restart after payment)
+  if (!user && userId.startsWith('cus_')) {
+    const stripeData = await getPlanAndEmailForStripeCustomer(userId)
     if (stripeData) {
       const resetDate = stripeData.currentPeriodEnd
         ? new Date(stripeData.currentPeriodEnd * 1000)
         : now
       user = {
-        id: headerUserId,
+        id: userId,
         email: stripeData.email,
         passwordHash: '',
         plan: stripeData.plan,
-        stripeCustomerId: headerUserId,
+        stripeCustomerId: userId,
         subscriptionId: stripeData.subscriptionId,
         paymentMethodId: undefined,
         usageThisMonth: {
@@ -152,36 +152,46 @@ async function getOrCreateDemoUser(req: Request): Promise<User> {
 
 router.get('/current', async (req: Request, res: Response) => {
   const user = await getOrCreateDemoUser(req)
-
-  const availableMinutes = user.limits.minutesPerMonth + user.overagesThisMonth.minutes
-  const remaining = Math.max(0, availableMinutes - user.usageThisMonth.totalMinutes)
+  const plan = user?.plan ?? 'free'
+  const limits = user?.limits ?? getPlanLimits(plan)
+  const usage = user?.usageThisMonth ?? {
+    totalMinutes: 0,
+    videoCount: 0,
+    batchCount: 0,
+    languageCount: 0,
+    translatedMinutes: 0,
+    resetDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1),
+  }
+  const overages = user?.overagesThisMonth ?? { minutes: 0, languages: 0, batches: 0, totalCharge: 0 }
+  const availableMinutes = limits.minutesPerMonth + overages.minutes
+  const remaining = Math.max(0, availableMinutes - usage.totalMinutes)
 
   const displayEmail =
-    user.email && !user.email.endsWith('@example.com') && !user.email.endsWith('@checkout.example.com')
+    user?.email && !user.email.endsWith('@example.com') && !user.email.endsWith('@checkout.example.com')
       ? user.email
       : undefined
   res.json({
-    plan: user.plan,
+    plan,
     email: displayEmail,
     limits: {
-      minutesPerMonth: user.limits.minutesPerMonth,
-      maxLanguages: user.limits.maxLanguages,
-      batchEnabled: user.limits.batchEnabled,
-      maxFileSize: user.limits.maxFileSize,
-      maxVideoDuration: user.limits.maxVideoDuration,
+      minutesPerMonth: limits.minutesPerMonth,
+      maxLanguages: limits.maxLanguages,
+      batchEnabled: limits.batchEnabled,
+      maxFileSize: limits.maxFileSize,
+      maxVideoDuration: limits.maxVideoDuration,
     },
     usage: {
-      totalMinutes: user.usageThisMonth.totalMinutes,
+      totalMinutes: usage.totalMinutes,
       remaining,
-      videoCount: user.usageThisMonth.videoCount,
-      batchCount: user.usageThisMonth.batchCount,
+      videoCount: usage.videoCount,
+      batchCount: usage.batchCount,
     },
     overages: {
-      minutes: user.overagesThisMonth.minutes,
-      charge: user.overagesThisMonth.totalCharge,
+      minutes: overages.minutes,
+      charge: overages.totalCharge,
     },
-    resetDate: user.usageThisMonth.resetDate.toISOString(),
-    queuePriority: getJobPriority(user.plan),
+    resetDate: usage.resetDate.toISOString(),
+    queuePriority: getJobPriority(plan),
   })
 })
 

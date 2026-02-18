@@ -23,7 +23,7 @@ import { getFilePreview, type FilePreviewData } from '../lib/filePreview'
 import { extractAudioInBrowser, isAudioExtractionSupported } from '../lib/audioExtraction'
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
-import { persistJobId, getPersistedJobId, clearPersistedJobId } from '../lib/jobSession'
+import { persistJobId, getPersistedJobId, getPersistedJobToken, clearPersistedJobId } from '../lib/jobSession'
 import { createCheckoutSession } from '../lib/billing'
 import { trackEvent } from '../lib/analytics'
 import toast from 'react-hot-toast'
@@ -120,10 +120,11 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
     setIsRehydrating(true)
     setProcessingStartedAt(Date.now())
 
+    const jobToken = getPersistedJobToken(pathname)
     let cancelled = false
     const run = async () => {
       try {
-        const jobStatus = await getJobStatus(jobId)
+        const jobStatus = await getJobStatus(jobId, jobToken ? { jobToken } : undefined)
         if (cancelled) return
         setIsRehydrating(false)
         setProgress(jobStatus.progress ?? 0)
@@ -169,7 +170,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
         const doPoll = async () => {
           if (cancelled) return
           try {
-            const s = await getJobStatus(jobId)
+            const s = await getJobStatus(jobId, jobToken ? { jobToken } : undefined)
             if (cancelled) return
             setProgress(s.progress ?? 0)
             if (s.queuePosition !== undefined) setQueuePosition(s.queuePosition)
@@ -408,14 +409,15 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
 
       uploadAbortRef.current = null
       setCurrentJobId(response.jobId)
-      persistJobId(location.pathname, response.jobId)
+      persistJobId(location.pathname, response.jobId, response.jobToken)
       setUploadPhase('processing')
       setUploadProgress(100)
       setProcessingStartedAt(Date.now())
 
+      const jobToken = response.jobToken
       const doPoll = async () => {
         try {
-          const jobStatus = await getJobStatus(response.jobId)
+          const jobStatus = await getJobStatus(response.jobId, jobToken ? { jobToken } : undefined)
           setProgress(jobStatus.progress ?? 0)
           if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
 
@@ -548,7 +550,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
       const pollIntervalRef = { current: 0 as number }
       const doPoll = async () => {
         try {
-          const jobStatus = await getJobStatus(uploadRes.jobId)
+          const jobStatus = await getJobStatus(uploadRes.jobId, uploadRes.jobToken ? { jobToken: uploadRes.jobToken } : undefined)
           if (getJobLifecycleTransition(jobStatus) === 'completed' && jobStatus.result?.downloadUrl) {
             clearInterval(pollIntervalRef.current)
             const convertedUrl = getAbsoluteDownloadUrl(jobStatus.result.downloadUrl)
