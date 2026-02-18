@@ -6,10 +6,14 @@ const redisOptions: {
   tls?: object
   enableReadyCheck: boolean
   maxRetriesPerRequest: number | null
+  connectTimeout: number
+  commandTimeout: number
 } = {
   ...(redisUrl.startsWith('rediss://') ? { tls: {} } : {}),
   enableReadyCheck: false,
   maxRetriesPerRequest: null,
+  connectTimeout: 5_000,
+  commandTimeout: 5_000,
 }
 
 /**
