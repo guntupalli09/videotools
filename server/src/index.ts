@@ -16,7 +16,7 @@ import billingRoutes from './routes/billing'
 import authRoutes from './routes/auth'
 import translateTranscriptRoutes from './routes/translateTranscript'
 import { stripeWebhookHandler } from './routes/stripeWebhook'
-import { startWorker } from './workers/videoProcessor'
+import { startWorker, getTotalQueueCount } from './workers/videoProcessor'
 import { startFileCleanup } from './utils/fileCleanup'
 import { apiKeyAuth } from './utils/apiKey'
 import { flushAnalytics } from './utils/analytics'
@@ -218,6 +218,15 @@ const server = app.listen(PORT, () => {
   // Start file cleanup cron
   startFileCleanup()
   log.info({ msg: 'File cleanup cron started' })
+
+  // Warm up Bull's Redis connections so first readyz/upload init doesn't timeout
+  const warmupMs = 15_000
+  Promise.race([
+    getTotalQueueCount(),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('warmup timeout')), warmupMs)),
+  ])
+    .then((n) => log.info({ msg: 'Redis warmup OK', queueCount: n }))
+    .catch((e) => log.warn({ msg: 'Redis warmup failed (readyz may still work later)', error: (e as Error)?.message }))
 })
 
 // Handle server errors gracefully

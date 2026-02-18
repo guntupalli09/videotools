@@ -1069,12 +1069,11 @@ function attachQueueEvents(queue: import('bull').Queue<JobData>) {
   })
 }
 
-/** Write heartbeat to Redis so API /ops/queue can report last heartbeat age. */
+/** Write heartbeat to Redis so API /ops/queue can report last heartbeat age. Reuses Bull's client to avoid extra connections. */
 function startHeartbeat() {
   const intervalMs = Math.min(HEARTBEAT_TTL_SEC * 1000, 30_000)
   setInterval(() => {
-    const redis = createRedisClient('client')
-    redis.setex(WORKER_HEARTBEAT_KEY, HEARTBEAT_TTL_SEC, String(Date.now())).finally(() => redis.disconnect())
+    fileQueue.client.setex(WORKER_HEARTBEAT_KEY, HEARTBEAT_TTL_SEC, String(Date.now())).catch(() => {})
   }, intervalMs)
 }
 

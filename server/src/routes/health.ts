@@ -3,7 +3,6 @@
  * In production, /configz and /ops/queue require JWT or API key (F12).
  */
 import { Router, Request, Response, NextFunction } from 'express'
-import { createRedisClient } from '../utils/redis'
 import { prisma } from '../db'
 import { fileQueue, priorityQueue, getTotalQueueCount } from '../workers/videoProcessor'
 import { getAuthFromRequest } from '../utils/auth'
@@ -99,9 +98,7 @@ router.get('/ops/queue', apiKeyAuth, requireOpsAuth, async (_req: Request, res: 
 
     let lastHeartbeatAgeMs: number | null = null
     try {
-      const redis = createRedisClient('client')
-      const ts = await redis.get(WORKER_HEARTBEAT_KEY)
-      redis.disconnect()
+      const ts = await fileQueue.client.get(WORKER_HEARTBEAT_KEY)
       if (ts) {
         const t = parseInt(ts, 10)
         if (!isNaN(t)) lastHeartbeatAgeMs = Date.now() - t
