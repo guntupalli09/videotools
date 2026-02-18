@@ -12,8 +12,8 @@ const redisOptions: {
   ...(redisUrl.startsWith('rediss://') ? { tls: {} } : {}),
   enableReadyCheck: false,
   maxRetriesPerRequest: null,
-  connectTimeout: 5_000,
-  commandTimeout: 5_000,
+  connectTimeout: 10_000,
+  commandTimeout: 10_000,
 }
 
 /**
