@@ -16,7 +16,7 @@ const BUILD_TIME = process.env.BUILD_TIME || undefined
 const WORKER_HEARTBEAT_KEY = 'videotext:worker:heartbeat'
 const HEARTBEAT_TTL_SEC = 120
 
-const READYZ_TIMEOUT_MS = 12_000
+const READYZ_TIMEOUT_MS = 25_000
 
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   return Promise.race([

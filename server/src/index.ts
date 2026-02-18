@@ -220,7 +220,7 @@ const server = app.listen(PORT, () => {
   log.info({ msg: 'File cleanup cron started' })
 
   // Warm up Bull's Redis connections so first readyz/upload init doesn't timeout
-  const warmupMs = 15_000
+  const warmupMs = 25_000
   Promise.race([
     getTotalQueueCount(),
     new Promise<never>((_, reject) => setTimeout(() => reject(new Error('warmup timeout')), warmupMs)),
