@@ -554,6 +554,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 
 // ─── Chunked upload (init + chunk + complete) for large files ─────────────────
 router.post('/init', async (req: Request, res: Response) => {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/a7fe49d6-0f67-4bbb-aa45-a4a3937eff9c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'upload.ts:init',message:'init request',data:{hasUserId:!!getEffectiveUserId(req)},timestamp:Date.now(),hypothesisId:'request_received'})}).catch(()=>{});
+  // #endregion
   try {
     const auth = getAuthFromRequest(req)
     const userId = getEffectiveUserId(req)
@@ -562,12 +565,20 @@ router.post('/init', async (req: Request, res: Response) => {
     if (userId) {
       try {
         user = (await withTimeout(getUser(userId), INIT_TIMEOUT_MS, 'getUser')) ?? null
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/a7fe49d6-0f67-4bbb-aa45-a4a3937eff9c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'upload.ts:init',message:'getUser done',data:{success:true,userFound:!!user},timestamp:Date.now(),hypothesisId:'getUser_done'})}).catch(()=>{});
+        // #endregion
       } catch (e) {
-        if ((e as Error)?.message?.includes('timed out')) {
+        const msg = (e as Error)?.message ?? ''
+        const isTimeout = msg.includes('timed out')
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/a7fe49d6-0f67-4bbb-aa45-a4a3937eff9c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'upload.ts:init',message:'getUser failed',data:{success:false,isTimeout,error:msg},timestamp:Date.now(),hypothesisId:'getUser_done'})}).catch(()=>{});
+        // #endregion
+        if (isTimeout) {
           console.error('[upload/init] getUser timeout')
           return res.status(503).json({ message: 'Service temporarily busy. Please retry.' })
         }
-        console.warn('[upload/init] getUser failed', (e as Error)?.message)
+        console.warn('[upload/init] getUser failed', msg)
       }
     }
     const plan: PlanType =
@@ -583,14 +594,28 @@ router.post('/init', async (req: Request, res: Response) => {
     }
 
     let queueCount: number
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/a7fe49d6-0f67-4bbb-aa45-a4a3937eff9c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'upload.ts:init',message:'before getTotalQueueCount',data:{},timestamp:Date.now(),hypothesisId:'before_queue_count'})}).catch(()=>{});
+    // #endregion
     try {
       queueCount = await withTimeout(getTotalQueueCount(), INIT_TIMEOUT_MS, 'getTotalQueueCount')
     } catch (e) {
-      if ((e as Error)?.message?.includes('timed out')) {
+      const msg = (e as Error)?.message ?? ''
+      const isTimeout = msg.includes('timed out')
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/a7fe49d6-0f67-4bbb-aa45-a4a3937eff9c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'upload.ts:init',message:'getTotalQueueCount failed',data:{isTimeout,error:msg},timestamp:Date.now(),hypothesisId:isTimeout?'queue_count_timeout':'queue_count_error'})}).catch(()=>{});
+      // #endregion
+      if (isTimeout) {
         console.error('[upload/init] queue count timeout (Redis slow or unreachable)')
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/a7fe49d6-0f67-4bbb-aa45-a4a3937eff9c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'upload.ts:init',message:'returning 503 Queue temporarily unavailable',data:{reason:'timeout'},timestamp:Date.now(),hypothesisId:'init_503_queue'})}).catch(()=>{});
+        // #endregion
         return res.status(503).json({ message: 'Queue temporarily unavailable. Please retry in a moment.' })
       }
-      console.error('[upload/init] queue count failed', (e as Error)?.message)
+      console.error('[upload/init] queue count failed', msg)
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/a7fe49d6-0f67-4bbb-aa45-a4a3937eff9c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'upload.ts:init',message:'returning 503 Queue unavailable',data:{reason:'error',error:msg},timestamp:Date.now(),hypothesisId:'init_503_queue'})}).catch(()=>{});
+      // #endregion
       return res.status(503).json({ message: 'Queue unavailable. Please retry in a moment.' })
     }
     if (isQueueAtHardLimit(queueCount)) {

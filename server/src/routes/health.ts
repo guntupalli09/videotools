@@ -17,6 +17,17 @@ const BUILD_TIME = process.env.BUILD_TIME || undefined
 const WORKER_HEARTBEAT_KEY = 'videotext:worker:heartbeat'
 const HEARTBEAT_TTL_SEC = 120
 
+const READYZ_TIMEOUT_MS = 5_000
+
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    ),
+  ])
+}
+
 function requireOpsAuth(req: Request, res: Response, next: NextFunction) {
   if (env !== 'production') return next()
   const auth = getAuthFromRequest(req)
@@ -30,18 +41,21 @@ router.get('/healthz', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' })
 })
 
-/** GET /readyz — 200 only if Redis and Postgres reachable; 503 with details if not */
+/** GET /readyz — 200 only if Redis and Postgres reachable; 503 with details if not. Uses timeouts so the endpoint never hangs. */
 router.get('/readyz', async (_req: Request, res: Response) => {
   const errors: { redis?: string; database?: string } = {}
   try {
     const redis = createRedisClient('client')
-    await redis.ping()
-    redis.disconnect()
+    try {
+      await withTimeout(redis.ping(), READYZ_TIMEOUT_MS, 'Redis')
+    } finally {
+      redis.disconnect()
+    }
   } catch (err: any) {
     errors.redis = err?.message || 'Redis unreachable'
   }
   try {
-    await prisma.$queryRaw`SELECT 1`
+    await withTimeout(prisma.$queryRaw`SELECT 1`, READYZ_TIMEOUT_MS, 'Postgres')
   } catch (err: any) {
     errors.database = err?.message || 'Postgres unreachable'
   }
@@ -50,7 +64,7 @@ router.get('/readyz', async (_req: Request, res: Response) => {
     return
   }
   try {
-    await getTotalQueueCount()
+    await withTimeout(getTotalQueueCount(), READYZ_TIMEOUT_MS, 'queueCount')
   } catch {
     // queue count is best-effort; Redis already passed
   }
