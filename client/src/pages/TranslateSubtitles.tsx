@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense, lazy } from 'react'
+import { useState, useEffect, useRef, Suspense, lazy } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Languages, Loader2 } from 'lucide-react'
 import FileUploadZone from '../components/FileUploadZone'
@@ -50,6 +50,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
   const [availableMinutes, setAvailableMinutes] = useState<number | null>(null)
   const [usedMinutes, setUsedMinutes] = useState<number | null>(null)
   const [freeExportsUsed, setFreeExportsUsed] = useState(0)
+  const processingStartedAtRef = useRef<number | null>(null)
 
   const plan = (localStorage.getItem('plan') || 'free').toLowerCase()
   const canEdit = plan !== 'free'
@@ -120,7 +121,9 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
     try {
       setStatus('processing')
       setProgress(0)
-      setProcessingStartedAt(Date.now())
+      const startedAt = Date.now()
+      setProcessingStartedAt(startedAt)
+      processingStartedAtRef.current = startedAt
       texJobStarted()
 
       let response
@@ -165,8 +168,8 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
               }
             }
             incrementUsage('translate-subtitles')
-            const processingMs = processingStartedAt != null ? Date.now() - processingStartedAt : undefined
-            if (processingMs != null) texJobCompleted(processingMs, 'translate-subtitles')
+            const started = processingStartedAtRef.current ?? Date.now()
+            texJobCompleted(Date.now() - started, 'translate-subtitles')
           } else if (transition === 'failed') {
             clearInterval(pollIntervalRef.current)
             setStatus('failed')

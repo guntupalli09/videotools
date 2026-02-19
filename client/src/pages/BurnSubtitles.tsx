@@ -1,4 +1,4 @@
-import { useState, Suspense, lazy, useEffect } from 'react'
+import { useState, useRef, Suspense, lazy, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Film, Loader2 } from 'lucide-react'
 import { useWorkflow } from '../contexts/WorkflowContext'
@@ -65,6 +65,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
   const [availableMinutes, setAvailableMinutes] = useState<number | null>(null)
   const [usedMinutes, setUsedMinutes] = useState<number | null>(null)
   const [freeExportsUsed, setFreeExportsUsed] = useState(0)
+  const processingStartedAtRef = useRef<number | null>(null)
 
   const plan = (localStorage.getItem('plan') || 'free').toLowerCase()
 
@@ -126,7 +127,9 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
     try {
       setStatus('processing')
       setProgress(0)
-      setProcessingStartedAt(Date.now())
+      const startedAt = Date.now()
+      setProcessingStartedAt(startedAt)
+      processingStartedAtRef.current = startedAt
       texJobStarted()
 
       const response = await uploadDualFiles(videoFile, subtitleFile, BACKEND_TOOL_TYPES.BURN_SUBTITLES, {
@@ -151,8 +154,8 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
             setStatus('completed')
             setResult(jobStatus.result ?? null)
             incrementUsage('burn-subtitles')
-            const processingMs = processingStartedAt != null ? Date.now() - processingStartedAt : undefined
-            if (processingMs != null) texJobCompleted(processingMs, 'burn-subtitles')
+            const started = processingStartedAtRef.current ?? Date.now()
+            texJobCompleted(Date.now() - started, 'burn-subtitles')
           } else if (transition === 'failed') {
             clearInterval(pollIntervalRef.current)
             setStatus('failed')

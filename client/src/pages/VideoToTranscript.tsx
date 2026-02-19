@@ -112,6 +112,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   const rehydratePollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const activeUploadPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const jobStartedTrackedRef = useRef<string | null>(null)
+  const processingStartedAtRef = useRef<number | null>(null)
   /** Free plan: number of export downloads used for this transcript (max 2, with watermark). */
   const [freeExportsUsed, setFreeExportsUsed] = useState(0)
 
@@ -428,7 +429,9 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
       persistJobId(location.pathname, response.jobId, response.jobToken)
       setUploadPhase('processing')
       setUploadProgress(100)
-      setProcessingStartedAt(Date.now())
+      const startedAt = Date.now()
+      setProcessingStartedAt(startedAt)
+      processingStartedAtRef.current = startedAt
       texJobStarted()
 
       // Poll for status: run first poll immediately, then every 2s.
@@ -474,7 +477,8 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
               }
             }
             incrementUsage('video-to-transcript')
-            const processingMs = processingStartedAt != null ? Date.now() - processingStartedAt : undefined
+            const started = processingStartedAtRef.current ?? Date.now()
+            const processingMs = Date.now() - started
             try {
               trackEvent('job_completed', {
                 job_id: response.jobId,
@@ -482,7 +486,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                 processing_time_ms: processingMs,
               })
               trackEvent('processing_completed', { tool: 'video-to-transcript' })
-              if (processingMs != null) texJobCompleted(processingMs, 'video-to-transcript')
+              texJobCompleted(processingMs, 'video-to-transcript')
             } catch {
               // non-blocking
             }

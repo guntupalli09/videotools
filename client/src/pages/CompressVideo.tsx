@@ -1,4 +1,4 @@
-import { useState, Suspense, lazy, useEffect } from 'react'
+import { useState, useRef, Suspense, lazy, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Minimize2, Loader2 } from 'lucide-react'
 import { useWorkflow } from '../contexts/WorkflowContext'
@@ -61,6 +61,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
   const [availableMinutes, setAvailableMinutes] = useState<number | null>(null)
   const [usedMinutes, setUsedMinutes] = useState<number | null>(null)
   const [freeExportsUsed, setFreeExportsUsed] = useState(0)
+  const processingStartedAtRef = useRef<number | null>(null)
 
   const plan = (localStorage.getItem('plan') || 'free').toLowerCase()
 
@@ -118,7 +119,9 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
     try {
       setStatus('processing')
       setProgress(0)
-      setProcessingStartedAt(Date.now())
+      const startedAt = Date.now()
+      setProcessingStartedAt(startedAt)
+      processingStartedAtRef.current = startedAt
       texJobStarted()
 
       const response = await uploadFile(selectedFile, {
@@ -143,8 +146,8 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
             setStatus('completed')
             setResult(jobStatus.result ?? null)
             incrementUsage('compress-video')
-            const processingMs = processingStartedAt != null ? Date.now() - processingStartedAt : undefined
-            if (processingMs != null) texJobCompleted(processingMs, 'compress-video')
+            const started = processingStartedAtRef.current ?? Date.now()
+            texJobCompleted(Date.now() - started, 'compress-video')
           } else if (transition === 'failed') {
             clearInterval(pollIntervalRef.current)
             setStatus('failed')

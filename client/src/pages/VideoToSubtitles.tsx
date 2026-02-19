@@ -78,6 +78,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
   const rehydratePollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const activeUploadPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const jobStartedTrackedRef = useRef<string | null>(null)
+  const processingStartedAtRef = useRef<number | null>(null)
   const [freeExportsUsed, setFreeExportsUsed] = useState(0)
 
   useEffect(() => {
@@ -447,7 +448,9 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
       persistJobId(location.pathname, response.jobId, response.jobToken)
       setUploadPhase('processing')
       setUploadProgress(100)
-      setProcessingStartedAt(Date.now())
+      const startedAt = Date.now()
+      setProcessingStartedAt(startedAt)
+      processingStartedAtRef.current = startedAt
       texJobStarted()
 
       const jobToken = response.jobToken
@@ -496,7 +499,8 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               }
             }
             incrementUsage('video-to-subtitles')
-            const processingMs = processingStartedAt != null ? Date.now() - processingStartedAt : undefined
+            const started = processingStartedAtRef.current ?? Date.now()
+            const processingMs = Date.now() - started
             try {
               trackEvent('job_completed', {
                 job_id: response.jobId,
@@ -504,7 +508,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                 processing_time_ms: processingMs,
               })
               trackEvent('processing_completed', { tool: 'video-to-subtitles' })
-              if (processingMs != null) texJobCompleted(processingMs, 'video-to-subtitles')
+              texJobCompleted(processingMs, 'video-to-subtitles')
             } catch {
               // non-blocking
             }

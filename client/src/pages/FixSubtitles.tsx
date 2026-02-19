@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense, lazy } from 'react'
+import { useState, useEffect, useRef, Suspense, lazy } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Wrench, Loader2, CheckCircle } from 'lucide-react'
 import FileUploadZone from '../components/FileUploadZone'
@@ -48,6 +48,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
   const [result, setResult] = useState<{ downloadUrl: string; fileName?: string; issues?: any[]; warnings?: { type: string; message: string; line?: number }[] } | null>(null)
   const [subtitleRows, setSubtitleRows] = useState<SubtitleRow[]>([])
   const [freeExportsUsed, setFreeExportsUsed] = useState(0)
+  const processingStartedAtRef = useRef<number | null>(null)
 
   const plan = (localStorage.getItem('plan') || 'free').toLowerCase()
   const canEdit = plan !== 'free'
@@ -110,7 +111,9 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
     try {
       setStatus('analyzing')
       setProgress(0)
-      setProcessingStartedAt(Date.now())
+      const startedAt = Date.now()
+      setProcessingStartedAt(startedAt)
+      processingStartedAtRef.current = startedAt
       texJobStarted()
 
       // Upload and process to detect issues (no fix options for analyze)
@@ -134,8 +137,8 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
             setWarnings(jobStatus.result?.warnings ?? [])
             setShowIssues(true)
             setStatus('idle')
-            const processingMs = processingStartedAt != null ? Date.now() - processingStartedAt : undefined
-            if (processingMs != null) texJobCompleted(processingMs, 'fix-subtitles')
+            const started = processingStartedAtRef.current ?? Date.now()
+            texJobCompleted(Date.now() - started, 'fix-subtitles')
           } else if (transition === 'failed') {
             clearInterval(pollIntervalRef.current)
             setStatus('failed')
@@ -166,7 +169,9 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
     try {
       setStatus('processing')
       setProgress(0)
-      setProcessingStartedAt(Date.now())
+      const startedAtFix = Date.now()
+      setProcessingStartedAt(startedAtFix)
+      processingStartedAtRef.current = startedAtFix
       texJobStarted()
 
       const response = await uploadFile(selectedFile, {
@@ -192,8 +197,8 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
             setResult(jobStatus.result ?? null)
             setWarnings(jobStatus.result?.warnings ?? [])
             incrementUsage('fix-subtitles')
-            const processingMs = processingStartedAt != null ? Date.now() - processingStartedAt : undefined
-            if (processingMs != null) texJobCompleted(processingMs, 'fix-subtitles')
+            const started = processingStartedAtRef.current ?? Date.now()
+            texJobCompleted(Date.now() - started, 'fix-subtitles')
             if (jobStatus.result?.downloadUrl) {
               try {
                 const res = await fetch(getAbsoluteDownloadUrl(jobStatus.result.downloadUrl))
