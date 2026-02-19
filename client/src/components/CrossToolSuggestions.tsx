@@ -20,13 +20,13 @@ interface CrossToolSuggestionsProps {
 }
 
 const suggestionClass =
-  'bg-white rounded-xl p-4 flex items-center justify-between gap-3 hover:shadow-md hover:border-violet-200/60 transition-all border border-gray-100 w-full text-left focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 focus:ring-offset-gray-50'
+  'surface-card-hover p-4 flex items-center justify-between gap-3 rounded-xl w-full text-left'
 
 export default function CrossToolSuggestions({ suggestions, workflowHint }: CrossToolSuggestionsProps) {
   const navigate = useNavigate()
   return (
-    <section className="bg-gray-50/80 rounded-2xl p-6 shadow-sm border border-gray-100/80" aria-labelledby="continue-tool-heading">
-      <h2 id="continue-tool-heading" className="text-lg font-semibold text-gray-800 mb-1">Next step</h2>
+    <section className="surface-card p-6" aria-labelledby="continue-tool-heading">
+      <h2 id="continue-tool-heading" className="font-display text-lg font-semibold text-gray-800 dark:text-white mb-1">Next step</h2>
       {workflowHint && (
         <p className="text-sm text-gray-500 mb-4" aria-hidden="true">
           {workflowHint}
@@ -39,8 +39,8 @@ export default function CrossToolSuggestions({ suggestions, workflowHint }: Cros
             <>
               <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                 <div className="flex items-center gap-3">
-                  <div className="bg-violet-100/80 rounded-lg p-2 shrink-0" aria-hidden>
-                    <Icon className="h-5 w-5 text-violet-600" />
+                  <div className="bg-primary/10 rounded-lg p-2 shrink-0" aria-hidden>
+                    <Icon className="h-5 w-5 text-primary" />
                   </div>
                   <span className="font-medium text-gray-800">{suggestion.title}</span>
                 </div>

@@ -55,9 +55,9 @@ export default function ProgressBar({
       {displayStatus && (
         <p className="text-sm font-medium text-gray-700 mb-2">{displayStatus}</p>
       )}
-      <div className="bg-gray-200 rounded-full h-3 overflow-hidden">
+      <div className="bg-gray-200 dark:bg-gray-600 rounded-full h-2.5 overflow-hidden">
         <div
-          className="bg-gradient-to-r from-violet-600 to-purple-600 h-full rounded-full transition-all duration-300 ease-out"
+          className="bg-primary h-full rounded-full transition-all duration-300 ease-smooth"
           style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
         />
       </div>

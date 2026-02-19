@@ -836,8 +836,8 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   }
 
   return (
-    <div className="min-h-screen py-8 lg:py-12 bg-gradient-to-b from-violet-50/40 to-white">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen py-6 sm:py-8 lg:py-12 bg-gradient-to-b from-violet-50/40 to-white">
+      <div className="w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="lg:grid lg:grid-cols-[1fr,minmax(240px,280px)] lg:gap-8 lg:items-start">
           {/* Sidebar: plan + usage + what you get (desktop); on mobile shows above main */}
           <aside className="order-1 lg:order-2 space-y-4 mb-6 lg:mb-0 lg:sticky lg:top-6">
@@ -845,7 +845,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             <UsageCounter refreshTrigger={status} />
             <UsageDisplay refreshTrigger={status} />
             {status === 'idle' && (
-              <div className="rounded-xl bg-white/80 backdrop-blur-sm border border-gray-100 px-4 py-3 shadow-sm">
+              <div className="surface-card px-4 py-3">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">What you get</p>
                 <p className="text-sm text-gray-600">
                   Transcript, Speakers, Summary, Chapters, Highlights, Keywords, Clean, Exports — all after one upload.
@@ -859,11 +859,11 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             {/* Hero: compact */}
             <div className="text-center mb-5">
               <div className="inline-flex items-center gap-3 mb-2">
-                <div className="bg-violet-100/80 rounded-xl p-2.5 w-12 h-12 flex items-center justify-center shadow-sm">
-                  <FileText className="h-6 w-6 text-violet-600" />
+<div className="bg-primary/10 rounded-xl p-2.5 w-12 h-12 flex items-center justify-center">
+            <FileText className="h-6 w-6 text-primary" />
                 </div>
                 <div className="text-left">
-                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">{seoH1 ?? 'Video → Transcript'}</h1>
+                  <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{seoH1 ?? 'Video → Transcript'}</h1>
                   <p className="text-sm sm:text-base text-gray-600">
                     {seoIntro ?? 'Extract spoken text from any video in seconds'}
                   </p>
@@ -900,7 +900,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             )}
 
             {status === 'idle' && (
-              <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-md border border-gray-100 mb-6">
+              <div className="surface-card p-6 sm:p-8 mb-6">
                 <p className="text-center text-xs text-gray-400 mb-4" aria-hidden="true">
                   {BRANCH_IDS.map((id) => BRANCH_LABELS[id]).join(' · ')} — Upload a video to unlock
                 </p>
@@ -979,10 +979,10 @@ onChange={(startSeconds: number, endSeconds: number) => {
               )}
               {selectedFile && (
                 <button
-                  onClick={handleProcess}
-                  className="mt-6 w-full bg-violet-600 hover:bg-violet-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
-                >
-                  Transcribe Video
+onClick={handleProcess}
+                className="mt-6 w-full btn-primary py-3 px-6"
+              >
+                Transcribe Video
                 </button>
               )}
             </div>
@@ -990,7 +990,7 @@ onChange={(startSeconds: number, endSeconds: number) => {
         )}
 
         {status === 'processing' && (
-          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
+          <div className="surface-card p-8 mb-6 text-center">
             <UploadStageIndicator
               uploadPhase={uploadPhase}
               status={status}
@@ -1006,7 +1006,7 @@ onChange={(startSeconds: number, endSeconds: number) => {
                 Slow connection detected — optimizing upload
               </p>
             )}
-            <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
+            <Loader2 className="h-12 w-12 text-primary animate-spin mx-auto mb-4" />
             <p className="text-lg font-medium text-gray-800 mb-4">
               {isRehydrating && 'Resuming…'}
               {!isRehydrating && uploadPhase === 'preparing' && 'Preparing audio…'}
@@ -1152,7 +1152,7 @@ onChange={(startSeconds: number, endSeconds: number) => {
                         {searchResults.length > 8 && <p className="text-xs text-gray-400 mt-1">+{searchResults.length - 8} more</p>}
                       </div>
                     )}
-                    <div ref={transcriptScrollRef} className="bg-gray-50/80 rounded-xl p-4 max-h-96 overflow-y-auto">
+                    <div ref={transcriptScrollRef} className="bg-gray-50/80 rounded-xl p-4 min-h-48 max-h-[60vh] sm:max-h-[65vh] lg:max-h-[70vh] overflow-y-auto">
                       {translating ? (
                         <div className="flex flex-col items-center justify-center py-8 text-gray-500">
                           <Loader2 className="h-8 w-8 animate-spin text-violet-600 mb-2" />
@@ -1227,7 +1227,7 @@ onChange={(startSeconds: number, endSeconds: number) => {
                           ? 'Labels (Speaker 1, 2, …) come from automatic speaker detection. They are not real names—each label is one distinct voice in the video.'
                           : 'All segments are shown as one speaker. Enable &quot;Speaker diarization&quot; when you upload to get automatic labels (Speaker 1, 2, …) for different voices.'}
                       </p>
-                      <div className="space-y-4 max-h-96 overflow-y-auto">
+                      <div className="space-y-4 min-h-48 max-h-[60vh] sm:max-h-[65vh] lg:max-h-[70vh] overflow-y-auto">
                         {data.map((item, i) => (
                           <div key={i} className="border-l-2 border-violet-300 pl-3 py-1">
                             <span className="text-xs font-semibold text-violet-600 uppercase">{item.speaker}</span>
@@ -1322,7 +1322,7 @@ onChange={(startSeconds: number, endSeconds: number) => {
                     )
                   }
                   return (
-                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                    <div className="space-y-2 min-h-48 max-h-[60vh] sm:max-h-[65vh] lg:max-h-[70vh] overflow-y-auto">
                       {chapters.map((ch, i) => (
                         <button
                           key={i}
@@ -1355,7 +1355,7 @@ onChange={(startSeconds: number, endSeconds: number) => {
                     )
                   }
                   return (
-                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                    <div className="space-y-3 min-h-48 max-h-[60vh] sm:max-h-[65vh] lg:max-h-[70vh] overflow-y-auto">
                       {items.map((item, i) => (
                         <div key={i} className="flex gap-2">
                           <span className="text-xs font-semibold text-violet-600 shrink-0">{item.type}</span>
@@ -1413,7 +1413,7 @@ onChange={(startSeconds: number, endSeconds: number) => {
                   />
                   <span className="text-sm">Show cleaned version</span>
                 </label>
-                <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                <div className="bg-gray-50 rounded-lg p-4 min-h-48 max-h-[60vh] sm:max-h-[65vh] lg:max-h-[70vh] overflow-y-auto">
                   {cleanTranscriptEnabled ? (
                     <p className="text-sm text-gray-700 whitespace-pre-wrap">{getCleanTranscript() || 'No content.'}</p>
                   ) : (

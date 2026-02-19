@@ -47,13 +47,13 @@ export default function SuccessState({
         <Check className="h-8 w-8 text-success" />
       </motion.div>
 
-      <h3 className="text-2xl font-bold text-gray-800 mb-2">Your file is ready!</h3>
+      <h3 className="font-display text-2xl font-bold text-gray-800 dark:text-white mb-2">Your file is ready!</h3>
 
       {fileName && (
-        <div className="bg-gray-50/80 rounded-2xl p-6 shadow-sm mb-6 max-w-md mx-auto">
+        <div className="surface-card p-6 mb-6 max-w-md mx-auto">
           <div className="flex items-center space-x-4">
-            <div className="bg-violet-100/80 rounded-xl p-3">
-              <File className="h-6 w-6 text-violet-600" />
+            <div className="bg-primary/10 rounded-xl p-3">
+              <File className="h-6 w-6 text-primary" />
             </div>
             <div className="text-left flex-1">
               <p className="font-medium text-gray-800">{fileName}</p>
@@ -68,7 +68,7 @@ export default function SuccessState({
           href={downloadUrl}
           download
           onClick={handleDownloadClick}
-          className="block w-full bg-violet-600 hover:bg-violet-700 text-white font-medium py-4 px-6 rounded-lg transition-colors mb-4"
+          className="btn-primary w-full py-4 px-6 mb-4"
         >
           <Download className="h-5 w-5 inline-block mr-2" />
           Download
@@ -78,7 +78,7 @@ export default function SuccessState({
       {onProcessAnother && (
         <button
           onClick={onProcessAnother}
-          className="text-violet-600 hover:text-violet-700 font-medium text-sm transition-colors"
+          className="text-primary hover:text-primary-hover font-medium text-sm transition-colors"
         >
           Process another file
         </button>

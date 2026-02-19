@@ -118,7 +118,7 @@ export default function Pricing() {
             <span>🔒</span>
             <span>We don’t store your data—your files are processed and deleted.</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight">
+          <h1 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white tracking-tight">
             Pricing
           </h1>
           <p className="mt-3 text-lg text-gray-600 max-w-xl mx-auto">
@@ -211,7 +211,7 @@ export default function Pricing() {
             <div className="mt-6 space-y-2">
               <button
                 onClick={() => handleSubscribe('basic', false)}
-                className="w-full py-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-medium text-sm transition-colors"
+                className="w-full py-3 rounded-xl bg-primary hover:bg-primary-hover text-white font-medium text-sm transition-colors"
               >
                 Choose Basic
               </button>
@@ -255,7 +255,7 @@ export default function Pricing() {
             <div className="mt-6 space-y-2">
               <button
                 onClick={() => handleSubscribe('pro', false)}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white font-semibold text-sm shadow-lg shadow-violet-600/30 transition-all duration-200"
+                className="w-full py-3.5 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold text-sm shadow-lg shadow-primary/25 transition-all duration-200"
               >
                 Choose Pro
               </button>
@@ -297,7 +297,7 @@ export default function Pricing() {
             <div className="mt-6 space-y-2">
               <button
                 onClick={() => handleSubscribe('agency', false)}
-                className="w-full py-3.5 rounded-xl bg-violet-700 hover:bg-violet-800 text-white font-semibold text-sm border-2 border-violet-800/50 transition-colors"
+                className="w-full py-3.5 rounded-xl bg-primary-hover hover:bg-violet-800 text-white font-semibold text-sm border-2 border-primary/50 transition-colors"
               >
                 Choose Agency
               </button>
@@ -336,7 +336,7 @@ export default function Pricing() {
                   type="button"
                   onClick={handleSendOtp}
                   disabled={otpLoading}
-                  className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium disabled:opacity-60"
+                  className="flex-1 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-sm font-medium disabled:opacity-60"
                 >
                   {otpLoading ? 'Sending…' : 'Send code'}
                 </button>
@@ -367,7 +367,7 @@ export default function Pricing() {
                     type="button"
                     onClick={handleVerifyAndCheckout}
                     disabled={otpLoading || otpCode.length !== 6}
-                    className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium disabled:opacity-60"
+                    className="flex-1 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-sm font-medium disabled:opacity-60"
                   >
                     {otpLoading ? 'Redirecting…' : 'Verify and continue to checkout'}
                   </button>

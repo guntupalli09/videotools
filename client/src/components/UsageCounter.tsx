@@ -51,7 +51,7 @@ export default function UsageCounter({ refreshTrigger }: { refreshTrigger?: stri
       {totalPlanMinutes > 0 && (
         <div className="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
           <div
-            className="bg-violet-600 rounded-full h-2 transition-all"
+            className="bg-primary rounded-full h-2 transition-all duration-300"
             style={{ width: `${usedPercent}%` }}
           />
         </div>

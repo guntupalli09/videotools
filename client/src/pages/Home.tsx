@@ -60,7 +60,7 @@ export default function Home() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-violet-50 via-white to-purple-50 py-20 md:py-24">
+      <section className="bg-gradient-to-br from-primary/5 via-white to-primary/5 dark:from-gray-800/50 dark:via-gray-900 dark:to-gray-800/50 py-20 md:py-28">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -69,7 +69,7 @@ export default function Home() {
             className="text-center max-w-3xl mx-auto"
           >
             <div className="inline-flex flex-wrap items-center justify-center gap-2 mb-6">
-              <span className="inline-flex items-center space-x-2 bg-violet-100 text-violet-700 px-4 py-2 rounded-full text-sm font-medium">
+              <span className="inline-flex items-center space-x-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium">
                 <span>✨</span>
                 <span>No signup required • Free tools</span>
               </span>
@@ -79,7 +79,7 @@ export default function Home() {
               </span>
             </div>
 
-            <h1 className="text-5xl md:text-6xl font-bold text-gray-800 mb-6">
+            <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6 tracking-tight">
               Video utilities that just work
             </h1>
 
@@ -97,13 +97,13 @@ export default function Home() {
                     el.scrollIntoView({ behavior: 'smooth' })
                   }
                 }}
-                className="bg-violet-600 hover:bg-violet-700 text-white px-8 py-3 rounded-lg font-medium transition-colors"
+                className="btn-primary px-8 py-3.5 text-base"
               >
                 Choose a tool →
               </Link>
               <Link
                 to="/pricing"
-                className="bg-white border border-gray-100 hover:border-gray-200 text-gray-800 px-8 py-3 rounded-lg font-medium transition-colors shadow-sm"
+                className="btn-secondary px-8 py-3.5 text-base"
               >
                 See pricing
               </Link>
@@ -113,7 +113,7 @@ export default function Home() {
       </section>
 
       {/* Tool Grid Section */}
-      <section id="tools" className="py-20">
+      <section id="tools" className="py-16 md:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -122,7 +122,7 @@ export default function Home() {
             transition={{ duration: 0.5 }}
             className="text-center mb-12"
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
+            <h2 className="font-display text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
               Seven powerful tools. One simple platform.
             </h2>
           </motion.div>

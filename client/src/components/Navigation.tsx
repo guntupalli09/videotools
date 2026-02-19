@@ -18,7 +18,7 @@ export default function Navigation() {
   const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false)
 
   return (
-    <nav className="sticky top-0 z-50 bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border-b border-gray-100 dark:border-gray-700">
+    <nav className="sticky top-0 z-50 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-b border-gray-100 dark:border-gray-700 shadow-nav">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
@@ -29,7 +29,7 @@ export default function Navigation() {
             onFocus={() => prefetchRoute('/')}
           >
             <img src="/logo.svg" alt="VideoText" className="h-8 w-8" />
-            <span className="text-xl font-semibold text-gray-800 dark:text-white">VideoText</span>
+            <span className="text-xl font-display font-semibold text-gray-800 dark:text-white">VideoText</span>
           </Link>
 
           {/* Desktop: Tools dropdown, Pricing, User menu (hamburger), Try Free */}
@@ -84,7 +84,7 @@ export default function Navigation() {
 
             <Link
               to="/pricing"
-              className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+              className="btn-primary px-4 py-2 text-sm"
               onMouseEnter={() => prefetchRoute('/pricing')}
               onFocus={() => prefetchRoute('/pricing')}
             >

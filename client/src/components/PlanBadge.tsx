@@ -9,10 +9,10 @@ const PLAN_LABELS: Record<string, string> = {
 }
 
 const PLAN_STYLES: Record<string, string> = {
-  free: 'bg-gray-100 text-gray-700 border-gray-300',
-  basic: 'bg-violet-50 text-violet-700 border-violet-200',
-  pro: 'bg-violet-100 text-violet-800 border-violet-300',
-  agency: 'bg-amber-50 text-amber-800 border-amber-200',
+  free: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600',
+  basic: 'bg-primary/10 text-primary border-primary/20',
+  pro: 'bg-primary/20 text-primary border-primary/30',
+  agency: 'bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-700',
 }
 
 export default function PlanBadge() {

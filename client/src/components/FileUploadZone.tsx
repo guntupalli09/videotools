@@ -74,10 +74,10 @@ export default function FileUploadZone({
 
   if (selectedFiles.length > 0) {
     return (
-      <div className="bg-gray-50/80 rounded-2xl p-6 shadow-sm border border-gray-100/80">
+      <div className="surface-card p-6">
         {fromWorkflowLabel && (
           <div className="flex flex-wrap items-center gap-2 mb-3">
-            <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700">
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
               {fromWorkflowLabel}
             </span>
             <span className="text-xs text-gray-500">Remove to use a different file.</span>
@@ -85,8 +85,8 @@ export default function FileUploadZone({
         )}
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4 min-w-0">
-            <div className="bg-violet-100/80 rounded-xl p-3 shrink-0">
-              <File className="h-6 w-6 text-violet-600" />
+            <div className="bg-primary/10 rounded-xl p-3 shrink-0">
+              <File className="h-6 w-6 text-primary" />
             </div>
             <div className="min-w-0">
               {selectedFiles.length === 1 ? (
@@ -134,19 +134,19 @@ export default function FileUploadZone({
   return (
     <div
       {...getRootProps()}
-      className={`
-        border border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all
+        className={`
+        border-2 border-dashed rounded-2xl p-10 sm:p-12 text-center cursor-pointer transition-all duration-200
         ${
           isDragActive || isDragging
-            ? 'border-violet-500 bg-violet-50/80'
-            : 'border-gray-200 hover:border-violet-300 hover:bg-gray-50/80'
+            ? 'border-primary bg-primary/5'
+            : 'border-gray-200 dark:border-gray-600 hover:border-primary/50 hover:bg-gray-50/80 dark:hover:bg-gray-800/50'
         }
         ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
       `}
     >
       <input {...getInputProps()} />
-      <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-      <h3 className="text-lg font-semibold text-gray-800 mb-2">
+      <Upload className="h-11 w-11 text-gray-400 mx-auto mb-3" />
+      <h3 className="font-display text-lg font-semibold text-gray-800 dark:text-white mb-2">
         {isDragActive
           ? multiple
             ? 'Drop your files here'
