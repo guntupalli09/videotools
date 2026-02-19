@@ -2,6 +2,8 @@ import express, { Request, Response } from 'express'
 import bcrypt from 'bcryptjs'
 import { getUserByEmail, getUserByPasswordToken, getUserByPasswordResetToken, saveUser } from '../models/User'
 import { signAuthToken, signEmailVerificationToken, generatePasswordResetToken } from '../utils/auth'
+import { getPlanAndEmailForStripeCustomer } from '../services/stripe'
+import { getPlanLimits } from '../utils/limits'
 
 const router = express.Router()
 
@@ -90,6 +92,11 @@ router.post('/send-otp', async (req: Request, res: Response) => {
     const normalized = (email || '').toString().trim().toLowerCase()
     if (!normalized || !isValidEmail(normalized)) {
       return res.status(400).json({ message: 'A valid email address is required.' })
+    }
+
+    const existingUser = await getUserByEmail(normalized)
+    if (existingUser?.passwordHash) {
+      return res.status(409).json({ message: 'Account already exists. Please log in.' })
     }
 
     const hasResendKey = !!(process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.trim())
@@ -201,6 +208,21 @@ router.post('/login', async (req: Request, res: Response) => {
     const ok = await bcrypt.compare(password, user.passwordHash)
     if (!ok) {
       return res.status(401).json({ message: 'Invalid email or password' })
+    }
+
+    // If user has Stripe customer but plan is still free (e.g. webhook delay or duplicate account), re-sync from Stripe
+    if (user.stripeCustomerId && user.plan === 'free') {
+      try {
+        const stripeData = await getPlanAndEmailForStripeCustomer(user.stripeCustomerId)
+        if (stripeData && (stripeData.plan === 'basic' || stripeData.plan === 'pro' || stripeData.plan === 'agency')) {
+          user.plan = stripeData.plan
+          user.limits = getPlanLimits(stripeData.plan)
+          user.updatedAt = new Date()
+          await saveUser(user)
+        }
+      } catch (e) {
+        console.warn('[auth] Login plan re-sync from Stripe failed:', (e as Error).message)
+      }
     }
 
     const jwt = signAuthToken(user)

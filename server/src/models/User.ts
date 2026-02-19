@@ -135,11 +135,14 @@ export async function getUserByStripeCustomerId(stripeCustomerId: string): Promi
   return row ? rowToUser(row) : undefined
 }
 
+/** Prefer the account with stripeCustomerId (paid) when multiple users share the same email. */
 export async function getUserByEmail(email: string): Promise<User | undefined> {
   const normalized = email.toLowerCase()
-  const row = await prisma.user.findFirst({
+  const rows = await prisma.user.findMany({
     where: { email: { equals: normalized, mode: 'insensitive' } },
+    orderBy: [{ stripeCustomerId: 'desc' }], // non-null first (paid account)
   })
+  const row = rows[0]
   return row ? rowToUser(row) : undefined
 }
 

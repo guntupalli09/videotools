@@ -26,6 +26,11 @@ If a user already has two rows (one by email, one by Stripe) and reports “I pa
 2. **Update the email user** so it has the correct plan and (optionally) the same `stripeCustomerId` as the Stripe-created row, then use that single row going forward. Or merge usage and keep the email user, set `stripeCustomerId` and `plan` from the Stripe row, and delete or deactivate the duplicate Stripe-only row.
 3. Ask the user to **log out and log in again** (or clear site data and log in) so the JWT and client plan refresh from the updated user.
 
+## Additional safeguards (code)
+
+1. **Login by email prefers the paid account** — If multiple users exist with the same email, `getUserByEmail` returns the one with `stripeCustomerId` first, so login shows the paid plan.
+2. **Re-sync plan on login** — If the user has `stripeCustomerId` but `plan` is still `free`, the server re-fetches the active subscription from Stripe and updates the user before issuing the JWT.
+
 ## Mobile-specific note
 
 On mobile, the app doesn’t “remember” the post-checkout session — the user typically logs in with email later. So the plan they see comes only from the **login** response (server returns `user.plan`). Fixing the server so the email user is upgraded (and not duplicated) fixes the issue for all devices.
