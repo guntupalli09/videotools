@@ -2,8 +2,6 @@
  * Tex mascot avatar — gradient violet, soft glow, blink + breathing.
  * Scales via Tailwind (sm, md, lg). Responsive, no fixed pixel layout. Dark mode + a11y.
  */
-import React from 'react'
-
 const sizeClasses = {
   sm: 'w-8 h-8 min-w-[2rem] min-h-[2rem]',
   md: 'w-12 h-12 min-w-[3rem] min-h-[3rem]',

@@ -30,10 +30,10 @@ interface Message {
 
 interface TexAgentPanelProps {
   onClose: () => void
-  isDark: boolean
+  isDark?: boolean
 }
 
-export default function TexAgentPanel({ onClose, isDark }: TexAgentPanelProps) {
+export default function TexAgentPanel({ onClose }: TexAgentPanelProps) {
   const { pathname } = useLocation()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')

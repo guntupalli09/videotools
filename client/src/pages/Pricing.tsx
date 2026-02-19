@@ -112,7 +112,6 @@ export default function Pricing() {
   }
 
   const bulletRow = 'flex items-start gap-2.5 text-sm text-gray-600 dark:text-gray-400'
-  const limitsClass = 'text-xs text-gray-500 dark:text-gray-400 mt-1'
 
   return (
     <div className="min-h-screen py-16 sm:py-24 bg-gradient-to-b from-gray-50/90 to-gray-50 dark:from-gray-900 dark:to-gray-800/80">
