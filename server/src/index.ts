@@ -23,6 +23,7 @@ import { flushAnalytics } from './utils/analytics'
 import { requestIdMiddleware } from './middleware/requestId'
 import { getLogger } from './lib/logger'
 import healthRoutes from './routes/health'
+import feedbackRoutes from './routes/feedback'
 
 const log = getLogger('api')
 const app = express()
@@ -79,7 +80,8 @@ function isAllowedOrigin(origin?: string) {
   const norm = normalizeOrigin(origin)
   if (allowedExactOrigins.has(norm)) return true
   if (norm.endsWith('.vercel.app')) return true
-  if (process.env.NODE_ENV !== 'production' && isLocalOrigin(norm)) return true
+  // Always allow localhost/127.0.0.1 (any port) so local dev works even when NODE_ENV=production
+  if (isLocalOrigin(norm)) return true
   return false
 }
 
@@ -180,6 +182,7 @@ app.use('/api/batch', batchRoutes)
 app.use('/api/billing', billingRoutes)
 app.use('/api/auth', authRoutes)
 app.use('/api/translate-transcript', translateTranscriptRoutes)
+app.use('/api/feedback', feedbackRoutes)
 
 // Health and ops (no /api prefix)
 app.use(healthRoutes)

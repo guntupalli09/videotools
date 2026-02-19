@@ -18,6 +18,7 @@ import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolli
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { persistJobId, clearPersistedJobId } from '../lib/jobSession'
 import { trackEvent } from '../lib/analytics'
+import { texJobStarted, texJobCompleted, texJobFailed } from '../tex'
 import toast from 'react-hot-toast'
 import { MessageSquare, Film, FileText } from 'lucide-react'
 import { formatFileSize } from '../lib/utils'
@@ -118,6 +119,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
       setStatus('processing')
       setProgress(0)
       setProcessingStartedAt(Date.now())
+      texJobStarted()
 
       const response = await uploadFile(selectedFile, {
         toolType: BACKEND_TOOL_TYPES.COMPRESS_VIDEO,
@@ -141,9 +143,12 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
             setStatus('completed')
             setResult(jobStatus.result ?? null)
             incrementUsage('compress-video')
+            const processingMs = processingStartedAt != null ? Date.now() - processingStartedAt : undefined
+            if (processingMs != null) texJobCompleted(processingMs, 'compress-video')
           } else if (transition === 'failed') {
             clearInterval(pollIntervalRef.current)
             setStatus('failed')
+            texJobFailed()
             toast.error('Processing failed. Please try again.')
           }
         } catch (error: any) {
@@ -158,6 +163,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
         setStatus('idle')
       } else {
         setStatus('failed')
+        texJobFailed()
       }
       toast.error(error.message || 'Upload failed')
     }

@@ -37,6 +37,23 @@
   .page-heading {
     @apply font-display font-semibold text-gray-900 dark:text-white tracking-tight;
   }
+
+  /* Tex avatar: breathing + blink (minimal, no layout) */
+  .tex-avatar-breathing {
+    animation: tex-breathe 3s ease-in-out infinite;
+  }
+  .tex-avatar-blink {
+    animation: tex-blink 4s ease-in-out infinite;
+  }
+}
+
+@keyframes tex-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+@keyframes tex-blink {
+  0%, 45%, 55%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
 }
 
 /* Force user menu panel to be visible: solid opaque background */

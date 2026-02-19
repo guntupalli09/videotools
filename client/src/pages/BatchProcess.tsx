@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import FileUploadZone from '../components/FileUploadZone'
 import PlanBadge from '../components/PlanBadge'
 import UsageCounter from '../components/UsageCounter'
@@ -9,6 +9,7 @@ import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import { Loader2, FolderPlus, Film, Minimize2, FileText } from 'lucide-react'
 import { getBatchDownloadUrl, getBatchStatus, uploadBatch } from '../lib/api'
 import { JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
+import { texJobStarted, texJobCompleted, texJobFailed } from '../tex'
 
 interface BatchStatus {
   batchId: string
@@ -35,6 +36,7 @@ export default function BatchProcess(props: BatchProcessSeoProps = {}) {
     'idle'
   )
   const [batchInfo, setBatchInfo] = useState<BatchStatus | null>(null)
+  const batchStartedAtRef = useRef<number | null>(null)
 
   const handleFilesSelected = (selected: File[]) => {
     setFiles(selected)
@@ -45,6 +47,8 @@ export default function BatchProcess(props: BatchProcessSeoProps = {}) {
 
     try {
       setStatus('processing')
+      batchStartedAtRef.current = Date.now()
+      texJobStarted()
 
       const json = await uploadBatch(files, 'en', [])
       const batchId = json.batchId
@@ -60,6 +64,12 @@ export default function BatchProcess(props: BatchProcessSeoProps = {}) {
           ) {
             clearInterval(poll)
             setStatus(statusJson.status === 'failed' ? 'failed' : 'done')
+            if (statusJson.status === 'failed') {
+              texJobFailed()
+            } else {
+              const started = batchStartedAtRef.current ?? Date.now()
+              texJobCompleted(Date.now() - started, 'batch-process')
+            }
           }
         } catch {
           clearInterval(poll)
@@ -68,6 +78,7 @@ export default function BatchProcess(props: BatchProcessSeoProps = {}) {
     } catch (e) {
       console.error(e)
       setStatus('failed')
+      texJobFailed()
     }
   }
 

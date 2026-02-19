@@ -18,6 +18,7 @@ import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { FREE_EXPORT_WATERMARK } from '../lib/watermark'
 import { persistJobId, clearPersistedJobId } from '../lib/jobSession'
 import { trackEvent } from '../lib/analytics'
+import { texJobStarted, texJobCompleted, texJobFailed } from '../tex'
 import toast from 'react-hot-toast'
 import { Film, Languages, MessageSquare } from 'lucide-react'
 
@@ -110,6 +111,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
       setStatus('analyzing')
       setProgress(0)
       setProcessingStartedAt(Date.now())
+      texJobStarted()
 
       // Upload and process to detect issues (no fix options for analyze)
       const response = await uploadFile(selectedFile, {
@@ -132,9 +134,12 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
             setWarnings(jobStatus.result?.warnings ?? [])
             setShowIssues(true)
             setStatus('idle')
+            const processingMs = processingStartedAt != null ? Date.now() - processingStartedAt : undefined
+            if (processingMs != null) texJobCompleted(processingMs, 'fix-subtitles')
           } else if (transition === 'failed') {
             clearInterval(pollIntervalRef.current)
             setStatus('failed')
+            texJobFailed()
             toast.error('Analysis failed. Please try again.')
           }
         } catch (error: any) {
@@ -149,6 +154,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         setStatus('idle')
       } else {
         setStatus('failed')
+        texJobFailed()
       }
       toast.error(error.message || 'Upload failed')
     }
@@ -161,6 +167,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
       setStatus('processing')
       setProgress(0)
       setProcessingStartedAt(Date.now())
+      texJobStarted()
 
       const response = await uploadFile(selectedFile, {
         toolType: BACKEND_TOOL_TYPES.FIX_SUBTITLES,
@@ -185,6 +192,8 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
             setResult(jobStatus.result ?? null)
             setWarnings(jobStatus.result?.warnings ?? [])
             incrementUsage('fix-subtitles')
+            const processingMs = processingStartedAt != null ? Date.now() - processingStartedAt : undefined
+            if (processingMs != null) texJobCompleted(processingMs, 'fix-subtitles')
             if (jobStatus.result?.downloadUrl) {
               try {
                 const res = await fetch(getAbsoluteDownloadUrl(jobStatus.result.downloadUrl))
@@ -197,6 +206,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
           } else if (transition === 'failed') {
             clearInterval(pollIntervalRef.current)
             setStatus('failed')
+            texJobFailed()
             toast.error('Processing failed. Please try again.')
           }
         } catch (error: any) {
@@ -211,6 +221,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         setStatus('idle')
       } else {
         setStatus('failed')
+        texJobFailed()
       }
       toast.error(error.message || 'Upload failed')
     }

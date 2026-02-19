@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Menu, X, Sun, Moon, Clock, CreditCard, Headphones, Gift } from 'lucide-react'
+import { Menu, X, Sun, Moon, Clock, CreditCard, Mail, Gift } from 'lucide-react'
 import { prefetchRoute } from '../lib/prefetch'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getCurrentUsage } from '../lib/api'
@@ -94,11 +94,11 @@ export default function UserMenu() {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'tween', duration: 0.25 }}
-              className="fixed top-0 right-0 bottom-0 z-50 w-full max-w-sm flex flex-col"
+              className="fixed top-0 right-0 bottom-0 z-50 w-full max-w-sm flex flex-col h-screen"
             >
               <aside
                 data-user-menu-panel
-                className="w-full h-full flex flex-col shadow-2xl border-l border-gray-200 dark:border-gray-600 isolate"
+                className="w-full h-full min-h-screen flex flex-col shadow-2xl border-l border-gray-200 dark:border-gray-600 isolate bg-white dark:bg-gray-800"
               >
                 <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-600 shrink-0 bg-white dark:bg-gray-800">
                   <span className="font-semibold text-gray-900 dark:text-white">Menu</span>
@@ -112,7 +112,7 @@ export default function UserMenu() {
                   </button>
                 </div>
 
-                <div data-user-menu-body className="flex-1 overflow-y-auto p-4 space-y-6 min-h-[60vh] bg-white dark:bg-gray-800">
+                <div data-user-menu-body className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-6">
                 {/* Account email (paid plans) */}
                 {usage?.email && (
                   <div className="rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 p-3">
@@ -183,14 +183,14 @@ export default function UserMenu() {
                   </Link>
                 )}
 
-                {/* Contact support */}
+                {/* Email support */}
                 <a
                   href={`mailto:${SUPPORT_EMAIL}`}
                   className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                   onClick={() => setOpen(false)}
                 >
-                  <Headphones className="w-5 h-5 shrink-0 text-gray-600 dark:text-gray-300" />
-                  <span>Contact support</span>
+                  <Mail className="w-5 h-5 shrink-0 text-gray-600 dark:text-gray-300" />
+                  <span>Email support</span>
                 </a>
 
                 {/* Refer and earn */}

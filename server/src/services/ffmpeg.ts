@@ -6,9 +6,13 @@ import fs from 'fs'
 import { FfprobeData } from 'fluent-ffmpeg'
 import { detectSubtitleFormat, parseSRT, parseVTT } from '../utils/srtParser'
 
-// Explicit paths: use env in Docker (e.g. /usr/bin/ffmpeg), else npm installer
-const ffmpegPath = process.env.FFMPEG_PATH || ffmpegInstaller.path
-const ffprobePath = process.env.FFPROBE_PATH || ffprobeInstaller.path
+// Explicit paths: use env in Docker (e.g. /usr/bin/ffmpeg) if the file exists, else npm installer (works on Windows)
+function resolveFfmpegPath(envPath: string | undefined, fallback: string): string {
+  if (envPath && fs.existsSync(envPath)) return envPath
+  return fallback
+}
+const ffmpegPath = resolveFfmpegPath(process.env.FFMPEG_PATH, ffmpegInstaller.path)
+const ffprobePath = resolveFfmpegPath(process.env.FFPROBE_PATH, ffprobeInstaller.path)
 ffmpeg.setFfmpegPath(ffmpegPath)
 try {
   ffmpeg.setFfprobePath(ffprobePath)

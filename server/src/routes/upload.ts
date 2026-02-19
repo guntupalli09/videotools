@@ -575,12 +575,14 @@ router.post('/init', async (req: Request, res: Response) => {
         console.warn('[upload/init] getUser failed', msg)
       }
     }
-    const plan: PlanType =
+    const rawPlan =
       auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency')
         ? auth.plan
         : user?.stripeCustomerId
           ? user.plan
           : 'free'
+    const plan: PlanType =
+      rawPlan === 'basic' || rawPlan === 'pro' || rawPlan === 'agency' ? rawPlan : 'free'
 
     if (!checkAndRecordUpload(rateLimitKey)) {
       res.setHeader('Retry-After', '60')
@@ -604,7 +606,11 @@ router.post('/init', async (req: Request, res: Response) => {
       return res.status(503).json({ message: 'High demand right now. Please retry shortly.' })
     }
 
-    const { filename, totalSize, totalChunks, toolType, ...rest } = req.body as {
+    const body = req.body
+    if (!body || typeof body !== 'object') {
+      return res.status(400).json({ message: 'Request body must be JSON with filename, totalChunks, toolType, totalSize' })
+    }
+    const { filename, totalSize, totalChunks, toolType, ...rest } = body as {
       filename: string
       totalSize?: number
       totalChunks: number
@@ -647,8 +653,10 @@ router.post('/init', async (req: Request, res: Response) => {
 
     return res.json({ uploadId })
   } catch (error: any) {
-    console.error('[upload/init] 500', error?.message || error, error?.stack)
-    return res.status(500).json({ message: error.message || 'Upload init failed' })
+    const msg = error?.message || String(error)
+    const stack = error?.stack
+    console.error('[upload/init] 500', msg, stack || '')
+    return res.status(500).json({ message: msg || 'Upload init failed' })
   }
 })
 

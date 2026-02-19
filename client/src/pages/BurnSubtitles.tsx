@@ -18,6 +18,7 @@ import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolli
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { persistJobId, clearPersistedJobId } from '../lib/jobSession'
 import { trackEvent } from '../lib/analytics'
+import { texJobStarted, texJobCompleted, texJobFailed } from '../tex'
 import toast from 'react-hot-toast'
 import { Minimize2, FileText, MessageSquare } from 'lucide-react'
 
@@ -126,6 +127,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
       setStatus('processing')
       setProgress(0)
       setProcessingStartedAt(Date.now())
+      texJobStarted()
 
       const response = await uploadDualFiles(videoFile, subtitleFile, BACKEND_TOOL_TYPES.BURN_SUBTITLES, {
         trimmedStart: trimStart ?? undefined,
@@ -149,9 +151,12 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
             setStatus('completed')
             setResult(jobStatus.result ?? null)
             incrementUsage('burn-subtitles')
+            const processingMs = processingStartedAt != null ? Date.now() - processingStartedAt : undefined
+            if (processingMs != null) texJobCompleted(processingMs, 'burn-subtitles')
           } else if (transition === 'failed') {
             clearInterval(pollIntervalRef.current)
             setStatus('failed')
+            texJobFailed()
             toast.error('Processing failed. Please try again.')
           }
         } catch (error: any) {
@@ -166,6 +171,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
         setStatus('idle')
       } else {
         setStatus('failed')
+        texJobFailed()
       }
       toast.error(error.message || 'Upload failed')
     }

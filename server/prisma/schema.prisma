@@ -46,3 +46,15 @@ model BatchJobRecord {
   completedAt      DateTime?
   expiresAt        DateTime
 }
+
+// User feedback from Tex panel (post-job completion). No auth required to submit.
+model Feedback {
+  id              String   @id @default(cuid())
+  toolId          String?  // e.g. video-to-transcript, video-to-subtitles (where stars were collected)
+  stars           Int?     // 1-5
+  comment         String   @default("")
+  userId          String?  // if logged in
+  userNameOrEmail String?  // for free users: name or email when they share it
+  planAtSubmit    String?  // free | basic | pro | agency at time of feedback
+  createdAt       DateTime @default(now())
+}

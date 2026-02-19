@@ -72,6 +72,10 @@ const STATIC_ROUTE_SEO: Record<string, { title: string; description: string }> =
     description:
       'Generate SRT subtitles for many videos in one go. Upload multiple videos, get one ZIP of subtitle files. Pro and Agency plans. Multi-language optional.',
   },
+  '/feedback': {
+    title: 'Feedback — VideoText',
+    description: 'View user feedback submitted from the Tex panel.',
+  },
 }
 
 /** Static breadcrumb items (non-SEO-registry routes). */

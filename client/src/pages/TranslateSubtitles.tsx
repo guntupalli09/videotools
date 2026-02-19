@@ -19,6 +19,7 @@ import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { FREE_EXPORT_WATERMARK } from '../lib/watermark'
 import { persistJobId, clearPersistedJobId } from '../lib/jobSession'
 import { trackEvent } from '../lib/analytics'
+import { texJobStarted, texJobCompleted, texJobFailed } from '../tex'
 import toast from 'react-hot-toast'
 import { Film, Wrench, MessageSquare } from 'lucide-react'
 
@@ -120,6 +121,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
       setStatus('processing')
       setProgress(0)
       setProcessingStartedAt(Date.now())
+      texJobStarted()
 
       let response
 
@@ -163,9 +165,12 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
               }
             }
             incrementUsage('translate-subtitles')
+            const processingMs = processingStartedAt != null ? Date.now() - processingStartedAt : undefined
+            if (processingMs != null) texJobCompleted(processingMs, 'translate-subtitles')
           } else if (transition === 'failed') {
             clearInterval(pollIntervalRef.current)
             setStatus('failed')
+            texJobFailed()
             toast.error('Processing failed. Please try again.')
           }
         } catch (error: any) {
@@ -180,6 +185,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
         setStatus('idle')
       } else {
         setStatus('failed')
+        texJobFailed()
       }
       toast.error(error.message || 'Upload failed')
     }
@@ -201,62 +207,63 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
   }
 
   return (
-    <div className="min-h-screen py-12">
+    <div className="min-h-screen py-6 sm:py-8 bg-gradient-to-b from-violet-50/40 to-white dark:from-gray-900/50 dark:to-gray-800/30">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-8">
-          <div className="mb-4">
+        {/* Compact hero + upload-first: drop zone visible immediately */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="bg-violet-100 dark:bg-violet-900/40 rounded-xl p-2.5 w-12 h-12 flex items-center justify-center shrink-0">
+              <Languages className="h-6 w-6 text-violet-600 dark:text-violet-400" />
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{seoH1 ?? 'Translate Subtitles'}</h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{seoIntro ?? 'Convert SRT/VTT to Arabic, Hindi, and more'}</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
             <PlanBadge />
+            <UsageCounter refreshTrigger={status} />
+            <UsageDisplay refreshTrigger={status} />
           </div>
-          <div className="bg-violet-100 rounded-xl p-4 w-16 h-16 flex items-center justify-center mx-auto mb-4">
-            <Languages className="h-8 w-8 text-violet-600" />
-          </div>
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">{seoH1 ?? 'Translate Subtitles'}</h1>
-          <p className="text-lg text-gray-600 mb-6">
-            {seoIntro ?? 'Convert subtitles to Arabic, Hindi, and more'}
-          </p>
-          <UsageCounter refreshTrigger={status} />
-          <UsageDisplay refreshTrigger={status} />
         </div>
 
         {status === 'idle' && (
-          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6">
-            {/* Language Selector */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Translate to...
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-100 dark:border-gray-600 mb-6">
+            {/* Tabs first so user can choose upload vs paste immediately */}
+            <div className="flex flex-wrap items-center gap-4 mb-6">
+              <div className="flex space-x-4 border-b border-gray-200 dark:border-gray-600">
+                <button
+                  onClick={() => setTab('upload')}
+                  className={`pb-3 px-4 font-medium transition-colors ${
+                    tab === 'upload'
+                      ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-600 dark:border-violet-400'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
+                >
+                  Upload File
+                </button>
+                <button
+                  onClick={() => setTab('paste')}
+                  className={`pb-3 px-4 font-medium transition-colors ${
+                    tab === 'paste'
+                      ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-600 dark:border-violet-400'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
+                >
+                  Paste Text
+                </button>
+              </div>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <span>Translate to:</span>
+                <select
+                  value={targetLanguage}
+                  onChange={(e) => setTargetLanguage(e.target.value)}
+                  className="rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-3 py-1.5 text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                >
+                  <option value="arabic">🇸🇦 Arabic</option>
+                  <option value="hindi">🇮🇳 Hindi</option>
+                </select>
               </label>
-              <select
-                value={targetLanguage}
-                onChange={(e) => setTargetLanguage(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-              >
-                <option value="arabic">🇸🇦 Arabic (عربي)</option>
-                <option value="hindi">🇮🇳 Hindi (हिन्दी)</option>
-              </select>
-            </div>
-
-            {/* Tab Switcher */}
-            <div className="flex space-x-4 mb-6 border-b border-gray-200">
-              <button
-                onClick={() => setTab('upload')}
-                className={`pb-3 px-4 font-medium transition-colors ${
-                  tab === 'upload'
-                    ? 'text-violet-600 border-b-2 border-violet-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Upload File
-              </button>
-              <button
-                onClick={() => setTab('paste')}
-                className={`pb-3 px-4 font-medium transition-colors ${
-                  tab === 'paste'
-                    ? 'text-violet-600 border-b-2 border-violet-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Paste Text
-              </button>
             </div>
 
             {tab === 'upload' ? (
@@ -281,11 +288,9 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                   value={pastedText}
                   onChange={(e) => setPastedText(e.target.value)}
                   placeholder="Paste your subtitle text here (SRT or VTT format)..."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent mb-4 h-48 font-mono text-sm"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent mb-4 h-48 font-mono text-sm"
                 />
-                <p className="text-xs text-gray-500 mb-4">
-                  Note: File upload is recommended for better accuracy
-                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">File upload is recommended for better accuracy.</p>
                 <button
                   onClick={handleProcess}
                   disabled={!pastedText.trim()}
@@ -299,7 +304,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
         )}
 
         {status === 'processing' && (
-          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm border border-gray-100 dark:border-gray-600 mb-6 text-center">
             <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
             <p className="text-lg font-medium text-gray-800 mb-4">Translating subtitles...</p>
             <ProgressBar

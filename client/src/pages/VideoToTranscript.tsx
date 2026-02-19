@@ -22,6 +22,7 @@ import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolli
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { persistJobId, getPersistedJobId, getPersistedJobToken, clearPersistedJobId } from '../lib/jobSession'
 import { trackEvent } from '../lib/analytics'
+import { texJobStarted, texJobCompleted, texJobFailed } from '../tex'
 import { segmentsToSrt, segmentsToVtt, formatTimestamp, type Segment } from '../lib/srtExport'
 import toast from 'react-hot-toast'
 import { Subtitles, Film, Minimize2 } from 'lucide-react'
@@ -428,6 +429,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
       setUploadPhase('processing')
       setUploadProgress(100)
       setProcessingStartedAt(Date.now())
+      texJobStarted()
 
       // Poll for status: run first poll immediately, then every 2s.
       // Lifecycle depends ONLY on jobStatus.status; missing result never causes failure.
@@ -480,6 +482,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                 processing_time_ms: processingMs,
               })
               trackEvent('processing_completed', { tool: 'video-to-transcript' })
+              if (processingMs != null) texJobCompleted(processingMs, 'video-to-transcript')
             } catch {
               // non-blocking
             }
@@ -489,6 +492,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
               activeUploadPollRef.current = null
             }
             setStatus('failed')
+            texJobFailed()
             toast.error('Processing failed. Please try again.')
           }
           // transition === 'continue': keep polling (queued | processing)
@@ -512,6 +516,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
         setStatus('idle')
       } else {
         setStatus('failed')
+        texJobFailed()
       }
       toast.error(getUserFacingMessage(error))
     }

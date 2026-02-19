@@ -27,6 +27,7 @@ import { FREE_EXPORT_WATERMARK } from '../lib/watermark'
 import { persistJobId, getPersistedJobId, getPersistedJobToken, clearPersistedJobId } from '../lib/jobSession'
 import { createCheckoutSession } from '../lib/billing'
 import { trackEvent } from '../lib/analytics'
+import { texJobStarted, texJobCompleted, texJobFailed } from '../tex'
 import toast from 'react-hot-toast'
 import { Languages, Film, Wrench, FileDown, Copy, ChevronDown, Minimize2 } from 'lucide-react'
 import { useWorkflow } from '../contexts/WorkflowContext'
@@ -447,6 +448,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
       setUploadPhase('processing')
       setUploadProgress(100)
       setProcessingStartedAt(Date.now())
+      texJobStarted()
 
       const jobToken = response.jobToken
       const doPoll = async () => {
@@ -502,6 +504,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                 processing_time_ms: processingMs,
               })
               trackEvent('processing_completed', { tool: 'video-to-subtitles' })
+              if (processingMs != null) texJobCompleted(processingMs, 'video-to-subtitles')
             } catch {
               // non-blocking
             }
@@ -511,6 +514,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               activeUploadPollRef.current = null
             }
             setStatus('failed')
+            texJobFailed()
             toast.error('Processing failed. Please try again.')
           }
         } catch (error: any) {
@@ -533,6 +537,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
         setStatus('idle')
       } else {
         setStatus('failed')
+        texJobFailed()
       }
       toast.error(getUserFacingMessage(error))
     }

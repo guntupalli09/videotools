@@ -14,7 +14,7 @@ export default function Footer() {
               <span className="text-xl font-semibold text-white">VideoText</span>
             </div>
             <p className="text-sm">
-              Professional video utilities for creators. We don’t store your data—files are processed and deleted. No bloat. No signup.
+              Turn speech into text—transcripts, subtitles, translation. For creators & teams. We don’t store your data.
             </p>
           </div>
 

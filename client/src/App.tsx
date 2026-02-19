@@ -12,6 +12,8 @@ import { getSeoEntry, getAllSeoPaths } from './lib/seoRegistry'
 import SessionErrorBoundary from './components/SessionErrorBoundary'
 import OfflineBanner from './components/OfflineBanner'
 import { WorkflowProvider } from './contexts/WorkflowContext'
+import { TexAgent } from './components/TexAgent'
+import TexErrorBoundary from './components/TexAgent/TexErrorBoundary'
 
 // Lazy-load pages for fast initial load on any device; each route loads only when visited.
 const Home = lazy(() => import('./pages/Home'))
@@ -32,6 +34,7 @@ const FixSubtitles = lazy(() => import('./pages/FixSubtitles'))
 const BurnSubtitles = lazy(() => import('./pages/BurnSubtitles'))
 const CompressVideo = lazy(() => import('./pages/CompressVideo'))
 const SeoToolPage = lazy(() => import('./pages/SeoToolPage'))
+const FeedbackView = lazy(() => import('./pages/FeedbackView'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
 /** Minimal loading fallback for route chunks — fast, accessible, no layout shift. */
@@ -256,6 +259,7 @@ function App() {
             <Route path="/refer" element={<Refer />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/faq" element={<Faq />} />
+            <Route path="/feedback" element={<FeedbackView />} />
             <Route path="/guide" element={<Guide />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/video-to-transcript" element={<VideoToTranscript />} />
@@ -275,6 +279,9 @@ function App() {
           </SessionErrorBoundary>
         </main>
         <Footer />
+        <TexErrorBoundary>
+          <TexAgent />
+        </TexErrorBoundary>
         <Toaster position="top-right" />
       </div>
       </WorkflowProvider>

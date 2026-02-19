@@ -954,6 +954,44 @@ export async function getCurrentUsage(options?: { skipCache?: boolean }): Promis
   return data as UsageData
 }
 
+/** Submit feedback from Tex panel (post-job). Optional toolId, stars 1–5, comment, userNameOrEmail (free users), planAtSubmit. */
+export async function submitFeedback(payload: {
+  toolId?: string
+  stars?: number
+  comment?: string
+  userNameOrEmail?: string
+  planAtSubmit?: string
+}): Promise<void> {
+  const response = await api('/api/feedback', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!response.ok) throw new Error('Failed to send feedback')
+}
+
+export interface FeedbackItem {
+  id: string
+  toolId: string | null
+  stars: number | null
+  comment: string
+  userId: string | null
+  userNameOrEmail: string | null
+  planAtSubmit: string | null
+  createdAt: string
+}
+
+/** List stored feedback (for owner). Requires viewer secret in header. */
+export async function getFeedbackList(viewerSecret: string): Promise<FeedbackItem[]> {
+  const response = await api('/api/feedback', {
+    method: 'GET',
+    headers: { 'X-Feedback-Viewer': viewerSecret },
+    timeout: 10000,
+  })
+  if (!response.ok) throw new Error('Unauthorized or failed to load feedback')
+  return response.json()
+}
+
 /** Translate transcript text to a target language (English, Hindi, Telugu, Spanish, Chinese, Russian). */
 export const TRANSCRIPT_TRANSLATION_LANGUAGES = ['English', 'Hindi', 'Telugu', 'Spanish', 'Chinese', 'Russian'] as const
 
