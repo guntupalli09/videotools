@@ -15,8 +15,6 @@ function CheckIcon({ className = '' }: { className?: string }) {
 export default function Pricing() {
   const [currentPlan, setCurrentPlan] = useState<string | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
-  const [promoCode, setPromoCode] = useState('')
-  const [promoError, setPromoError] = useState<string | null>(null)
   const [checkoutEmail, setCheckoutEmail] = useState('')
   const [otpModal, setOtpModal] = useState<{ email: string; plan: BillingPlan; annual: boolean } | null>(null)
   const [otpSent, setOtpSent] = useState(false)
@@ -46,7 +44,6 @@ export default function Pricing() {
   }
 
   async function handleSubscribe(plan: BillingPlan, annual = false) {
-    setPromoError(null)
     const email = checkoutEmail.trim()
     if (!email || !email.includes('@')) {
       // eslint-disable-next-line no-alert
@@ -84,15 +81,12 @@ export default function Pricing() {
     setOtpError(null)
     try {
       const { token } = await verifyOtp(otpModal.email, otpCode.trim())
-      const promotionCode =
-        (otpModal.plan === 'basic' || otpModal.plan === 'pro') ? (promoCode.trim() || undefined) : undefined
       const { url } = await createCheckoutSession({
         mode: 'subscription',
         plan: otpModal.plan,
         annual: otpModal.annual,
         returnToPath: '/',
         frontendOrigin: window.location.origin,
-        promotionCode,
         email: otpModal.email,
         emailVerificationToken: token,
       })
@@ -155,25 +149,6 @@ export default function Pricing() {
               aria-label="Email for checkout"
             />
             <p className="mt-1.5 text-xs text-gray-500">We’ll send a verification code to this email before checkout. Used for plan management and receipts.</p>
-          </div>
-          {/* Promo code for early testers (Basic & Pro only) */}
-          <div className="mt-6 mx-auto max-w-md">
-            <p className="text-sm font-medium text-gray-700 mb-1.5">Early tester? Use a promo code</p>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={promoCode}
-                onChange={(e) => {
-                  setPromoCode(e.target.value.toUpperCase())
-                  setPromoError(null)
-                }}
-                placeholder="e.g. EARLY30, EARLY50"
-                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
-                aria-label="Promotion code"
-              />
-            </div>
-            {promoError && <p className="mt-1.5 text-sm text-red-600">{promoError}</p>}
-            <p className="mt-1.5 text-xs text-gray-500">30%, 50%, 70%, or 100% off Basic and Pro. Applied at checkout.</p>
           </div>
         </header>
 

@@ -3,6 +3,7 @@ import Stripe from 'stripe'
 import { stripe, getPlanFromPriceId } from '../services/stripe'
 import {
   getUserByStripeCustomerId,
+  getUserByEmail,
   getUserByPasswordToken,
   saveUser,
   User,
@@ -14,23 +15,39 @@ import { hasProcessedStripeEvent, markStripeEventProcessed } from '../models/Str
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
 
+/**
+ * Get or create a user for this Stripe customer. If an account already exists
+ * with the same email (e.g. user signed up with email then paid), we link that
+ * account to Stripe so email login shows the correct plan on all devices.
+ */
 async function ensureUserForStripeCustomer(
   stripeCustomerId: string,
   emailHint?: string | null
 ): Promise<User> {
-  const existing = await getUserByStripeCustomerId(stripeCustomerId)
-  if (existing) {
-    return existing
+  const existingByStripe = await getUserByStripeCustomerId(stripeCustomerId)
+  if (existingByStripe) {
+    return existingByStripe
+  }
+
+  const email = (emailHint || '').trim().toLowerCase()
+  if (email) {
+    const existingByEmail = await getUserByEmail(email)
+    if (existingByEmail) {
+      existingByEmail.stripeCustomerId = stripeCustomerId
+      existingByEmail.updatedAt = new Date()
+      await saveUser(existingByEmail)
+      return existingByEmail
+    }
   }
 
   const now = new Date()
-  const email = emailHint || `${stripeCustomerId}@example.com`
+  const fallbackEmail = email || `${stripeCustomerId}@example.com`
   const defaultPlan: PlanType = 'free'
   const limits = getPlanLimits(defaultPlan)
 
   const user: User = {
     id: stripeCustomerId,
-    email,
+    email: fallbackEmail,
     passwordHash: '',
     plan: defaultPlan,
     stripeCustomerId,
