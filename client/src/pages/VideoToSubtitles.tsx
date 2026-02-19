@@ -23,6 +23,7 @@ import { getFilePreview, type FilePreviewData } from '../lib/filePreview'
 import { extractAudioInBrowser, isAudioExtractionSupported } from '../lib/audioExtraction'
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
+import { FREE_EXPORT_WATERMARK } from '../lib/watermark'
 import { persistJobId, getPersistedJobId, getPersistedJobToken, clearPersistedJobId } from '../lib/jobSession'
 import { createCheckoutSession } from '../lib/billing'
 import { trackEvent } from '../lib/analytics'
@@ -68,6 +69,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
   const [convertTargetFormat, setConvertTargetFormat] = useState<'srt' | 'vtt' | 'txt'>('srt')
   const [convertProgress, setConvertProgress] = useState(false)
   const [convertPreview, setConvertPreview] = useState<string | null>(null)
+  const [convertDownloadUrl, setConvertDownloadUrl] = useState<string | null>(null)
   const [translationLanguage, setTranslationLanguage] = useState<string | null>(null)
   const [translatedCache, setTranslatedCache] = useState<Record<string, string>>({})
   const [translating, setTranslating] = useState(false)
@@ -75,6 +77,11 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
   const rehydratePollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const activeUploadPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const jobStartedTrackedRef = useRef<string | null>(null)
+  const [freeExportsUsed, setFreeExportsUsed] = useState(0)
+
+  useEffect(() => {
+    setFreeExportsUsed(0)
+  }, [result?.downloadUrl])
 
   const plan = (localStorage.getItem('plan') || 'free').toLowerCase()
   const canEdit = plan !== 'free'
@@ -573,6 +580,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               const text = await prevRes.text()
               const lines = text.split(/\n\n|\n/).slice(0, 30)
               setConvertPreview(lines.join('\n'))
+              setConvertDownloadUrl(convertedUrl)
             } else {
               window.open(convertedUrl, '_blank')
             }
@@ -823,10 +831,36 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           <div className="space-y-6">
             <SuccessState
               fileName={result.fileName}
-              downloadUrl={getDownloadUrl()}
+              downloadUrl={plan === 'free' ? undefined : getDownloadUrl()}
               onProcessAnother={handleProcessAnother}
               toolType={BACKEND_TOOL_TYPES.VIDEO_TO_SUBTITLES}
               jobId={currentJobId ?? undefined}
+              onDownloadClick={
+                plan === 'free'
+                  ? async () => {
+                      if (freeExportsUsed >= 2) {
+                        toast('You\'ve used your 2 free downloads. Upgrade for more.')
+                        return
+                      }
+                      try {
+                        const res = await fetch(getDownloadUrl())
+                        const text = await res.text()
+                        const watermarked = text + FREE_EXPORT_WATERMARK
+                        const blob = new Blob([watermarked], { type: res.headers.get('content-type') || 'text/plain' })
+                        const a = document.createElement('a')
+                        a.href = URL.createObjectURL(blob)
+                        a.download = result?.fileName || 'subtitles.srt'
+                        a.click()
+                        URL.revokeObjectURL(a.href)
+                        setFreeExportsUsed((prev) => prev + 1)
+                        toast.success('Download started (with watermark)')
+                      } catch {
+                        toast.error('Download failed')
+                      }
+                    }
+                  : undefined
+              }
+              downloadLabel={plan === 'free' ? (freeExportsUsed >= 2 ? '2/2 used' : 'Download with watermark') : undefined}
             />
 
             {subtitleRows.length > 0 && (
@@ -979,13 +1013,43 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                 </button>
               </div>
               {plan === 'free' && (
-                <p className="text-xs text-gray-500 mt-2">Free plan: preview first 30 lines only. Upgrade for full download.</p>
+                <p className="text-xs text-gray-500 mt-2">
+                  Free plan: preview below. You can download 1 format with watermark ({freeExportsUsed}/2 total downloads used).
+                </p>
               )}
               {convertPreview !== null && (
                 <div className="mt-4 p-4 bg-gray-50 rounded-lg max-h-48 overflow-y-auto">
                   <p className="text-xs font-medium text-gray-700 mb-2">Preview (first 30 lines)</p>
                   <pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono">{convertPreview}</pre>
                 </div>
+              )}
+              {plan === 'free' && convertDownloadUrl && freeExportsUsed < 2 && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!convertDownloadUrl || freeExportsUsed >= 2) return
+                    try {
+                      const res = await fetch(convertDownloadUrl)
+                      const text = await res.text()
+                      const watermarked = text + FREE_EXPORT_WATERMARK
+                      const ext = convertTargetFormat === 'srt' ? 'srt' : convertTargetFormat === 'vtt' ? 'vtt' : 'txt'
+                      const blob = new Blob([watermarked], { type: 'text/plain' })
+                      const a = document.createElement('a')
+                      a.href = URL.createObjectURL(blob)
+                      a.download = `subtitles.${ext}`
+                      a.click()
+                      URL.revokeObjectURL(a.href)
+                      setFreeExportsUsed((prev) => prev + 1)
+                      setConvertDownloadUrl(null)
+                      toast.success('Download started (with watermark)')
+                    } catch {
+                      toast.error('Download failed')
+                    }
+                  }}
+                  className="mt-3 text-sm font-medium text-violet-600 hover:text-violet-700"
+                >
+                  Download converted file with watermark
+                </button>
               )}
             </div>
 

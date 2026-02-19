@@ -1,4 +1,4 @@
-import { useState, Suspense, lazy } from 'react'
+import { useState, useEffect, Suspense, lazy } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Wrench, Loader2, CheckCircle } from 'lucide-react'
 import FileUploadZone from '../components/FileUploadZone'
@@ -15,6 +15,7 @@ import { incrementUsage } from '../lib/usage'
 import { uploadFile, getJobStatus, BACKEND_TOOL_TYPES, SessionExpiredError } from '../lib/api'
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
+import { FREE_EXPORT_WATERMARK } from '../lib/watermark'
 import { persistJobId, clearPersistedJobId } from '../lib/jobSession'
 import { trackEvent } from '../lib/analytics'
 import toast from 'react-hot-toast'
@@ -45,9 +46,14 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
   const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null)
   const [result, setResult] = useState<{ downloadUrl: string; fileName?: string; issues?: any[]; warnings?: { type: string; message: string; line?: number }[] } | null>(null)
   const [subtitleRows, setSubtitleRows] = useState<SubtitleRow[]>([])
+  const [freeExportsUsed, setFreeExportsUsed] = useState(0)
 
   const plan = (localStorage.getItem('plan') || 'free').toLowerCase()
   const canEdit = plan !== 'free'
+
+  useEffect(() => {
+    if (result?.downloadUrl) setFreeExportsUsed(0)
+  }, [result?.downloadUrl])
 
   const handleFileSelect = (file: File) => {
     try {
@@ -429,9 +435,35 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
           <div className="space-y-6">
             <SuccessState
               fileName={result.fileName}
-              downloadUrl={getDownloadUrl()}
+              downloadUrl={plan === 'free' ? undefined : getDownloadUrl()}
               onProcessAnother={handleProcessAnother}
               toolType={BACKEND_TOOL_TYPES.FIX_SUBTITLES}
+              onDownloadClick={
+                plan === 'free'
+                  ? async () => {
+                      if (freeExportsUsed >= 2) {
+                        toast('You\'ve used your 2 free downloads. Upgrade for more.')
+                        return
+                      }
+                      try {
+                        const res = await fetch(getDownloadUrl())
+                        const text = await res.text()
+                        const watermarked = text + FREE_EXPORT_WATERMARK
+                        const blob = new Blob([watermarked], { type: res.headers.get('content-type') || 'text/plain' })
+                        const a = document.createElement('a')
+                        a.href = URL.createObjectURL(blob)
+                        a.download = result?.fileName || 'fixed.srt'
+                        a.click()
+                        URL.revokeObjectURL(a.href)
+                        setFreeExportsUsed((prev) => prev + 1)
+                        toast.success('Download started (with watermark)')
+                      } catch {
+                        toast.error('Download failed')
+                      }
+                    }
+                  : undefined
+              }
+              downloadLabel={plan === 'free' ? (freeExportsUsed >= 2 ? '2/2 used' : 'Download with watermark') : undefined}
             />
 
             {subtitleRows.length > 0 && (

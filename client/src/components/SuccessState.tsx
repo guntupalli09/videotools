@@ -11,6 +11,10 @@ interface SuccessStateProps {
   /** Optional: for result_downloaded analytics */
   toolType?: string
   jobId?: string
+  /** When set, download uses this handler instead of direct link (e.g. free plan: fetch + watermark + download). */
+  onDownloadClick?: (e: React.MouseEvent) => void
+  /** Label for the download button when using onDownloadClick (e.g. "Download with watermark"). */
+  downloadLabel?: string
 }
 
 export default function SuccessState({
@@ -20,8 +24,10 @@ export default function SuccessState({
   onProcessAnother,
   toolType,
   jobId,
+  onDownloadClick,
+  downloadLabel = 'Download',
 }: SuccessStateProps) {
-  const handleDownloadClick = () => {
+  const trackDownload = () => {
     try {
       trackEvent('result_downloaded', {
         ...(toolType && { tool_type: toolType }),
@@ -63,16 +69,30 @@ export default function SuccessState({
         </div>
       )}
 
-      {downloadUrl && (
-        <a
-          href={downloadUrl}
-          download
-          onClick={handleDownloadClick}
-          className="btn-primary w-full py-4 px-6 mb-4"
-        >
-          <Download className="h-5 w-5 inline-block mr-2" />
-          Download
-        </a>
+      {(downloadUrl || onDownloadClick) && (
+        onDownloadClick ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              trackDownload()
+              onDownloadClick(e)
+            }}
+            className="btn-primary w-full py-4 px-6 mb-4"
+          >
+            <Download className="h-5 w-5 inline-block mr-2" />
+            {downloadLabel}
+          </button>
+        ) : (
+          <a
+            href={downloadUrl!}
+            download
+            onClick={trackDownload}
+            className="btn-primary w-full py-4 px-6 mb-4"
+          >
+            <Download className="h-5 w-5 inline-block mr-2" />
+            {downloadLabel}
+          </a>
+        )
       )}
 
       {onProcessAnother && (

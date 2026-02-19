@@ -111,6 +111,13 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   const rehydratePollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const activeUploadPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const jobStartedTrackedRef = useRef<string | null>(null)
+  /** Free plan: number of export downloads used for this transcript (max 2, with watermark). */
+  const [freeExportsUsed, setFreeExportsUsed] = useState(0)
+
+  // Reset free export count when user gets a new result (e.g. process another file)
+  useEffect(() => {
+    setFreeExportsUsed(0)
+  }, [result?.downloadUrl])
 
   // Instant file preview (browser only); persists through upload + processing
   useEffect(() => {
@@ -1438,7 +1445,9 @@ onClick={handleProcess}
                 ) : (
                   <>
                     <p className="text-sm text-gray-500 mb-5">
-                      {isPaidPlan ? 'Full download available.' : 'Free plan: preview only. Upgrade for full export download.'}
+                      {isPaidPlan
+                        ? 'Full download available.'
+                        : `Free plan: download any 2 exports with watermark (${freeExportsUsed}/2 used). Upgrade for unlimited downloads.`}
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {(['json', 'csv', 'markdown', 'notion'] as const).map((format) => {
@@ -1466,29 +1475,51 @@ onClick={handleProcess}
                         }
                         const content = buildExport()
                         const preview = content.slice(0, 400) + (content.length > 400 ? '…' : '')
+                        const FREE_EXPORT_WATERMARK = '\n\n---\nExported from VideoText (Free) - videotext.io\n'
+                        const freeCanDownload = !isPaidPlan && freeExportsUsed < 2
+                        const freeUsedAll = !isPaidPlan && freeExportsUsed >= 2
                         const handleDownload = () => {
-                          if (!isPaidPlan) {
-                            toast('Upgrade for full export download.')
+                          if (isPaidPlan) {
+                            const blob = new Blob([content], { type: format === 'json' ? 'application/json' : 'text/plain' })
+                            const a = document.createElement('a')
+                            a.href = URL.createObjectURL(blob)
+                            a.download = `transcript-export.${format === 'json' ? 'json' : format === 'csv' ? 'csv' : 'md'}`
+                            a.click()
+                            URL.revokeObjectURL(a.href)
+                            toast.success('Download started')
                             return
                           }
-                          const blob = new Blob([content], { type: format === 'json' ? 'application/json' : 'text/plain' })
+                          if (freeUsedAll) {
+                            toast('You\'ve used your 2 free exports. Upgrade for unlimited downloads.')
+                            return
+                          }
+                          const watermarkedContent = content + FREE_EXPORT_WATERMARK
+                          setFreeExportsUsed((prev) => prev + 1)
+                          const blob = new Blob([watermarkedContent], { type: format === 'json' ? 'application/json' : 'text/plain' })
                           const a = document.createElement('a')
                           a.href = URL.createObjectURL(blob)
                           a.download = `transcript-export.${format === 'json' ? 'json' : format === 'csv' ? 'csv' : 'md'}`
                           a.click()
                           URL.revokeObjectURL(a.href)
-                          toast.success('Download started')
+                          toast.success('Download started (with watermark)')
                         }
+                        const downloadLabel = isPaidPlan
+                          ? 'Download'
+                          : freeCanDownload
+                            ? 'Download with watermark'
+                            : '2/2 used'
+                        const canClick = isPaidPlan || freeCanDownload
                         return (
                           <div key={format} className="rounded-xl bg-gray-50/80 p-4">
                             <div className="flex items-center justify-between gap-2 mb-3">
                               <span className="text-sm font-medium capitalize text-gray-800">{format}</span>
                               <button
                                 onClick={handleDownload}
-                                className="flex items-center gap-1.5 text-violet-600 hover:text-violet-700 text-sm font-medium"
+                                disabled={!canClick}
+                                className={`flex items-center gap-1.5 text-sm font-medium ${canClick ? 'text-violet-600 hover:text-violet-700' : 'text-gray-400 cursor-not-allowed'}`}
                               >
                                 <Download className="h-4 w-4 shrink-0" />
-                                {isPaidPlan ? 'Download' : 'Preview only'}
+                                {downloadLabel}
                               </button>
                             </div>
                             <pre className="text-xs text-gray-600 bg-white/80 p-3 rounded-lg max-h-32 overflow-y-auto whitespace-pre-wrap break-words border border-gray-100">

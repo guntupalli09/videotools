@@ -59,6 +59,13 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
   const [showPaywall, setShowPaywall] = useState(false)
   const [availableMinutes, setAvailableMinutes] = useState<number | null>(null)
   const [usedMinutes, setUsedMinutes] = useState<number | null>(null)
+  const [freeExportsUsed, setFreeExportsUsed] = useState(0)
+
+  const plan = (localStorage.getItem('plan') || 'free').toLowerCase()
+
+  useEffect(() => {
+    if (result?.downloadUrl) setFreeExportsUsed(0)
+  }, [result?.downloadUrl])
 
   const handleFileSelect = (file: File) => {
     try {
@@ -335,9 +342,33 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
           <div className="space-y-6">
             <SuccessState
               fileName={result.fileName}
-              downloadUrl={getDownloadUrl()}
+              downloadUrl={plan === 'free' ? undefined : getDownloadUrl()}
               onProcessAnother={handleProcessAnother}
               toolType={BACKEND_TOOL_TYPES.COMPRESS_VIDEO}
+              onDownloadClick={
+                plan === 'free'
+                  ? async () => {
+                      if (freeExportsUsed >= 2) {
+                        toast('You\'ve used your 2 free downloads. Upgrade for more.')
+                        return
+                      }
+                      try {
+                        const res = await fetch(getDownloadUrl())
+                        const blob = await res.blob()
+                        const a = document.createElement('a')
+                        a.href = URL.createObjectURL(blob)
+                        a.download = result?.fileName || 'compressed.mp4'
+                        a.click()
+                        URL.revokeObjectURL(a.href)
+                        setFreeExportsUsed((prev) => prev + 1)
+                        toast.success('Download started')
+                      } catch {
+                        toast.error('Download failed')
+                      }
+                    }
+                  : undefined
+              }
+              downloadLabel={plan === 'free' ? (freeExportsUsed >= 2 ? '2/2 used' : 'Download (2 free)') : undefined}
             />
 
             <div className="bg-green-50 rounded-xl p-6 border border-green-200">
