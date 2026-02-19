@@ -191,16 +191,9 @@ export default function Home() {
             transition={{ duration: 0.5 }}
             className="text-center"
           >
-            <p className="text-gray-600 text-sm font-medium mb-3">
+            <p className="text-gray-600 text-sm font-medium">
               Your videos and files are processed then deleted. We don’t keep copies—your content stays yours.
             </p>
-            <div className="inline-flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-gray-500 text-sm">
-              <span>100K+ videos processed</span>
-              <span className="text-gray-300">•</span>
-              <span>4.9★ rating</span>
-              <span className="text-gray-300">•</span>
-              <span>Free tier</span>
-            </div>
           </motion.div>
         </div>
       </section>
