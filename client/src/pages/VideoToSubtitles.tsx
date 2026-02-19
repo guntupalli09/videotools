@@ -217,6 +217,13 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               if (rehydratePollRef.current) clearInterval(rehydratePollRef.current)
               rehydratePollRef.current = null
               clearPersistedJobId(pathname, navigate)
+              setIsRehydrating(false)
+              setStatus('idle')
+              setCurrentJobId(null)
+              setUploadPhase('preparing')
+              setUploadProgress(0)
+              setProgress(0)
+              setResult(null)
               toast.error(err.message)
             }
           }
@@ -228,6 +235,12 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
         setIsRehydrating(false)
         if (err instanceof SessionExpiredError) {
           clearPersistedJobId(pathname, navigate)
+          setStatus('idle')
+          setCurrentJobId(null)
+          setUploadPhase('preparing')
+          setUploadProgress(0)
+          setProgress(0)
+          setResult(null)
           toast.error(err.message)
         }
       }
