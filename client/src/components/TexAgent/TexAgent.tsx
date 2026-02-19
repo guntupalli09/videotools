@@ -85,11 +85,11 @@ export default function TexAgent() {
               aria-hidden
             />
             <motion.div
-              initial={{ opacity: 0, y: '100%' }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: '100%' }}
+              initial={{ opacity: 0, x: '100%' }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: '100%' }}
               transition={{ type: 'tween', duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
-              className="fixed bottom-0 left-0 right-0 z-[55] h-[85vh] max-h-[600px] flex flex-col px-4 pb-4 pt-2 pointer-events-auto"
+              className="fixed top-0 right-0 bottom-0 z-[55] w-full max-w-md flex flex-col shadow-2xl pointer-events-auto rounded-l-2xl overflow-hidden border-l border-gray-200 dark:border-gray-600"
             >
               <TexAgentPanel onClose={() => setOpen(false)} isDark={isDark} />
             </motion.div>
