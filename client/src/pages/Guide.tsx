@@ -235,6 +235,60 @@ export default function Guide() {
           <Link to="/privacy" className="text-violet-600 hover:text-violet-700 font-medium">Privacy Policy</Link>.
         </p>
 
+        {/* Suggested workflows for creators */}
+        <section className="mb-10 rounded-xl border border-violet-100 bg-violet-50/30 p-4 sm:p-5" aria-labelledby="workflows-heading">
+          <h2 id="workflows-heading" className="text-base font-semibold text-gray-900 mb-3">Workflows</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Use &quot;Next step&quot; on each tool to continue with the same file — no re-upload.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-1">
+            <div className="rounded-lg bg-white/80 border border-violet-100/80 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-violet-600 mb-1.5">YouTubers</p>
+              <p className="text-sm text-gray-700">
+                <Link to="/video-to-transcript" className="text-violet-600 hover:text-violet-700 font-medium">Transcript</Link>
+                <span className="text-gray-400 mx-1">→</span>
+                <Link to="/video-to-subtitles" className="text-violet-600 hover:text-violet-700 font-medium">Subtitles</Link>
+                <span className="text-gray-400 mx-1">→</span>
+                <Link to="/translate-subtitles" className="text-violet-600 hover:text-violet-700 font-medium">Translate</Link>
+                <span className="text-gray-400 mx-1">→</span>
+                <Link to="/burn-subtitles" className="text-violet-600 hover:text-violet-700 font-medium">Burn</Link>
+                <span className="text-gray-400 mx-1">→</span>
+                <Link to="/compress-video" className="text-violet-600 hover:text-violet-700 font-medium">Compress</Link>
+              </p>
+            </div>
+            <div className="rounded-lg bg-white/80 border border-violet-100/80 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-violet-600 mb-1.5">Editors</p>
+              <p className="text-sm text-gray-700">
+                <Link to="/video-to-transcript" className="text-violet-600 hover:text-violet-700 font-medium">Transcript</Link>
+                <span className="text-gray-400 mx-1">→</span>
+                <Link to="/video-to-subtitles" className="text-violet-600 hover:text-violet-700 font-medium">Subtitles</Link>
+                <span className="text-gray-400 mx-1">→</span>
+                <Link to="/fix-subtitles" className="text-violet-600 hover:text-violet-700 font-medium">Fix</Link>
+                <span className="text-gray-400 mx-1">→</span>
+                <Link to="/burn-subtitles" className="text-violet-600 hover:text-violet-700 font-medium">Burn</Link>
+                <span className="text-gray-400 mx-1">→</span>
+                <Link to="/compress-video" className="text-violet-600 hover:text-violet-700 font-medium">Compress</Link>
+              </p>
+            </div>
+            <div className="rounded-lg bg-white/80 border border-violet-100/80 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-violet-600 mb-1.5">Clip editors</p>
+              <p className="text-sm text-gray-700">
+                Trim
+                <span className="text-gray-400 mx-1">→</span>
+                <Link to="/video-to-subtitles" className="text-violet-600 hover:text-violet-700 font-medium">Subtitles</Link>
+                <span className="text-gray-400 mx-1">/</span>
+                <Link to="/video-to-transcript" className="text-violet-600 hover:text-violet-700 font-medium">Transcript</Link>
+                <span className="text-gray-400 mx-1">→</span>
+                <Link to="/fix-subtitles" className="text-violet-600 hover:text-violet-700 font-medium">Fix</Link>
+                <span className="text-gray-400 mx-1">→</span>
+                <Link to="/burn-subtitles" className="text-violet-600 hover:text-violet-700 font-medium">Burn</Link>
+                <span className="text-gray-400 mx-1">→</span>
+                <Link to="/compress-video" className="text-violet-600 hover:text-violet-700 font-medium">Compress</Link>
+              </p>
+            </div>
+          </div>
+        </section>
+
         {/* Quick nav */}
         <nav className="mb-12 rounded-xl border border-gray-200 bg-white p-4" aria-label="Guide sections">
           <h2 className="text-sm font-semibold text-gray-900 mb-3">Tools in this guide</h2>

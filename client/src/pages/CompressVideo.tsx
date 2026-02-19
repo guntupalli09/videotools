@@ -1,6 +1,7 @@
-import { useState, Suspense, lazy } from 'react'
+import { useState, Suspense, lazy, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Minimize2, Loader2 } from 'lucide-react'
+import { useWorkflow } from '../contexts/WorkflowContext'
 import FileUploadZone from '../components/FileUploadZone'
 import UsageCounter from '../components/UsageCounter'
 import PlanBadge from '../components/PlanBadge'
@@ -18,7 +19,7 @@ import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { persistJobId, clearPersistedJobId } from '../lib/jobSession'
 import { trackEvent } from '../lib/analytics'
 import toast from 'react-hot-toast'
-import { MessageSquare } from 'lucide-react'
+import { MessageSquare, Film, FileText } from 'lucide-react'
 import { formatFileSize } from '../lib/utils'
 
 type CompressionLevel = 'light' | 'medium' | 'heavy'
@@ -35,7 +36,17 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
   const { seoH1, seoIntro, faq = [] } = props
   const location = useLocation()
   const navigate = useNavigate()
+  const workflow = useWorkflow()
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [fileFromWorkflow, setFileFromWorkflow] = useState(false)
+
+  useEffect(() => {
+    const state = location.state as { useWorkflowVideo?: boolean } | undefined
+    if (state?.useWorkflowVideo && workflow.videoFile) {
+      setSelectedFile(workflow.videoFile)
+      setFileFromWorkflow(true)
+    }
+  }, [location.state, workflow.videoFile])
   const [trimStart, setTrimStart] = useState<number | null>(null)
   const [trimEnd, setTrimEnd] = useState<number | null>(null)
   const [compressionLevel, setCompressionLevel] = useState<CompressionLevel>('medium')
@@ -58,7 +69,9 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
     } catch {
       // non-blocking
     }
+    workflow.setVideo(file)
     setSelectedFile(file)
+    setFileFromWorkflow(false)
     setTrimStart(null)
     setTrimEnd(null)
   }
@@ -268,6 +281,13 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
               onFileSelect={handleFileSelect}
               accept={{ 'video/*': ['.mp4', '.mov', '.avi', '.webm', '.mkv'] }}
               maxSize={10 * 1024 * 1024 * 1024}
+              initialFiles={selectedFile ? [selectedFile] : null}
+              onRemove={() => {
+                if (fileFromWorkflow) workflow.clearVideo()
+                setSelectedFile(null)
+                setFileFromWorkflow(false)
+              }}
+              fromWorkflowLabel={fileFromWorkflow ? 'From previous step' : undefined}
             />
 
             {selectedFile && (
@@ -342,12 +362,11 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
             </div>
 
             <CrossToolSuggestions
+              workflowHint="Your last file is pre-filled on the next tool."
               suggestions={[
-                {
-                  icon: MessageSquare,
-                  title: 'Video → Subtitles',
-                  path: '/video-to-subtitles',
-                },
+                { icon: Film, title: 'Burn Subtitles', path: '/burn-subtitles', description: 'Burn captions into video', state: { useWorkflowVideo: true } },
+                { icon: MessageSquare, title: 'Video → Subtitles', path: '/video-to-subtitles', description: 'Generate SRT/VTT', state: { useWorkflowVideo: true } },
+                { icon: FileText, title: 'Video → Transcript', path: '/video-to-transcript', description: 'Get transcript & chapters', state: { useWorkflowVideo: true } },
               ]}
             />
           </div>

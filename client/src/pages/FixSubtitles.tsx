@@ -18,7 +18,7 @@ import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { persistJobId, clearPersistedJobId } from '../lib/jobSession'
 import { trackEvent } from '../lib/analytics'
 import toast from 'react-hot-toast'
-import { Film, Languages } from 'lucide-react'
+import { Film, Languages, MessageSquare } from 'lucide-react'
 
 /** Optional SEO overrides for alternate entry points. Do NOT duplicate logic. */
 export type FixSubtitlesSeoProps = {
@@ -490,17 +490,11 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
             )}
 
             <CrossToolSuggestions
+              workflowHint="Burn into video, translate, or generate subtitles from video."
               suggestions={[
-                {
-                  icon: Film,
-                  title: 'Burn Subtitles',
-                  path: '/burn-subtitles',
-                },
-                {
-                  icon: Languages,
-                  title: 'Translate Subtitles',
-                  path: '/translate-subtitles',
-                },
+                { icon: Film, title: 'Burn Subtitles', path: '/burn-subtitles', description: 'Burn fixed captions into video' },
+                { icon: Languages, title: 'Translate Subtitles', path: '/translate-subtitles', description: 'Translate to another language' },
+                { icon: MessageSquare, title: 'Video → Subtitles', path: '/video-to-subtitles', description: 'Generate SRT/VTT from video' },
               ]}
             />
           </div>

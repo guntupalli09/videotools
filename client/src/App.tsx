@@ -11,6 +11,7 @@ import { ROUTE_SEO, ROUTE_BREADCRUMB, getOrganizationJsonLd, getWebApplicationJs
 import { getSeoEntry, getAllSeoPaths } from './lib/seoRegistry'
 import SessionErrorBoundary from './components/SessionErrorBoundary'
 import OfflineBanner from './components/OfflineBanner'
+import { WorkflowProvider } from './contexts/WorkflowContext'
 
 // Lazy-load pages for fast initial load on any device; each route loads only when visited.
 const Home = lazy(() => import('./pages/Home'))
@@ -233,6 +234,7 @@ function PostCheckoutHandler() {
 function App() {
   return (
     <BrowserRouter>
+      <WorkflowProvider>
       <AppSeo />
       <PostCheckoutHandler />
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-violet-600 focus:text-white focus:rounded-lg">
@@ -275,6 +277,7 @@ function App() {
         <Footer />
         <Toaster position="top-right" />
       </div>
+      </WorkflowProvider>
     </BrowserRouter>
   )
 }

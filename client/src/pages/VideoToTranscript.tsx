@@ -24,7 +24,8 @@ import { persistJobId, getPersistedJobId, getPersistedJobToken, clearPersistedJo
 import { trackEvent } from '../lib/analytics'
 import { segmentsToSrt, segmentsToVtt, formatTimestamp, type Segment } from '../lib/srtExport'
 import toast from 'react-hot-toast'
-import { Subtitles } from 'lucide-react'
+import { Subtitles, Film, Minimize2 } from 'lucide-react'
+import { useWorkflow } from '../contexts/WorkflowContext'
 
 // ─── Phase 1 – Derived Transcript Utilities (client-side only) ─────────────────
 const BRANCH_IDS = ['transcript', 'speakers', 'summary', 'chapters', 'highlights', 'keywords', 'clean', 'exports'] as const
@@ -96,6 +97,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   const [filePreview, setFilePreview] = useState<FilePreviewData | null>(null)
   const [connectionSpeed, setConnectionSpeed] = useState<'fast' | 'medium' | 'slow' | undefined>(undefined)
   const [currentJobId, setCurrentJobId] = useState<string | null>(null)
+  const [fileFromWorkflow, setFileFromWorkflow] = useState(false)
   const uploadAbortRef = useRef<AbortController | null>(null)
   // Phase 1 – Derived Transcript Utilities: branch tab (no remount/refetch)
   const [activeBranch, setActiveBranch] = useState<BranchId>('transcript')
@@ -268,6 +270,16 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     return () => document.removeEventListener('visibilitychange', onVisibility)
   }, [uploadPhase])
 
+  const workflow = useWorkflow()
+
+  useEffect(() => {
+    const state = location.state as { useWorkflowVideo?: boolean } | undefined
+    if (state?.useWorkflowVideo && workflow.videoFile) {
+      setSelectedFile(workflow.videoFile)
+      setFileFromWorkflow(true)
+    }
+  }, [location.state, workflow.videoFile])
+
   const handleFileSelect = (file: File) => {
     try {
       trackEvent('file_selected', {
@@ -277,7 +289,9 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     } catch {
       // non-blocking
     }
+    workflow.setVideo(file)
     setSelectedFile(file)
+    setFileFromWorkflow(false)
     setTrimStart(null)
     setTrimEnd(null)
   }
@@ -572,6 +586,8 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     if (result?.segments?.length) {
       const rawLabels = result.segments.map((s) => s.speaker?.trim() || 'Speaker')
       const unique = [...new Set(rawLabels)]
+      // Only treat as diarized when we have at least 2 distinct speaker labels from the backend
+      const isDiarized = unique.length >= 2
       const labelToFriendly: Record<string, string> = {}
       unique.forEach((label, idx) => {
         labelToFriendly[label] = `Speaker ${idx + 1}`
@@ -579,7 +595,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
       return result.segments.map((s) => ({
         speaker: labelToFriendly[s.speaker?.trim() || 'Speaker'] || 'Speaker',
         text: s.text,
-        isDiarized: true,
+        isDiarized,
       }))
     }
     try {
@@ -889,6 +905,13 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                 onFileSelect={handleFileSelect}
                 accept={{ 'video/*': ['.mp4', '.mov', '.avi', '.webm', '.mkv'] }}
                 maxSize={10 * 1024 * 1024 * 1024}
+                initialFiles={selectedFile ? [selectedFile] : null}
+                onRemove={() => {
+                  if (fileFromWorkflow) workflow.clearVideo()
+                  setSelectedFile(null)
+                  setFileFromWorkflow(false)
+                }}
+                fromWorkflowLabel={fileFromWorkflow ? 'From previous step' : undefined}
               />
               {selectedFile && filePreview && (
                 <div className="mt-4">
@@ -1184,7 +1207,7 @@ onChange={(startSeconds: number, endSeconds: number) => {
                 </h3>
                 {(() => {
                   const data = getSpeakersData()
-                  const hasDiarizedSegments = (result?.segments?.length ?? 0) > 0
+                  const hasMultipleSpeakers = data.length > 0 && data.some((d) => d.isDiarized)
                   if (!data.length) {
                     return (
                       <div className="rounded-xl bg-gray-50/80 p-4">
@@ -1196,9 +1219,9 @@ onChange={(startSeconds: number, endSeconds: number) => {
                   return (
                     <>
                       <p className="text-sm text-gray-500 mb-4">
-                        {hasDiarizedSegments
+                        {hasMultipleSpeakers
                           ? 'Labels (Speaker 1, 2, …) come from automatic speaker detection. They are not real names—each label is one distinct voice in the video.'
-                          : 'Paragraph view. Enable &quot;Speaker diarization&quot; when processing to get automatic speaker labels (Speaker 1, 2, …) per segment.'}
+                          : 'All segments are shown as one speaker. Enable &quot;Speaker diarization&quot; when you upload to get automatic labels (Speaker 1, 2, …) for different voices.'}
                       </p>
                       <div className="space-y-4 max-h-96 overflow-y-auto">
                         {data.map((item, i) => (
@@ -1476,13 +1499,52 @@ onChange={(startSeconds: number, endSeconds: number) => {
               </div>
             )}
 
+            {(segmentsForExport?.length ?? 0) > 0 && (
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                  <Subtitles className="h-5 w-5 text-violet-600" />
+                  Generate subtitles from this transcript
+                </h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  Same timestamps, no re-upload.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={handleExportSrt}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 transition-colors"
+                  >
+                    <FileDown className="h-4 w-4" />
+                    Download SRT
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportVtt}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors"
+                  >
+                    <FileDown className="h-4 w-4" />
+                    Download VTT
+                  </button>
+                </div>
+              </div>
+            )}
+
             <CrossToolSuggestions
+              workflowHint="Your last file is pre-filled on the next tool."
               suggestions={[
+                { icon: Subtitles, title: 'Video → Subtitles', path: '/video-to-subtitles', description: 'Generate SRT/VTT', state: { useWorkflowVideo: true } },
                 {
-                  icon: Subtitles,
-                  title: 'Video → Subtitles',
-                  path: '/video-to-subtitles',
+                  icon: Film,
+                  title: 'Burn Subtitles',
+                  path: '/burn-subtitles',
+                  description: 'Burn captions (video + SRT pre-filled)',
+                  state: { useWorkflowVideo: true, useWorkflowSrt: true },
+                  onBeforeNavigate: () => {
+                    if (segmentsForExport?.length) workflow.setSrt(segmentsToSrt(segmentsForExport))
+                    if (selectedFile) workflow.setVideo(selectedFile)
+                  },
                 },
+                { icon: Minimize2, title: 'Compress Video', path: '/compress-video', description: 'Reduce file size', state: { useWorkflowVideo: true } },
               ]}
             />
           </div>

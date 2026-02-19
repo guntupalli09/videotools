@@ -27,7 +27,8 @@ import { persistJobId, getPersistedJobId, getPersistedJobToken, clearPersistedJo
 import { createCheckoutSession } from '../lib/billing'
 import { trackEvent } from '../lib/analytics'
 import toast from 'react-hot-toast'
-import { Languages, Film, Wrench, FileDown, Copy, ChevronDown } from 'lucide-react'
+import { Languages, Film, Wrench, FileDown, Copy, ChevronDown, Minimize2 } from 'lucide-react'
+import { useWorkflow } from '../contexts/WorkflowContext'
 
 /** Optional SEO overrides for alternate entry points (e.g. /mp4-to-srt, /subtitle-generator). Do NOT duplicate logic. */
 export type VideoToSubtitlesSeoProps = {
@@ -62,6 +63,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
   const [filePreview, setFilePreview] = useState<FilePreviewData | null>(null)
   const [connectionSpeed, setConnectionSpeed] = useState<'fast' | 'medium' | 'slow' | undefined>(undefined)
   const [currentJobId, setCurrentJobId] = useState<string | null>(null)
+  const [fileFromWorkflow, setFileFromWorkflow] = useState(false)
   const uploadAbortRef = useRef<AbortController | null>(null)
   const [convertTargetFormat, setConvertTargetFormat] = useState<'srt' | 'vtt' | 'txt'>('srt')
   const [convertProgress, setConvertProgress] = useState(false)
@@ -241,6 +243,16 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
     return () => document.removeEventListener('visibilitychange', onVisibility)
   }, [uploadPhase])
 
+  const workflow = useWorkflow()
+
+  useEffect(() => {
+    const state = location.state as { useWorkflowVideo?: boolean } | undefined
+    if (state?.useWorkflowVideo && workflow.videoFile) {
+      setSelectedFile(workflow.videoFile)
+      setFileFromWorkflow(true)
+    }
+  }, [location.state, workflow.videoFile])
+
   const handleFileSelect = (file: File) => {
     try {
       trackEvent('file_selected', {
@@ -250,7 +262,9 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
     } catch {
       // non-blocking
     }
+    workflow.setVideo(file)
     setSelectedFile(file)
+    setFileFromWorkflow(false)
     setTrimStart(null)
     setTrimEnd(null)
     setAdditionalLanguages([])
@@ -708,6 +722,13 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                 onFileSelect={handleFileSelect}
                 accept={{ 'video/*': ['.mp4', '.mov', '.avi', '.webm', '.mkv'] }}
                 maxSize={10 * 1024 * 1024 * 1024}
+                initialFiles={selectedFile ? [selectedFile] : null}
+                onRemove={() => {
+                  if (fileFromWorkflow) workflow.clearVideo()
+                  setSelectedFile(null)
+                  setFileFromWorkflow(false)
+                }}
+                fromWorkflowLabel={fileFromWorkflow ? 'From previous step' : undefined}
               />
               {selectedFile && filePreview && (
                 <div className="mt-4">
@@ -969,22 +990,12 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             </div>
 
             <CrossToolSuggestions
+              workflowHint="Your last file is pre-filled on the next tool."
               suggestions={[
-                {
-                  icon: Languages,
-                  title: 'Translate Subtitles',
-                  path: '/translate-subtitles',
-                },
-                {
-                  icon: Film,
-                  title: 'Burn Subtitles',
-                  path: '/burn-subtitles',
-                },
-                {
-                  icon: Wrench,
-                  title: 'Fix Subtitles',
-                  path: '/fix-subtitles',
-                },
+                { icon: Languages, title: 'Translate Subtitles', path: '/translate-subtitles', description: 'Translate to another language' },
+                { icon: Film, title: 'Burn Subtitles', path: '/burn-subtitles', description: 'Burn into video', state: { useWorkflowVideo: true } },
+                { icon: Wrench, title: 'Fix Subtitles', path: '/fix-subtitles', description: 'Fix timing & format' },
+                { icon: Minimize2, title: 'Compress Video', path: '/compress-video', description: 'Reduce file size', state: { useWorkflowVideo: true } },
               ]}
             />
           </div>

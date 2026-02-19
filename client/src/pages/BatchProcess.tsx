@@ -5,7 +5,8 @@ import UsageCounter from '../components/UsageCounter'
 import UsageDisplay from '../components/UsageDisplay'
 import ProgressBar from '../components/ProgressBar'
 import FailedState from '../components/FailedState'
-import { Loader2, FolderPlus } from 'lucide-react'
+import CrossToolSuggestions from '../components/CrossToolSuggestions'
+import { Loader2, FolderPlus, Film, Minimize2, FileText } from 'lucide-react'
 import { getBatchDownloadUrl, getBatchStatus, uploadBatch } from '../lib/api'
 import { JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 
@@ -127,21 +128,31 @@ export default function BatchProcess(props: BatchProcessSeoProps = {}) {
         )}
 
         {status === 'done' && batchInfo && (
-          <div className="mb-6 rounded-2xl shadow-sm bg-white p-8 text-center">
-            <p className="mb-2 text-lg font-semibold text-gray-800">
-              Batch complete
-            </p>
-            <p className="mb-4 text-sm text-gray-600">
-              {batchInfo.progress.completed} completed,{' '}
-              {batchInfo.progress.failed} failed.
-            </p>
-            <a
-              href={getBatchDownloadUrl(batchInfo.batchId)}
-              className="inline-flex items-center justify-center rounded-lg bg-violet-600 px-5 py-3 text-sm font-medium text-white hover:bg-violet-700"
-            >
-              Download ZIP
-            </a>
-          </div>
+          <>
+            <div className="mb-6 rounded-2xl shadow-sm bg-white p-8 text-center">
+              <p className="mb-2 text-lg font-semibold text-gray-800">
+                Batch complete
+              </p>
+              <p className="mb-4 text-sm text-gray-600">
+                {batchInfo.progress.completed} completed,{' '}
+                {batchInfo.progress.failed} failed.
+              </p>
+              <a
+                href={getBatchDownloadUrl(batchInfo.batchId)}
+                className="inline-flex items-center justify-center rounded-lg bg-violet-600 px-5 py-3 text-sm font-medium text-white hover:bg-violet-700"
+              >
+                Download ZIP
+              </a>
+            </div>
+            <CrossToolSuggestions
+              workflowHint="Next steps for your files."
+              suggestions={[
+                { icon: Film, title: 'Burn Subtitles', path: '/burn-subtitles', description: 'Burn SRT into videos' },
+                { icon: Minimize2, title: 'Compress Video', path: '/compress-video', description: 'Reduce file size' },
+                { icon: FileText, title: 'Video → Transcript', path: '/video-to-transcript', description: 'Transcript & chapters' },
+              ]}
+            />
+          </>
         )}
 
         {status === 'failed' && (

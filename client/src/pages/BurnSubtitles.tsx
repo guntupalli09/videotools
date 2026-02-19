@@ -1,6 +1,7 @@
-import { useState, Suspense, lazy } from 'react'
+import { useState, Suspense, lazy, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Film, Loader2 } from 'lucide-react'
+import { useWorkflow } from '../contexts/WorkflowContext'
 import FileUploadZone from '../components/FileUploadZone'
 import UsageCounter from '../components/UsageCounter'
 import PlanBadge from '../components/PlanBadge'
@@ -18,7 +19,7 @@ import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { persistJobId, clearPersistedJobId } from '../lib/jobSession'
 import { trackEvent } from '../lib/analytics'
 import toast from 'react-hot-toast'
-import { Minimize2 } from 'lucide-react'
+import { Minimize2, FileText, MessageSquare } from 'lucide-react'
 
 /** Optional SEO overrides for alternate entry points. Do NOT duplicate logic. */
 export type BurnSubtitlesSeoProps = {
@@ -31,8 +32,24 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
   const { seoH1, seoIntro, faq = [] } = props
   const location = useLocation()
   const navigate = useNavigate()
+  const workflow = useWorkflow()
   const [videoFile, setVideoFile] = useState<File | null>(null)
   const [subtitleFile, setSubtitleFile] = useState<File | null>(null)
+  const [videoFromWorkflow, setVideoFromWorkflow] = useState(false)
+  const [srtFromWorkflow, setSrtFromWorkflow] = useState(false)
+
+  useEffect(() => {
+    const state = location.state as { useWorkflowVideo?: boolean; useWorkflowSrt?: boolean } | undefined
+    if (state?.useWorkflowVideo && workflow.videoFile) {
+      setVideoFile(workflow.videoFile)
+      setVideoFromWorkflow(true)
+    }
+    if (state?.useWorkflowSrt && workflow.srtContent) {
+      const blob = new Blob([workflow.srtContent], { type: 'text/plain;charset=utf-8' })
+      setSubtitleFile(new File([blob], 'subtitles.srt', { type: 'text/plain' }))
+      setSrtFromWorkflow(true)
+    }
+  }, [location.state, workflow.videoFile, workflow.srtContent])
   const [trimStart, setTrimStart] = useState<number | null>(null)
   const [trimEnd, setTrimEnd] = useState<number | null>(null)
   const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large'>('medium')
@@ -57,7 +74,9 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
     } catch {
       // non-blocking
     }
+    workflow.setVideo(file)
     setVideoFile(file)
+    setVideoFromWorkflow(false)
     setTrimStart(null)
     setTrimEnd(null)
   }
@@ -229,6 +248,13 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
                   onFileSelect={handleVideoSelect}
                   accept={{ 'video/*': ['.mp4', '.mov', '.avi', '.webm'] }}
                   maxSize={10 * 1024 * 1024 * 1024}
+                  initialFiles={videoFile ? [videoFile] : null}
+                  onRemove={() => {
+                    if (videoFromWorkflow) workflow.clearVideo()
+                    setVideoFile(null)
+                    setVideoFromWorkflow(false)
+                  }}
+                  fromWorkflowLabel={videoFromWorkflow ? 'From previous step' : undefined}
                 />
                 {videoFile && (
                   <Suspense fallback={null}>
@@ -248,6 +274,13 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
                   onFileSelect={handleSubtitleSelect}
                   accept={{ 'text/*': ['.srt', '.vtt'] }}
                   maxSize={10 * 1024 * 1024}
+                  initialFiles={subtitleFile ? [subtitleFile] : null}
+                  onRemove={() => {
+                    if (srtFromWorkflow) workflow.clearSrt()
+                    setSubtitleFile(null)
+                    setSrtFromWorkflow(false)
+                  }}
+                  fromWorkflowLabel={srtFromWorkflow ? 'From previous step' : undefined}
                 />
               </div>
             </div>
@@ -290,12 +323,11 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
             />
 
             <CrossToolSuggestions
+              workflowHint="Your last file is pre-filled on the next tool."
               suggestions={[
-                {
-                  icon: Minimize2,
-                  title: 'Compress Video',
-                  path: '/compress-video',
-                },
+                { icon: Minimize2, title: 'Compress Video', path: '/compress-video', description: 'Reduce file size', state: { useWorkflowVideo: true } },
+                { icon: FileText, title: 'Video → Transcript', path: '/video-to-transcript', description: 'Get transcript', state: { useWorkflowVideo: true } },
+                { icon: MessageSquare, title: 'Video → Subtitles', path: '/video-to-subtitles', description: 'Generate SRT/VTT', state: { useWorkflowVideo: true } },
               ]}
             />
           </div>

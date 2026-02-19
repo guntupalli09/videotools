@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { Upload, File } from 'lucide-react'
 import { formatFileSize } from '../lib/utils'
@@ -10,6 +10,12 @@ interface FileUploadZoneProps {
   maxSize?: number
   disabled?: boolean
   multiple?: boolean
+  /** Pre-fill from workflow (same file, no re-upload). When user clicks Remove, onRemove is called. */
+  initialFiles?: File[] | null
+  /** Called when user removes initial/workflow file so parent can clear workflow. */
+  onRemove?: () => void
+  /** Short label when file is from previous step (e.g. "From previous step") */
+  fromWorkflowLabel?: string
 }
 
 export default function FileUploadZone({
@@ -19,9 +25,20 @@ export default function FileUploadZone({
   maxSize = 100 * 1024 * 1024, // 100MB
   disabled = false,
   multiple = false,
+  initialFiles = null,
+  onRemove,
+  fromWorkflowLabel,
 }: FileUploadZoneProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isDragging, setIsDragging] = useState(false)
+
+  useEffect(() => {
+    if (initialFiles?.length) {
+      setSelectedFiles(initialFiles)
+    } else {
+      setSelectedFiles([])
+    }
+  }, [initialFiles])
 
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
@@ -52,20 +69,29 @@ export default function FileUploadZone({
 
   const handleRemove = () => {
     setSelectedFiles([])
+    onRemove?.()
   }
 
   if (selectedFiles.length > 0) {
     return (
-      <div className="bg-gray-50/80 rounded-2xl p-6 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="bg-violet-100/80 rounded-xl p-3">
+      <div className="bg-gray-50/80 rounded-2xl p-6 shadow-sm border border-gray-100/80">
+        {fromWorkflowLabel && (
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700">
+              {fromWorkflowLabel}
+            </span>
+            <span className="text-xs text-gray-500">Remove to use a different file.</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="bg-violet-100/80 rounded-xl p-3 shrink-0">
               <File className="h-6 w-6 text-violet-600" />
             </div>
-            <div>
+            <div className="min-w-0">
               {selectedFiles.length === 1 ? (
                 <>
-                  <p className="font-medium text-gray-800">{selectedFiles[0].name}</p>
+                  <p className="font-medium text-gray-800 truncate">{selectedFiles[0].name}</p>
                   <p className="text-sm text-gray-500">{formatFileSize(selectedFiles[0].size)}</p>
                 </>
               ) : (
@@ -81,9 +107,10 @@ export default function FileUploadZone({
             </div>
           </div>
           <button
+            type="button"
             onClick={handleRemove}
-            className="text-gray-500 hover:text-gray-700 text-sm font-medium"
             disabled={disabled}
+            className="shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-200 hover:text-gray-800 transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-1"
           >
             Remove
           </button>

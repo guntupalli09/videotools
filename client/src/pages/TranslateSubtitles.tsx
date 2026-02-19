@@ -19,7 +19,7 @@ import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { persistJobId, clearPersistedJobId } from '../lib/jobSession'
 import { trackEvent } from '../lib/analytics'
 import toast from 'react-hot-toast'
-import { Film, Wrench } from 'lucide-react'
+import { Film, Wrench, MessageSquare } from 'lucide-react'
 
 type Tab = 'upload' | 'paste'
 
@@ -368,17 +368,11 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
             )}
 
             <CrossToolSuggestions
+              workflowHint="Burn into video or fix timing on another file."
               suggestions={[
-                {
-                  icon: Film,
-                  title: 'Burn Subtitles',
-                  path: '/burn-subtitles',
-                },
-                {
-                  icon: Wrench,
-                  title: 'Fix Subtitles',
-                  path: '/fix-subtitles',
-                },
+                { icon: Film, title: 'Burn Subtitles', path: '/burn-subtitles', description: 'Burn translated captions into video' },
+                { icon: Wrench, title: 'Fix Subtitles', path: '/fix-subtitles', description: 'Fix timing, grammar, line breaks' },
+                { icon: MessageSquare, title: 'Video → Subtitles', path: '/video-to-subtitles', description: 'Generate SRT/VTT from another video' },
               ]}
             />
           </div>
