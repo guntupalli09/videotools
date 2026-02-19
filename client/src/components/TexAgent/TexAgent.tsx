@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from '../../lib/theme'
+import { subscribeTexEvents, type TexEventType } from '../../tex'
 import TexAvatar from './TexAvatar'
 import TexAgentPanel from './TexAgentPanel'
 
@@ -19,6 +20,22 @@ export default function TexAgent() {
     } catch {
       setShowPulse(false)
     }
+  }, [])
+
+  // Auto-open panel when a job completes so user sees "done in XX seconds" and feedback prompt
+  useEffect(() => {
+    const unsub = subscribeTexEvents((type: TexEventType) => {
+      if (type === 'job_completed') {
+        setOpen(true)
+        setShowPulse(false)
+        try {
+          sessionStorage.setItem(TEX_FAB_STORAGE_KEY, '1')
+        } catch {
+          // ignore
+        }
+      }
+    })
+    return unsub
   }, [])
 
   function handleOpen() {

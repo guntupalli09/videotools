@@ -14,11 +14,45 @@ import {
   subscribeTexEvents,
   getToolGreeting,
   getTexTrigger,
+  getPendingJobCompletion,
+  clearPendingJobCompletion,
   type TexEventType,
 } from '../../tex'
 import { getCurrentUsage, submitFeedback } from '../../lib/api'
 
 const TYPING_DELAY_MS = 500
+
+function buildJobCompletedMessage(durationMs: number, toolId?: string): string {
+  const sec = (durationMs / 1000).toFixed(1)
+  const runLabel =
+    toolId === 'video-to-transcript'
+      ? 'transcription'
+      : toolId === 'video-to-subtitles'
+        ? 'subtitles'
+        : toolId === 'translate-subtitles'
+          ? 'translation'
+          : toolId === 'compress-video'
+            ? 'compressed video'
+            : toolId === 'burn-subtitles'
+              ? 'burned video'
+              : toolId === 'fix-subtitles'
+                ? 'fixed subtitles'
+                : toolId === 'batch-process'
+                  ? 'batch'
+                  : 'run'
+  const isPlural = runLabel === 'subtitles' || runLabel === 'fixed subtitles'
+  const donePhrase =
+    runLabel === 'run'
+      ? `That run finished in ${sec} seconds`
+      : isPlural
+        ? `Your ${runLabel} are done in ${sec} seconds`
+        : `Your ${runLabel} is done in ${sec} seconds`
+  return `Hey! 🎉 ${donePhrase} — blazing fast! ⚡
+
+Go ahead and try it: copy, download, or use the result in your next step. I'm here if you need anything.
+
+Helps us improve! Feel free to share your experience — stars and a comment below mean a lot. ⭐`
+}
 
 interface Message {
   type: 'user' | 'tex'
@@ -96,6 +130,19 @@ export default function TexAgentPanel({ onClose }: TexAgentPanelProps) {
     }
   }, [pathname])
 
+  // Show pending job completion when panel opens (job finished while panel was closed)
+  useEffect(() => {
+    if (!hasGreeted) return
+    const pending = getPendingJobCompletion()
+    if (!pending) return
+    clearPendingJobCompletion()
+    setLastJobCompletedToolId(pending.toolId)
+    setMessages((prev) => [
+      ...prev,
+      { type: 'tex', text: buildJobCompletedMessage(pending.durationMs, pending.toolId), contextual: true },
+    ])
+  }, [hasGreeted])
+
   // Event subscription — observation only
   useEffect(() => {
     const unsub = subscribeTexEvents((type: TexEventType, payload: unknown) => {
@@ -109,40 +156,10 @@ export default function TexAgentPanel({ onClose }: TexAgentPanelProps) {
       }
       if (type === 'job_completed') {
         const p = payload as { durationMs: number; toolId?: string }
-        const sec = (p.durationMs / 1000).toFixed(1)
         setLastJobCompletedToolId(p.toolId)
-        const runLabel =
-          p.toolId === 'video-to-transcript'
-            ? 'transcription'
-            : p.toolId === 'video-to-subtitles'
-              ? 'subtitles'
-              : p.toolId === 'translate-subtitles'
-                ? 'translation'
-                : p.toolId === 'compress-video'
-                  ? 'compressed video'
-                  : p.toolId === 'burn-subtitles'
-                    ? 'burned video'
-                    : p.toolId === 'fix-subtitles'
-                      ? 'fixed subtitles'
-                      : p.toolId === 'batch-process'
-                        ? 'batch'
-                        : 'run'
-        const isPlural =
-          runLabel === 'subtitles' || runLabel === 'fixed subtitles'
-        const donePhrase =
-          runLabel === 'run'
-            ? `That run finished in ${sec} seconds`
-            : isPlural
-              ? `Your ${runLabel} are done in ${sec} seconds`
-              : `Your ${runLabel} is done in ${sec} seconds`
-        const message = `Hey! 🎉 ${donePhrase} — blazing fast! ⚡
-
-Go ahead and try it: copy, download, or use the result in your next step. I'm here if you need anything.
-
-Helps us improve! Feel free to share your experience — stars and a comment below mean a lot. ⭐`
         setMessages((prev) => [
           ...prev,
-          { type: 'tex', text: message, contextual: true },
+          { type: 'tex', text: buildJobCompletedMessage(p.durationMs, p.toolId), contextual: true },
         ])
         return
       }

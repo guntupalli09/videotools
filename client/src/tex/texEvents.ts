@@ -61,9 +61,30 @@ export function emitTexEvent<T extends TexEventType>(
   }
 }
 
+/** Pending job completion when panel was closed — so we can show it when the user opens Tex. */
+const PENDING_JOB_EXPIRY_MS = 10 * 60 * 1000 // 10 minutes
+let pendingJobCompletion: { durationMs: number; toolId?: string; at: number } | null = null
+
 /** Convenience for tools: emit job completed with duration (observation only). */
 export function texJobCompleted(durationMs: number, toolId?: string): void {
-  emitTexEvent('job_completed', { durationMs, toolId })
+  const payload = { durationMs, toolId }
+  emitTexEvent('job_completed', payload)
+  pendingJobCompletion = { ...payload, at: Date.now() }
+}
+
+/** Get pending job completion if recent (panel was closed when job completed). Call from panel on open. */
+export function getPendingJobCompletion(): { durationMs: number; toolId?: string } | null {
+  if (!pendingJobCompletion) return null
+  if (Date.now() - pendingJobCompletion.at > PENDING_JOB_EXPIRY_MS) {
+    pendingJobCompletion = null
+    return null
+  }
+  return { durationMs: pendingJobCompletion.durationMs, toolId: pendingJobCompletion.toolId }
+}
+
+/** Clear pending after panel has shown it. */
+export function clearPendingJobCompletion(): void {
+  pendingJobCompletion = null
 }
 
 /** Convenience for tools: emit job failed (observation only). */

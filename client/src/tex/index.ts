@@ -4,6 +4,8 @@ export {
   texJobCompleted,
   texJobFailed,
   texJobStarted,
+  getPendingJobCompletion,
+  clearPendingJobCompletion,
 } from './texEvents'
 export type { TexEventType, TexEventPayloads } from './texEvents'
 export { getToolFromPath, getToolGreeting } from './texPath'
