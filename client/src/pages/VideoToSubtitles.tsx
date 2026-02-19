@@ -794,7 +794,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               progress={uploadPhase === 'uploading' ? uploadProgress : progress}
               status={
                 uploadPhase === 'uploading'
-                  ? `Uploading… ${uploadProgress}%`
+                  ? ''
                   : queuePosition !== undefined
                     ? `Processing… ${queuePosition} jobs ahead of you.`
                     : 'Processing video and extracting speech'

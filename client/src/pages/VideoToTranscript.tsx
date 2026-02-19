@@ -836,72 +836,76 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   }
 
   return (
-    <div className="min-h-screen py-12">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-8">
-          <div className="mb-4">
+    <div className="min-h-screen py-8 lg:py-12 bg-gradient-to-b from-violet-50/40 to-white">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="lg:grid lg:grid-cols-[1fr,minmax(240px,280px)] lg:gap-8 lg:items-start">
+          {/* Sidebar: plan + usage + what you get (desktop); on mobile shows above main */}
+          <aside className="order-1 lg:order-2 space-y-4 mb-6 lg:mb-0 lg:sticky lg:top-6">
             <PlanBadge />
-          </div>
-          <div className="bg-violet-100/80 rounded-2xl p-5 w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-sm">
-            <FileText className="h-8 w-8 text-violet-600" />
-          </div>
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">{seoH1 ?? 'Video → Transcript'}</h1>
-          <p className="text-lg text-gray-600 mb-6">
-            {seoIntro ?? 'Extract spoken text from any video in seconds'}
-          </p>
-          <UsageCounter refreshTrigger={status} />
-          <UsageDisplay refreshTrigger={status} />
-        </div>
+            <UsageCounter refreshTrigger={status} />
+            <UsageDisplay refreshTrigger={status} />
+            {status === 'idle' && (
+              <div className="rounded-xl bg-white/80 backdrop-blur-sm border border-gray-100 px-4 py-3 shadow-sm">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">What you get</p>
+                <p className="text-sm text-gray-600">
+                  Transcript, Speakers, Summary, Chapters, Highlights, Keywords, Clean, Exports — all after one upload.
+                </p>
+              </div>
+            )}
+          </aside>
 
-        {/* Before upload: muted branch placeholders (visual only, non-interactive) */}
-        {status === 'idle' && (
-          <div className="mb-6 rounded-2xl bg-gray-50/80 px-4 py-3 shadow-sm" aria-hidden="true">
-            <div className="flex flex-wrap gap-3 justify-center items-center">
-              {BRANCH_IDS.map((id) => {
-                const Icon = BRANCH_ICONS[id]
-                return (
-                  <span
-                    key={id}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-gray-400"
-                    title={BRANCH_LABELS[id]}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" aria-hidden />
-                    <span className="text-xs font-medium text-gray-400">{BRANCH_LABELS[id]}</span>
-                  </span>
-                )
-              })}
+          {/* Main content */}
+          <div className="order-2 lg:order-1">
+            {/* Hero: compact */}
+            <div className="text-center mb-5">
+              <div className="inline-flex items-center gap-3 mb-2">
+                <div className="bg-violet-100/80 rounded-xl p-2.5 w-12 h-12 flex items-center justify-center shadow-sm">
+                  <FileText className="h-6 w-6 text-violet-600" />
+                </div>
+                <div className="text-left">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">{seoH1 ?? 'Video → Transcript'}</h1>
+                  <p className="text-sm sm:text-base text-gray-600">
+                    {seoIntro ?? 'Extract spoken text from any video in seconds'}
+                  </p>
+                </div>
+              </div>
             </div>
-            <p className="text-center text-xs text-gray-400 mt-2">Upload a video to unlock these views</p>
-          </div>
-        )}
 
-        {/* Phase 1 – Branch Bar (below header; only when transcript ready) */}
-        {status === 'completed' && result && (
-          <div className="mb-6 rounded-2xl bg-gray-50/90 px-3 py-3 shadow-sm" role="tablist" aria-label="Transcript branches">
-            <div className="flex flex-wrap gap-2 justify-center items-center">
-              {BRANCH_IDS.map((id) => (
-                <button
-                  key={id}
-                  role="tab"
-                  aria-selected={activeBranch === id}
-                  onClick={() => setActiveBranch(id)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                    activeBranch === id
-                      ? 'bg-violet-600 text-white shadow-md ring-2 ring-violet-200 ring-offset-2 ring-offset-gray-50'
-                      : 'bg-white/90 text-gray-600 hover:bg-white hover:text-gray-800 hover:shadow-sm border border-gray-100'
-                  }`}
-                >
-                  {BRANCH_LABELS[id]}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+            {/* Before upload: single compact line (inside card below) */}
+            {/* Phase 1 – Branch Bar (below header; only when transcript ready) */}
+            {status === 'completed' && result && (
+              <div className="mb-6 rounded-2xl bg-gray-50/90 px-3 py-3 shadow-sm" role="tablist" aria-label="Transcript branches">
+                <div className="flex flex-wrap gap-2 justify-center items-center">
+                  {BRANCH_IDS.map((id) => {
+                    const Icon = BRANCH_ICONS[id]
+                    return (
+                      <button
+                        key={id}
+                        role="tab"
+                        aria-selected={activeBranch === id}
+                        onClick={() => setActiveBranch(id)}
+                        className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                          activeBranch === id
+                            ? 'bg-violet-600 text-white shadow-md ring-2 ring-violet-200 ring-offset-2 ring-offset-gray-50'
+                            : 'bg-white/90 text-gray-600 hover:bg-white hover:text-gray-800 hover:shadow-sm border border-gray-100'
+                        }`}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                        {BRANCH_LABELS[id]}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
-        {status === 'idle' && (
-          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6">
-            <div>
-              <FileUploadZone
+            {status === 'idle' && (
+              <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-md border border-gray-100 mb-6">
+                <p className="text-center text-xs text-gray-400 mb-4" aria-hidden="true">
+                  {BRANCH_IDS.map((id) => BRANCH_LABELS[id]).join(' · ')} — Upload a video to unlock
+                </p>
+                <div>
+                  <FileUploadZone
                 onFileSelect={handleFileSelect}
                 accept={{ 'video/*': ['.mp4', '.mov', '.avi', '.webm', '.mkv'] }}
                 maxSize={10 * 1024 * 1024 * 1024}
@@ -1013,7 +1017,7 @@ onChange={(startSeconds: number, endSeconds: number) => {
               progress={uploadPhase === 'uploading' ? uploadProgress : progress}
               status={
                 uploadPhase === 'uploading'
-                  ? `Uploading… ${uploadProgress}%`
+                  ? ''
                   : queuePosition !== undefined
                     ? `Processing… ${queuePosition} jobs ahead of you.`
                     : 'Processing audio and generating transcript'
@@ -1574,6 +1578,8 @@ onChange={(startSeconds: number, endSeconds: number) => {
             </dl>
           </section>
         )}
+          </div>
+        </div>
       </div>
     </div>
   )
