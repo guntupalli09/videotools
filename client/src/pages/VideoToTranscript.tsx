@@ -118,6 +118,12 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   const activeUploadPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const jobStartedTrackedRef = useRef<string | null>(null)
   const processingStartedAtRef = useRef<number | null>(null)
+  const terminalRef = useRef(false)
+  const lastPartialVersionRef = useRef(0)
+  const partialScrollRef = useRef<HTMLDivElement>(null)
+  const savedScrollTopRef = useRef(0)
+  const scrollRestoreRafRef = useRef<{ first: number; second: number }>({ first: 0, second: 0 })
+  const [partialSegments, setPartialSegments] = useState<{ start: number; end: number; text: string; speaker?: string }[]>([])
   /** Free plan: number of export downloads used for this transcript (max 2, with watermark). */
   const [freeExportsUsed, setFreeExportsUsed] = useState(0)
   /** Set on job_completed for "Processed in XX.Xs" badge (UI only). */
@@ -175,18 +181,40 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     setTranslatedCache({})
   }, [result])
 
+  // Restore scroll position when transitioning from partial to completed transcript.
+  // Double rAF so we run after DOM/layout has stabilized (avoids jump when height changes).
+  useEffect(() => {
+    if (status !== 'completed' || !result) return
+    const saved = savedScrollTopRef.current
+    if (saved <= 0) return
+    scrollRestoreRafRef.current.first = requestAnimationFrame(() => {
+      scrollRestoreRafRef.current.second = requestAnimationFrame(() => {
+        if (transcriptScrollRef.current) {
+          transcriptScrollRef.current.scrollTop = saved
+        }
+      })
+    })
+    return () => {
+      cancelAnimationFrame(scrollRestoreRafRef.current.first)
+      cancelAnimationFrame(scrollRestoreRafRef.current.second)
+    }
+  }, [status, result])
+
   // Rehydrate from URL/sessionStorage after idle or reload (e.g. mobile Safari)
   useEffect(() => {
     const pathname = location.pathname
     const jobId = getPersistedJobId(pathname)
     if (!jobId) return
 
+    terminalRef.current = false
+    lastPartialVersionRef.current = 0
     setStatus('processing')
     setUploadPhase('processing')
     setUploadProgress(100)
     setCurrentJobId(jobId)
     setIsRehydrating(true)
     setProcessingStartedAt(Date.now())
+    setPartialSegments([])
 
     const jobToken = getPersistedJobToken(pathname)
     let cancelled = false
@@ -200,6 +228,8 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
 
         const transition = getJobLifecycleTransition(jobStatus)
         if (transition === 'completed') {
+          terminalRef.current = true
+          setPartialSegments([])
           setStatus('completed')
           setResult(jobStatus.result ?? null)
           setUploadPhase('processing')
@@ -222,11 +252,17 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
           return
         }
         if (transition === 'failed') {
+          terminalRef.current = true
+          setPartialSegments([])
           setIsRehydrating(false)
           setStatus('failed')
           toast.error('Processing failed. Please try again.')
           clearPersistedJobId(pathname, navigate)
           return
+        }
+        if (jobStatus.status === 'processing' && jobStatus.partialVersion != null && jobStatus.partialVersion > lastPartialVersionRef.current) {
+          lastPartialVersionRef.current = jobStatus.partialVersion
+          if (jobStatus.partialSegments?.length) setPartialSegments(jobStatus.partialSegments)
         }
         // Resume polling for queued/processing
         setStatus('processing')
@@ -235,17 +271,25 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
         const doPoll = async () => {
           if (cancelled) return
           try {
+            if (terminalRef.current) return
             const s = await getJobStatus(jobId, jobToken ? { jobToken } : undefined)
             if (cancelled) return
+            if (terminalRef.current) return
             setProgress(s.progress ?? 0)
             if (s.queuePosition !== undefined) setQueuePosition(s.queuePosition)
             const t = getJobLifecycleTransition(s)
             if (t === 'completed') {
+              terminalRef.current = true
               if (rehydratePollRef.current) clearInterval(rehydratePollRef.current)
               rehydratePollRef.current = null
+              setPartialSegments([])
               setStatus('completed')
               setResult(s.result ?? null)
-              if (s.result?.downloadUrl) {
+              if (s.result?.segments?.length) {
+                const textFromSegments = s.result.segments.map((seg: { text: string }) => seg.text).join('\n\n')
+                setFullTranscript(textFromSegments)
+                setTranscriptPreview(textFromSegments.substring(0, 500))
+              } else if (s.result?.downloadUrl) {
                 try {
                   const res = await fetch(getAbsoluteDownloadUrl(s.result.downloadUrl))
                   const text = await res.text()
@@ -256,12 +300,17 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                 }
               }
             } else if (t === 'failed') {
+              terminalRef.current = true
+              setPartialSegments([])
               if (rehydratePollRef.current) clearInterval(rehydratePollRef.current)
               rehydratePollRef.current = null
               setIsRehydrating(false)
               setStatus('failed')
               toast.error('Processing failed. Please try again.')
               clearPersistedJobId(pathname, navigate)
+            } else if (s.status === 'processing' && s.partialVersion != null && s.partialVersion > lastPartialVersionRef.current) {
+              lastPartialVersionRef.current = s.partialVersion
+              if (s.partialSegments?.length) setPartialSegments(s.partialSegments)
             }
           } catch (err) {
             if (err instanceof SessionExpiredError) {
@@ -344,7 +393,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
       setUploadPhase('preparing')
       setUploadProgress(0)
       setProgress(0)
-      toast('Cancelled. You can upload a new file — the previous job may still complete in the background.', { icon: 'ℹ️', duration: 5000 })
+      toast('Cancelled. You can upload a new file; the previous job may still complete in the background.', { icon: 'ℹ️', duration: 5000 })
     }
   }
 
@@ -452,6 +501,9 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
       persistJobId(location.pathname, response.jobId, response.jobToken)
       setUploadPhase('processing')
       setUploadProgress(100)
+      terminalRef.current = false
+      lastPartialVersionRef.current = 0
+      setPartialSegments([])
       const startedAt = Date.now()
       setProcessingStartedAt(startedAt)
       processingStartedAtRef.current = startedAt
@@ -462,7 +514,9 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
       const jobToken = response.jobToken
       const doPoll = async () => {
         try {
+          if (terminalRef.current) return
           const jobStatus = await getJobStatus(response.jobId, jobToken ? { jobToken } : undefined)
+          if (terminalRef.current) return
           setProgress(jobStatus.progress ?? 0)
           if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
 
@@ -477,11 +531,14 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
 
           const transition = getJobLifecycleTransition(jobStatus)
           if (transition === 'completed') {
+            terminalRef.current = true
             if (activeUploadPollRef.current) {
               clearInterval(activeUploadPollRef.current)
               activeUploadPollRef.current = null
             }
             jobStartedTrackedRef.current = null
+            savedScrollTopRef.current = partialScrollRef.current?.scrollTop ?? 0
+            setPartialSegments([])
             setStatus('completed')
             setResult(jobStatus.result ?? null)
             const res = jobStatus.result
@@ -516,6 +573,8 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
               // non-blocking
             }
           } else if (transition === 'failed') {
+            terminalRef.current = true
+            setPartialSegments([])
             if (activeUploadPollRef.current) {
               clearInterval(activeUploadPollRef.current)
               activeUploadPollRef.current = null
@@ -531,6 +590,11 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             setStatus('failed')
             texJobFailed(msg)
             toast.error('Processing failed. Please try again.')
+          } else if (jobStatus.status === 'processing' && jobStatus.partialVersion != null && jobStatus.partialVersion > lastPartialVersionRef.current) {
+            lastPartialVersionRef.current = jobStatus.partialVersion
+            if (jobStatus.partialSegments?.length) {
+              setPartialSegments(jobStatus.partialSegments)
+            }
           }
           // transition === 'continue': keep polling (queued | processing)
         } catch (error: any) {
@@ -598,6 +662,8 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     setFilePreview(null)
     setCurrentJobId(null)
     uploadAbortRef.current = null
+    terminalRef.current = false
+    lastPartialVersionRef.current = 0
     setStatus('idle')
     setProgress(0)
     setUploadPhase('preparing')
@@ -605,6 +671,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     setResult(null)
     setTranscriptPreview('')
     setFullTranscript('')
+    setPartialSegments([])
     setActiveBranch('transcript')
     setCleanTranscriptEnabled(false)
     setIncludeSummary(true)
@@ -903,7 +970,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
               <div className="surface-card px-4 py-3">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">What you get</p>
                 <p className="text-sm text-gray-600">
-                  Transcript, Speakers, Summary, Chapters, Highlights, Keywords, Clean, Exports — all after one upload.
+                  Transcript, Speakers, Summary, Chapters, Highlights, Keywords, Clean, Exports: all after one upload.
                 </p>
               </div>
             )}
@@ -915,11 +982,11 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             <div className="text-center mb-6">
               <div className="inline-flex items-center gap-3 mb-2">
 <div className="bg-primary/10 rounded-xl p-2.5 w-12 h-12 flex items-center justify-center">
-            <FileText className="h-6 w-6 text-primary" />
+            <FileText className="h-6 w-6 text-primary" strokeWidth={1.5} />
                 </div>
                 <div className="text-left">
-                  <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{seoH1 ?? 'Video → Transcript'}</h1>
-                  <p className="text-sm sm:text-base text-gray-600">
+                  <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">{seoH1 ?? 'Video → Transcript'}</h1>
+                  <p className="text-sm sm:text-base font-normal text-gray-600 dark:text-gray-400 leading-relaxed">
                     {seoIntro ?? 'Extract spoken text from any video in seconds'}
                   </p>
                 </div>
@@ -929,7 +996,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             {/* Before upload: single compact line (inside card below) */}
             {/* Phase 1 – Branch Bar (below header; only when transcript ready) */}
             {status === 'completed' && result && (
-              <div className="mb-6 rounded-2xl bg-gray-50/90 px-3 py-3 shadow-sm" role="tablist" aria-label="Transcript branches">
+              <div className="mb-6 rounded-2xl bg-gray-50/90 px-3 py-3 shadow-card" role="tablist" aria-label="Transcript branches">
                 <div className="flex flex-wrap gap-2 justify-center items-center">
                   {BRANCH_IDS.map((id) => {
                     const Icon = BRANCH_ICONS[id]
@@ -939,10 +1006,10 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                         role="tab"
                         aria-selected={activeBranch === id}
                         onClick={() => setActiveBranch(id)}
-                        className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                        className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-motion ${
                           activeBranch === id
-                            ? 'bg-violet-600 text-white shadow-md ring-2 ring-violet-200 ring-offset-2 ring-offset-gray-50'
-                            : 'bg-white/90 text-gray-600 hover:bg-white hover:text-gray-800 hover:shadow-sm ring-1 ring-gray-100'
+                            ? 'bg-violet-600 text-white shadow-card ring-2 ring-violet-200 ring-offset-2 ring-offset-gray-50'
+                            : 'bg-white/90 text-gray-600 hover:bg-white hover:text-gray-800 hover:shadow-card ring-1 ring-gray-100'
                         }`}
                       >
                         <Icon className="h-4 w-4 shrink-0" aria-hidden />
@@ -957,7 +1024,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             {status === 'idle' && (
               <div className="surface-card p-6 sm:p-8 mb-8">
                 <p className="text-center text-xs text-gray-400 mb-4" aria-hidden="true">
-                  {BRANCH_IDS.map((id) => BRANCH_LABELS[id]).join(' · ')} — Upload a video to unlock
+                  {BRANCH_IDS.map((id) => BRANCH_LABELS[id]).join(' · ')}. Upload a video to unlock
                 </p>
                 <div>
                   <FileUploadZone
@@ -1005,7 +1072,7 @@ onChange={(startSeconds: number, endSeconds: number) => {
                     Speaker labels (who said what)
                   </label>
                   <label className="block text-sm text-gray-600 mt-2">
-                    Glossary <span className="text-gray-400 font-normal">(names, terms — improves accuracy)</span>
+                    Glossary <span className="text-gray-400 font-normal">(names, terms; improves accuracy)</span>
                   </label>
                   <textarea
                     value={glossary}
@@ -1067,10 +1134,10 @@ onClick={handleProcess}
             )}
             {connectionSpeed === 'slow' && uploadPhase === 'uploading' && (
               <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-4 inline-block" role="status">
-                Slow connection detected — optimizing upload
+                Slow connection detected; optimizing upload
               </p>
             )}
-            <Loader2 className="h-12 w-12 text-primary animate-spin mx-auto mb-4" />
+            <Loader2 className="h-12 w-12 text-primary animate-spin mx-auto mb-4" strokeWidth={1.5} />
             <p className="text-base sm:text-lg font-medium text-gray-800 mb-4 break-words">
               {isRehydrating && 'Resuming…'}
               {!isRehydrating && uploadPhase === 'preparing' && 'Preparing audio…'}
@@ -1094,11 +1161,27 @@ onClick={handleProcess}
             <p className="text-sm text-gray-500 mt-4">
               {uploadPhase === 'uploading' ? 'Large files may take a minute.' : 'Estimated time: 30-60 seconds'}
             </p>
+            {uploadPhase === 'processing' && partialSegments.length > 0 && (
+              <div className="mt-6 text-left max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-white/80 p-4" ref={partialScrollRef}>
+                <p className="text-sm font-medium text-gray-600 mb-2">Live transcript</p>
+                {partialSegments.length >= 2000 && (
+                  <p className="text-xs text-gray-500 mb-2">Live preview limited for very long videos. Final transcript will include full content.</p>
+                )}
+                <div className="space-y-1">
+                  {partialSegments.map((seg) => (
+                    <div key={`${seg.start}-${seg.end}`} className="text-sm text-gray-800">
+                      {seg.speaker && <span className="font-medium text-gray-600">{seg.speaker}: </span>}
+                      {seg.text}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {(uploadPhase === 'preparing' || uploadPhase === 'uploading' || (uploadPhase === 'processing' && currentJobId)) && (
               <button
                 type="button"
                 onClick={handleCancelUpload}
-                className="mt-4 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                className="mt-4 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-motion"
               >
                 Cancel
               </button>
@@ -1128,12 +1211,12 @@ onClick={handleProcess}
             {activeBranch === 'transcript' && (
               <>
                 {transcriptPreview && (
-                  <div className="bg-white rounded-2xl p-6 shadow-sm">
+                  <div className="bg-white rounded-2xl p-6 shadow-card">
                     <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                       <h3 className="text-lg font-semibold text-gray-800">Transcript</h3>
                       <div className="flex flex-wrap items-center gap-2">
                         <div className="relative">
-                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" strokeWidth={1.5} />
                           <input
                             type="search"
                             placeholder="Search in transcript…"
@@ -1149,15 +1232,15 @@ onClick={handleProcess}
                               onClick={() => setTranscriptEditMode((v) => !v)}
                               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium ${transcriptEditMode ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                             >
-                              <Pencil className="h-4 w-4" />
+                              <Pencil className="h-4 w-4" strokeWidth={1.5} />
                               {transcriptEditMode ? 'Done' : 'Edit'}
                             </button>
                             <button type="button" onClick={handleExportSrt} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">
-                              <FileDown className="h-4 w-4" />
+                              <FileDown className="h-4 w-4" strokeWidth={1.5} />
                               SRT
                             </button>
                             <button type="button" onClick={handleExportVtt} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">
-                              <FileDown className="h-4 w-4" />
+                              <FileDown className="h-4 w-4" strokeWidth={1.5} />
                               VTT
                             </button>
                           </>
@@ -1169,14 +1252,14 @@ onClick={handleProcess}
                             disabled={translating || !fullTranscript?.trim()}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            <Languages className="h-4 w-4" />
+                            <Languages className="h-4 w-4" strokeWidth={1.5} />
                             <span>{translationLanguage ? translationLanguage : 'Translate'}</span>
                             <ChevronDown className="h-4 w-4" />
                           </button>
                           {translateDropdownOpen && (
                             <>
                               <div className="fixed inset-0 z-10" aria-hidden onClick={() => setTranslateDropdownOpen(false)} />
-                              <div className="absolute right-0 top-full mt-1 py-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                              <div className="absolute right-0 top-full mt-1 py-1 w-48 bg-white border border-gray-200 rounded-lg shadow-card-elevated z-20">
                                 <button
                                   type="button"
                                   onClick={() => handleTranslateLanguage('Original')}
@@ -1203,7 +1286,7 @@ onClick={handleProcess}
                           onClick={handleCopyToClipboard}
                           className="flex items-center space-x-2 text-violet-600 hover:text-violet-700 font-medium text-sm"
                         >
-                          <Copy className="h-4 w-4" />
+                          <Copy className="h-4 w-4" strokeWidth={1.5} />
                           <span>Copy</span>
                         </button>
                       </div>
@@ -1218,7 +1301,7 @@ onClick={handleProcess}
                             onClick={() => scrollToSegment(r.index)}
                             className="block w-full text-left px-2 py-1.5 rounded text-sm text-gray-700 hover:bg-violet-50"
                           >
-                            {r.startTime != null ? `${formatTimestamp(r.startTime)} — ` : ''}{r.snippet}
+                            {r.startTime != null ? `${formatTimestamp(r.startTime)}: ` : ''}{r.snippet}
                           </button>
                         ))}
                         {searchResults.length > 8 && <p className="text-xs text-gray-400 mt-1">+{searchResults.length - 8} more</p>}
@@ -1227,7 +1310,7 @@ onClick={handleProcess}
                     <div ref={transcriptScrollRef} className="bg-gray-50/80 rounded-xl p-4 min-h-48 max-h-[60vh] sm:max-h-[65vh] lg:max-h-[70vh] overflow-y-auto">
                       {translating ? (
                         <div className="flex flex-col items-center justify-center py-8 text-gray-500">
-                          <Loader2 className="h-8 w-8 animate-spin text-violet-600 mb-2" />
+                          <Loader2 className="h-8 w-8 animate-spin text-violet-600 mb-2" strokeWidth={1.5} />
                           <p className="text-sm">Translating transcript…</p>
                         </div>
                       ) : transcriptEditMode && editableSegments && editableSegments.length > 0 ? (
@@ -1276,9 +1359,9 @@ onClick={handleProcess}
             )}
 
             {activeBranch === 'speakers' && (
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <div className="bg-white rounded-2xl p-6 shadow-card">
                 <h3 className="text-lg font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                  <Users className="h-5 w-5 text-violet-600" />
+                  <Users className="h-5 w-5 text-violet-600" strokeWidth={1.5} />
                   Who said what
                 </h3>
                 {(() => {
@@ -1296,7 +1379,7 @@ onClick={handleProcess}
                     <>
                       <p className="text-sm text-gray-500 mb-4">
                         {hasMultipleSpeakers
-                          ? 'Labels (Speaker 1, 2, …) come from automatic speaker detection. They are not real names—each label is one distinct voice in the video.'
+                          ? 'Labels (Speaker 1, 2, …) come from automatic speaker detection. They are not real names; each label is one distinct voice in the video.'
                           : 'All segments are shown as one speaker. Enable &quot;Speaker diarization&quot; when you upload to get automatic labels (Speaker 1, 2, …) for different voices.'}
                       </p>
                       <div className="space-y-4 min-h-48 max-h-[60vh] sm:max-h-[65vh] lg:max-h-[70vh] overflow-y-auto">
@@ -1314,9 +1397,9 @@ onClick={handleProcess}
             )}
 
             {activeBranch === 'summary' && (
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <div className="bg-white rounded-2xl p-6 shadow-card">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                  <ListOrdered className="h-5 w-5 text-violet-600" />
+                  <ListOrdered className="h-5 w-5 text-violet-600" strokeWidth={1.5} />
                   Summary
                 </h3>
                 {(() => {
@@ -1378,9 +1461,9 @@ onClick={handleProcess}
             )}
 
             {activeBranch === 'chapters' && (
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <div className="bg-white rounded-2xl p-6 shadow-card">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                  <BookOpen className="h-5 w-5 text-violet-600" />
+                  <BookOpen className="h-5 w-5 text-violet-600" strokeWidth={1.5} />
                   Chapters
                 </h3>
                 {(() => {
@@ -1411,9 +1494,9 @@ onClick={handleProcess}
             )}
 
             {activeBranch === 'highlights' && (
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <div className="bg-white rounded-2xl p-6 shadow-card">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-violet-600" />
+                  <Sparkles className="h-5 w-5 text-violet-600" strokeWidth={1.5} />
                   Highlights / Key moments
                 </h3>
                 {(() => {
@@ -1441,9 +1524,9 @@ onClick={handleProcess}
             )}
 
             {activeBranch === 'keywords' && (
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <div className="bg-white rounded-2xl p-6 shadow-card">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                  <Hash className="h-5 w-5 text-violet-600" />
+                  <Hash className="h-5 w-5 text-violet-600" strokeWidth={1.5} />
                   Keywords / Topic index
                 </h3>
                 {(() => {
@@ -1474,7 +1557,7 @@ onClick={handleProcess}
             )}
 
             {activeBranch === 'clean' && (
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <div className="bg-white rounded-2xl p-6 shadow-card">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Clean transcript</h3>
                 <p className="text-sm text-gray-500 mb-4">Filler words removed, casing normalized, paragraph grouping. Original transcript is always preserved in the Transcript branch.</p>
                 <label className="flex items-center gap-2 mb-4">
@@ -1496,9 +1579,9 @@ onClick={handleProcess}
             )}
 
             {activeBranch === 'exports' && (
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <div className="bg-white rounded-2xl p-6 shadow-card">
                 <h3 className="text-lg font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                  <FileCode className="h-5 w-5 text-violet-600" />
+                  <FileCode className="h-5 w-5 text-violet-600" strokeWidth={1.5} />
                   Exports
                 </h3>
                 <p className="text-sm text-gray-500 mb-4">Download transcript and derived data in your preferred format.</p>
@@ -1583,7 +1666,7 @@ onClick={handleProcess}
                                 disabled={!canClick}
                                 className={`flex items-center gap-1.5 text-sm font-medium ${canClick ? 'text-violet-600 hover:text-violet-700' : 'text-gray-400 cursor-not-allowed'}`}
                               >
-                                <Download className="h-4 w-4 shrink-0" />
+                                <Download className="h-4 w-4 shrink-0" strokeWidth={1.5} />
                                 {downloadLabel}
                               </button>
                             </div>
@@ -1602,7 +1685,7 @@ onClick={handleProcess}
             {(segmentsForExport?.length ?? 0) > 0 && (
               <div className="surface-card p-6 mb-8">
                 <h3 className="text-lg font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                  <Subtitles className="h-5 w-5 text-violet-600" />
+                  <Subtitles className="h-5 w-5 text-violet-600" strokeWidth={1.5} />
                   Generate subtitles from this transcript
                 </h3>
                 <p className="text-sm text-gray-500 mb-4">
@@ -1614,7 +1697,7 @@ onClick={handleProcess}
                     onClick={handleExportSrt}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 transition-colors"
                   >
-                    <FileDown className="h-4 w-4" />
+                    <FileDown className="h-4 w-4" strokeWidth={1.5} />
                     Download SRT
                   </button>
                   <button
@@ -1622,7 +1705,7 @@ onClick={handleProcess}
                     onClick={handleExportVtt}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors"
                   >
-                    <FileDown className="h-4 w-4" />
+                    <FileDown className="h-4 w-4" strokeWidth={1.5} />
                     Download VTT
                   </button>
                 </div>

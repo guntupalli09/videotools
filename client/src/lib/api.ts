@@ -80,6 +80,10 @@ export interface JobStatus {
     summary?: { summary: string; bullets: string[]; actionItems?: string[] }
     chapters?: { title: string; startTime: number; endTime?: number }[]
   }
+  /** Pseudo-streaming: only when status === 'processing'. Ignore when completed/failed. */
+  partialVersion?: number
+  partialSegments?: { start: number; end: number; text: string; speaker?: string }[]
+  partialTranscript?: string
 }
 
 export interface UploadOptions {

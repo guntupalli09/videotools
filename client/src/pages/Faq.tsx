@@ -7,7 +7,7 @@ const FAQ_ITEMS = [
     category: 'Privacy & data',
     icon: Shield,
     q: 'Do you store my videos or files?',
-    a: 'No. We process your files and then delete them. We don’t keep your uploads, transcripts, or generated outputs. Your content stays yours—we don’t retain it on our servers.',
+    a: 'No. We process your files and then delete them. We don’t keep your uploads, transcripts, or generated outputs. Your content stays yours. We don’t retain it on our servers.',
   },
   {
     category: 'Privacy & data',
@@ -77,7 +77,7 @@ export default function Faq() {
         {/* Trust highlight */}
         <div className="mb-10 p-4 rounded-xl bg-violet-50 border border-violet-100 text-center">
           <p className="text-sm font-medium text-gray-800">
-            Your files are processed and deleted—we don’t store your data.
+            Your files are processed and deleted. We don’t store your data.
           </p>
           <Link to="/privacy" className="text-xs text-violet-600 hover:text-violet-700 font-medium mt-1 inline-block">
             Read our privacy policy →

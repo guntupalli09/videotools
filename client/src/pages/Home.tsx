@@ -69,28 +69,24 @@ export default function Home() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="text-center max-w-3xl mx-auto"
+            className="text-center w-[90%] sm:w-full max-w-3xl mx-auto"
           >
-            <div className="inline-flex flex-wrap items-center justify-center gap-2 mb-6">
+            <div className="inline-flex items-center justify-center gap-2 mb-6">
               <span className="inline-flex items-center space-x-2 bg-primary/10 text-primary dark:bg-primary/20 px-4 py-2 rounded-full text-sm font-medium">
                 <span>✨</span>
                 <span>For creators & teams</span>
               </span>
-              <span className="inline-flex items-center space-x-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200 px-4 py-2 rounded-full text-sm font-medium border border-emerald-100 dark:border-emerald-800/50">
-                <span>🔒</span>
-                <span>No signup • We don’t store your data</span>
-              </span>
             </div>
 
-            <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6 tracking-tight">
+            <h1 className="font-display text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-8 tracking-tight max-w-2xl mx-auto">
               Turn speech into text in seconds
             </h1>
 
-            <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
-              Transcribe video to transcript, generate subtitles, translate captions, and more. Your files are processed and deleted—no bloat, no lock-in. Just drop your file and go.
+            <p className="text-xl font-normal text-gray-600 dark:text-gray-400 leading-relaxed mb-8 max-w-xl mx-auto">
+              Transcripts, subtitles, translation, in seconds. Your files are processed and deleted. Just drop and go.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex flex-col items-center gap-5">
               <Link
                 to="/video-to-transcript"
                 className="btn-primary px-8 py-3.5 text-base"
@@ -106,11 +102,14 @@ export default function Home() {
                     el.scrollIntoView({ behavior: 'smooth' })
                   }
                 }}
-                className="btn-secondary px-8 py-3.5 text-base"
+                className="text-sm text-gray-500 dark:text-gray-400 hover:opacity-80 transition-motion"
               >
                 See all tools
               </Link>
             </div>
+            <p className="mt-6 text-sm text-gray-400 dark:text-gray-500">
+              No signup required. We don’t store your data.
+            </p>
           </motion.div>
         </div>
       </section>
@@ -125,7 +124,7 @@ export default function Home() {
             transition={{ duration: 0.5 }}
             className="text-center mb-12"
           >
-            <h2 className="font-display text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+            <h2 className="font-display text-3xl md:text-4xl font-bold text-gray-900 dark:text-white tracking-tight mb-6">
               Seven powerful tools. One simple platform.
             </h2>
           </motion.div>
@@ -176,8 +175,8 @@ export default function Home() {
                 <div className="bg-violet-600 text-white h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
                   <step.icon className="h-8 w-8" aria-hidden />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-2">{step.title}</h3>
-                <p className="text-gray-600 dark:text-gray-300">{step.description}</p>
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-white tracking-tight mb-2">{step.title}</h3>
+                <p className="text-gray-600 dark:text-gray-400 font-normal leading-relaxed">{step.description}</p>
               </motion.div>
             ))}
           </div>
@@ -194,8 +193,8 @@ export default function Home() {
             transition={{ duration: 0.5 }}
             className="text-center"
           >
-            <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">
-              Your videos and files are processed then deleted. We don’t keep copies—your content stays yours.
+            <p className="text-gray-600 dark:text-gray-400 text-sm font-normal leading-relaxed">
+              Your videos and files are processed then deleted. We don’t keep copies. Your content stays yours.
             </p>
           </motion.div>
         </div>
@@ -209,9 +208,9 @@ export default function Home() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="text-center mb-10"
+            className="text-center mb-12"
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">
+            <h2 className="font-display text-3xl md:text-4xl font-bold text-white tracking-tight mb-2">
               Start free. Upgrade when you need more.
             </h2>
             <p className="text-lg text-white/90">
@@ -235,7 +234,7 @@ export default function Home() {
                 to="/pricing"
                 className={`rounded-xl p-6 text-left transition-motion ${
                   plan.popular
-                    ? 'bg-white text-violet-900 shadow-xl ring-2 ring-white/50'
+                    ? 'bg-white text-violet-900 shadow-card-elevated ring-2 ring-white/50'
                     : 'bg-white/10 text-white hover:bg-white/20 backdrop-blur-sm'
                 }`}
               >

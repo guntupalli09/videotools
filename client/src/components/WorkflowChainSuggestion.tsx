@@ -40,7 +40,7 @@ export default function WorkflowChainSuggestion({
         className="inline-flex items-center gap-2 h-11 rounded-xl border border-violet-200 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/20 px-4 text-sm font-medium text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-motion active:translate-y-px"
       >
         {trigger.link.label}
-        <ArrowRight className="h-5 w-5 text-gray-400" aria-hidden />
+        <ArrowRight className="h-5 w-5 text-gray-400" strokeWidth={1.5} aria-hidden />
       </button>
     </div>
   )

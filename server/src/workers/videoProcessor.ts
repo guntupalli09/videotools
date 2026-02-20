@@ -24,7 +24,9 @@ import { calculateTranslationMinutes, secondsToMinutes } from '../utils/metering
 import { saveDuplicateResult } from '../services/duplicate'
 import { createRedisClient } from '../utils/redis'
 import { WORKER_HEARTBEAT_KEY, HEARTBEAT_TTL_SEC } from '../utils/workerHeartbeat'
-import { parseSRT, parseVTT, detectSubtitleFormat } from '../utils/srtParser'
+import { parseSRT, parseVTT, detectSubtitleFormat, toSRT, toVTT } from '../utils/srtParser'
+import type { SubtitleEntry } from '../utils/srtParser'
+import { createPartialWriter, deleteJobPartial } from '../utils/jobPartial'
 import { MAX_GLOBAL_WORKERS, PAID_TIER_RESERVATION_QUEUE_THRESHOLD } from '../utils/queueConfig'
 import {
   trackProcessingStarted,
@@ -265,6 +267,9 @@ async function processJob(job: import('bull').Job<JobData>) {
     log.info({ msg: 'job_started', toolType: data.toolType })
     const { toolType, options } = data
 
+    const redis = (job as any).queue?.client as import('ioredis').Redis | undefined
+    let partialWriter: ReturnType<typeof createPartialWriter> | null = null
+
     // Instrument progress so every update is logged; Bull persists progress for status endpoint
     const progressFn = job.progress.bind(job)
     ;(job as any).progress = async (value?: number | object) => {
@@ -325,6 +330,14 @@ async function processJob(job: import('bull').Job<JobData>) {
           let segments: { start: number; end: number; text: string; speaker?: string }[] = []
           const processingStartMs = Date.now()
 
+          if ((needVerbose || wantDiarization) && redis) {
+            partialWriter = createPartialWriter(redis, jobId)
+            partialWriter.startDrain()
+          }
+          const onPartial = partialWriter
+            ? (segs: { start: number; end: number; text: string; speaker?: string }[]) => partialWriter!.onPartial(segs)
+            : undefined
+
           if (wantDiarization) {
             await job.progress(22)
             const diar = await transcribeWithDiarization(videoPath, options?.language, { isAlreadyAudio })
@@ -332,15 +345,18 @@ async function processJob(job: import('bull').Job<JobData>) {
             if (diar) {
               fullText = diar.text
               segments = diar.segments
+              if (partialWriter && segments.length > 0) {
+                partialWriter.onPartial(segments.slice(0, 2000))
+              }
             } else {
-              const verbose = await transcribeVideoVerbose(videoPath, options?.language, glossary, isAlreadyAudio)
+              const verbose = await transcribeVideoVerbose(videoPath, options?.language, glossary, isAlreadyAudio, onPartial)
               fullText = verbose.text
               segments = verbose.segments || []
             }
           } else if (needVerbose) {
             await job.progress(25)
             const glossary = options?.glossary?.trim()
-            const verbose = await transcribeVideoVerbose(videoPath, options?.language, glossary, isAlreadyAudio)
+            const verbose = await transcribeVideoVerbose(videoPath, options?.language, glossary, isAlreadyAudio, onPartial)
             fullText = verbose.text
             segments = verbose.segments || []
           } else {
@@ -463,6 +479,10 @@ async function processJob(job: import('bull').Job<JobData>) {
 
           if (data.webhookUrl) {
             fireWebhook(data.webhookUrl, { jobId: String(jobId), status: 'completed', result }).catch(() => {})
+          }
+          if (partialWriter && redis) {
+            await partialWriter.closeAndFlush()
+            deleteJobPartial(redis, jobId)
           }
           break
         }
@@ -591,11 +611,19 @@ async function processJob(job: import('bull').Job<JobData>) {
               await saveUser(user)
             }
           } else {
-            // Single language
+            // Single language: use verbose path for partial streaming, then convert to SRT/VTT
+            if (redis) {
+              partialWriter = createPartialWriter(redis, jobId)
+              partialWriter.startDrain()
+            }
+            const onPartialSub = partialWriter
+              ? (segs: { start: number; end: number; text: string }[]) => partialWriter!.onPartial(segs)
+              : undefined
+
             await job.progress(30)
             const glossary = options?.glossary?.trim()
             const processingStartMs = Date.now()
-            const subtitles = await transcribeVideo(videoPath, format, options?.language, glossary, isAlreadyAudio)
+            const verboseResult = await transcribeVideoVerbose(videoPath, options?.language, glossary, isAlreadyAudio, onPartialSub)
             const fileReceivedToTranscriptionFinishedMs = Date.now() - processingStartMs
             log.info({
               msg: 'processing_timing',
@@ -604,6 +632,15 @@ async function processJob(job: import('bull').Job<JobData>) {
               file_size_bytes: data.fileSize ?? undefined,
               extraction_skipped: isAlreadyAudio,
             })
+
+            // Sequential cue numbering (1-based); no duplicates or gaps. Partial on client is segment-only, not SRT.
+            const entries: SubtitleEntry[] = verboseResult.segments.map((s, i) => ({
+              index: i + 1,
+              startTime: s.start,
+              endTime: s.end,
+              text: s.text,
+            }))
+            const subtitles = format === 'vtt' ? toVTT(entries) : toSRT(entries)
 
             // Save subtitles
             await job.progress(80)
@@ -632,10 +669,10 @@ async function processJob(job: import('bull').Job<JobData>) {
               videoDurationSeconds: processedSecondsSub,
             }
 
-          if (data.videoHash && userId) {
-            const cacheOpts = { ...data.options, trimmedStart: data.trimmedStart, trimmedEnd: data.trimmedEnd }
-            await saveDuplicateResult(userId, data.videoHash, outputPath, 'video-to-subtitles', cacheOpts, outputFilename)
-          }
+            if (data.videoHash && userId) {
+              const cacheOpts = { ...data.options, trimmedStart: data.trimmedStart, trimmedEnd: data.trimmedEnd }
+              await saveDuplicateResult(userId, data.videoHash, outputPath, 'video-to-subtitles', cacheOpts, outputFilename)
+            }
 
             // Metering (minutes)
             const minutes = secondsToMinutes(processedSecondsSub)
@@ -645,6 +682,11 @@ async function processJob(job: import('bull').Job<JobData>) {
               user.usageThisMonth.videoCount += 1
               user.updatedAt = new Date()
               await saveUser(user)
+            }
+
+            if (partialWriter && redis) {
+              await partialWriter.closeAndFlush()
+              deleteJobPartial(redis, jobId)
             }
           }
           break
@@ -958,6 +1000,10 @@ async function processJob(job: import('bull').Job<JobData>) {
       await job.progress(100)
       return result
     } catch (error: any) {
+      if (partialWriter && redis) {
+        await partialWriter.closeAndFlush()
+        deleteJobPartial(redis, jobId)
+      }
       captureJobError(jobId, data.requestId, data.toolType, error)
       log.error({ err: error, msg: 'job_failed', error_message: error?.message ?? String(error) })
       throw error

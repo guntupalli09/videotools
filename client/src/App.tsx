@@ -192,7 +192,7 @@ function PostCheckoutHandler() {
   if (setPasswordPending) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="set-password-title">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-sm w-full p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-card-elevated max-w-sm w-full p-6">
           <h2 id="set-password-title" className="text-lg font-semibold text-gray-900 dark:text-white">Set your password</h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
             So you can log in later and access your plan from any device.

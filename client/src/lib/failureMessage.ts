@@ -23,7 +23,7 @@ const SUPPORTED_VIDEO_TYPES = new Set([
 
 export function getFailureMessage(ctx: FailureContext): string | undefined {
   if (ctx.isNetworkError) {
-    return 'Network interruption — try again.'
+    return 'Network interruption. Try again.'
   }
   if (ctx.fileSizeBytes != null && ctx.planLimitBytes != null && ctx.fileSizeBytes > ctx.planLimitBytes) {
     return 'File might be too large for your plan.'

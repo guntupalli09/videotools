@@ -145,7 +145,7 @@ export default function FileUploadZone({
       `}
     >
       <input {...getInputProps()} />
-      <Upload className="h-11 w-11 text-gray-400 mx-auto mb-3" />
+      <Upload className="h-11 w-11 text-gray-400 mx-auto mb-3" strokeWidth={1.5} />
       <h3 className="font-display text-lg font-semibold text-gray-800 dark:text-white mb-2">
         {isDragActive
           ? multiple
@@ -155,10 +155,10 @@ export default function FileUploadZone({
           ? 'Drag and drop your files'
           : 'Drag and drop your file'}
       </h3>
-      <p className="text-sm text-gray-500 mb-4">
+      <p className="text-sm font-normal text-gray-500 dark:text-gray-400 leading-relaxed mb-4">
         or click to browse
       </p>
-      <p className="text-xs text-gray-400">
+      <p className="text-xs font-normal text-gray-400 dark:text-gray-500">
         Max file size: {formatFileSize(maxSize)}
       </p>
     </div>

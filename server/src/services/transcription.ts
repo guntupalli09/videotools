@@ -57,12 +57,35 @@ async function transcribeChunkVerbose(
   return segments
 }
 
+const PARTIAL_SEGMENTS_CAP = 2000
+
+function mergeContiguousSegments(
+  resultsByIndex: (WhisperSegment[] | undefined)[],
+  upToK: number
+): WhisperSegment[] {
+  const merged: WhisperSegment[] = []
+  for (let i = 0; i <= upToK; i++) {
+    const segs = resultsByIndex[i]
+    if (segs) merged.push(...segs)
+  }
+  const sorted = merged.sort((a, b) => a.start - b.start)
+  const deduped: WhisperSegment[] = []
+  for (const s of sorted) {
+    const last = deduped[deduped.length - 1]
+    if (!last || last.start !== s.start || last.end !== s.end) {
+      deduped.push(s)
+    }
+  }
+  return deduped.slice(0, PARTIAL_SEGMENTS_CAP)
+}
+
 /** Parallel path: extract audio (or use path as audio when isAlreadyAudio), split into chunks, transcribe in parallel, merge segments. */
 async function transcribeVideoParallel(
   videoPath: string,
   language?: string,
   prompt?: string,
-  isAlreadyAudio?: boolean
+  isAlreadyAudio?: boolean,
+  onPartial?: (segments: WhisperSegment[]) => void
 ): Promise<{ text: string; segments: WhisperSegment[] }> {
   const tempDir = path.dirname(videoPath)
   const audioPath = isAlreadyAudio ? videoPath : path.join(tempDir, `audio-${Date.now()}.mp3`)
@@ -73,9 +96,28 @@ async function transcribeVideoParallel(
     }
     chunkPaths = await splitAudioIntoChunks(audioPath, CHUNK_DURATION_SEC, tempDir)
     const offsetStep = CHUNK_DURATION_SEC
+    const resultsByIndex: (WhisperSegment[] | undefined)[] = new Array(chunkPaths.length)
+    let lastContiguousK = -1
+
+    // Contiguous prefix is strictly INDEX-based (chunk index 0..k), not start-time based.
+    // If chunk 0 fails, resultsByIndex[0] is never set; when chunk 1 completes, k = -1 so we
+    // do not write partial. That avoids showing out-of-order segments (e.g. later video before earlier).
     const results = await Promise.all(
       chunkPaths.map((chunkPath, i) =>
-        transcribeChunkVerbose(chunkPath, i * offsetStep, language, prompt)
+        transcribeChunkVerbose(chunkPath, i * offsetStep, language, prompt).then((segs) => {
+          resultsByIndex[i] = segs
+          if (onPartial) {
+            let k = 0
+            while (k < resultsByIndex.length && resultsByIndex[k] !== undefined) k++
+            k--
+            if (k >= 0 && k > lastContiguousK) {
+              lastContiguousK = k
+              const partial = mergeContiguousSegments(resultsByIndex, k)
+              if (partial.length > 0) onPartial(partial)
+            }
+          }
+          return segs
+        })
       )
     )
     const segments = results.flat().sort((a, b) => a.start - b.start)
@@ -160,12 +202,14 @@ export async function transcribeVideo(
 /**
  * Transcribe with segment-level timestamps (verbose_json). Optional prompt for vocabulary/names.
  * Long videos (>= PARALLEL_THRESHOLD_SEC) use parallel chunked transcription for speed.
+ * When onPartial is provided, it is called with chronological segment snapshots (contiguous prefix only).
  */
 export async function transcribeVideoVerbose(
   videoPath: string,
   language?: string,
   prompt?: string,
-  isAlreadyAudio?: boolean
+  isAlreadyAudio?: boolean,
+  onPartial?: (segments: WhisperSegment[]) => void
 ): Promise<VerboseTranscriptionResult> {
   let durationSec = 0
   try {
@@ -174,7 +218,7 @@ export async function transcribeVideoVerbose(
     // fallback to single-call
   }
   if (durationSec >= PARALLEL_THRESHOLD_SEC) {
-    const { text, segments } = await transcribeVideoParallel(videoPath, language, prompt, isAlreadyAudio)
+    const { text, segments } = await transcribeVideoParallel(videoPath, language, prompt, isAlreadyAudio, onPartial)
     return { text, segments }
   }
   const tempDir = path.dirname(videoPath)
@@ -205,6 +249,9 @@ export async function transcribeVideoVerbose(
       end: Number(s.end),
       text: typeof s.text === 'string' ? s.text.trim() : '',
     })).filter((s) => s.text)
+    if (onPartial && segments.length > 0) {
+      onPartial(segments.slice(0, PARTIAL_SEGMENTS_CAP))
+    }
     return { text, segments, language: transcription.language }
   } catch (error) {
     if (!isAlreadyAudio) {

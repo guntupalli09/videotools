@@ -7,7 +7,7 @@
     @apply scroll-smooth;
   }
   body {
-    @apply font-sans antialiased bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
+    @apply font-sans font-normal antialiased bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 leading-relaxed;
   }
   /* Consistent focus ring for accessibility; does not affect functionality */
   :focus-visible {
@@ -31,16 +31,12 @@
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  /* Shared card surface: spacing/depth over borders; subtle border only where needed */
+  /* Shared card surface: depth via shadow only; no border (inputs/separators keep borders) */
   .surface-card {
     @apply bg-white dark:bg-gray-800 rounded-2xl shadow-card;
-    border: 1px solid rgb(243 244 246 / 0.8);
     transition: box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1);
   }
-  html.dark .surface-card {
-    border-color: rgb(55 65 81 / 0.6);
-  }
-  /* Elevated container: shadow only, no visible border */
+  /* Elevated container: stronger shadow, no border */
   .surface-card-elevated {
     @apply bg-white dark:bg-gray-800 rounded-2xl shadow-card-elevated;
     transition: box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -74,9 +70,9 @@
     transform: translateY(1px);
   }
 
-  /* Page section heading for tool pages */
+  /* Page section heading for tool pages: stronger hierarchy */
   .page-heading {
-    @apply font-display font-semibold text-gray-900 dark:text-white tracking-tight;
+    @apply font-display font-semibold text-gray-900 dark:text-white tracking-tight text-2xl sm:text-3xl;
   }
 
   /* Badges: rounded-full + small padding only */
@@ -89,7 +85,7 @@
     @apply transition-motion;
   }
   .link-secondary:hover {
-    opacity: 0.85;
+    opacity: 0.8;
   }
 
   /* Tex avatar: breathing + blink (exception: >300ms allowed) */
@@ -120,8 +116,9 @@
   100% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0); }
 }
 
-/* Success container: one-time soft radial glow (≤300ms) */
+/* Success container: stable min-height to avoid layout shift; one-time glow */
 .success-container {
+  min-height: 20rem;
   animation: success-container-glow 0.3s cubic-bezier(0.4, 0, 0.2, 1) 1;
 }
 @keyframes success-container-glow {

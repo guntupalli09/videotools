@@ -73,7 +73,7 @@ export default function PaywallModal({
             onClick={onClose}
             className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
           >
-            <X className="h-6 w-6" />
+            <X className="h-6 w-6" strokeWidth={1.5} />
           </button>
 
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Upgrade to continue</h2>

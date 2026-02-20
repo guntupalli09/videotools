@@ -39,10 +39,10 @@ export default function Navigation() {
               onMouseEnter={() => setToolsDropdownOpen(true)}
               onMouseLeave={() => setToolsDropdownOpen(false)}
             >
-              <button className="flex items-center space-x-1 text-gray-700 dark:text-gray-200 hover:text-violet-600 dark:hover:text-violet-400 transition-colors">
+              <button className="flex items-center space-x-1 text-gray-700 dark:text-gray-200 hover:text-violet-600 dark:hover:text-violet-400 transition-motion">
                 <span>Tools</span>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
 
@@ -53,13 +53,13 @@ export default function Navigation() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.2 }}
-                    className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 py-2"
+                    className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-card-elevated border border-gray-100 dark:border-gray-700 py-2"
                   >
                     {tools.map((tool) => (
                       <Link
                         key={tool.path}
                         to={tool.path}
-                        className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-violet-100 dark:hover:bg-violet-900/30 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                        className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-violet-100 dark:hover:bg-violet-900/30 hover:text-violet-600 dark:hover:text-violet-400 transition-motion"
                         onMouseEnter={() => prefetchRoute(tool.path)}
                         onFocus={() => prefetchRoute(tool.path)}
                       >
@@ -73,7 +73,7 @@ export default function Navigation() {
 
             <Link
               to="/pricing"
-              className="text-gray-700 dark:text-gray-200 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+              className="text-gray-700 dark:text-gray-200 hover:text-violet-600 dark:hover:text-violet-400 transition-motion"
               onMouseEnter={() => prefetchRoute('/pricing')}
               onFocus={() => prefetchRoute('/pricing')}
             >

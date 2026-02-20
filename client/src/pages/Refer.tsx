@@ -12,7 +12,7 @@ export default function Refer() {
           Refer and earn
         </h1>
         <p className="mt-3 text-gray-600 dark:text-gray-300">
-          Share your link with friends. When they sign up, you both get <strong>45 minutes free</strong> — available on Free, Basic, and Pro plans.
+          Share your link with friends. When they sign up, you both get <strong>45 minutes free</strong>, available on Free, Basic, and Pro plans.
         </p>
         <p className="mt-6 text-sm text-gray-500 dark:text-gray-400">
           Referral program is coming soon. Check back or contact support for early access.

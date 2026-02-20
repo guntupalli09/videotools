@@ -48,11 +48,11 @@ function buildJobCompletedMessage(durationMs: number, toolId?: string): string {
       : isPlural
         ? `Your ${runLabel} are done in ${sec} seconds`
         : `Your ${runLabel} is done in ${sec} seconds`
-  return `Hey! 🎉 ${donePhrase} — blazing fast! ⚡
+  return `Hey! 🎉 ${donePhrase}, blazing fast! ⚡
 
 Go ahead and try it: copy, download, or use the result in your next step. I'm here if you need anything.
 
-Helps us improve! Feel free to share your experience — stars and a comment below mean a lot. ⭐`
+Helps us improve! Feel free to share your experience: stars and a comment below mean a lot. ⭐`
 }
 
 interface Message {
@@ -125,7 +125,7 @@ export default function TexAgentPanel({ onClose, isOpen = true }: TexAgentPanelP
     planNudgeSentRef.current = true
     setMessages((prev) => [
       ...prev,
-      { type: 'tex', text: "You're on the free plan — 60 min/month. Ask me about upgrades.", contextual: true },
+      { type: 'tex', text: "You're on the free plan: 60 min/month. Ask me about upgrades.", contextual: true },
     ])
   }, [plan, messages.length])
 
@@ -163,7 +163,7 @@ export default function TexAgentPanel({ onClose, isOpen = true }: TexAgentPanelP
         const p = payload as { type: string; message?: string }
         const help =
           p.type === 'job_failed'
-            ? (p.message && p.message.trim() ? `${p.message} Try again or ask me about limits.` : "That run didn't finish. Try again—if it keeps failing, check your file format and plan limits. I can explain limits if you ask.")
+            ? (p.message && p.message.trim() ? `${p.message} Try again or ask me about limits.` : "That run didn't finish. Try again; if it keeps failing, check your file format and plan limits. I can explain limits if you ask.")
             : "Something went wrong. Try again or ask me about file formats and limits."
         setMessages((prev) => [...prev, { type: 'tex', text: help, contextual: true }])
         return
@@ -308,7 +308,7 @@ export default function TexAgentPanel({ onClose, isOpen = true }: TexAgentPanelP
           className="p-1.5 rounded-md text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
           aria-label="Close"
         >
-          <X className="w-4 h-4" />
+          <X className="w-4 h-4" strokeWidth={1.5} />
         </button>
       </div>
 
@@ -460,7 +460,7 @@ export default function TexAgentPanel({ onClose, isOpen = true }: TexAgentPanelP
             className="p-1.5 rounded-md bg-violet-600 hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
             aria-label="Send"
           >
-            <Send className="w-4 h-4" />
+            <Send className="w-4 h-4" strokeWidth={1.5} />
           </button>
         </div>
       </form>

@@ -204,8 +204,8 @@ const TOOL_GUIDES: ToolGuide[] = [
 
 /** Plan limits at a glance (authoritative summary; exact values in server/utils/limits.ts). */
 const PLAN_LIMITS = [
-  { plan: 'Free', minutes: '60/month', maxDuration: '15 min', maxSize: '2 GB', languages: '1', batch: '—' },
-  { plan: 'Basic', minutes: '450/month', maxDuration: '45 min', maxSize: '5 GB', languages: '2', batch: '—' },
+  { plan: 'Free', minutes: '60/month', maxDuration: '15 min', maxSize: '2 GB', languages: '1', batch: '-' },
+  { plan: 'Basic', minutes: '450/month', maxDuration: '45 min', maxSize: '5 GB', languages: '2', batch: '-' },
   { plan: 'Pro', minutes: '1,200/month', maxDuration: '2 h', maxSize: '10 GB', languages: '5', batch: '20 videos, 60 min total' },
   { plan: 'Agency', minutes: '3,000/month', maxDuration: '4 h', maxSize: '20 GB', languages: '10', batch: '100 videos, 300 min total' },
 ]
@@ -213,13 +213,13 @@ const PLAN_LIMITS = [
 export default function Guide() {
   return (
     <div className="min-h-screen bg-gray-50 py-12 sm:py-16">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <Link to="/" className="text-sm text-violet-600 hover:text-violet-700 font-medium mb-6 inline-block">
           ← Back to home
         </Link>
 
         <div className="flex items-center gap-3 mb-4">
-          <BookOpen className="w-9 h-9 text-violet-600 shrink-0" aria-hidden />
+          <BookOpen className="w-9 h-9 text-violet-600 shrink-0" strokeWidth={1.5} aria-hidden />
           <div>
             <h1 className="text-3xl font-bold text-gray-900">How to use VideoText</h1>
             <p className="text-gray-600 mt-1">
@@ -239,7 +239,7 @@ export default function Guide() {
         <section className="mb-8 rounded-xl border border-violet-100 bg-violet-50/30 p-4 sm:p-6" aria-labelledby="workflows-heading">
           <h2 id="workflows-heading" className="text-base font-semibold text-gray-900 mb-3">Workflows</h2>
           <p className="text-sm text-gray-600 mb-4">
-            Use &quot;Next step&quot; on each tool to continue with the same file — no re-upload.
+            Use &quot;Next step&quot; on each tool to continue with the same file (no re-upload).
           </p>
           <div className="grid gap-4 sm:grid-cols-1">
             <div className="rounded-lg bg-white/80 border border-violet-100/80 p-3">
@@ -322,14 +322,14 @@ export default function Guide() {
                       className="inline-flex items-center gap-1 text-sm font-medium text-violet-600 hover:text-violet-700"
                     >
                       Open {guide.title}
-                      <ArrowRight className="w-4 h-4" />
+                      <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
                     </Link>
                   </div>
 
                   <div className="p-4 sm:p-6 space-y-6">
                     <div>
                       <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-violet-600" aria-hidden />
+                        <CheckCircle className="w-4 h-4 text-violet-600" strokeWidth={1.5} aria-hidden />
                         How to use
                       </h3>
                       <ol className="list-decimal list-inside space-y-1.5 text-sm text-gray-700">

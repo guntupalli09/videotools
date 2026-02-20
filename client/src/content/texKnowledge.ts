@@ -25,7 +25,7 @@ export const TEX_ENTRIES: TexEntry[] = [
     keywords: ['what is', 'what is videotext', 'overview', 'intro', 'hello', 'hi'],
     question: 'What is VideoText?',
     answer:
-      "VideoText turns video into text and subtitles. You get transcripts, SRT/VTT subtitles, translation, and more. No signup to try—just drop a file or paste a URL. We don't store your data.",
+      "VideoText turns video into text and subtitles. You get transcripts, SRT/VTT subtitles, translation, and more. No signup to try: just drop a file or paste a URL. We don't store your data.",
     link: { path: '/', label: 'Go to home' },
   },
   {
@@ -157,7 +157,7 @@ export const TEX_ENTRIES: TexEntry[] = [
     keywords: ['failed', 'error', 'didn’t work', 'processing failed', 'something went wrong'],
     question: 'My job failed. What should I do?',
     answer:
-      'Try again with the same file—transient errors can happen. If it still fails, check: file format (we support MP4, MOV, AVI, WebM, MKV), file size and length within your plan limits, and a stable connection. For limits, see Pricing.',
+      'Try again with the same file; transient errors can happen. If it still fails, check: file format (we support MP4, MOV, AVI, WebM, MKV), file size and length within your plan limits, and a stable connection. For limits, see Pricing.',
     link: { path: '/pricing', label: 'Check plan limits' },
   },
   {
@@ -182,9 +182,9 @@ export const TEX_SUGGESTIONS: TexSuggestion[] = [
   { label: 'What is VideoText?', entryId: 'what-is-videotext' },
   { label: 'How does transcription work?', entryId: 'tool-transcript' },
   { label: 'What’s in the free plan?', entryId: 'plan-free' },
-  { label: 'Pro vs Basic — what’s the difference?', entryId: 'plan-pro' },
+  { label: 'Pro vs Basic: what’s the difference?', entryId: 'plan-pro' },
   { label: 'Do you store my data?', entryId: 'privacy' },
-  { label: 'My job failed — what do I do?', entryId: 'failed-job' },
+  { label: 'My job failed: what do I do?', entryId: 'failed-job' },
   { label: 'How do I upgrade?', entryId: 'upgrade' },
 ]
 

@@ -14,7 +14,7 @@ export default function Breadcrumb() {
         <ol className="flex flex-wrap items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
           {items.map((item, i) => (
             <li key={item.path} className="flex items-center gap-1">
-              {i > 0 && <ChevronRight className="h-5 w-5 text-gray-400 flex-shrink-0" aria-hidden />}
+              {i > 0 && <ChevronRight className="h-5 w-5 text-gray-400 flex-shrink-0" strokeWidth={1.5} aria-hidden />}
               {i === items.length - 1 ? (
                 <span className="font-medium text-gray-900 dark:text-white" aria-current="page">
                   {item.name}

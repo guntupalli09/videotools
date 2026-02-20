@@ -108,7 +108,7 @@ export default function UserMenu() {
                     className="p-2 rounded-lg text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     aria-label="Close menu"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-5 h-5" strokeWidth={1.5} />
                   </button>
                 </div>
 
@@ -202,7 +202,7 @@ export default function UserMenu() {
                   onFocus={() => prefetchRoute('/refer')}
                 >
                   <Gift className="w-5 h-5 shrink-0 text-gray-600 dark:text-gray-300" />
-                  <span>Refer and earn — 45 min free (Free, Basic, Pro)</span>
+                  <span>Refer and earn: 45 min free (Free, Basic, Pro)</span>
                 </Link>
 
                 {/* Theme toggle */}
@@ -211,7 +211,7 @@ export default function UserMenu() {
                   <button
                     type="button"
                     onClick={toggleTheme}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-500 transition-colors"
+                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 shadow-card hover:bg-gray-50 dark:hover:bg-gray-500 transition-colors"
                     aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
                   >
                     {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}

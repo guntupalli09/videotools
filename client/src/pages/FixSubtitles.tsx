@@ -270,10 +270,10 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
             <PlanBadge />
           </div>
           <div className="bg-violet-100 rounded-xl p-4 w-16 h-16 flex items-center justify-center mx-auto mb-4">
-            <Wrench className="h-8 w-8 text-violet-600" />
+            <Wrench className="h-8 w-8 text-violet-600" strokeWidth={1.5} />
           </div>
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">{seoH1 ?? 'Fix Subtitles'}</h1>
-          <p className="text-lg text-gray-600 mb-6">
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-6">{seoH1 ?? 'Fix Subtitles'}</h1>
+          <p className="text-lg font-normal text-gray-600 dark:text-gray-400 leading-relaxed mb-6 max-w-prose mx-auto">
             {seoIntro ?? 'Auto-correct timing issues and formatting errors'}
           </p>
           <UsageCounter refreshTrigger={status} />
@@ -281,7 +281,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         </div>
 
         {status === 'idle' && !showIssues && (
-          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6">
+          <div className="bg-white rounded-2xl p-8 shadow-card mb-6">
             <FileUploadZone
               onFileSelect={handleFileSelect}
               accept={{ 'text/*': ['.srt', '.vtt'] }}
@@ -299,7 +299,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         )}
 
         {status === 'idle' && showIssues && (
-          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6">
+          <div className="bg-white rounded-2xl p-8 shadow-card mb-6">
             <h3 className="text-lg font-medium text-gray-800 mb-3">Fix options (optional)</h3>
             <p className="text-sm text-gray-600 mb-4">Fixes timing drift, long durations, and overflow issues. Original subtitles are always preserved.</p>
             <div className="space-y-3 mb-4">
@@ -344,9 +344,9 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         )}
 
         {status === 'analyzing' && (
-          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
-            <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
-            <p className="text-lg font-medium text-gray-800 mb-4">Analyzing subtitles...</p>
+          <div className="bg-white rounded-2xl p-8 shadow-card mb-6 text-center">
+            <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" strokeWidth={1.5} />
+            <p className="text-lg font-medium text-gray-800 mb-4 break-words">Analyzing subtitles...</p>
             <ProgressBar
               progress={progress}
               status="Checking for issues"
@@ -362,9 +362,9 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         )}
 
         {showIssues && (issues.length > 0 || warnings.length > 0) && status === 'idle' && (
-          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6">
+          <div className="bg-white rounded-2xl p-8 shadow-card mb-6">
             <div className="flex items-center space-x-2 mb-4">
-              <CheckCircle className="h-6 w-6 text-green-600" />
+              <CheckCircle className="h-6 w-6 text-green-600" strokeWidth={1.5} />
               <h3 className="text-xl font-semibold text-gray-800">
                 {issues.length > 0
                   ? `Found ${issues.length} issue${issues.length !== 1 ? 's' : ''} in your subtitles`
@@ -408,8 +408,8 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         )}
 
         {showIssues && issues.length === 0 && warnings.length === 0 && status === 'idle' && (
-          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
-            <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
+          <div className="bg-white rounded-2xl p-8 shadow-card mb-6 text-center">
+            <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" strokeWidth={1.5} />
             <h3 className="text-xl font-semibold text-gray-800 mb-2">No issues found!</h3>
             <p className="text-gray-600 mb-4">Your subtitles are already in good shape. You can still apply optional fixes (timing, grammar, line breaks) above.</p>
             <div className="flex flex-wrap justify-center gap-3">
@@ -430,9 +430,9 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         )}
 
         {status === 'processing' && (
-          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
-            <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
-            <p className="text-lg font-medium text-gray-800 mb-4">Fixing issues...</p>
+          <div className="bg-white rounded-2xl p-8 shadow-card mb-6 text-center">
+            <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" strokeWidth={1.5} />
+            <p className="text-lg font-medium text-gray-800 mb-4 break-words">Fixing issues...</p>
             <ProgressBar
               progress={progress}
               status="Applying fixes to subtitle file"
@@ -483,7 +483,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
             />
 
             {subtitleRows.length > 0 && (
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <div className="bg-white rounded-2xl p-6 shadow-card">
                 <Suspense fallback={null}>
                   <SubtitleEditor
                     entries={subtitleRows}
@@ -530,7 +530,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
             )}
 
             {issues.length > 0 && (
-              <div className="bg-green-50 rounded-2xl p-6 shadow-sm border border-green-100">
+              <div className="bg-green-50 rounded-2xl p-6 shadow-card border border-green-100">
                 <p className="text-green-800 font-medium">
                   ✓ Fixed {issues.length} issue{issues.length !== 1 ? 's' : ''}
                 </p>

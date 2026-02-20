@@ -21,7 +21,7 @@ export default function Privacy() {
             <div>
               <h2 className="text-lg font-semibold text-gray-900 mb-1">We don’t store your data</h2>
               <p className="text-gray-700 text-sm leading-relaxed">
-                Your videos and files are processed and then deleted. We do not keep copies of your uploads, transcripts, or outputs on our servers after your session. What you create stays with you—we’re not in the business of holding your content.
+                Your videos and files are processed and then deleted. We do not keep copies of your uploads, transcripts, or outputs on our servers after your session. What you create stays with you. We’re not in the business of holding your content.
               </p>
             </div>
           </div>

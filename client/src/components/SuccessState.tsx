@@ -53,10 +53,10 @@ export default function SuccessState({
         transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
         className="bg-success/10 h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4"
       >
-        <Check className="h-8 w-8 text-success" />
+        <Check className="h-8 w-8 text-success" strokeWidth={1.5} />
       </motion.div>
 
-      <h3 className="page-heading text-2xl font-bold mb-2">Your file is ready!</h3>
+      <h3 className="page-heading font-bold mb-6">Your file is ready!</h3>
 
       {fileName && (
         <div className="surface-card p-6 mb-8 max-w-md mx-auto">
@@ -72,15 +72,18 @@ export default function SuccessState({
         </div>
       )}
 
-      {/* Reserve space to avoid CLS when badge appears */}
+      {/* Reserve space to avoid CLS when badge appears; 150ms delay for perceived calculation */}
       <div className="min-h-8 flex items-center justify-center mb-4">
         {processedInSeconds != null && processedInSeconds > 0 && (
-          <p
-            className="badge text-sm font-medium text-violet-600 dark:text-violet-400 px-3 py-1 bg-violet-50 dark:bg-violet-900/30 success-speed-badge animate-in-fade"
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.15, duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+            className="badge text-base font-semibold text-violet-600 dark:text-violet-400 px-3 py-1 bg-violet-50 dark:bg-violet-900/30 success-speed-badge rounded-full"
             aria-label={`Processed in ${processedInSeconds.toFixed(1)} seconds`}
           >
             Processed in {processedInSeconds.toFixed(1)}s ⚡
-          </p>
+          </motion.p>
         )}
       </div>
 
@@ -94,7 +97,7 @@ export default function SuccessState({
             }}
             className="btn-primary w-full mb-4"
           >
-            <Download className="h-5 w-5 inline-block mr-2" />
+            <Download className="h-5 w-5 inline-block mr-2" strokeWidth={1.5} />
             {downloadLabel}
           </button>
         ) : (
@@ -104,7 +107,7 @@ export default function SuccessState({
             onClick={trackDownload}
             className="btn-primary w-full mb-4"
           >
-            <Download className="h-5 w-5 inline-block mr-2" />
+            <Download className="h-5 w-5 inline-block mr-2" strokeWidth={1.5} />
             {downloadLabel}
           </a>
         )

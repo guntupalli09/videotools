@@ -19,7 +19,7 @@ export default function OverageModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="max-w-md rounded-2xl bg-white p-6 shadow-xl">
+      <div className="max-w-md rounded-2xl bg-white p-6 shadow-card-elevated">
         <h2 className="mb-2 text-lg font-semibold text-gray-900">
           You&apos;ve used {minutesUsed}/{minutesLimit} minutes this month
         </h2>

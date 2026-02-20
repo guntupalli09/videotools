@@ -26,7 +26,7 @@ export default function ToolCard({ icon: Icon, title, description, path }: ToolC
           <Icon className="h-6 w-6 text-primary" strokeWidth={1.5} />
         </div>
         <h3 className="page-heading text-lg mb-2">{title}</h3>
-        <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed mb-4 line-clamp-2">{description}</p>
+        <p className="text-gray-600 dark:text-gray-400 text-sm font-normal leading-relaxed mb-4 line-clamp-2 max-w-prose">{description}</p>
         <span className="text-primary font-medium text-sm inline-flex items-center">
           Try it free →
         </span>

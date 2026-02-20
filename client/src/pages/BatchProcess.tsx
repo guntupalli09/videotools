@@ -89,13 +89,13 @@ export default function BatchProcess(props: BatchProcessSeoProps = {}) {
           <div className="mb-4">
             <PlanBadge />
           </div>
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-100/80 shadow-sm">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-100/80 shadow-card">
             <FolderPlus className="h-8 w-8 text-violet-600" />
           </div>
-          <h1 className="mb-2 text-4xl font-bold text-gray-800">
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-6">
             {seoH1 ?? 'Batch Processing'}
           </h1>
-          <p className="mb-3 text-lg text-gray-600">
+          <p className="text-lg font-normal text-gray-600 dark:text-gray-400 leading-relaxed mb-6 max-w-prose mx-auto">
             {seoIntro ?? 'Upload multiple videos and process them together.'}
           </p>
           <UsageCounter refreshTrigger={status} />
@@ -103,7 +103,7 @@ export default function BatchProcess(props: BatchProcessSeoProps = {}) {
         </div>
 
         {status === 'idle' && (
-          <div className="mb-6 rounded-2xl shadow-sm bg-white p-8">
+          <div className="mb-6 rounded-2xl shadow-card bg-white p-8">
             <FileUploadZone
               onFilesSelect={handleFilesSelected}
               accept={{ 'video/*': ['.mp4', '.mov', '.avi', '.webm', '.mkv'] }}
@@ -126,9 +126,9 @@ export default function BatchProcess(props: BatchProcessSeoProps = {}) {
         )}
 
         {status === 'processing' && (
-          <div className="mb-6 rounded-2xl shadow-sm bg-white p-8 text-center">
-            <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-violet-600" />
-            <p className="mb-2 text-lg font-medium text-gray-800">
+          <div className="mb-6 rounded-2xl shadow-card bg-white p-8 text-center">
+            <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-violet-600" strokeWidth={1.5} />
+            <p className="mb-2 text-lg font-medium text-gray-800 break-words">
               Processing your batch...
             </p>
             <ProgressBar
@@ -140,7 +140,7 @@ export default function BatchProcess(props: BatchProcessSeoProps = {}) {
 
         {status === 'done' && batchInfo && (
           <>
-            <div className="mb-6 rounded-2xl shadow-sm bg-white p-8 text-center">
+            <div className="mb-6 rounded-2xl shadow-card bg-white p-8 text-center">
               <p className="mb-2 text-lg font-semibold text-gray-800">
                 Batch complete
               </p>
@@ -172,7 +172,7 @@ export default function BatchProcess(props: BatchProcessSeoProps = {}) {
               setStatus('idle')
               setBatchInfo(null)
             }}
-            message="Something went wrong while starting your batch. Your files weren't changed — try again; it usually works."
+            message="Something went wrong while starting your batch. Your files weren't changed. Try again; it usually works."
           />
         )}
 

@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express'
 import { getJobById } from '../workers/videoProcessor'
 import { getAuthFromRequest, getEffectiveUserId } from '../utils/auth'
+import { getJobPartial, trimPartialPayloadForResponse, segmentsToPartialTranscript } from '../utils/jobPartial'
 
 const router = express.Router()
 
@@ -52,19 +53,37 @@ router.get('/:jobId', async (req: Request, res: Response) => {
     const result = job.returnvalue || undefined
     const queuePosition = state === 'waiting' ? await getQueuePosition(job) : undefined
 
-    res.set({
-      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-      'Pragma': 'no-cache',
-      'Expires': '0',
-      'Surrogate-Control': 'no-store',
-    })
-    const payload: { status: string; progress: number; result?: unknown; queuePosition?: number; jobToken?: string } = {
+    const payload: { status: string; progress: number; result?: unknown; queuePosition?: number; jobToken?: string; partialVersion?: number; partialSegments?: { start: number; end: number; text: string; speaker?: string }[]; partialTranscript?: string } = {
       status,
       progress,
       result,
       queuePosition,
     }
     if (jobToken) payload.jobToken = jobToken
+
+    if (state === 'active') {
+      try {
+        const redis = (job as any).queue?.client
+        if (redis) {
+          const partial = await getJobPartial(redis, jobId)
+          if (partial && partial.segments.length > 0) {
+            const trimmed = trimPartialPayloadForResponse(partial)
+            payload.partialVersion = trimmed.version
+            payload.partialSegments = trimmed.segments
+            payload.partialTranscript = segmentsToPartialTranscript(trimmed.segments)
+          }
+        }
+      } catch (_) {
+        // omit partial on error
+      }
+    }
+
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'Surrogate-Control': 'no-store',
+    })
     res.json(payload)
   } catch (error: any) {
     console.error('Job status error:', error)

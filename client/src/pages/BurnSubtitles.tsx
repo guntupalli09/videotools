@@ -204,10 +204,10 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
             <PlanBadge />
           </div>
           <div className="bg-violet-100 rounded-xl p-4 w-16 h-16 flex items-center justify-center mx-auto mb-4">
-            <Film className="h-8 w-8 text-violet-600" />
+            <Film className="h-8 w-8 text-violet-600" strokeWidth={1.5} />
           </div>
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">{seoH1 ?? 'Burn Subtitles'}</h1>
-          <p className="text-lg text-gray-600 mb-6">
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-6">{seoH1 ?? 'Burn Subtitles'}</h1>
+          <p className="text-lg font-normal text-gray-600 dark:text-gray-400 leading-relaxed mb-6 max-w-prose mx-auto">
             {seoIntro ?? 'Hardcode captions directly into your video'}
           </p>
           <UsageCounter refreshTrigger={status} />
@@ -215,7 +215,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
         </div>
 
         {status === 'idle' && (
-          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6">
+          <div className="bg-white rounded-2xl p-8 shadow-card mb-6">
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
               <label className="block text-sm font-medium text-gray-700 mb-2">Caption style (preset)</label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -312,9 +312,9 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
         )}
 
         {status === 'processing' && (
-          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
-            <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
-            <p className="text-lg font-medium text-gray-800 mb-4">Burning subtitles into video...</p>
+          <div className="bg-white rounded-2xl p-8 shadow-card mb-6 text-center">
+            <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" strokeWidth={1.5} />
+            <p className="text-lg font-medium text-gray-800 mb-4 break-words">Burning subtitles into video...</p>
             <ProgressBar
               progress={progress}
               status="Processing video with hardcoded subtitles"

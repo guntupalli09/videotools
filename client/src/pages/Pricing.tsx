@@ -119,7 +119,7 @@ export default function Pricing() {
         <header className="text-center mb-14 sm:mb-16">
           <div className="inline-flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200 px-3 py-1.5 rounded-full text-sm font-medium border border-emerald-100 dark:border-emerald-800/50 mb-6">
             <span>🔒</span>
-            <span>We don’t store your data—your files are processed and deleted.</span>
+            <span>We don’t store your data. Your files are processed and deleted.</span>
           </div>
           <h1 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white tracking-tight">
             Pricing
@@ -143,12 +143,12 @@ export default function Pricing() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8 items-stretch">
           {/* FREE — $0 */}
-          <div className="flex flex-col bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-600 shadow-sm p-6 sm:p-8 min-h-[420px] hover:shadow-md transition-shadow duration-200">
+          <div className="flex flex-col bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-600 shadow-card p-6 sm:p-8 min-h-[420px] hover:shadow-card-elevated transition-motion">
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300">Free</h3>
               <span className="text-2xl font-bold text-gray-800 dark:text-white">$0</span>
             </div>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Try it — 60 min/month</p>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Try it: 60 min/month</p>
             <ul className="mt-6 space-y-3 flex-1">
               <li className={bulletRow}><CheckIcon /><span>Video → Transcript & Subtitles</span></li>
               <li className={bulletRow}><CheckIcon /><span>1 language · Watermarked</span></li>
@@ -163,7 +163,7 @@ export default function Pricing() {
           </div>
 
           {/* BASIC — $19 */}
-          <div className="flex flex-col bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-600 shadow p-6 sm:p-8 min-h-[420px] hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-200">
+          <div className="flex flex-col bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-600 shadow-card p-6 sm:p-8 min-h-[420px] hover:shadow-card-elevated hover:border-gray-300 dark:hover:border-gray-500 transition-motion">
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Basic</h3>
             <div className="mt-2 flex items-baseline gap-1">
               <span className="text-2xl font-bold text-gray-900 dark:text-white">$19</span>
@@ -192,8 +192,8 @@ export default function Pricing() {
           </div>
 
           {/* PRO — $49 — primary CTA */}
-          <div className="relative flex flex-col bg-white dark:bg-gray-800 rounded-2xl border-2 border-violet-500 dark:border-violet-400 shadow-xl shadow-violet-500/20 p-6 sm:p-8 min-h-[420px] lg:scale-[1.03] z-10 hover:shadow-2xl hover:shadow-violet-500/25 transition-all duration-200">
-            <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-violet-600 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-sm whitespace-nowrap">
+          <div className="relative flex flex-col bg-white dark:bg-gray-800 rounded-2xl border-2 border-violet-500 dark:border-violet-400 shadow-card-elevated shadow-violet-500/20 p-6 sm:p-8 min-h-[420px] lg:scale-[1.03] z-10 hover:shadow-card-elevated hover:shadow-violet-500/25 transition-motion">
+            <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-violet-600 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-card whitespace-nowrap">
               Most Popular
             </span>
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mt-1">Pro</h3>
@@ -210,7 +210,7 @@ export default function Pricing() {
             <div className="mt-6 space-y-1">
               <button
                 onClick={() => handleSubscribe('pro', false)}
-                className="w-full py-3.5 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold text-sm shadow-lg shadow-primary/25 transition-all duration-200"
+                className="w-full py-3.5 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold text-sm shadow-card-elevated shadow-primary/25 transition-motion"
               >
                 Choose Pro
               </button>
@@ -224,7 +224,7 @@ export default function Pricing() {
           </div>
 
           {/* AGENCY — $129 */}
-          <div className="flex flex-col bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-600 shadow-md p-6 sm:p-8 min-h-[420px] hover:shadow-xl hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-200">
+          <div className="flex flex-col bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-600 shadow-card p-6 sm:p-8 min-h-[420px] hover:shadow-card-elevated hover:border-gray-300 dark:hover:border-gray-500 transition-motion">
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Agency</h3>
             <div className="mt-2 flex items-baseline gap-1">
               <span className="text-2xl font-bold text-gray-900 dark:text-white">$129</span>
@@ -264,7 +264,7 @@ export default function Pricing() {
       {/* Email prompt modal — shown when user clicks a plan */}
       {emailPrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="email-prompt-title">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-sm w-full p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-card-elevated max-w-sm w-full p-6">
             <h2 id="email-prompt-title" className="text-lg font-semibold text-gray-900 dark:text-white">Enter your email</h2>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
               We’ll send a verification code to this email so you can manage your plan and get receipts.
@@ -304,7 +304,7 @@ export default function Pricing() {
       {/* OTP verification modal for subscription */}
       {otpModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="otp-title">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-sm w-full p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-card-elevated max-w-sm w-full p-6">
             <h2 id="otp-title" className="text-lg font-semibold text-gray-900 dark:text-white">Verify your email</h2>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
               We’ll send a 6-digit code to <strong>{otpModal.email}</strong> so you can manage your plan and get receipts.

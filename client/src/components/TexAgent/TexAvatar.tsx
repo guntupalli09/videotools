@@ -78,7 +78,7 @@ export default function TexAvatar({ size = 'md', className = '', pose = 'default
           d="M 24 28 Q 32 34 40 28"
           stroke="white"
           strokeOpacity={0.9}
-          strokeWidth="2"
+          strokeWidth="1.5"
           fill="none"
           strokeLinecap="round"
         />
@@ -87,7 +87,7 @@ export default function TexAvatar({ size = 'md', className = '', pose = 'default
           <path
             d="M 48 18 L 52 14 L 52 22 L 48 18"
             stroke={isOnDark ? 'currentColor' : 'url(#tex-violet-grad)'}
-            strokeWidth="2"
+            strokeWidth="1.5"
             fill="none"
             strokeLinecap="round"
             strokeLinejoin="round"

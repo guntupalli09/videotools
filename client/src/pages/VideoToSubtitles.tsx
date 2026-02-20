@@ -84,6 +84,9 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
   const activeUploadPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const jobStartedTrackedRef = useRef<string | null>(null)
   const processingStartedAtRef = useRef<number | null>(null)
+  const terminalRef = useRef(false)
+  const lastPartialVersionRef = useRef(0)
+  const [partialSegments, setPartialSegments] = useState<{ start: number; end: number; text: string }[]>([])
   const [freeExportsUsed, setFreeExportsUsed] = useState(0)
   /** Set on job_completed for "Processed in XX.Xs" badge (UI only). */
   const [lastProcessingMs, setLastProcessingMs] = useState<number | null>(null)
@@ -146,12 +149,15 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
     const jobId = getPersistedJobId(pathname)
     if (!jobId) return
 
+    terminalRef.current = false
+    lastPartialVersionRef.current = 0
     setStatus('processing')
     setUploadPhase('processing')
     setUploadProgress(100)
     setCurrentJobId(jobId)
     setIsRehydrating(true)
     setProcessingStartedAt(Date.now())
+    setPartialSegments([])
 
     const jobToken = getPersistedJobToken(pathname)
     let cancelled = false
@@ -165,6 +171,8 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
 
         const transition = getJobLifecycleTransition(jobStatus)
         if (transition === 'completed') {
+          terminalRef.current = true
+          setPartialSegments([])
           setStatus('completed')
           setResult(jobStatus.result ?? null)
           setUploadPhase('processing')
@@ -191,11 +199,17 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           return
         }
         if (transition === 'failed') {
+          terminalRef.current = true
+          setPartialSegments([])
           setIsRehydrating(false)
           setStatus('failed')
           toast.error('Processing failed. Please try again.')
           clearPersistedJobId(pathname, navigate)
           return
+        }
+        if (jobStatus.status === 'processing' && jobStatus.partialVersion != null && jobStatus.partialVersion > lastPartialVersionRef.current) {
+          lastPartialVersionRef.current = jobStatus.partialVersion
+          if (jobStatus.partialSegments?.length) setPartialSegments(jobStatus.partialSegments)
         }
         setStatus('processing')
         setUploadPhase('processing')
@@ -203,12 +217,16 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
         const doPoll = async () => {
           if (cancelled) return
           try {
+            if (terminalRef.current) return
             const s = await getJobStatus(jobId, jobToken ? { jobToken } : undefined)
             if (cancelled) return
+            if (terminalRef.current) return
             setProgress(s.progress ?? 0)
             if (s.queuePosition !== undefined) setQueuePosition(s.queuePosition)
             const t = getJobLifecycleTransition(s)
             if (t === 'completed') {
+              terminalRef.current = true
+              setPartialSegments([])
               if (rehydratePollRef.current) clearInterval(rehydratePollRef.current)
               rehydratePollRef.current = null
               setStatus('completed')
@@ -223,18 +241,26 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                     const lines = text.split('\n\n').slice(0, 10)
                     setSubtitlePreview(lines.join('\n\n'))
                     setSubtitleRows(parseSubtitlesToRows(text))
+                  } else {
+                    setSubtitlePreview('')
+                    setSubtitleRows([])
                   }
                 } catch {
                   // ignore
                 }
               }
             } else if (t === 'failed') {
+              terminalRef.current = true
+              setPartialSegments([])
               if (rehydratePollRef.current) clearInterval(rehydratePollRef.current)
               rehydratePollRef.current = null
               setIsRehydrating(false)
               setStatus('failed')
               toast.error('Processing failed. Please try again.')
               clearPersistedJobId(pathname, navigate)
+            } else if (s.status === 'processing' && s.partialVersion != null && s.partialVersion > lastPartialVersionRef.current) {
+              lastPartialVersionRef.current = s.partialVersion
+              if (s.partialSegments?.length) setPartialSegments(s.partialSegments)
             }
           } catch (err) {
             if (err instanceof SessionExpiredError) {
@@ -248,6 +274,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               setUploadProgress(0)
               setProgress(0)
               setResult(null)
+              setPartialSegments([])
               toast.error(err.message)
             }
           }
@@ -265,6 +292,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           setUploadProgress(0)
           setProgress(0)
           setResult(null)
+          setPartialSegments([])
           toast.error(err.message)
         }
       }
@@ -330,7 +358,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
       setUploadPhase('preparing')
       setUploadProgress(0)
       setProgress(0)
-      toast('Cancelled. You can upload a new file — the previous job may still complete in the background.', { icon: 'ℹ️', duration: 5000 })
+      toast('Cancelled. You can upload a new file; the previous job may still complete in the background.', { icon: 'ℹ️', duration: 5000 })
     }
   }
 
@@ -470,6 +498,9 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
       persistJobId(location.pathname, response.jobId, response.jobToken)
       setUploadPhase('processing')
       setUploadProgress(100)
+      terminalRef.current = false
+      lastPartialVersionRef.current = 0
+      setPartialSegments([])
       const startedAt = Date.now()
       setProcessingStartedAt(startedAt)
       processingStartedAtRef.current = startedAt
@@ -478,7 +509,9 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
       const jobToken = response.jobToken
       const doPoll = async () => {
         try {
+          if (terminalRef.current) return
           const jobStatus = await getJobStatus(response.jobId, jobToken ? { jobToken } : undefined)
+          if (terminalRef.current) return
           setProgress(jobStatus.progress ?? 0)
           if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
 
@@ -493,6 +526,8 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
 
           const transition = getJobLifecycleTransition(jobStatus)
           if (transition === 'completed') {
+            terminalRef.current = true
+            setPartialSegments([])
             if (activeUploadPollRef.current) {
               clearInterval(activeUploadPollRef.current)
               activeUploadPollRef.current = null
@@ -537,6 +572,8 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               // non-blocking
             }
           } else if (transition === 'failed') {
+            terminalRef.current = true
+            setPartialSegments([])
             if (activeUploadPollRef.current) {
               clearInterval(activeUploadPollRef.current)
               activeUploadPollRef.current = null
@@ -552,6 +589,11 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             setStatus('failed')
             texJobFailed(msg)
             toast.error('Processing failed. Please try again.')
+          } else if (jobStatus.status === 'processing' && jobStatus.partialVersion != null && jobStatus.partialVersion > lastPartialVersionRef.current) {
+            lastPartialVersionRef.current = jobStatus.partialVersion
+            if (jobStatus.partialSegments?.length) {
+              setPartialSegments(jobStatus.partialSegments)
+            }
           }
         } catch (error: any) {
           // Network/parse errors: do not set failed; keep polling.
@@ -591,6 +633,8 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
     setFilePreview(null)
     setCurrentJobId(null)
     uploadAbortRef.current = null
+    terminalRef.current = false
+    lastPartialVersionRef.current = 0
     setTrimStart(null)
     setTrimEnd(null)
     setAdditionalLanguages([])
@@ -601,6 +645,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
     setResult(null)
     setSubtitlePreview('')
     setSubtitleRows([])
+    setPartialSegments([])
     setTranslationLanguage(null)
     setTranslatedCache({})
   }
@@ -720,11 +765,11 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           <div className="mb-4">
             <PlanBadge />
           </div>
-          <div className="bg-violet-100/80 rounded-2xl p-4 w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-sm">
-            <MessageSquare className="h-8 w-8 text-violet-600" />
+          <div className="bg-violet-100/80 rounded-2xl p-4 w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-card">
+            <MessageSquare className="h-8 w-8 text-violet-600" strokeWidth={1.5} />
           </div>
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">{seoH1 ?? 'Video → Subtitles'}</h1>
-          <p className="text-lg text-gray-600 mb-6">
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-6">{seoH1 ?? 'Video → Subtitles'}</h1>
+          <p className="text-lg font-normal text-gray-600 dark:text-gray-400 leading-relaxed mb-6 max-w-prose mx-auto">
             {seoIntro ?? 'Generate SRT and VTT subtitle files instantly'}
           </p>
           <UsageCounter refreshTrigger={status} />
@@ -857,10 +902,10 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             )}
             {connectionSpeed === 'slow' && uploadPhase === 'uploading' && (
               <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-4 inline-block" role="status">
-                Slow connection detected — optimizing upload
+                Slow connection detected; optimizing upload
               </p>
             )}
-            <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
+            <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" strokeWidth={1.5} />
             <p className="text-base sm:text-lg font-medium text-gray-800 mb-4 break-words">
               {isRehydrating && 'Resuming…'}
               {!isRehydrating && uploadPhase === 'preparing' && 'Preparing audio…'}
@@ -884,11 +929,26 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             <p className="text-sm text-gray-500 mt-4">
               {uploadPhase === 'uploading' ? 'Large files may take a minute.' : 'Estimated time: 30-60 seconds'}
             </p>
+            {uploadPhase === 'processing' && partialSegments.length > 0 && (
+              <div className="mt-6 text-left max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-white/80 p-4">
+                <p className="text-sm font-medium text-gray-600 mb-2">Live subtitles</p>
+                {partialSegments.length >= 2000 && (
+                  <p className="text-xs text-gray-500 mb-2">Live preview limited for very long videos. Final subtitles will include full content.</p>
+                )}
+                <div className="space-y-1">
+                  {partialSegments.map((seg) => (
+                    <div key={`${seg.start}-${seg.end}`} className="text-sm text-gray-800">
+                      {seg.text}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {(uploadPhase === 'preparing' || uploadPhase === 'uploading' || (uploadPhase === 'processing' && currentJobId)) && (
               <button
                 type="button"
                 onClick={handleCancelUpload}
-                className="mt-4 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                className="mt-4 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-motion"
               >
                 Cancel
               </button>
@@ -941,7 +1001,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             </div>
 
             {subtitleRows.length > 0 && (
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <div className="bg-white rounded-2xl p-6 shadow-card">
                 <Suspense fallback={null}>
                   <SubtitleEditor
                     entries={subtitleRows}
@@ -977,9 +1037,9 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             )}
 
             {subtitleTextForTranslation && (
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <div className="bg-white rounded-2xl p-6 shadow-card">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                  <Languages className="h-5 w-5 text-violet-600" />
+                  <Languages className="h-5 w-5 text-violet-600" strokeWidth={1.5} />
                   View in another language
                 </h3>
                 <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -990,14 +1050,14 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                       disabled={translating || !subtitleTextForTranslation.trim()}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Languages className="h-4 w-4" />
+                      <Languages className="h-4 w-4" strokeWidth={1.5} />
                       <span>{translationLanguage ?? 'Translate'}</span>
                       <ChevronDown className="h-4 w-4" />
                     </button>
                     {translateDropdownOpen && (
                       <>
                         <div className="fixed inset-0 z-10" aria-hidden onClick={() => setTranslateDropdownOpen(false)} />
-                        <div className="absolute left-0 top-full mt-1 py-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                        <div className="absolute left-0 top-full mt-1 py-1 w-48 bg-white border border-gray-200 rounded-lg shadow-card-elevated z-20">
                           <button
                             type="button"
                             onClick={() => handleTranslateLanguage('Original')}
@@ -1025,25 +1085,25 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                     onClick={handleCopySubtitlesToClipboard}
                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-violet-600 hover:bg-violet-50"
                   >
-                    <Copy className="h-4 w-4" />
+                    <Copy className="h-4 w-4" strokeWidth={1.5} />
                     Copy
                   </button>
                 </div>
                 {translating ? (
                   <div className="flex flex-col items-center justify-center py-8 text-gray-500">
-                    <Loader2 className="h-8 w-8 animate-spin text-violet-600 mb-2" />
+                    <Loader2 className="h-8 w-8 animate-spin text-violet-600 mb-2" strokeWidth={1.5} />
                     <p className="text-sm">Translating subtitles…</p>
                   </div>
                 ) : (
                   <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{displaySubtitleText || '—'}</p>
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{displaySubtitleText || '-'}</p>
                   </div>
                 )}
               </div>
             )}
 
             {result.warnings && result.warnings.length > 0 && (
-              <div className="bg-amber-50/80 rounded-2xl p-6 shadow-sm border border-amber-100">
+              <div className="bg-amber-50/80 rounded-2xl p-6 shadow-card border border-amber-100">
                 <h3 className="text-lg font-semibold text-amber-800 mb-2">Validation (informational)</h3>
                 <p className="text-sm text-amber-900 mb-2">Some lines may need attention. Not blocking.</p>
                 <ul className="text-sm text-amber-900 space-y-1">
@@ -1056,7 +1116,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             )}
 
             {subtitlePreview && (
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <div className="bg-white rounded-2xl p-6 shadow-card">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Preview (first 10 entries)</h3>
                 <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
                   <pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono">{subtitlePreview}</pre>
@@ -1065,9 +1125,9 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             )}
 
             {/* Phase 1B — UTILITY 2B: Convert format. Derived from subtitle files; free: preview 30 lines, paid: full download. */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm">
+            <div className="bg-white rounded-2xl p-6 shadow-card">
               <h3 className="text-lg font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                <FileDown className="h-5 w-5 text-violet-600" />
+                <FileDown className="h-5 w-5 text-violet-600" strokeWidth={1.5} />
                 Convert format
               </h3>
               <p className="text-sm text-gray-600 mb-4">Download subtitles in another format (SRT, VTT, or plain text).</p>

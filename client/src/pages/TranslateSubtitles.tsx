@@ -219,11 +219,11 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
             <div className="bg-violet-100 dark:bg-violet-900/40 rounded-xl p-2.5 w-12 h-12 flex items-center justify-center shrink-0">
-              <Languages className="h-6 w-6 text-violet-600 dark:text-violet-400" />
+              <Languages className="h-6 w-6 text-violet-600 dark:text-violet-400" strokeWidth={1.5} />
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{seoH1 ?? 'Translate Subtitles'}</h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400">{seoIntro ?? 'Convert SRT/VTT to Arabic, Hindi, and more'}</p>
+              <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">{seoH1 ?? 'Translate Subtitles'}</h1>
+              <p className="text-sm font-normal text-gray-600 dark:text-gray-400 leading-relaxed">{seoIntro ?? 'Convert SRT/VTT to Arabic, Hindi, and more'}</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -311,8 +311,8 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
 
         {status === 'processing' && (
           <div className="surface-card p-8 mb-6 text-center">
-            <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
-            <p className="text-lg font-medium text-gray-800 mb-4">Translating subtitles...</p>
+            <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" strokeWidth={1.5} />
+            <p className="text-lg font-medium text-gray-800 mb-4 break-words">Translating subtitles...</p>
             <ProgressBar
               progress={progress}
               status="Translating text while preserving timestamps"
@@ -370,7 +370,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
             </div>
 
             {result.consistencyIssues && result.consistencyIssues.length > 0 && (
-              <div className="bg-amber-50 rounded-2xl p-6 shadow-sm border border-amber-100">
+              <div className="bg-amber-50 rounded-2xl p-6 shadow-card border border-amber-100">
                 <p className="text-amber-800 font-medium mb-2">Some lines may not be translated.</p>
                 <p className="text-sm text-amber-900 mb-2">Non-blocking: review lines below if needed.</p>
                 <ul className="text-sm text-amber-900 space-y-1">

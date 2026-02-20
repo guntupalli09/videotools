@@ -196,10 +196,10 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
             <PlanBadge />
           </div>
           <div className="bg-violet-100 rounded-xl p-4 w-16 h-16 flex items-center justify-center mx-auto mb-4">
-            <Minimize2 className="h-8 w-8 text-violet-600" />
+            <Minimize2 className="h-8 w-8 text-violet-600" strokeWidth={1.5} />
           </div>
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">{seoH1 ?? 'Compress Video'}</h1>
-          <p className="text-lg text-gray-600 mb-6">
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-6">{seoH1 ?? 'Compress Video'}</h1>
+          <p className="text-lg font-normal text-gray-600 dark:text-gray-400 leading-relaxed mb-6 max-w-prose mx-auto">
             {seoIntro ?? 'Reduce file size while keeping quality high'}
           </p>
           <UsageCounter refreshTrigger={status} />
@@ -207,7 +207,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
         </div>
 
         {status === 'idle' && (
-          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6">
+          <div className="bg-white rounded-2xl p-8 shadow-card mb-6">
             {/* Phase 1B: Profile (Web / Mobile / Archive) or legacy level */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-3">Profile (recommended)</label>
@@ -333,9 +333,9 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
         )}
 
         {status === 'processing' && (
-          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
-            <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
-            <p className="text-lg font-medium text-gray-800 mb-4">Compressing video...</p>
+          <div className="bg-white rounded-2xl p-8 shadow-card mb-6 text-center">
+            <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" strokeWidth={1.5} />
+            <p className="text-lg font-medium text-gray-800 mb-4 break-words">Compressing video...</p>
             <ProgressBar
               progress={progress}
               status="Reducing file size while preserving quality"

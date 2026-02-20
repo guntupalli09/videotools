@@ -83,8 +83,8 @@ export default function TexAgent() {
         type="button"
         onClick={open ? undefined : handleOpen}
         onKeyDown={(e) => e.key === 'Enter' && !open && handleOpen()}
-        className="fixed bottom-6 right-6 z-[55] flex items-center justify-center w-14 h-14 rounded-full bg-violet-600 hover:bg-violet-700 text-white shadow-lg hover:shadow-xl transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900"
-        aria-label="Open Tex — VideoText guide"
+        className="fixed bottom-6 right-6 z-[55] flex items-center justify-center w-14 h-14 rounded-full bg-violet-600 hover:bg-violet-700 text-white shadow-card-elevated transition-motion focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900"
+        aria-label="Open Tex, VideoText guide"
         initial={false}
         animate={{
           scale: open ? 0.9 : 1,
