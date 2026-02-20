@@ -65,9 +65,10 @@ interface Message {
 interface TexAgentPanelProps {
   onClose: () => void
   isDark?: boolean
+  isOpen?: boolean
 }
 
-export default function TexAgentPanel({ onClose }: TexAgentPanelProps) {
+export default function TexAgentPanel({ onClose, isOpen = true }: TexAgentPanelProps) {
   const { pathname } = useLocation()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -87,6 +88,16 @@ export default function TexAgentPanel({ onClose }: TexAgentPanelProps) {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, isTyping])
+
+  // When panel opens, scroll to bottom so user sees latest messages (completion + feedback)
+  useEffect(() => {
+    if (isOpen) {
+      const t = requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({ top: scrollRef.current?.scrollHeight ?? 0, behavior: 'smooth' })
+      })
+      return () => cancelAnimationFrame(t)
+    }
+  }, [isOpen])
 
   // Plan awareness — read-only, non-blocking
   useEffect(() => {
@@ -275,8 +286,8 @@ export default function TexAgentPanel({ onClose }: TexAgentPanelProps) {
       className="flex flex-col h-full min-h-0 bg-white dark:bg-gray-800 rounded-l-2xl overflow-hidden"
     >
       {/* Header */}
-      <div className="flex items-center justify-between shrink-0 px-4 py-3 border-b border-gray-100 dark:border-gray-600 bg-violet-50 dark:bg-violet-900/20">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between shrink-0 px-3 py-2 border-b border-gray-100 dark:border-gray-600 bg-violet-50 dark:bg-violet-900/20">
+        <div className="flex items-center gap-2">
           <TexAvatar size="md" pose="wave" />
           <div>
             <p className="font-semibold text-gray-900 dark:text-white">Tex</p>
@@ -293,8 +304,8 @@ export default function TexAgentPanel({ onClose }: TexAgentPanelProps) {
         </button>
       </div>
 
-      {/* Messages + suggestions */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 min-h-0">
+      {/* Messages + suggestions — min height so conversation is always visible */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-3 min-h-[140px]">
         {messages.map((msg, i) => (
           <div
             key={i}
@@ -392,16 +403,16 @@ export default function TexAgentPanel({ onClose }: TexAgentPanelProps) {
           </div>
         )}
 
-        {/* Suggested questions */}
-        <div className="pt-2">
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Suggested questions</p>
-          <div className="flex flex-wrap gap-2">
+        {/* Suggested questions — compact so messages stay in view */}
+        <div className="pt-1">
+          <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Suggestions</p>
+          <div className="flex flex-wrap gap-1">
             {TEX_SUGGESTIONS.map((s) => (
               <button
                 key={s.entryId}
                 type="button"
                 onClick={() => handleSuggestionClick(s.entryId)}
-                className="text-left text-xs px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-violet-100 dark:hover:bg-violet-900/30 hover:text-violet-700 dark:hover:text-violet-300 border border-transparent hover:border-violet-200 dark:hover:border-violet-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                className="text-left text-[10px] px-2 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-violet-100 dark:hover:bg-violet-900/30 hover:text-violet-700 dark:hover:text-violet-300 border border-transparent hover:border-violet-200 dark:hover:border-violet-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
               >
                 {s.label}
               </button>
@@ -411,7 +422,7 @@ export default function TexAgentPanel({ onClose }: TexAgentPanelProps) {
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="shrink-0 p-4 border-t border-gray-100 dark:border-gray-600">
+      <form onSubmit={handleSubmit} className="shrink-0 p-3 border-t border-gray-100 dark:border-gray-600">
         <div className="flex gap-2">
           <input
             type="text"
