@@ -288,7 +288,7 @@ export default function TexAgentPanel({ onClose, isOpen = true }: TexAgentPanelP
       {/* Header */}
       <div className="flex items-center justify-between shrink-0 px-2 py-1.5 border-b border-gray-100 dark:border-gray-600 bg-violet-50 dark:bg-violet-900/20">
         <div className="flex items-center gap-1.5">
-          <TexAvatar size="md" pose="wave" />
+          <TexAvatar size="sm" pose="wave" />
           <div>
             <p className="text-xs font-semibold text-gray-900 dark:text-white">Tex</p>
             <p className="text-[10px] text-gray-500 dark:text-gray-400">VideoText guide · Here to help</p>
@@ -305,15 +305,15 @@ export default function TexAgentPanel({ onClose, isOpen = true }: TexAgentPanelP
       </div>
 
       {/* Messages + suggestions — compact so all fits without scrolling */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden p-2.5 space-y-2 min-h-0">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-1.5 min-h-0">
         {messages.map((msg, i) => (
           <div
             key={i}
-            className={`flex gap-2 ${msg.type === 'user' ? 'justify-end' : ''}`}
+            className={`flex gap-1.5 ${msg.type === 'user' ? 'justify-end' : ''}`}
           >
             {msg.type === 'tex' && <TexAvatar size="sm" className="shrink-0 mt-0.5" />}
             <div
-              className={`max-w-[85%] rounded-xl px-3 py-2 ${
+              className={`max-w-[85%] rounded-lg px-2.5 py-1.5 ${
                 msg.type === 'user'
                   ? 'bg-violet-600 text-white'
                   : msg.contextual
@@ -321,7 +321,7 @@ export default function TexAgentPanel({ onClose, isOpen = true }: TexAgentPanelP
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
               }`}
             >
-              <p className="text-[11px] leading-snug whitespace-pre-wrap">{msg.text}</p>
+              <p className="text-[11px] leading-tight whitespace-pre-wrap">{msg.text}</p>
               {msg.entry?.link && (
                 <Link
                   to={msg.entry.link.path}
@@ -347,28 +347,25 @@ export default function TexAgentPanel({ onClose, isOpen = true }: TexAgentPanelP
           </div>
         )}
 
-        {/* Feedback strip after job completion — compact single block */}
+        {/* Feedback strip — no duplicate "Helps us improve" (already in completion message above) */}
         {showFeedbackStrip && (
-          <div className="flex gap-2">
+          <div className="flex gap-1.5">
             <TexAvatar size="sm" className="shrink-0 mt-0.5" />
-            <div className="rounded-xl px-3 py-2 bg-violet-100 dark:bg-violet-900/30 border border-violet-200 dark:border-violet-800 max-w-[85%] space-y-1.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] font-medium text-violet-900 dark:text-violet-100">Helps us improve!</span>
-                <div className="flex gap-0.5" role="group" aria-label="Star rating">
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => setFeedbackStars(n)}
-                      className="p-0.5 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
-                      aria-label={`${n} star${n === 1 ? '' : 's'}`}
-                    >
-                      <span className="text-sm leading-none">
-                        {feedbackStars != null && n <= feedbackStars ? '⭐' : '☆'}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+            <div className="rounded-lg px-2.5 py-1.5 bg-violet-100 dark:bg-violet-900/30 border border-violet-200 dark:border-violet-800 max-w-[85%] space-y-1">
+              <div className="flex gap-0.5" role="group" aria-label="Star rating">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setFeedbackStars(n)}
+                    className="p-0.5 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                    aria-label={`${n} star${n === 1 ? '' : 's'}`}
+                  >
+                    <span className="text-xs leading-none">
+                      {feedbackStars != null && n <= feedbackStars ? '⭐' : '☆'}
+                    </span>
+                  </button>
+                ))}
               </div>
               <form onSubmit={handleSendFeedback} className="flex flex-col gap-1">
                 <input
@@ -376,7 +373,7 @@ export default function TexAgentPanel({ onClose, isOpen = true }: TexAgentPanelP
                   value={feedbackComment}
                   onChange={(e) => setFeedbackComment(e.target.value.slice(0, 500))}
                   placeholder="Comment (optional)"
-                  className="rounded border border-violet-200 dark:border-violet-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-[11px] px-2 py-1.5 placeholder:text-gray-400 focus:ring-1 focus:ring-violet-500 focus:outline-none"
+                  className="rounded border border-violet-200 dark:border-violet-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-[10px] px-2 py-1 placeholder:text-gray-400 focus:ring-1 focus:ring-violet-500 focus:outline-none"
                   maxLength={500}
                   aria-label="Share your experience"
                 />
@@ -386,7 +383,7 @@ export default function TexAgentPanel({ onClose, isOpen = true }: TexAgentPanelP
                     value={feedbackNameOrEmail}
                     onChange={(e) => setFeedbackNameOrEmail(e.target.value.slice(0, 500))}
                     placeholder="Name or email (optional)"
-                    className="rounded border border-violet-200 dark:border-violet-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-[11px] px-2 py-1.5 placeholder:text-gray-400 focus:ring-1 focus:ring-violet-500 focus:outline-none"
+                    className="rounded border border-violet-200 dark:border-violet-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-[10px] px-2 py-1 placeholder:text-gray-400 focus:ring-1 focus:ring-violet-500 focus:outline-none"
                     maxLength={500}
                     aria-label="Name or email"
                   />
@@ -394,7 +391,7 @@ export default function TexAgentPanel({ onClose, isOpen = true }: TexAgentPanelP
                 <button
                   type="submit"
                   disabled={feedbackSending}
-                  className="self-start text-[11px] font-medium text-violet-700 dark:text-violet-300 hover:text-violet-800 dark:hover:text-violet-200 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 rounded px-2 py-0.5"
+                  className="self-start text-[10px] font-medium text-violet-700 dark:text-violet-300 hover:text-violet-800 dark:hover:text-violet-200 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 rounded px-1.5 py-0.5"
                 >
                   {feedbackSending ? 'Sending…' : 'Send feedback'}
                 </button>
@@ -411,7 +408,7 @@ export default function TexAgentPanel({ onClose, isOpen = true }: TexAgentPanelP
                 key={s.entryId}
                 type="button"
                 onClick={() => handleSuggestionClick(s.entryId)}
-                className="text-left text-[10px] px-2 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-violet-100 dark:hover:bg-violet-900/30 hover:text-violet-700 dark:hover:text-violet-300 border border-transparent hover:border-violet-200 dark:hover:border-violet-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                className="text-left text-[9px] px-1.5 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-violet-100 dark:hover:bg-violet-900/30 hover:text-violet-700 dark:hover:text-violet-300 border border-transparent hover:border-violet-200 dark:hover:border-violet-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
               >
                 {s.label}
               </button>
@@ -420,24 +417,24 @@ export default function TexAgentPanel({ onClose, isOpen = true }: TexAgentPanelP
         </div>
       </div>
 
-      {/* Input */}
-      <form onSubmit={handleSubmit} className="shrink-0 p-2 border-t border-gray-100 dark:border-gray-600">
-        <div className="flex gap-1.5">
+      {/* Input — compact */}
+      <form onSubmit={handleSubmit} className="shrink-0 p-1.5 border-t border-gray-100 dark:border-gray-600">
+        <div className="flex gap-1">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask about tools, plans, or issues..."
-            className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder:text-gray-400 px-3 py-2 text-xs focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none"
+            className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder:text-gray-400 px-2 py-1.5 text-[11px] focus:ring-1 focus:ring-violet-500 focus:border-violet-500 focus:outline-none"
             aria-label="Ask Tex a question"
           />
           <button
             type="submit"
             disabled={!input.trim()}
-            className="p-2 rounded-lg bg-violet-600 hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+            className="p-1.5 rounded-md bg-violet-600 hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
             aria-label="Send"
           >
-            <Send className="w-5 h-5" />
+            <Send className="w-4 h-4" />
           </button>
         </div>
       </form>

@@ -110,8 +110,8 @@ export default function TexAgent() {
         className="fixed right-0 bottom-0 z-[55] flex flex-col shadow-2xl overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-t-2xl rounded-l-2xl border-b-0 border-r-0"
         style={{
           width: isDesktop ? 'min(380px, 88vw)' : 'min(300px, 82vw)',
-          height: '65vh',
-          maxHeight: '560px',
+          height: '75vh',
+          maxHeight: '640px',
           pointerEvents: open ? 'auto' : 'none',
         }}
         aria-hidden={!open}
