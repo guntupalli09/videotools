@@ -272,7 +272,7 @@ export default function TexAgentPanel({ onClose }: TexAgentPanelProps) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
       transition={{ duration: 0.2 }}
-      className="flex flex-col h-full bg-white dark:bg-gray-800 rounded-t-2xl shadow-2xl border border-gray-200 dark:border-gray-600 overflow-hidden"
+      className="flex flex-col h-full min-h-0 bg-white dark:bg-gray-800 rounded-l-2xl overflow-hidden"
     >
       {/* Header */}
       <div className="flex items-center justify-between shrink-0 px-4 py-3 border-b border-gray-100 dark:border-gray-600 bg-violet-50 dark:bg-violet-900/20">

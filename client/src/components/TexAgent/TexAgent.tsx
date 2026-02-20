@@ -6,12 +6,22 @@ import TexAvatar from './TexAvatar'
 import TexAgentPanel from './TexAgentPanel'
 
 const TEX_FAB_STORAGE_KEY = 'videotext-tex-seen'
+const MOBILE_BREAKPOINT = 768
 
 export default function TexAgent() {
   const [open, setOpen] = useState(false)
   const [showPulse, setShowPulse] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(true)
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+
+  useEffect(() => {
+    const mq = window.matchMedia(`(min-width: ${MOBILE_BREAKPOINT}px)`)
+    const update = () => setIsDesktop(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
 
   useEffect(() => {
     try {
@@ -85,11 +95,28 @@ export default function TexAgent() {
               aria-hidden
             />
             <motion.div
-              initial={{ opacity: 0, x: '100%' }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: '100%' }}
+              initial={
+                isDesktop
+                  ? { opacity: 0, x: '100%' }
+                  : { opacity: 0, y: '100%' }
+              }
+              animate={{ opacity: 1, x: 0, y: 0 }}
+              exit={
+                isDesktop
+                  ? { opacity: 0, x: '100%' }
+                  : { opacity: 0, y: '100%' }
+              }
               transition={{ type: 'tween', duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
-              className="fixed top-0 right-0 bottom-0 z-[55] w-full max-w-md flex flex-col shadow-2xl pointer-events-auto rounded-l-2xl overflow-hidden border-l border-gray-200 dark:border-gray-600"
+              className={`fixed z-[55] flex flex-col shadow-2xl pointer-events-auto overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 ${isDesktop ? 'top-0 right-0 bottom-0 rounded-l-2xl border-t-0 border-b-0 border-r-0' : 'right-0 bottom-0 rounded-t-2xl border-l-0 border-r-0 border-b-0'}`}
+              style={
+                isDesktop
+                  ? { width: 'min(380px, 88vw)' }
+                  : {
+                      width: 'min(300px, 82vw)',
+                      height: '52vh',
+                      maxHeight: '420px',
+                    }
+              }
             >
               <TexAgentPanel onClose={() => setOpen(false)} isDark={isDark} />
             </motion.div>
