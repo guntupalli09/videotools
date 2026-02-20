@@ -19,26 +19,80 @@
 }
 
 @layer components {
-  /* Shared card surface: clean, subtle shadow, consistent radius */
+  /* Motion: 200–250ms, cubic-bezier(0.4, 0, 0.2, 1) — shared for transitions */
+  .transition-motion {
+    transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+    transition-duration: 200ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .transition-motion-250 {
+    transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+    transition-duration: 250ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Shared card surface: spacing/depth over borders; subtle border only where needed */
   .surface-card {
-    @apply bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-card transition-shadow duration-250 ease-smooth;
+    @apply bg-white dark:bg-gray-800 rounded-2xl shadow-card;
+    border: 1px solid rgb(243 244 246 / 0.8);
+    transition: box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1);
   }
+  html.dark .surface-card {
+    border-color: rgb(55 65 81 / 0.6);
+  }
+  /* Elevated container: shadow only, no visible border */
+  .surface-card-elevated {
+    @apply bg-white dark:bg-gray-800 rounded-2xl shadow-card-elevated;
+    transition: box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  /* Primary cards: hover lift -1px, no bounce */
   .surface-card-hover {
-    @apply surface-card hover:shadow-card-hover hover:border-gray-200 dark:hover:border-gray-600;
+    @apply surface-card;
+    transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1);
   }
-  /* Primary action button: one consistent style across the app */
+  .surface-card-hover:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.04);
+  }
+
+  /* Buttons: same height (h-11), radius (rounded-xl), active press +1px */
   .btn-primary {
-    @apply inline-flex items-center justify-center font-medium rounded-xl px-5 py-2.5 bg-primary hover:bg-primary-hover text-white shadow-sm hover:shadow-card transition-all duration-200 ease-smooth focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
+    @apply inline-flex items-center justify-center font-medium h-11 rounded-xl px-5 bg-primary hover:bg-primary-hover text-white shadow-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
+    transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1), background-color 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .btn-primary:hover {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+  }
+  .btn-primary:active {
+    transform: translateY(1px);
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center font-medium rounded-xl px-5 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600 transition-all duration-200 ease-smooth focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
+    @apply inline-flex items-center justify-center font-medium h-11 rounded-xl px-5 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
+    transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1), background-color 200ms cubic-bezier(0.4, 0, 0.2, 1), border-color 200ms cubic-bezier(0.4, 0, 0.2, 1);
   }
+  .btn-secondary:active {
+    transform: translateY(1px);
+  }
+
   /* Page section heading for tool pages */
   .page-heading {
     @apply font-display font-semibold text-gray-900 dark:text-white tracking-tight;
   }
 
-  /* Tex avatar: breathing + blink (minimal, no layout) */
+  /* Badges: rounded-full + small padding only */
+  .badge {
+    @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
+  }
+
+  /* Secondary text links: subtle hover (200ms), no color jump */
+  .link-secondary {
+    @apply transition-motion;
+  }
+  .link-secondary:hover {
+    opacity: 0.85;
+  }
+
+  /* Tex avatar: breathing + blink (exception: >300ms allowed) */
   .tex-avatar-breathing {
     animation: tex-breathe 3s ease-in-out infinite;
   }
@@ -54,6 +108,67 @@
 @keyframes tex-blink {
   0%, 45%, 55%, 100% { opacity: 1; }
   50% { opacity: 0.2; }
+}
+
+/* Success speed badge: one-time subtle glow (≤300ms) */
+.success-speed-badge {
+  animation: success-glow-pulse 0.25s cubic-bezier(0.4, 0, 0.2, 1) 1;
+}
+@keyframes success-glow-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.35); }
+  50% { box-shadow: 0 0 12px 4px rgba(124, 58, 237, 0.2); }
+  100% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0); }
+}
+
+/* Success container: one-time soft radial glow (≤300ms) */
+.success-container {
+  animation: success-container-glow 0.3s cubic-bezier(0.4, 0, 0.2, 1) 1;
+}
+@keyframes success-container-glow {
+  0% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0); }
+  40% { box-shadow: 0 0 40px 16px rgba(124, 58, 237, 0.08); }
+  100% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0); }
+}
+
+/* Processing block: subtle animated gradient background */
+.processing-gradient-bg {
+  background: linear-gradient(110deg, #f5f3ff 0%, #ede9fe 25%, #f5f3ff 50%, #ede9fe 75%, #f5f3ff 100%);
+  background-size: 200% 100%;
+  animation: processing-shimmer 8s ease-in-out infinite;
+}
+@keyframes processing-shimmer {
+  0%, 100% { background-position: 0% 0; }
+  50% { background-position: 100% 0; }
+}
+
+/* Route change: fade + translate (200ms, consistent easing) */
+.route-transition-enter {
+  animation: route-enter 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+@keyframes route-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Fade-in for badge/small insert (no height change, no CLS) */
+.animate-in-fade {
+  animation: animate-in-fade 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+@keyframes animate-in-fade {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Force user menu panel to be visible: solid opaque background */

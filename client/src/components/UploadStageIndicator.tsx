@@ -58,7 +58,7 @@ export default function UploadStageIndicator({
           <span key={key} className="flex items-center gap-1">
             <span
               className={`
-                inline-flex items-center justify-center min-w-[28px] h-7 px-2 rounded-full text-xs font-medium
+                badge inline-flex items-center justify-center min-w-[28px] h-7 px-2
                 ${isActive ? 'bg-violet-600 text-white ring-2 ring-violet-200' : ''}
                 ${isPast ? 'bg-violet-100 text-violet-700' : ''}
                 ${isFuture ? 'bg-gray-100 text-gray-400' : ''}

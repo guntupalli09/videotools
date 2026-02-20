@@ -233,7 +233,7 @@ export default function Home() {
               <Link
                 key={plan.name}
                 to="/pricing"
-                className={`rounded-xl p-5 text-left transition-all duration-200 ${
+                className={`rounded-xl p-6 text-left transition-motion ${
                   plan.popular
                     ? 'bg-white text-violet-900 shadow-xl ring-2 ring-white/50'
                     : 'bg-white/10 text-white hover:bg-white/20 backdrop-blur-sm'

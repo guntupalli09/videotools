@@ -19,6 +19,7 @@ import {
   type TexEventType,
 } from '../../tex'
 import { getCurrentUsage, submitFeedback } from '../../lib/api'
+import { isSuccessSoundEnabled, setSuccessSoundEnabled, playSuccessSound } from '../../lib/successSound'
 
 const TYPING_DELAY_MS = 500
 
@@ -80,6 +81,7 @@ export default function TexAgentPanel({ onClose, isOpen = true }: TexAgentPanelP
   const [feedbackComment, setFeedbackComment] = useState('')
   const [feedbackNameOrEmail, setFeedbackNameOrEmail] = useState('')
   const [feedbackSending, setFeedbackSending] = useState(false)
+  const [soundEnabled, setSoundEnabled] = useState(() => isSuccessSoundEnabled())
   const submittedFeedbackForToolIdRef = useRef<string | undefined>(undefined)
   const scrollRef = useRef<HTMLDivElement>(null)
   const showFeedbackStrip =
@@ -159,15 +161,21 @@ export default function TexAgentPanel({ onClose, isOpen = true }: TexAgentPanelP
     const unsub = subscribeTexEvents((type: TexEventType, payload: unknown) => {
       if (type === 'error') {
         const p = payload as { type: string; message?: string }
-        const help = p.type === 'job_failed'
-          ? "That run didn’t finish. Try again—if it keeps failing, check your file format and plan limits. I can explain limits if you ask."
-          : "Something went wrong. Try again or ask me about file formats and limits."
+        const help =
+          p.type === 'job_failed'
+            ? (p.message && p.message.trim() ? `${p.message} Try again or ask me about limits.` : "That run didn't finish. Try again—if it keeps failing, check your file format and plan limits. I can explain limits if you ask.")
+            : "Something went wrong. Try again or ask me about file formats and limits."
         setMessages((prev) => [...prev, { type: 'tex', text: help, contextual: true }])
         return
       }
       if (type === 'job_completed') {
         const p = payload as { durationMs: number; toolId?: string }
         setLastJobCompletedToolId(p.toolId)
+        try {
+          playSuccessSound()
+        } catch {
+          // non-blocking
+        }
         setMessages((prev) => [
           ...prev,
           { type: 'tex', text: buildJobCompletedMessage(p.durationMs, p.toolId), contextual: true },
@@ -415,6 +423,24 @@ export default function TexAgentPanel({ onClose, isOpen = true }: TexAgentPanelP
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Sound on success — optional, default OFF */}
+      <div className="shrink-0 px-1.5 py-0.5 border-t border-gray-100 dark:border-gray-600 flex items-center gap-1.5">
+        <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-gray-600 dark:text-gray-400">
+          <input
+            type="checkbox"
+            checked={soundEnabled}
+            onChange={(e) => {
+              const v = e.target.checked
+              setSoundEnabled(v)
+              setSuccessSoundEnabled(v)
+            }}
+            className="rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+            aria-label="Play sound when a job completes"
+          />
+          Sound on success
+        </label>
       </div>
 
       {/* Input — compact */}

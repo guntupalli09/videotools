@@ -4,20 +4,24 @@ import { MessageSquare, Loader2 } from 'lucide-react'
 import FileUploadZone from '../components/FileUploadZone'
 import FilePreviewCard from '../components/FilePreviewCard'
 import UploadStageIndicator from '../components/UploadStageIndicator'
+import ProcessingTimeBlock from '../components/ProcessingTimeBlock'
 import UsageCounter from '../components/UsageCounter'
 import PlanBadge from '../components/PlanBadge'
 import ProgressBar from '../components/ProgressBar'
 import SuccessState from '../components/SuccessState'
 import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
+import WorkflowChainSuggestion from '../components/WorkflowChainSuggestion'
 import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
+import UsageRemaining from '../components/UsageRemaining'
 const VideoTrimmer = lazy(() => import('../components/VideoTrimmer'))
 import LanguageSelector from '../components/LanguageSelector'
 import type { SubtitleRow } from '../components/SubtitleEditor'
 const SubtitleEditor = lazy(() => import('../components/SubtitleEditor'))
 import { incrementUsage } from '../lib/usage'
-import { uploadFile, uploadFileWithProgress, getJobStatus, getCurrentUsage, getConnectionProbeIfNeeded, BACKEND_TOOL_TYPES, SessionExpiredError, getUserFacingMessage, translateTranscript, TRANSCRIPT_TRANSLATION_LANGUAGES } from '../lib/api'
+import { uploadFile, uploadFileWithProgress, getJobStatus, getCurrentUsage, getConnectionProbeIfNeeded, BACKEND_TOOL_TYPES, SessionExpiredError, getUserFacingMessage, isNetworkError, translateTranscript, TRANSCRIPT_TRANSLATION_LANGUAGES } from '../lib/api'
+import { getFailureMessage } from '../lib/failureMessage'
 import { checkVideoPreflight } from '../lib/uploadPreflight'
 import { getFilePreview, type FilePreviewData } from '../lib/filePreview'
 import { extractAudioInBrowser, isAudioExtractionSupported } from '../lib/audioExtraction'
@@ -62,6 +66,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
   const [queuePosition, setQueuePosition] = useState<number | undefined>(undefined)
   const [isRehydrating, setIsRehydrating] = useState(false)
   const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null)
+  const [elapsedMs, setElapsedMs] = useState(0)
   const [filePreview, setFilePreview] = useState<FilePreviewData | null>(null)
   const [connectionSpeed, setConnectionSpeed] = useState<'fast' | 'medium' | 'slow' | undefined>(undefined)
   const [currentJobId, setCurrentJobId] = useState<string | null>(null)
@@ -80,6 +85,11 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
   const jobStartedTrackedRef = useRef<string | null>(null)
   const processingStartedAtRef = useRef<number | null>(null)
   const [freeExportsUsed, setFreeExportsUsed] = useState(0)
+  /** Set on job_completed for "Processed in XX.Xs" badge (UI only). */
+  const [lastProcessingMs, setLastProcessingMs] = useState<number | null>(null)
+  /** Set on job_completed for workflow chain suggestion (UI only). */
+  const [lastJobCompletedToolId, setLastJobCompletedToolId] = useState<string | null>(null)
+  const [failedMessage, setFailedMessage] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     setFreeExportsUsed(0)
@@ -111,6 +121,18 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
       cancelled = true
     }
   }, [selectedFile])
+
+  // Elapsed time ticker when processing (cleanup on unmount/complete/fail)
+  useEffect(() => {
+    if (status !== 'processing' || !processingStartedAt) {
+      setElapsedMs(0)
+      return
+    }
+    const tick = () => setElapsedMs(Date.now() - processingStartedAt)
+    tick()
+    const id = setInterval(tick, 500)
+    return () => clearInterval(id)
+  }, [status, processingStartedAt])
 
   // Reset translation when result changes (new job)
   useEffect(() => {
@@ -509,6 +531,8 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               })
               trackEvent('processing_completed', { tool: 'video-to-subtitles' })
               texJobCompleted(processingMs, 'video-to-subtitles')
+              setLastProcessingMs(processingMs)
+              setLastJobCompletedToolId('video-to-subtitles')
             } catch {
               // non-blocking
             }
@@ -517,8 +541,16 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               clearInterval(activeUploadPollRef.current)
               activeUploadPollRef.current = null
             }
+            const msg = getFailureMessage({
+              fileSizeBytes: selectedFile?.size,
+              mimeType: selectedFile?.type,
+              remainingMinutes: availableMinutes ?? undefined,
+              planQuotaMinutes: 60,
+              durationMinutes: filePreview?.durationSeconds != null ? filePreview.durationSeconds / 60 : undefined,
+            })
+            setFailedMessage(msg)
             setStatus('failed')
-            texJobFailed()
+            texJobFailed(msg)
             toast.error('Processing failed. Please try again.')
           }
         } catch (error: any) {
@@ -540,8 +572,14 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
         clearPersistedJobId(location.pathname, navigate)
         setStatus('idle')
       } else {
+        const msg = getFailureMessage({
+          fileSizeBytes: selectedFile?.size,
+          mimeType: selectedFile?.type,
+          isNetworkError: isNetworkError(error),
+        })
+        setFailedMessage(msg)
         setStatus('failed')
-        texJobFailed()
+        texJobFailed(msg)
       }
       toast.error(getUserFacingMessage(error))
     }
@@ -694,7 +732,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
         </div>
 
         {status === 'idle' && (
-          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6">
+          <div className="surface-card p-8 mb-8">
             {/* Format Selector */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-3">Subtitle Format</label>
@@ -760,6 +798,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                 }}
                 fromWorkflowLabel={fileFromWorkflow ? 'From previous step' : undefined}
               />
+              <UsageRemaining />
               {selectedFile && filePreview && (
                 <div className="mt-4">
                   <FilePreviewCard preview={filePreview} />
@@ -787,7 +826,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               {selectedFile && (
                 <button
                   onClick={handleProcess}
-                  className="mt-6 w-full bg-violet-600 hover:bg-violet-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
+                  className="mt-6 w-full btn-primary"
                 >
                   Generate Subtitles
                 </button>
@@ -797,12 +836,20 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
         )}
 
         {status === 'processing' && (
-          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6 text-center">
+          <div className="surface-card p-6 sm:p-8 mb-8 text-center processing-gradient-bg overflow-x-hidden">
             <UploadStageIndicator
               uploadPhase={uploadPhase}
               status={status}
               isRehydrating={isRehydrating}
             />
+            {uploadPhase === 'processing' && !isRehydrating && (
+              <ProcessingTimeBlock
+                elapsedMs={elapsedMs}
+                videoDurationSeconds={filePreview?.durationSeconds}
+                label="Processing video…"
+                className="mb-4"
+              />
+            )}
             {filePreview && (
               <div className="flex justify-center mb-4">
                 <FilePreviewCard preview={filePreview} compact />
@@ -814,7 +861,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               </p>
             )}
             <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
-            <p className="text-lg font-medium text-gray-800 mb-4">
+            <p className="text-base sm:text-lg font-medium text-gray-800 mb-4 break-words">
               {isRehydrating && 'Resuming…'}
               {!isRehydrating && uploadPhase === 'preparing' && 'Preparing audio…'}
               {!isRehydrating && uploadPhase === 'uploading' && `Uploading (${uploadProgress}%)`}
@@ -857,6 +904,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               onProcessAnother={handleProcessAnother}
               toolType={BACKEND_TOOL_TYPES.VIDEO_TO_SUBTITLES}
               jobId={currentJobId ?? undefined}
+              processedInSeconds={lastProcessingMs != null ? lastProcessingMs / 1000 : undefined}
               onDownloadClick={
                 plan === 'free'
                   ? async () => {
@@ -884,6 +932,13 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               }
               downloadLabel={plan === 'free' ? (freeExportsUsed >= 2 ? '2/2 used' : 'Download with watermark') : undefined}
             />
+            <div className="mt-2 min-h-[2.75rem]">
+            <WorkflowChainSuggestion
+              pathname={location.pathname}
+              plan={plan}
+              lastJobCompletedToolId={lastJobCompletedToolId}
+            />
+            </div>
 
             {subtitleRows.length > 0 && (
               <div className="bg-white rounded-2xl p-6 shadow-sm">
@@ -1088,7 +1143,13 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
         )}
 
         {status === 'failed' && (
-          <FailedState onTryAgain={handleProcessAnother} />
+          <FailedState
+            onTryAgain={() => {
+              setFailedMessage(undefined)
+              handleProcessAnother()
+            }}
+            message={failedMessage}
+          />
         )}
 
         <PaywallModal
@@ -1116,7 +1177,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
         />
 
         {faq.length > 0 && (
-          <section className="mt-12 pt-8 border-t border-gray-100" aria-label="FAQ">
+          <section className="mt-12 pt-8 border-t border-gray-100/70" aria-label="FAQ">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently asked questions</h2>
             <dl className="space-y-4">
               {faq.map((item, i) => (

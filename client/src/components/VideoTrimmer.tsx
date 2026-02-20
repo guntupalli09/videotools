@@ -154,7 +154,7 @@ export default function VideoTrimmer({ file, onChange }: VideoTrimmerProps) {
                 aria-valuemax={duration}
                 aria-valuenow={start}
                 tabIndex={0}
-                className="absolute top-1/2 z-10 h-5 w-5 -translate-y-1/2 cursor-grab rounded-full border-2 border-violet-600 bg-white shadow-md transition-transform active:cursor-grabbing active:scale-110"
+                className="absolute top-1/2 z-10 h-5 w-5 -translate-y-1/2 cursor-grab rounded-full border-2 border-violet-600 bg-white shadow-md transition-transform active:cursor-grabbing active:scale-105"
                 style={{ left: `calc(${startPercent}% - 10px)` }}
                 onMouseDown={(e) => {
                   e.preventDefault()
@@ -185,7 +185,7 @@ export default function VideoTrimmer({ file, onChange }: VideoTrimmerProps) {
                 aria-valuemax={duration}
                 aria-valuenow={end}
                 tabIndex={0}
-                className="absolute top-1/2 z-10 h-5 w-5 -translate-y-1/2 cursor-grab rounded-full border-2 border-violet-600 bg-white shadow-md transition-transform active:cursor-grabbing active:scale-110"
+                className="absolute top-1/2 z-10 h-5 w-5 -translate-y-1/2 cursor-grab rounded-full border-2 border-violet-600 bg-white shadow-md transition-transform active:cursor-grabbing active:scale-105"
                 style={{ left: `calc(${endPercent}% - 10px)` }}
                 onMouseDown={(e) => {
                   e.preventDefault()

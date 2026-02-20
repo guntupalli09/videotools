@@ -236,7 +236,7 @@ export default function Guide() {
         </p>
 
         {/* Suggested workflows for creators */}
-        <section className="mb-10 rounded-xl border border-violet-100 bg-violet-50/30 p-4 sm:p-5" aria-labelledby="workflows-heading">
+        <section className="mb-8 rounded-xl border border-violet-100 bg-violet-50/30 p-4 sm:p-6" aria-labelledby="workflows-heading">
           <h2 id="workflows-heading" className="text-base font-semibold text-gray-900 mb-3">Workflows</h2>
           <p className="text-sm text-gray-600 mb-4">
             Use &quot;Next step&quot; on each tool to continue with the same file — no re-upload.

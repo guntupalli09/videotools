@@ -77,7 +77,7 @@ export default function FileUploadZone({
       <div className="surface-card p-6">
         {fromWorkflowLabel && (
           <div className="flex flex-wrap items-center gap-2 mb-3">
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+            <span className="badge gap-1 bg-primary/10 text-primary">
               {fromWorkflowLabel}
             </span>
             <span className="text-xs text-gray-500">Remove to use a different file.</span>
@@ -86,7 +86,7 @@ export default function FileUploadZone({
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4 min-w-0">
             <div className="bg-primary/10 rounded-xl p-3 shrink-0">
-              <File className="h-6 w-6 text-primary" />
+              <File className="h-5 w-5 text-primary" strokeWidth={1.5} />
             </div>
             <div className="min-w-0">
               {selectedFiles.length === 1 ? (
@@ -135,7 +135,7 @@ export default function FileUploadZone({
     <div
       {...getRootProps()}
         className={`
-        border-2 border-dashed rounded-2xl p-10 sm:p-12 text-center cursor-pointer transition-all duration-200
+        border-2 border-dashed rounded-2xl p-8 sm:p-12 text-center cursor-pointer transition-motion
         ${
           isDragActive || isDragging
             ? 'border-primary bg-primary/5'

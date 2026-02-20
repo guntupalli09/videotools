@@ -149,7 +149,7 @@ export default function Pricing() {
               <span className="text-2xl font-bold text-gray-800 dark:text-white">$0</span>
             </div>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Try it — 60 min/month</p>
-            <ul className="mt-5 space-y-2.5 flex-1">
+            <ul className="mt-6 space-y-3 flex-1">
               <li className={bulletRow}><CheckIcon /><span>Video → Transcript & Subtitles</span></li>
               <li className={bulletRow}><CheckIcon /><span>1 language · Watermarked</span></li>
               <li className={bulletRow}><CheckIcon /><span>Up to 15 min per video</span></li>
@@ -170,7 +170,7 @@ export default function Pricing() {
               <span className="text-sm text-gray-500 dark:text-gray-400">/ month</span>
             </div>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">For individuals · 450 min/month</p>
-            <ul className="mt-5 space-y-2.5 flex-1">
+            <ul className="mt-6 space-y-3 flex-1">
               <li className={bulletRow}><CheckIcon /><span>No watermark · 2 languages</span></li>
               <li className={bulletRow}><CheckIcon /><span>Subtitle editing</span></li>
               <li className={bulletRow}><CheckIcon /><span>Up to 45 min per video</span></li>
@@ -202,7 +202,7 @@ export default function Pricing() {
               <span className="text-sm text-gray-500 dark:text-gray-400">/ month</span>
             </div>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">For creators · 1,200 min · Batch</p>
-            <ul className="mt-5 space-y-2.5 flex-1">
+            <ul className="mt-6 space-y-3 flex-1">
               <li className={bulletRow}><CheckIcon /><span>Batch processing · 5 languages</span></li>
               <li className={bulletRow}><CheckIcon /><span>Long-form · Priority queue</span></li>
               <li className={bulletRow}><CheckIcon /><span>Up to 120 min per video</span></li>
@@ -231,7 +231,7 @@ export default function Pricing() {
               <span className="text-sm text-gray-500 dark:text-gray-400">/ month</span>
             </div>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">For teams · 3,000 min · Commercial</p>
-            <ul className="mt-5 space-y-2.5 flex-1">
+            <ul className="mt-6 space-y-3 flex-1">
               <li className={bulletRow}><CheckIcon /><span>Heavy batch · ZIP exports</span></li>
               <li className={bulletRow}><CheckIcon /><span>10 languages · Commercial use</span></li>
               <li className={bulletRow}><CheckIcon /><span>Up to 240 min per video</span></li>
@@ -280,7 +280,7 @@ export default function Pricing() {
                 onKeyDown={(e) => e.key === 'Enter' && handleEmailPromptContinue()}
               />
             </div>
-            <div className="mt-5 flex gap-2">
+            <div className="mt-6 flex gap-2">
               <button
                 type="button"
                 onClick={handleEmailPromptContinue}

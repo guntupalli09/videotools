@@ -4,17 +4,21 @@ import { FileText, Copy, Loader2, Users, ListOrdered, BookOpen, Sparkles, Hash, 
 import FileUploadZone from '../components/FileUploadZone'
 import FilePreviewCard from '../components/FilePreviewCard'
 import UploadStageIndicator from '../components/UploadStageIndicator'
+import ProcessingTimeBlock from '../components/ProcessingTimeBlock'
 import UsageCounter from '../components/UsageCounter'
 import PlanBadge from '../components/PlanBadge'
 import ProgressBar from '../components/ProgressBar'
 import SuccessState from '../components/SuccessState'
 import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
+import WorkflowChainSuggestion from '../components/WorkflowChainSuggestion'
 import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
+import UsageRemaining from '../components/UsageRemaining'
 const VideoTrimmer = lazy(() => import('../components/VideoTrimmer'))
 import { incrementUsage } from '../lib/usage'
-import { uploadFileWithProgress, getJobStatus, getCurrentUsage, getConnectionProbeIfNeeded, BACKEND_TOOL_TYPES, SessionExpiredError, getUserFacingMessage, translateTranscript, TRANSCRIPT_TRANSLATION_LANGUAGES } from '../lib/api'
+import { uploadFileWithProgress, getJobStatus, getCurrentUsage, getConnectionProbeIfNeeded, BACKEND_TOOL_TYPES, SessionExpiredError, getUserFacingMessage, isNetworkError, translateTranscript, TRANSCRIPT_TRANSLATION_LANGUAGES } from '../lib/api'
+import { getFailureMessage } from '../lib/failureMessage'
 import { checkVideoPreflight } from '../lib/uploadPreflight'
 import { getFilePreview, type FilePreviewData } from '../lib/filePreview'
 import { extractAudioInBrowser, isAudioExtractionSupported } from '../lib/audioExtraction'
@@ -95,6 +99,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   const [queuePosition, setQueuePosition] = useState<number | undefined>(undefined)
   const [isRehydrating, setIsRehydrating] = useState(false)
   const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null)
+  const [elapsedMs, setElapsedMs] = useState(0)
   const [filePreview, setFilePreview] = useState<FilePreviewData | null>(null)
   const [connectionSpeed, setConnectionSpeed] = useState<'fast' | 'medium' | 'slow' | undefined>(undefined)
   const [currentJobId, setCurrentJobId] = useState<string | null>(null)
@@ -115,6 +120,12 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   const processingStartedAtRef = useRef<number | null>(null)
   /** Free plan: number of export downloads used for this transcript (max 2, with watermark). */
   const [freeExportsUsed, setFreeExportsUsed] = useState(0)
+  /** Set on job_completed for "Processed in XX.Xs" badge (UI only). */
+  const [lastProcessingMs, setLastProcessingMs] = useState<number | null>(null)
+  /** Set on job_completed for workflow chain suggestion (UI only). */
+  const [lastJobCompletedToolId, setLastJobCompletedToolId] = useState<string | null>(null)
+  /** Contextual failure message (from getFailureMessage); shown in FailedState and Tex. */
+  const [failedMessage, setFailedMessage] = useState<string | undefined>(undefined)
 
   // Reset free export count when user gets a new result (e.g. process another file)
   useEffect(() => {
@@ -145,6 +156,18 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     }
     setTranscriptEditMode(false)
   }, [result?.segments])
+
+  // Elapsed time ticker when processing (cleanup on unmount/complete/fail)
+  useEffect(() => {
+    if (status !== 'processing' || !processingStartedAt) {
+      setElapsedMs(0)
+      return
+    }
+    const tick = () => setElapsedMs(Date.now() - processingStartedAt)
+    tick()
+    const id = setInterval(tick, 500)
+    return () => clearInterval(id)
+  }, [status, processingStartedAt])
 
   // Reset translation when transcript result changes
   useEffect(() => {
@@ -487,6 +510,8 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
               })
               trackEvent('processing_completed', { tool: 'video-to-transcript' })
               texJobCompleted(processingMs, 'video-to-transcript')
+              setLastProcessingMs(processingMs)
+              setLastJobCompletedToolId('video-to-transcript')
             } catch {
               // non-blocking
             }
@@ -495,8 +520,16 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
               clearInterval(activeUploadPollRef.current)
               activeUploadPollRef.current = null
             }
+            const msg = getFailureMessage({
+              fileSizeBytes: selectedFile?.size,
+              mimeType: selectedFile?.type,
+              remainingMinutes: availableMinutes ?? undefined,
+              planQuotaMinutes: 60,
+              durationMinutes: filePreview?.durationSeconds != null ? filePreview.durationSeconds / 60 : undefined,
+            })
+            setFailedMessage(msg)
             setStatus('failed')
-            texJobFailed()
+            texJobFailed(msg)
             toast.error('Processing failed. Please try again.')
           }
           // transition === 'continue': keep polling (queued | processing)
@@ -519,8 +552,14 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
         clearPersistedJobId(location.pathname, navigate)
         setStatus('idle')
       } else {
+        const msg = getFailureMessage({
+          fileSizeBytes: selectedFile?.size,
+          mimeType: selectedFile?.type,
+          isNetworkError: isNetworkError(error),
+        })
+        setFailedMessage(msg)
         setStatus('failed')
-        texJobFailed()
+        texJobFailed(msg)
       }
       toast.error(getUserFacingMessage(error))
     }
@@ -853,7 +892,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
 
   return (
     <div className="min-h-screen py-6 sm:py-8 lg:py-12 bg-gradient-to-b from-violet-50/40 to-white">
-      <div className="w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="lg:grid lg:grid-cols-[1fr,minmax(240px,280px)] lg:gap-8 lg:items-start">
           {/* Sidebar: plan + usage + what you get (desktop); on mobile shows above main */}
           <aside className="order-1 lg:order-2 space-y-4 mb-6 lg:mb-0 lg:sticky lg:top-6">
@@ -873,7 +912,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
           {/* Main content */}
           <div className="order-2 lg:order-1">
             {/* Hero: compact */}
-            <div className="text-center mb-5">
+            <div className="text-center mb-6">
               <div className="inline-flex items-center gap-3 mb-2">
 <div className="bg-primary/10 rounded-xl p-2.5 w-12 h-12 flex items-center justify-center">
             <FileText className="h-6 w-6 text-primary" />
@@ -903,7 +942,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                         className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                           activeBranch === id
                             ? 'bg-violet-600 text-white shadow-md ring-2 ring-violet-200 ring-offset-2 ring-offset-gray-50'
-                            : 'bg-white/90 text-gray-600 hover:bg-white hover:text-gray-800 hover:shadow-sm border border-gray-100'
+                            : 'bg-white/90 text-gray-600 hover:bg-white hover:text-gray-800 hover:shadow-sm ring-1 ring-gray-100'
                         }`}
                       >
                         <Icon className="h-4 w-4 shrink-0" aria-hidden />
@@ -916,7 +955,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             )}
 
             {status === 'idle' && (
-              <div className="surface-card p-6 sm:p-8 mb-6">
+              <div className="surface-card p-6 sm:p-8 mb-8">
                 <p className="text-center text-xs text-gray-400 mb-4" aria-hidden="true">
                   {BRANCH_IDS.map((id) => BRANCH_LABELS[id]).join(' · ')} — Upload a video to unlock
                 </p>
@@ -933,6 +972,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                 }}
                 fromWorkflowLabel={fileFromWorkflow ? 'From previous step' : undefined}
               />
+              <UsageRemaining />
               {selectedFile && filePreview && (
                 <div className="mt-4">
                   <FilePreviewCard preview={filePreview} />
@@ -996,7 +1036,7 @@ onChange={(startSeconds: number, endSeconds: number) => {
               {selectedFile && (
                 <button
 onClick={handleProcess}
-                className="mt-6 w-full btn-primary py-3 px-6"
+                className="mt-6 w-full btn-primary"
               >
                 Transcribe Video
                 </button>
@@ -1006,12 +1046,20 @@ onClick={handleProcess}
         )}
 
         {status === 'processing' && (
-          <div className="surface-card p-8 mb-6 text-center">
+          <div className="surface-card p-6 sm:p-8 mb-8 text-center processing-gradient-bg overflow-x-hidden">
             <UploadStageIndicator
               uploadPhase={uploadPhase}
               status={status}
               isRehydrating={isRehydrating}
             />
+            {uploadPhase === 'processing' && !isRehydrating && (
+              <ProcessingTimeBlock
+                elapsedMs={elapsedMs}
+                videoDurationSeconds={filePreview?.durationSeconds}
+                label="Processing video…"
+                className="mb-4"
+              />
+            )}
             {filePreview && (
               <div className="flex justify-center mb-4">
                 <FilePreviewCard preview={filePreview} compact />
@@ -1023,7 +1071,7 @@ onClick={handleProcess}
               </p>
             )}
             <Loader2 className="h-12 w-12 text-primary animate-spin mx-auto mb-4" />
-            <p className="text-lg font-medium text-gray-800 mb-4">
+            <p className="text-base sm:text-lg font-medium text-gray-800 mb-4 break-words">
               {isRehydrating && 'Resuming…'}
               {!isRehydrating && uploadPhase === 'preparing' && 'Preparing audio…'}
               {!isRehydrating && uploadPhase === 'uploading' && `Uploading (${uploadProgress}%)`}
@@ -1066,7 +1114,15 @@ onClick={handleProcess}
               onProcessAnother={handleProcessAnother}
               toolType={BACKEND_TOOL_TYPES.VIDEO_TO_TRANSCRIPT}
               jobId={currentJobId ?? undefined}
+              processedInSeconds={lastProcessingMs != null ? lastProcessingMs / 1000 : undefined}
             />
+            <div className="mt-2 min-h-[2.75rem]">
+            <WorkflowChainSuggestion
+              pathname={location.pathname}
+              plan={(localStorage.getItem('plan') || 'free').toLowerCase()}
+              lastJobCompletedToolId={lastJobCompletedToolId}
+            />
+            </div>
 
             {/* Phase 1 – Trunk (Transcript) or branch content; transcript always preserved */}
             {activeBranch === 'transcript' && (
@@ -1343,7 +1399,7 @@ onClick={handleProcess}
                         <button
                           key={i}
                           onClick={() => scrollToSegment(ch.segmentIndex)}
-                          className="block w-full text-left px-3 py-2 rounded-xl bg-gray-50/80 hover:bg-violet-50/80 text-sm text-gray-800 border border-gray-100"
+                          className="block w-full text-left px-3 py-2 rounded-xl bg-gray-50/80 hover:bg-violet-50/80 text-sm text-gray-800 ring-1 ring-gray-100"
                         >
                           {ch.label}
                         </button>
@@ -1445,7 +1501,7 @@ onClick={handleProcess}
                   <FileCode className="h-5 w-5 text-violet-600" />
                   Exports
                 </h3>
-                <p className="text-sm text-gray-500 mb-5">Download transcript and derived data in your preferred format.</p>
+                <p className="text-sm text-gray-500 mb-4">Download transcript and derived data in your preferred format.</p>
                 {!fullTranscript ? (
                   <div className="rounded-xl bg-gray-50/80 p-4">
                     <p className="text-gray-600 text-sm font-medium mb-1">Exports</p>
@@ -1453,7 +1509,7 @@ onClick={handleProcess}
                   </div>
                 ) : (
                   <>
-                    <p className="text-sm text-gray-500 mb-5">
+                    <p className="text-sm text-gray-500 mb-4">
                       {isPaidPlan
                         ? 'Full download available.'
                         : `Free plan: download any 2 exports with watermark (${freeExportsUsed}/2 used). Upgrade for unlimited downloads.`}
@@ -1531,7 +1587,7 @@ onClick={handleProcess}
                                 {downloadLabel}
                               </button>
                             </div>
-                            <pre className="text-xs text-gray-600 bg-white/80 p-3 rounded-lg max-h-32 overflow-y-auto whitespace-pre-wrap break-words border border-gray-100">
+                            <pre className="text-xs text-gray-600 bg-white/80 p-3 rounded-lg max-h-32 overflow-y-auto whitespace-pre-wrap break-words ring-1 ring-gray-100">
                               {preview}
                             </pre>
                           </div>
@@ -1544,7 +1600,7 @@ onClick={handleProcess}
             )}
 
             {(segmentsForExport?.length ?? 0) > 0 && (
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-6">
+              <div className="surface-card p-6 mb-8">
                 <h3 className="text-lg font-semibold text-gray-800 mb-2 flex items-center gap-2">
                   <Subtitles className="h-5 w-5 text-violet-600" />
                   Generate subtitles from this transcript
@@ -1595,7 +1651,13 @@ onClick={handleProcess}
         )}
 
         {status === 'failed' && (
-          <FailedState onTryAgain={handleProcessAnother} />
+          <FailedState
+            onTryAgain={() => {
+              setFailedMessage(undefined)
+              handleProcessAnother()
+            }}
+            message={failedMessage}
+          />
         )}
 
         <PaywallModal
@@ -1606,7 +1668,7 @@ onClick={handleProcess}
         />
 
         {faq.length > 0 && (
-          <section className="mt-12 pt-8 border-t border-gray-100" aria-label="FAQ">
+          <section className="mt-12 pt-8 border-t border-gray-100/70" aria-label="FAQ">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently asked questions</h2>
             <dl className="space-y-4">
               {faq.map((item, i) => (

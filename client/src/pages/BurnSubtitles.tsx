@@ -388,7 +388,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
         />
 
         {faq.length > 0 && (
-          <section className="mt-12 pt-8 border-t border-gray-100" aria-label="FAQ">
+          <section className="mt-12 pt-8 border-t border-gray-100/70" aria-label="FAQ">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently asked questions</h2>
             <dl className="space-y-4">
               {faq.map((item, i) => (

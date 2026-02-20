@@ -38,7 +38,7 @@ export default function FilePreviewCard({ preview, compact = false }: FilePrevie
   }
 
   return (
-    <div className="rounded-2xl bg-gray-50/80 p-4 shadow-sm border border-gray-100">
+    <div className="rounded-2xl bg-gray-50/80 p-4 shadow-card ring-1 ring-gray-100/80">
       <div className="flex gap-4 items-start">
         {thumbnailDataUrl ? (
           <img

@@ -9,6 +9,7 @@ import ProgressBar from '../components/ProgressBar'
 import SuccessState from '../components/SuccessState'
 import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
+import WorkflowChainSuggestion from '../components/WorkflowChainSuggestion'
 import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
 const VideoTrimmer = lazy(() => import('../components/VideoTrimmer'))
@@ -61,6 +62,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
   const [availableMinutes, setAvailableMinutes] = useState<number | null>(null)
   const [usedMinutes, setUsedMinutes] = useState<number | null>(null)
   const [freeExportsUsed, setFreeExportsUsed] = useState(0)
+  const [lastJobCompletedToolId, setLastJobCompletedToolId] = useState<string | null>(null)
   const processingStartedAtRef = useRef<number | null>(null)
 
   const plan = (localStorage.getItem('plan') || 'free').toLowerCase()
@@ -148,6 +150,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
             incrementUsage('compress-video')
             const started = processingStartedAtRef.current ?? Date.now()
             texJobCompleted(Date.now() - started, 'compress-video')
+            setLastJobCompletedToolId('compress-video')
           } else if (transition === 'failed') {
             clearInterval(pollIntervalRef.current)
             setStatus('failed')
@@ -379,6 +382,13 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
               }
               downloadLabel={plan === 'free' ? (freeExportsUsed >= 2 ? '2/2 used' : 'Download (2 free)') : undefined}
             />
+            <div className="mt-2 min-h-[2.75rem]">
+            <WorkflowChainSuggestion
+              pathname={location.pathname}
+              plan={plan}
+              lastJobCompletedToolId={lastJobCompletedToolId}
+            />
+            </div>
 
             <div className="bg-green-50 rounded-xl p-6 border border-green-200">
               <div className="flex items-center justify-between">
@@ -427,7 +437,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
         />
 
         {faq.length > 0 && (
-          <section className="mt-12 pt-8 border-t border-gray-100" aria-label="FAQ">
+          <section className="mt-12 pt-8 border-t border-gray-100/70" aria-label="FAQ">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently asked questions</h2>
             <dl className="space-y-4">
               {faq.map((item, i) => (

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation, useNavigate, Outlet } from 'react-router-dom'
 import { trackEvent, identifyUser, capturePageview } from './lib/analytics'
 import { Toaster, toast } from 'react-hot-toast'
 import Navigation from './components/Navigation'
@@ -42,6 +42,16 @@ function RouteFallback() {
   return (
     <div className="flex min-h-[40vh] items-center justify-center" role="status" aria-live="polite" aria-label="Loading">
       <p className="text-violet-600 font-medium">Loading…</p>
+    </div>
+  )
+}
+
+/** Wraps route content with 200ms fade+translate on route change (CSS only). */
+function RouteTransitionLayout() {
+  const { pathname } = useLocation()
+  return (
+    <div key={pathname} className="route-transition-enter">
+      <Outlet />
     </div>
   )
 }
@@ -243,7 +253,7 @@ function App() {
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-violet-600 focus:text-white focus:rounded-lg">
         Skip to main content
       </a>
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col overflow-x-hidden">
         <Navigation />
         <OfflineBanner />
         <main id="main" className="flex-grow" role="main">
@@ -251,6 +261,7 @@ function App() {
           <SessionErrorBoundary>
             <Suspense fallback={<RouteFallback />}>
               <Routes>
+            <Route element={<RouteTransitionLayout />}>
             <Route path="/" element={<Home />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/login" element={<Login />} />
@@ -274,6 +285,7 @@ function App() {
               <Route key={path} path={path} element={<SeoToolPage />} />
             ))}
             <Route path="*" element={<NotFound />} />
+            </Route>
               </Routes>
             </Suspense>
           </SessionErrorBoundary>

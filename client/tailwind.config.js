@@ -7,6 +7,14 @@ export default {
   ],
   theme: {
     extend: {
+      /* Spacing rhythm: 4, 8, 12, 16, 24, 32, 48px only (Tailwind: 1=4px, 2=8px, 3=12px, 4=16px, 6=24px, 8=32px, 12=48px) */
+      spacing: {
+        'section': '32px',
+        'section-lg': '48px',
+        'component': '24px',
+        'component-sm': '16px',
+        'micro': '8px',
+      },
       colors: {
         primary: {
           DEFAULT: '#7C3AED',
@@ -54,14 +62,19 @@ export default {
       boxShadow: {
         'card': '0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04)',
         'card-hover': '0 4px 6px -1px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.04)',
+        'card-elevated': '0 4px 12px -2px rgb(0 0 0 / 0.06), 0 2px 6px -2px rgb(0 0 0 / 0.04)',
         'nav': '0 1px 3px 0 rgb(0 0 0 / 0.04)',
         'input': '0 0 0 3px rgb(124 58 237 / 0.15)',
       },
       transitionDuration: {
+        '200': '200ms',
         '250': '250ms',
       },
       transitionTimingFunction: {
         'smooth': 'cubic-bezier(0.4, 0, 0.2, 1)',
+      },
+      transitionProperty: {
+        'motion': 'transform, opacity, box-shadow',
       },
     },
   },

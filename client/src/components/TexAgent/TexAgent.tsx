@@ -12,6 +12,7 @@ export default function TexAgent() {
   const [open, setOpen] = useState(false)
   const [showPulse, setShowPulse] = useState(false)
   const [isDesktop, setIsDesktop] = useState(true)
+  const [inputFocused, setInputFocused] = useState(false)
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
@@ -21,6 +22,23 @@ export default function TexAgent() {
     update()
     mq.addEventListener('change', update)
     return () => mq.removeEventListener('change', update)
+  }, [])
+
+  // On mobile, hide FAB when any input/textarea is focused (keyboard open) to avoid overlap
+  useEffect(() => {
+    const onFocusIn = (e: FocusEvent) => {
+      const t = e.target as HTMLElement
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {
+        setInputFocused(true)
+      }
+    }
+    const onFocusOut = () => setInputFocused(false)
+    document.addEventListener('focusin', onFocusIn)
+    document.addEventListener('focusout', onFocusOut)
+    return () => {
+      document.removeEventListener('focusin', onFocusIn)
+      document.removeEventListener('focusout', onFocusOut)
+    }
   }, [])
 
   useEffect(() => {
@@ -70,8 +88,8 @@ export default function TexAgent() {
         initial={false}
         animate={{
           scale: open ? 0.9 : 1,
-          opacity: open ? 0 : 1,
-          pointerEvents: open ? 'none' : 'auto',
+          opacity: open || (!isDesktop && inputFocused) ? 0 : 1,
+          pointerEvents: open || (!isDesktop && inputFocused) ? 'none' : 'auto',
         }}
         transition={{ duration: 0.2 }}
       >

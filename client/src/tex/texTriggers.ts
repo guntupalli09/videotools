@@ -56,17 +56,49 @@ export function getTexTrigger(ctx: TexTriggerContext): TexTriggerResult | null {
     }
   }
 
-  // Idle after upload / last job completed → suggest next action
-  if (ctx.idleAfterUpload || ctx.lastJobCompletedToolId) {
+  // Workflow chain: one suggestion per completed job, priority order (no stacking)
+  if (ctx.lastJobCompletedToolId) {
     const tool = ctx.lastJobCompletedToolId
-    if (tool === 'video-to-transcript') {
+    if (tool === 'transcript' || tool === 'video-to-transcript') {
+      return {
+        id: 'chain-subtitles',
+        message: 'Generate subtitles next?',
+        link: { path: '/video-to-subtitles', label: 'Generate Subtitles' },
+      }
+    }
+    if (tool === 'subtitles' || tool === 'video-to-subtitles') {
+      return {
+        id: 'chain-translate',
+        message: 'Translate to another language?',
+        link: { path: '/translate-subtitles', label: 'Translate Subtitles' },
+      }
+    }
+    if (tool === 'translate' || tool === 'translate-subtitles') {
+      return {
+        id: 'chain-zip',
+        message: 'Export multiple languages as ZIP?',
+        link: { path: '/translate-subtitles', label: 'Export ZIP' },
+      }
+    }
+    if (tool === 'compress' || tool === 'compress-video') {
+      return {
+        id: 'chain-burn',
+        message: 'Burn subtitles into video?',
+        link: { path: '/burn-subtitles', label: 'Burn Subtitles' },
+      }
+    }
+  }
+
+  // Legacy: idle after upload (no lastJobCompletedToolId)
+  if (ctx.idleAfterUpload && !ctx.lastJobCompletedToolId) {
+    if (pathname.includes('video-to-transcript')) {
       return {
         id: 'next-subtitles',
         message: 'Need captions next? Try Video → Subtitles.',
         link: { path: '/video-to-subtitles', label: 'Video → Subtitles' },
       }
     }
-    if (tool === 'video-to-subtitles') {
+    if (pathname.includes('video-to-subtitles')) {
       return {
         id: 'next-translate',
         message: 'Need another language? Try Translate Subtitles.',

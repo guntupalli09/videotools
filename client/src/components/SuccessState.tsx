@@ -15,6 +15,8 @@ interface SuccessStateProps {
   onDownloadClick?: (e: React.MouseEvent) => void
   /** Label for the download button when using onDownloadClick (e.g. "Download with watermark"). */
   downloadLabel?: string
+  /** Show "Processed in XX.Xs ⚡" above download when set (e.g. from job_completed). */
+  processedInSeconds?: number
 }
 
 export default function SuccessState({
@@ -26,6 +28,7 @@ export default function SuccessState({
   jobId,
   onDownloadClick,
   downloadLabel = 'Download',
+  processedInSeconds,
 }: SuccessStateProps) {
   const trackDownload = () => {
     try {
@@ -39,27 +42,27 @@ export default function SuccessState({
   }
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="text-center"
+      transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+      className="text-center success-container"
     >
       <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ type: 'spring', duration: 0.5 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
         className="bg-success/10 h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4"
       >
         <Check className="h-8 w-8 text-success" />
       </motion.div>
 
-      <h3 className="font-display text-2xl font-bold text-gray-800 dark:text-white mb-2">Your file is ready!</h3>
+      <h3 className="page-heading text-2xl font-bold mb-2">Your file is ready!</h3>
 
       {fileName && (
-        <div className="surface-card p-6 mb-6 max-w-md mx-auto">
-          <div className="flex items-center space-x-4">
+        <div className="surface-card p-6 mb-8 max-w-md mx-auto">
+          <div className="flex items-center gap-4">
             <div className="bg-primary/10 rounded-xl p-3">
-              <File className="h-6 w-6 text-primary" />
+              <File className="h-5 w-5 text-primary" strokeWidth={1.5} />
             </div>
             <div className="text-left flex-1">
               <p className="font-medium text-gray-800">{fileName}</p>
@@ -69,6 +72,18 @@ export default function SuccessState({
         </div>
       )}
 
+      {/* Reserve space to avoid CLS when badge appears */}
+      <div className="min-h-8 flex items-center justify-center mb-4">
+        {processedInSeconds != null && processedInSeconds > 0 && (
+          <p
+            className="badge text-sm font-medium text-violet-600 dark:text-violet-400 px-3 py-1 bg-violet-50 dark:bg-violet-900/30 success-speed-badge animate-in-fade"
+            aria-label={`Processed in ${processedInSeconds.toFixed(1)} seconds`}
+          >
+            Processed in {processedInSeconds.toFixed(1)}s ⚡
+          </p>
+        )}
+      </div>
+
       {(downloadUrl || onDownloadClick) && (
         onDownloadClick ? (
           <button
@@ -77,7 +92,7 @@ export default function SuccessState({
               trackDownload()
               onDownloadClick(e)
             }}
-            className="btn-primary w-full py-4 px-6 mb-4"
+            className="btn-primary w-full mb-4"
           >
             <Download className="h-5 w-5 inline-block mr-2" />
             {downloadLabel}
@@ -87,7 +102,7 @@ export default function SuccessState({
             href={downloadUrl!}
             download
             onClick={trackDownload}
-            className="btn-primary w-full py-4 px-6 mb-4"
+            className="btn-primary w-full mb-4"
           >
             <Download className="h-5 w-5 inline-block mr-2" />
             {downloadLabel}
@@ -98,7 +113,7 @@ export default function SuccessState({
       {onProcessAnother && (
         <button
           onClick={onProcessAnother}
-          className="text-primary hover:text-primary-hover font-medium text-sm transition-colors"
+          className="text-primary hover:text-primary-hover hover:opacity-80 font-medium text-sm transition-motion"
         >
           Process another file
         </button>

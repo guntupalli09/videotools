@@ -87,9 +87,9 @@ export function clearPendingJobCompletion(): void {
   pendingJobCompletion = null
 }
 
-/** Convenience for tools: emit job failed (observation only). */
-export function texJobFailed(): void {
-  emitTexEvent('error', { type: 'job_failed' })
+/** Convenience for tools: emit job failed (observation only). Optional suggestedMessage from getFailureMessage(). */
+export function texJobFailed(suggestedMessage?: string): void {
+  emitTexEvent('error', { type: 'job_failed', message: suggestedMessage })
 }
 
 /** Convenience for tools: emit job started (observation only). */

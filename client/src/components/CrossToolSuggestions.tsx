@@ -26,7 +26,7 @@ export default function CrossToolSuggestions({ suggestions, workflowHint }: Cros
   const navigate = useNavigate()
   return (
     <section className="surface-card p-6" aria-labelledby="continue-tool-heading">
-      <h2 id="continue-tool-heading" className="font-display text-lg font-semibold text-gray-800 dark:text-white mb-1">Next step</h2>
+      <h2 id="continue-tool-heading" className="page-heading text-lg mb-2">Next step</h2>
       {workflowHint && (
         <p className="text-sm text-gray-500 mb-4" aria-hidden="true">
           {workflowHint}

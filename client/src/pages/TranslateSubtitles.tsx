@@ -8,6 +8,7 @@ import ProgressBar from '../components/ProgressBar'
 import SuccessState from '../components/SuccessState'
 import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
+import WorkflowChainSuggestion from '../components/WorkflowChainSuggestion'
 import PaywallModal from '../components/PaywallModal'
 import UsageDisplay from '../components/UsageDisplay'
 import type { SubtitleRow } from '../components/SubtitleEditor'
@@ -50,6 +51,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
   const [availableMinutes, setAvailableMinutes] = useState<number | null>(null)
   const [usedMinutes, setUsedMinutes] = useState<number | null>(null)
   const [freeExportsUsed, setFreeExportsUsed] = useState(0)
+  const [lastJobCompletedToolId, setLastJobCompletedToolId] = useState<string | null>(null)
   const processingStartedAtRef = useRef<number | null>(null)
 
   const plan = (localStorage.getItem('plan') || 'free').toLowerCase()
@@ -170,6 +172,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
             incrementUsage('translate-subtitles')
             const started = processingStartedAtRef.current ?? Date.now()
             texJobCompleted(Date.now() - started, 'translate-subtitles')
+            setLastJobCompletedToolId('translate-subtitles')
           } else if (transition === 'failed') {
             clearInterval(pollIntervalRef.current)
             setStatus('failed')
@@ -231,7 +234,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
         </div>
 
         {status === 'idle' && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-100 dark:border-gray-600 mb-6">
+          <div className="surface-card p-6 sm:p-8 mb-6">
             {/* Tabs first so user can choose upload vs paste immediately */}
             <div className="flex flex-wrap items-center gap-4 mb-6">
               <div className="flex space-x-4 border-b border-gray-200 dark:border-gray-600">
@@ -307,7 +310,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
         )}
 
         {status === 'processing' && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm border border-gray-100 dark:border-gray-600 mb-6 text-center">
+          <div className="surface-card p-8 mb-6 text-center">
             <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" />
             <p className="text-lg font-medium text-gray-800 mb-4">Translating subtitles...</p>
             <ProgressBar
@@ -358,6 +361,13 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
               }
               downloadLabel={plan === 'free' ? (freeExportsUsed >= 2 ? '2/2 used' : 'Download with watermark') : undefined}
             />
+            <div className="mt-2 min-h-[2.75rem]">
+            <WorkflowChainSuggestion
+              pathname={location.pathname}
+              plan={plan}
+              lastJobCompletedToolId={lastJobCompletedToolId}
+            />
+            </div>
 
             {result.consistencyIssues && result.consistencyIssues.length > 0 && (
               <div className="bg-amber-50 rounded-2xl p-6 shadow-sm border border-amber-100">
@@ -373,7 +383,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
             )}
 
             {subtitleRows.length > 0 && (
-              <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <div className="surface-card rounded-xl p-6">
                 <Suspense fallback={null}>
                   <SubtitleEditor
                     entries={subtitleRows}
@@ -433,7 +443,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
         />
 
         {faq.length > 0 && (
-          <section className="mt-12 pt-8 border-t border-gray-100" aria-label="FAQ">
+          <section className="mt-12 pt-8 border-t border-gray-100/70" aria-label="FAQ">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently asked questions</h2>
             <dl className="space-y-4">
               {faq.map((item, i) => (
