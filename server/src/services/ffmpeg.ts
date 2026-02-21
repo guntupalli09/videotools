@@ -134,6 +134,44 @@ export function splitAudioIntoChunks(
   })
 }
 
+/**
+ * Extract audio from video and split into fixed-duration chunks in one ffmpeg pass (PROCESSING_V2).
+ * Same chunk duration, format (mp3 16kHz mono), and naming (chunk_000.mp3, ...) as extractAudio + splitAudioIntoChunks.
+ * Returns paths to chunk files in order. Caller must delete them when done.
+ */
+export function extractAndSplitAudio(
+  videoPath: string,
+  chunkDurationSec: number,
+  outputDir: string
+): Promise<string[]> {
+  const pattern = path.join(outputDir, 'chunk_%03d.mp3')
+  return new Promise((resolve, reject) => {
+    const cmd = ffmpeg(videoPath)
+      .inputOptions(getGpuInputOptions())
+      .outputOptions([
+        '-threads', FFMPEG_THREADS,
+        '-vn', '-acodec', 'libmp3lame', '-ar', '16000', '-ac', '1', '-q:a', '5',
+        '-f', 'segment',
+        '-segment_time', String(chunkDurationSec),
+        '-reset_timestamps', '1',
+      ])
+      .output(pattern)
+      .on('end', () => {
+        hung.clear()
+        const files = fs.readdirSync(outputDir)
+          .filter((f) => f.startsWith('chunk_') && f.endsWith('.mp3'))
+          .sort()
+        resolve(files.map((f) => path.join(outputDir, f)))
+      })
+      .on('error', (err: Error) => {
+        hung.clear()
+        reject(err)
+      })
+    const hung = setupHungProtection(cmd, reject)
+    cmd.run()
+  })
+}
+
 /** Phase 1B — UTILITY 5B: Style presets (subtitle metadata only). No custom styling editor. */
 export interface BurnStylePreset {
   fontSize?: 'small' | 'medium' | 'large'

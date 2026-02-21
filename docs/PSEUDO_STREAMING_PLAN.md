@@ -259,4 +259,6 @@ Each phase is deployable independently and keeps zero functionality breakage.
 - **Rollback:** Feature flags on server and client; disable to restore batch-only behavior with no schema or contract change.
 - **Phases A–F:** Backend storage → API exposure → client transcript → client subtitles → scroll polish → final polish; each phase independently deployable and backward compatible.
 
+**Related:** Pipeline performance upgrade (async I/O, streaming reassembly, deferred summary, progress interpolation, worker concurrency) and its validation/rollout are in **docs/PIPELINE_PERFORMANCE_VALIDATION.md**. Flags such as `STREAM_PROGRESS` and `DEFER_SUMMARY` align with phases C–F above.
+
 No code changes were made; this document is planning only.

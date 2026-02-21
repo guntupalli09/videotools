@@ -1,5 +1,6 @@
 import 'dotenv/config'
 import crypto from 'crypto'
+import os from 'os'
 import Queue from 'bull'
 import path from 'path'
 import fs from 'fs'
@@ -27,6 +28,8 @@ import { WORKER_HEARTBEAT_KEY, HEARTBEAT_TTL_SEC } from '../utils/workerHeartbea
 import { parseSRT, parseVTT, detectSubtitleFormat, toSRT, toVTT } from '../utils/srtParser'
 import type { SubtitleEntry } from '../utils/srtParser'
 import { createPartialWriter, deleteJobPartial } from '../utils/jobPartial'
+import { setJobSummary } from '../utils/jobSummary'
+import { DEFER_SUMMARY, STREAM_PROGRESS, WORKER_CONCURRENCY_V2 } from '../utils/featureFlags'
 import { MAX_GLOBAL_WORKERS, PAID_TIER_RESERVATION_QUEUE_THRESHOLD } from '../utils/queueConfig'
 import {
   trackProcessingStarted,
@@ -246,9 +249,14 @@ async function generateBatchZip(batchId: string, batch: BatchJob): Promise<void>
   })
 }
 
-/** Worker concurrency. Tune via env for dedicated servers (e.g. 3+2=5 total). */
-const NORMAL_CONCURRENCY = Math.max(1, Math.min(4, parseInt(process.env.WORKER_NORMAL_CONCURRENCY || '2', 10)))
-const PRIORITY_CONCURRENCY = Math.max(1, Math.min(2, parseInt(process.env.WORKER_PRIORITY_CONCURRENCY || '1', 10)))
+/** Worker concurrency. When WORKER_CONCURRENCY_V2: normal = min(cpuCount, 4), priority = 2; else env-based. */
+const availableCPU = typeof os.cpus === 'function' ? os.cpus().length : 4
+const NORMAL_CONCURRENCY = WORKER_CONCURRENCY_V2
+  ? Math.max(1, Math.min(4, availableCPU))
+  : Math.max(1, Math.min(4, parseInt(process.env.WORKER_NORMAL_CONCURRENCY || '2', 10)))
+const PRIORITY_CONCURRENCY = WORKER_CONCURRENCY_V2
+  ? 2
+  : Math.max(1, Math.min(2, parseInt(process.env.WORKER_PRIORITY_CONCURRENCY || '1', 10)))
 
 const RUNTIME_QUEUE_THRESHOLD = 20
 const RUNTIME_CHECK_INTERVAL_MS = 15 * 1000
@@ -337,6 +345,12 @@ async function processJob(job: import('bull').Job<JobData>) {
           const onPartial = partialWriter
             ? (segs: { start: number; end: number; text: string; speaker?: string }[]) => partialWriter!.onPartial(segs)
             : undefined
+          const onChunkProgress = STREAM_PROGRESS && needVerbose
+            ? (contiguousChunks: number, totalChunks: number) => {
+                const p = totalChunks > 0 ? 25 + (contiguousChunks / totalChunks) * 30 : 25
+                job.progress(Math.min(55, Math.max(25, Math.round(p))))
+              }
+            : undefined
 
           if (wantDiarization) {
             await job.progress(22)
@@ -349,14 +363,14 @@ async function processJob(job: import('bull').Job<JobData>) {
                 partialWriter.onPartial(segments.slice(0, 2000))
               }
             } else {
-              const verbose = await transcribeVideoVerbose(videoPath, options?.language, glossary, isAlreadyAudio, onPartial)
+              const verbose = await transcribeVideoVerbose(videoPath, options?.language, glossary, isAlreadyAudio, onPartial, onChunkProgress, jobId)
               fullText = verbose.text
               segments = verbose.segments || []
             }
           } else if (needVerbose) {
             await job.progress(25)
             const glossary = options?.glossary?.trim()
-            const verbose = await transcribeVideoVerbose(videoPath, options?.language, glossary, isAlreadyAudio, onPartial)
+            const verbose = await transcribeVideoVerbose(videoPath, options?.language, glossary, isAlreadyAudio, onPartial, onChunkProgress, jobId)
             fullText = verbose.text
             segments = verbose.segments || []
           } else {
@@ -379,30 +393,62 @@ async function processJob(job: import('bull').Job<JobData>) {
           let primaryDownloadUrl: string
           let primaryFileName: string
 
-          // Always write TXT
+          // Always write TXT (async to avoid blocking event loop)
           const txtFilename = generateOutputFilename(data.originalName || 'video', '_transcript', '.txt')
           const txtPath = path.join(tempDir, txtFilename)
-          fs.writeFileSync(txtPath, fullText)
+          await fs.promises.writeFile(txtPath, fullText, 'utf-8')
           filesToZip.push({ path: txtPath, name: `${baseName}_transcript.txt` })
           primaryDownloadUrl = `/api/download/${txtFilename}`
           primaryFileName = txtFilename
+          if (STREAM_PROGRESS) await job.progress(55)
 
           let summary: { summary: string; bullets: string[]; actionItems?: string[] } | undefined
           let chapters: { title: string; startTime: number; endTime?: number }[] | undefined
 
           if (includeSummary || (includeChapters && segments.length > 0)) {
-            await job.progress(55)
-            const [summaryResult, chaptersResult] = await Promise.all([
-              includeSummary ? generateSummary(fullText, { includeActionItems: true }) : Promise.resolve(undefined),
-              includeChapters && segments.length > 0 ? generateChapters(segments) : Promise.resolve([]),
-            ])
-            summary = summaryResult
-            chapters = chaptersResult && chaptersResult.length > 0 ? chaptersResult : undefined
+            if (DEFER_SUMMARY && redis) {
+              summary = undefined
+              chapters = undefined
+              const fullTextForDefer = fullText
+              const segmentsForDefer = segments
+              const includeSummaryDefer = includeSummary
+              const includeChaptersDefer = includeChapters && segments.length > 0
+              const queueClient = redis
+              setImmediate(() => {
+                (async () => {
+                  try {
+                    const [summaryResult, chaptersResult] = await Promise.all([
+                      includeSummaryDefer ? generateSummary(fullTextForDefer, { includeActionItems: true }) : Promise.resolve(undefined),
+                      includeChaptersDefer ? generateChapters(segmentsForDefer) : Promise.resolve([]),
+                    ])
+                    await setJobSummary(queueClient, jobId, {
+                      summary: summaryResult,
+                      chapters: chaptersResult && chaptersResult.length > 0 ? chaptersResult : undefined,
+                    })
+                  } catch (e: any) {
+                    log.warn({ err: e, msg: 'deferred_summary_failed', jobId: String(jobId) })
+                  }
+                })()
+              })
+            } else {
+              if (!STREAM_PROGRESS) await job.progress(55)
+              const summaryStartMs = Date.now()
+              const [summaryResult, chaptersResult] = await Promise.all([
+                includeSummary ? generateSummary(fullText, { includeActionItems: true }) : Promise.resolve(undefined),
+                includeChapters && segments.length > 0 ? generateChapters(segments) : Promise.resolve([]),
+              ])
+              summary = summaryResult
+              chapters = chaptersResult && chaptersResult.length > 0 ? chaptersResult : undefined
+              log.info({ msg: 'perf_timing', jobId: String(jobId), summaryMs: Date.now() - summaryStartMs })
+            }
           }
+          if (DEFER_SUMMARY && !STREAM_PROGRESS) await job.progress(55)
 
+          if (STREAM_PROGRESS) await job.progress(60)
           await job.progress(70)
 
           // Export optional formats in parallel where possible
+          const exportStartMs = Date.now()
           const exportPromises: Promise<void>[] = []
           if (exportFormats.includes('json')) {
             const jsonFilename = generateOutputFilename(data.originalName || 'video', '_transcript', '.json')
@@ -427,8 +473,10 @@ async function processJob(job: import('bull').Job<JobData>) {
           if (exportPromises.length > 0) {
             await Promise.all(exportPromises)
           }
+          log.info({ msg: 'perf_timing', jobId: String(jobId), exportMs: Date.now() - exportStartMs })
 
           await job.progress(75)
+          if (STREAM_PROGRESS) await job.progress(80)
 
           // If multiple outputs, serve ZIP as primary
           if (filesToZip.length > 1) {
@@ -460,6 +508,7 @@ async function processJob(job: import('bull').Job<JobData>) {
             // Benchmark / advertising: server-side processing time and video duration
             processingMs: fileReceivedToTranscriptionFinishedMs,
             videoDurationSeconds: processedSeconds,
+            ...(STREAM_PROGRESS && { streamProgress: true }),
           }
 
           const outputPath = path.join(tempDir, primaryFileName)
@@ -551,7 +600,7 @@ async function processJob(job: import('bull').Job<JobData>) {
             const primaryExt = format === 'srt' ? '.srt' : '.vtt'
             const primaryFilename = generateOutputFilename(data.originalName || 'video', `_${primaryLang}`, primaryExt)
             const primaryPath = path.join(tempDir, primaryFilename)
-            fs.writeFileSync(primaryPath, multiLangResults[primaryLang])
+            await fs.promises.writeFile(primaryPath, multiLangResults[primaryLang], 'utf-8')
             outputFiles[primaryLang] = primaryFilename
             
             // Save additional languages
@@ -559,7 +608,7 @@ async function processJob(job: import('bull').Job<JobData>) {
               const langExt = format === 'srt' ? '.srt' : '.vtt'
               const langFilename = generateOutputFilename(data.originalName || 'video', `_${lang}`, langExt)
               const langPath = path.join(tempDir, langFilename)
-              fs.writeFileSync(langPath, multiLangResults[lang])
+              await fs.promises.writeFile(langPath, multiLangResults[lang], 'utf-8')
               outputFiles[lang] = langFilename
             }
 
@@ -623,7 +672,7 @@ async function processJob(job: import('bull').Job<JobData>) {
             await job.progress(30)
             const glossary = options?.glossary?.trim()
             const processingStartMs = Date.now()
-            const verboseResult = await transcribeVideoVerbose(videoPath, options?.language, glossary, isAlreadyAudio, onPartialSub)
+            const verboseResult = await transcribeVideoVerbose(videoPath, options?.language, glossary, isAlreadyAudio, onPartialSub, undefined, jobId)
             const fileReceivedToTranscriptionFinishedMs = Date.now() - processingStartMs
             log.info({
               msg: 'processing_timing',
@@ -647,7 +696,7 @@ async function processJob(job: import('bull').Job<JobData>) {
             const ext = format === 'srt' ? '.srt' : '.vtt'
             const outputFilename = generateOutputFilename(data.originalName || 'video', '', ext)
             const outputPath = path.join(tempDir, outputFilename)
-            fs.writeFileSync(outputPath, subtitles)
+            await fs.promises.writeFile(outputPath, subtitles, 'utf-8')
 
             let warnings: { type: string; message: string; line?: number }[] = []
             try {
@@ -737,7 +786,7 @@ async function processJob(job: import('bull').Job<JobData>) {
             const nameWithoutExt = path.basename(originalName, path.extname(originalName))
             const srtFilename = `${nameWithoutExt}.srt`
             const srtPath = path.join(tempDir, `batch-${batchId}-${srtFilename}`)
-            fs.writeFileSync(srtPath, subtitles)
+            await fs.promises.writeFile(srtPath, subtitles, 'utf-8')
 
             // Update batch progress
             batch.processedVideos += 1
@@ -799,7 +848,7 @@ async function processJob(job: import('bull').Job<JobData>) {
           const ext = translated.format === 'srt' ? '.srt' : '.vtt'
           const outputFilename = generateOutputFilename(data.originalName || 'subtitles', `_${langCode}`, ext)
           const outputPath = path.join(tempDir, outputFilename)
-          fs.writeFileSync(outputPath, translated.content)
+          await fs.promises.writeFile(outputPath, translated.content, 'utf-8')
 
           let consistencyIssues: { line: number; issueType: string }[] = []
           try {
@@ -836,7 +885,7 @@ async function processJob(job: import('bull').Job<JobData>) {
           const ext = fixed.format === 'srt' ? '.srt' : '.vtt'
           const outputFilename = generateOutputFilename(data.originalName || 'subtitles', '_fixed', ext)
           const outputPath = path.join(tempDir, outputFilename)
-          fs.writeFileSync(outputPath, fixed.content)
+          await fs.promises.writeFile(outputPath, fixed.content, 'utf-8')
 
           result = {
             downloadUrl: `/api/download/${outputFilename}`,
@@ -857,7 +906,7 @@ async function processJob(job: import('bull').Job<JobData>) {
           const ext = converted.format === 'txt' ? '.txt' : converted.format === 'vtt' ? '.vtt' : '.srt'
           const outputFilename = generateOutputFilename(data.originalName || 'subtitles', '_converted', ext)
           const outputPath = path.join(tempDir, outputFilename)
-          fs.writeFileSync(outputPath, converted.content)
+          await fs.promises.writeFile(outputPath, converted.content, 'utf-8')
 
           result = {
             downloadUrl: `/api/download/${outputFilename}`,
@@ -1033,12 +1082,14 @@ async function processJob(job: import('bull').Job<JobData>) {
   try {
     const result = await Promise.race([run(), dynamicRuntimePromise])
     clearInterval(interval)
+    const totalJobMs = Date.now() - processingStartMs
+    log.info({ msg: 'perf_timing', jobId: String(jobId), totalJobMs })
     try {
       trackProcessingFinished({
         job_id: String(jobId),
         user_id: data.userId || 'demo-user',
         tool_type: data.toolType,
-        processing_ms: Date.now() - processingStartMs,
+        processing_ms: totalJobMs,
         extraction_skipped: data.toolType === 'cached-result',
       })
     } catch {
@@ -1135,5 +1186,10 @@ export function startWorker() {
 if (require.main === module) {
   initSentry()
   startWorker()
-  workerLog.info({ msg: 'Worker process started', normalConcurrency: NORMAL_CONCURRENCY, priorityConcurrency: PRIORITY_CONCURRENCY })
+  workerLog.info({
+    msg: 'Worker process started',
+    normalConcurrency: NORMAL_CONCURRENCY,
+    priorityConcurrency: PRIORITY_CONCURRENCY,
+    ...(WORKER_CONCURRENCY_V2 && { workerConcurrencyV2: true, availableCPU }),
+  })
 }

@@ -16,8 +16,11 @@ import { isQueueAtHardLimit, isQueueAtSoftLimit } from '../utils/queueConfig'
 import { checkAndRecordUpload } from '../utils/uploadRateLimit'
 import { trackJobCreated } from '../utils/analytics'
 import { getVideoDuration } from '../services/ffmpeg'
+import { STREAM_UPLOAD_ASSEMBLY } from '../utils/featureFlags'
+import { getLogger } from '../lib/logger'
 
 const router = express.Router()
+const uploadLog = getLogger('api')
 
 // Configure multer for file uploads. On Railway/Fly/Render only /tmp is guaranteed; relative paths can stall Multer.
 const tempDir =
@@ -68,6 +71,7 @@ async function getTotalQueueCount(): Promise<number> {
 
 // Single file upload
 router.post('/', upload.single('file'), async (req: Request, res: Response) => {
+  const uploadStartMs = Date.now()
   try {
     const { toolType, url, webhookUrl, ...options } = req.body
 
@@ -335,6 +339,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       inputType: inputType === 'audio' ? 'audio' : undefined,
       requestId: (req as RequestWithId).requestId,
     })
+    uploadLog.info({ msg: 'upload_end', jobId: job.id, durationMs: Date.now() - uploadStartMs })
     try {
       trackJobCreated({
         job_id: String(job.id),
@@ -721,28 +726,71 @@ router.post('/complete', async (req: Request, res: Response) => {
     let totalSizeSoFar = 0
     const maxFileSize = getPlanLimits(meta.plan).maxFileSize
     const declaredTotal = meta.totalSize
-    for (let i = 0; i < totalChunks; i++) {
-      const chunkPath = path.join(dir, `chunk_${i}`)
-      if (!fs.existsSync(chunkPath)) {
+    const reassemblyStartMs = Date.now()
+
+    if (STREAM_UPLOAD_ASSEMBLY) {
+      // Phase 1: streaming reassembly — validate then stream chunks without loading into memory
+      for (let i = 0; i < totalChunks; i++) {
+        const chunkPath = path.join(dir, `chunk_${i}`)
+        if (!fs.existsSync(chunkPath)) {
+          out.destroy()
+          try { fs.unlinkSync(outPath) } catch { /* ignore */ }
+          return res.status(400).json({ message: `Missing chunk ${i}` })
+        }
+        const stat = fs.statSync(chunkPath)
+        totalSizeSoFar += stat.size
+        if (totalSizeSoFar > maxFileSize) {
+          out.destroy()
+          try { fs.unlinkSync(outPath) } catch { /* ignore */ }
+          return res.status(400).json({ message: 'Total size exceeds plan limit. Upgrade for larger files.' })
+        }
+        if (declaredTotal != null && totalSizeSoFar > declaredTotal) {
+          out.destroy()
+          try { fs.unlinkSync(outPath) } catch { /* ignore */ }
+          return res.status(400).json({ message: 'Chunk total exceeds declared totalSize.' })
+        }
+      }
+      try {
+        for (let i = 0; i < totalChunks; i++) {
+          const chunkPath = path.join(dir, `chunk_${i}`)
+          await new Promise<void>((resolve, reject) => {
+            const src = fs.createReadStream(chunkPath)
+            src.on('error', reject)
+            src.on('end', resolve)
+            src.pipe(out, { end: false })
+          })
+          await fs.promises.unlink(chunkPath)
+        }
+      } catch (err: any) {
         out.destroy()
         try { fs.unlinkSync(outPath) } catch { /* ignore */ }
-        return res.status(400).json({ message: `Missing chunk ${i}` })
+        console.error('[upload/complete] streaming reassembly failed', err?.message || err, err?.stack)
+        return res.status(500).json({ message: err?.message || 'Upload complete failed' })
       }
-      const stat = fs.statSync(chunkPath)
-      totalSizeSoFar += stat.size
-      if (totalSizeSoFar > maxFileSize) {
-        out.destroy()
-        try { fs.unlinkSync(outPath) } catch { /* ignore */ }
-        return res.status(400).json({ message: 'Total size exceeds plan limit. Upgrade for larger files.' })
+    } else {
+      for (let i = 0; i < totalChunks; i++) {
+        const chunkPath = path.join(dir, `chunk_${i}`)
+        if (!fs.existsSync(chunkPath)) {
+          out.destroy()
+          try { fs.unlinkSync(outPath) } catch { /* ignore */ }
+          return res.status(400).json({ message: `Missing chunk ${i}` })
+        }
+        const stat = fs.statSync(chunkPath)
+        totalSizeSoFar += stat.size
+        if (totalSizeSoFar > maxFileSize) {
+          out.destroy()
+          try { fs.unlinkSync(outPath) } catch { /* ignore */ }
+          return res.status(400).json({ message: 'Total size exceeds plan limit. Upgrade for larger files.' })
+        }
+        if (declaredTotal != null && totalSizeSoFar > declaredTotal) {
+          out.destroy()
+          try { fs.unlinkSync(outPath) } catch { /* ignore */ }
+          return res.status(400).json({ message: 'Chunk total exceeds declared totalSize.' })
+        }
+        const buf = fs.readFileSync(chunkPath)
+        out.write(buf)
+        fs.unlinkSync(chunkPath)
       }
-      if (declaredTotal != null && totalSizeSoFar > declaredTotal) {
-        out.destroy()
-        try { fs.unlinkSync(outPath) } catch { /* ignore */ }
-        return res.status(400).json({ message: 'Chunk total exceeds declared totalSize.' })
-      }
-      const buf = fs.readFileSync(chunkPath)
-      out.write(buf)
-      fs.unlinkSync(chunkPath)
     }
 
     // Wait for the write stream to finish before stat/addJobToQueue (out.end() is async)
@@ -810,6 +858,7 @@ router.post('/complete', async (req: Request, res: Response) => {
             inputType: isChunkedAudioOnly ? 'audio' : undefined,
             requestId: (req as RequestWithId).requestId,
           })
+          uploadLog.info({ msg: 'upload_end', jobId: job.id, durationMs: Date.now() - reassemblyStartMs, chunked: true })
           try {
             trackJobCreated({
               job_id: String(job.id),

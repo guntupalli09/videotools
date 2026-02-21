@@ -123,6 +123,9 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   const partialScrollRef = useRef<HTMLDivElement>(null)
   const savedScrollTopRef = useRef(0)
   const scrollRestoreRafRef = useRef<{ first: number; second: number }>({ first: 0, second: 0 })
+  /** Phase 6: when we first show partial transcript (for min stream visibility delay). */
+  const partialFirstSeenAtRef = useRef<number | null>(null)
+  const minStreamDelayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [partialSegments, setPartialSegments] = useState<{ start: number; end: number; text: string; speaker?: string }[]>([])
   /** Free plan: number of export downloads used for this transcript (max 2, with watermark). */
   const [freeExportsUsed, setFreeExportsUsed] = useState(0)
@@ -503,6 +506,11 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
       setUploadProgress(100)
       terminalRef.current = false
       lastPartialVersionRef.current = 0
+      partialFirstSeenAtRef.current = null
+      if (minStreamDelayTimeoutRef.current) {
+        clearTimeout(minStreamDelayTimeoutRef.current)
+        minStreamDelayTimeoutRef.current = null
+      }
       setPartialSegments([])
       const startedAt = Date.now()
       setProcessingStartedAt(startedAt)
@@ -538,39 +546,57 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             }
             jobStartedTrackedRef.current = null
             savedScrollTopRef.current = partialScrollRef.current?.scrollTop ?? 0
-            setPartialSegments([])
-            setStatus('completed')
-            setResult(jobStatus.result ?? null)
+
+            const MIN_STREAM_VISIBILITY_MS = 8000
             const res = jobStatus.result
-            if (res?.segments?.length) {
-              const textFromSegments = res.segments.map((s: { text: string }) => s.text).join('\n\n')
-              setFullTranscript(textFromSegments)
-              setTranscriptPreview(textFromSegments.substring(0, 500))
-            } else if (res?.downloadUrl) {
+            const streamProgress = res && typeof (res as { streamProgress?: boolean }).streamProgress === 'boolean' && (res as { streamProgress?: boolean }).streamProgress
+            const firstSeenAt = partialFirstSeenAtRef.current
+            const remainingMs = streamProgress && firstSeenAt != null ? MIN_STREAM_VISIBILITY_MS - (Date.now() - firstSeenAt) : 0
+
+            const applyCompletedTransition = () => {
+              minStreamDelayTimeoutRef.current = null
+              setPartialSegments([])
+              setStatus('completed')
+              setResult(jobStatus.result ?? null)
+              if (res?.segments?.length) {
+                const textFromSegments = res.segments.map((s: { text: string }) => s.text).join('\n\n')
+                setFullTranscript(textFromSegments)
+                setTranscriptPreview(textFromSegments.substring(0, 500))
+              } else if (res?.downloadUrl) {
+                try {
+                  fetch(getAbsoluteDownloadUrl(res.downloadUrl))
+                    .then((transcriptResponse) => transcriptResponse.text())
+                    .then((transcriptText) => {
+                      setTranscriptPreview(transcriptText.substring(0, 500))
+                      setFullTranscript(transcriptText)
+                    })
+                    .catch(() => {})
+                } catch {
+                  // Ignore
+                }
+              }
+              incrementUsage('video-to-transcript')
+              const started = processingStartedAtRef.current ?? Date.now()
+              const processingMs = Date.now() - started
               try {
-                const transcriptResponse = await fetch(getAbsoluteDownloadUrl(res.downloadUrl))
-                const transcriptText = await transcriptResponse.text()
-                setTranscriptPreview(transcriptText.substring(0, 500))
-                setFullTranscript(transcriptText)
-              } catch (e) {
-                // Ignore (e.g. ZIP)
+                trackEvent('job_completed', {
+                  job_id: response.jobId,
+                  tool_type: BACKEND_TOOL_TYPES.VIDEO_TO_TRANSCRIPT,
+                  processing_time_ms: processingMs,
+                })
+                trackEvent('processing_completed', { tool: 'video-to-transcript' })
+                texJobCompleted(processingMs, 'video-to-transcript')
+                setLastProcessingMs(processingMs)
+                setLastJobCompletedToolId('video-to-transcript')
+              } catch {
+                // non-blocking
               }
             }
-            incrementUsage('video-to-transcript')
-            const started = processingStartedAtRef.current ?? Date.now()
-            const processingMs = Date.now() - started
-            try {
-              trackEvent('job_completed', {
-                job_id: response.jobId,
-                tool_type: BACKEND_TOOL_TYPES.VIDEO_TO_TRANSCRIPT,
-                processing_time_ms: processingMs,
-              })
-              trackEvent('processing_completed', { tool: 'video-to-transcript' })
-              texJobCompleted(processingMs, 'video-to-transcript')
-              setLastProcessingMs(processingMs)
-              setLastJobCompletedToolId('video-to-transcript')
-            } catch {
-              // non-blocking
+
+            if (remainingMs > 0) {
+              minStreamDelayTimeoutRef.current = setTimeout(() => { void applyCompletedTransition() }, remainingMs)
+            } else {
+              void applyCompletedTransition()
             }
           } else if (transition === 'failed') {
             terminalRef.current = true
@@ -593,6 +619,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
           } else if (jobStatus.status === 'processing' && jobStatus.partialVersion != null && jobStatus.partialVersion > lastPartialVersionRef.current) {
             lastPartialVersionRef.current = jobStatus.partialVersion
             if (jobStatus.partialSegments?.length) {
+              if (partialFirstSeenAtRef.current === null) partialFirstSeenAtRef.current = Date.now()
               setPartialSegments(jobStatus.partialSegments)
             }
           }
@@ -664,6 +691,11 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     uploadAbortRef.current = null
     terminalRef.current = false
     lastPartialVersionRef.current = 0
+    partialFirstSeenAtRef.current = null
+    if (minStreamDelayTimeoutRef.current) {
+      clearTimeout(minStreamDelayTimeoutRef.current)
+      minStreamDelayTimeoutRef.current = null
+    }
     setStatus('idle')
     setProgress(0)
     setUploadPhase('preparing')
