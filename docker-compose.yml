@@ -5,7 +5,9 @@ services:
     image: redis:7-alpine
     container_name: videotools-redis
     ports:
-      - "6379:6379"   # Expose for local dev (server on host connecting to Redis in Docker)
+      # Bind to localhost only so Redis is never exposed to the internet (BSI/CERT reports).
+      # api/worker reach Redis via Docker network (redis:6379). For host dev: redis-cli -h 127.0.0.1 -p 6379
+      - "127.0.0.1:6379:6379"   # Expose for local dev (server on host connecting to Redis in Docker)
     volumes:
       - redis-data:/data
     # Less aggressive persistence to reduce fork() and blocking; AOF only keeps durability with fewer spikes.
