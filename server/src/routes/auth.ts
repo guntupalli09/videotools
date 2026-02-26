@@ -214,7 +214,7 @@ router.post('/login', async (req: Request, res: Response) => {
     if (user.stripeCustomerId && user.plan === 'free') {
       try {
         const stripeData = await getPlanAndEmailForStripeCustomer(user.stripeCustomerId)
-        if (stripeData && (stripeData.plan === 'basic' || stripeData.plan === 'pro' || stripeData.plan === 'agency')) {
+        if (stripeData && (stripeData.plan === 'basic' || stripeData.plan === 'pro' || stripeData.plan === 'agency' || stripeData.plan === 'founding_workflow')) {
           user.plan = stripeData.plan
           user.limits = getPlanLimits(stripeData.plan)
           user.updatedAt = new Date()

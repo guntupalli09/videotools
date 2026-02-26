@@ -53,7 +53,7 @@ async function getOrCreateDemoUser(req: Request): Promise<User | null> {
 
   // Paid plans: from auth, or from existing Stripe-backed user; unauthenticated without Stripe = free (abuse-proof)
   const derivedPlan: PlanType =
-    auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency')
+    auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency' || auth.plan === 'founding_workflow')
       ? auth.plan
       : user?.stripeCustomerId
         ? user.plan

@@ -45,3 +45,9 @@ scripts/seo/output/
 
 # Verification script credentials (local only)
 server/scripts/verify-credentials.env
+
+
+.env.*
+server/.env*
+client/.env*
+

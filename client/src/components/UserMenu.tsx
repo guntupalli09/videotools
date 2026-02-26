@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Menu, X, Sun, Moon, Clock, CreditCard, Mail, Gift } from 'lucide-react'
 import { prefetchRoute } from '../lib/prefetch'
@@ -32,8 +32,8 @@ export default function UserMenu() {
   const [portalLoading, setPortalLoading] = useState(false)
   const { theme, toggleTheme } = useTheme()
 
-  useEffect(() => {
-    getCurrentUsage()
+  const refreshUsage = useCallback(() => {
+    getCurrentUsage({ skipCache: true })
       .then((data) => {
         const total = data.limits.minutesPerMonth + data.overages.minutes
         setUsage({
@@ -49,9 +49,19 @@ export default function UserMenu() {
         const email = typeof localStorage !== 'undefined' ? localStorage.getItem('userEmail') || undefined : undefined
         setUsage(plan ? { plan, remaining: 0, totalPlanMinutes: 0, resetDate: new Date().toISOString(), email } : null)
       })
-  }, [open])
+  }, [])
 
-  const isPaidPlan = usage?.plan === 'basic' || usage?.plan === 'pro' || usage?.plan === 'agency'
+  useEffect(() => {
+    refreshUsage()
+  }, [open, refreshUsage])
+
+  useEffect(() => {
+    const onPlanUpdated = () => refreshUsage()
+    window.addEventListener('videotext:plan-updated', onPlanUpdated)
+    return () => window.removeEventListener('videotext:plan-updated', onPlanUpdated)
+  }, [refreshUsage])
+
+  const isPaidPlan = usage?.plan === 'basic' || usage?.plan === 'pro' || usage?.plan === 'agency' || usage?.plan === 'founding_workflow'
 
   async function handleManageSubscription() {
     if (!isPaidPlan) return
@@ -132,9 +142,11 @@ export default function UserMenu() {
                     <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
                       {usage.remaining} <span className="text-base font-normal text-gray-600 dark:text-gray-300">min remaining</span>
                     </p>
-                    <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
-                      {usage.plan} plan · Resets {new Date(usage.resetDate).toLocaleDateString()}
-                    </p>
+                    {usage.plan !== 'free' && (
+                      <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                        {usage.plan} plan · Resets {new Date(usage.resetDate).toLocaleDateString()}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div className="rounded-xl bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 p-4">
@@ -165,7 +177,7 @@ export default function UserMenu() {
                     onClick={() => {
                       logout()
                       setOpen(false)
-                      window.location.reload()
+                      window.location.replace('/')
                     }}
                     className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                   >

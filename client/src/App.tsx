@@ -12,6 +12,7 @@ import { getSeoEntry, getAllSeoPaths } from './lib/seoRegistry'
 import SessionErrorBoundary from './components/SessionErrorBoundary'
 import OfflineBanner from './components/OfflineBanner'
 import { WorkflowProvider } from './contexts/WorkflowContext'
+import { WorkflowTracker } from './components/workflow/WorkflowTracker'
 import { TexAgent } from './components/TexAgent'
 import TexErrorBoundary from './components/TexAgent/TexErrorBoundary'
 
@@ -123,7 +124,15 @@ function PostCheckoutHandler() {
         localStorage.setItem('userId', data.userId)
         localStorage.setItem('plan', data.plan.toLowerCase())
         if (data.email) localStorage.setItem('userEmail', data.email)
+        if (data.token) localStorage.setItem('authToken', data.token)
+        try {
+          const { invalidateUsageCache } = await import('./lib/api')
+          invalidateUsageCache()
+        } catch {
+          // non-blocking
+        }
         handled.current = true
+        window.dispatchEvent(new CustomEvent('videotext:plan-updated'))
         try {
           identifyUser(data.userId, { plan: data.plan.toLowerCase(), email: data.email })
           trackEvent('plan_upgraded', { plan: data.plan.toLowerCase() })
@@ -291,6 +300,7 @@ function App() {
           </SessionErrorBoundary>
         </main>
         <Footer />
+        <WorkflowTracker />
         <TexErrorBoundary>
           <TexAgent />
         </TexErrorBoundary>

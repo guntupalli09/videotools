@@ -67,3 +67,16 @@ export function clearPersistedJobId(pathname: string, navigate: (path: string, o
     navigate(newPath, { replace: true })
   }
 }
+
+/** Clear all persisted job IDs and tokens from sessionStorage. Call on logout so results are not re-shown after reload. */
+export function clearAllPersistedJobs(): void {
+  if (typeof sessionStorage === 'undefined') return
+  try {
+    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+      const k = sessionStorage.key(i)
+      if (k?.startsWith('job-')) sessionStorage.removeItem(k)
+    }
+  } catch {
+    // ignore
+  }
+}

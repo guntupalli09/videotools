@@ -80,6 +80,7 @@ export function extractAudio(
   onProgress?: (progress: FFmpegProgress) => void
 ): Promise<string> {
   return new Promise((resolve, reject) => {
+    const stderrLines: string[] = []
     const cmd = ffmpeg(videoPath)
       .inputOptions(getGpuInputOptions())
       .outputOptions(['-threads', FFMPEG_THREADS, '-vn', '-acodec', 'libmp3lame', '-ar', '16000', '-ac', '1', '-q:a', '5'])
@@ -90,13 +91,78 @@ export function extractAudio(
           timemark: progress.timemark,
         })
       })
+      .on('stderr', (line: string) => { stderrLines.push(line) })
       .on('end', () => {
         hung.clear()
         resolve(outputPath)
       })
       .on('error', (err: Error) => {
         hung.clear()
-        reject(err)
+        const stderr = stderrLines.length ? stderrLines.join('\n').trim().slice(-2000) : ''
+        const msg = stderr ? `${err.message}\nffmpeg stderr:\n${stderr}` : err.message
+        reject(new Error(msg))
+      })
+    const hung = setupHungProtection(cmd, reject)
+    cmd.save(outputPath)
+  })
+}
+
+/**
+ * Extract audio to 16 kHz mono WAV (PCM). Use when MP3 extraction is empty/small due to unsupported codec.
+ * Whisper accepts WAV; this decode path often works for AC3/DTS and other codecs that fail with libmp3lame.
+ */
+export function extractAudioToWav(
+  videoPath: string,
+  outputPath: string
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const stderrLines: string[] = []
+    const cmd = ffmpeg(videoPath)
+      .inputOptions(getGpuInputOptions())
+      .outputOptions([
+        '-threads', FFMPEG_THREADS,
+        '-vn',
+        '-acodec', 'pcm_s16le',
+        '-ar', '16000',
+        '-ac', '1',
+      ])
+      .on('stderr', (line: string) => { stderrLines.push(line) })
+      .on('end', () => {
+        hung.clear()
+        resolve(outputPath)
+      })
+      .on('error', (err: Error) => {
+        hung.clear()
+        const stderr = stderrLines.length ? stderrLines.join('\n').trim().slice(-2000) : ''
+        const msg = stderr ? `${err.message}\nffmpeg stderr:\n${stderr}` : err.message
+        reject(new Error(msg))
+      })
+    const hung = setupHungProtection(cmd, reject)
+    cmd.save(outputPath)
+  })
+}
+
+/**
+ * Convert any audio file to 16 kHz mono WAV. Use for chunks so Whisper always gets a supported format.
+ */
+export function convertAudioToWav(inputPath: string, outputPath: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const stderrLines: string[] = []
+    const cmd = ffmpeg(inputPath)
+      .outputOptions([
+        '-threads', FFMPEG_THREADS,
+        '-vn', '-acodec', 'pcm_s16le', '-ar', '16000', '-ac', '1',
+      ])
+      .on('stderr', (line: string) => { stderrLines.push(line) })
+      .on('end', () => {
+        hung.clear()
+        resolve(outputPath)
+      })
+      .on('error', (err: Error) => {
+        hung.clear()
+        const stderr = stderrLines.length ? stderrLines.join('\n').trim().slice(-2000) : ''
+        const msg = stderr ? `${err.message}\nffmpeg stderr:\n${stderr}` : err.message
+        reject(new Error(msg))
       })
     const hung = setupHungProtection(cmd, reject)
     cmd.save(outputPath)
@@ -114,6 +180,7 @@ export function splitAudioIntoChunks(
 ): Promise<string[]> {
   return new Promise((resolve, reject) => {
     const pattern = path.join(outputDir, `chunk_%03d.mp3`)
+    const stderrLines: string[] = []
     ffmpeg(audioPath)
       .outputOptions([
         '-f', 'segment',
@@ -123,13 +190,17 @@ export function splitAudioIntoChunks(
         '-map', '0',
       ])
       .output(pattern)
+      .on('stderr', (line: string) => { stderrLines.push(line) })
       .on('end', () => {
         const files = fs.readdirSync(outputDir)
           .filter((f) => f.startsWith('chunk_') && f.endsWith('.mp3'))
           .sort()
         resolve(files.map((f) => path.join(outputDir, f)))
       })
-      .on('error', (err: Error) => reject(err))
+      .on('error', (err: Error) => {
+        const stderr = stderrLines.length ? stderrLines.join('\n').trim().slice(-2000) : ''
+        reject(new Error(stderr ? `${err.message}\nffmpeg stderr:\n${stderr}` : err.message))
+      })
       .run()
   })
 }
@@ -146,6 +217,7 @@ export function extractAndSplitAudio(
 ): Promise<string[]> {
   const pattern = path.join(outputDir, 'chunk_%03d.mp3')
   return new Promise((resolve, reject) => {
+    const stderrLines: string[] = []
     const cmd = ffmpeg(videoPath)
       .inputOptions(getGpuInputOptions())
       .outputOptions([
@@ -156,6 +228,7 @@ export function extractAndSplitAudio(
         '-reset_timestamps', '1',
       ])
       .output(pattern)
+      .on('stderr', (line: string) => { stderrLines.push(line) })
       .on('end', () => {
         hung.clear()
         const files = fs.readdirSync(outputDir)
@@ -165,7 +238,9 @@ export function extractAndSplitAudio(
       })
       .on('error', (err: Error) => {
         hung.clear()
-        reject(err)
+        const stderr = stderrLines.length ? stderrLines.join('\n').trim().slice(-2000) : ''
+        const msg = stderr ? `${err.message}\nffmpeg stderr:\n${stderr}` : err.message
+        reject(new Error(msg))
       })
     const hung = setupHungProtection(cmd, reject)
     cmd.run()
@@ -378,6 +453,7 @@ export function compressVideo(
         '-movflags +faststart',
       ]
       if (scaleFilter) opts.push('-vf', scaleFilter)
+      const stderrLines: string[] = []
       const cmd = ffmpeg(inputPath)
         .inputOptions(getGpuInputOptions())
         .videoCodec(getGpuVideoCodec())
@@ -386,13 +462,15 @@ export function compressVideo(
           hung.reset()
           onProgress?.({ percent: progress.percent || 0, timemark: progress.timemark })
         })
+        .on('stderr', (line: string) => { stderrLines.push(line) })
         .on('end', () => {
           hung.clear()
           resolve(outputPath)
         })
         .on('error', (err: Error) => {
           hung.clear()
-          reject(err)
+          const stderr = stderrLines.length ? stderrLines.join('\n').trim().slice(-2000) : ''
+          reject(new Error(stderr ? `${err.message}\nffmpeg stderr:\n${stderr}` : err.message))
         })
       const hung = setupHungProtection(cmd, reject)
       cmd.save(outputPath)

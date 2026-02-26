@@ -1,9 +1,9 @@
 import express, { Request, Response } from 'express'
-import { stripe, getStripePriceConfig, BillingPlan } from '../services/stripe'
+import { stripe, getStripePriceConfig, BillingPlan, findStripeCustomerIdByEmail } from '../services/stripe'
 import { getUser, getUserByStripeCustomerId, saveUser } from '../models/User'
 import type { User, PlanType } from '../models/User'
 import { getPlanLimits } from '../utils/limits'
-import { getAuthFromRequest, getEffectiveUserId, verifyEmailVerificationToken, generatePasswordSetupToken } from '../utils/auth'
+import { getAuthFromRequest, getEffectiveUserId, verifyEmailVerificationToken, generatePasswordSetupToken, signAuthToken } from '../utils/auth'
 
 const router = express.Router()
 
@@ -63,12 +63,19 @@ router.post('/checkout', async (req: Request, res: Response) => {
       }
 
       const annual = req.body.annual === true
-      const priceId =
-        plan === 'basic'
-          ? (annual && prices.basicAnnualPriceId ? prices.basicAnnualPriceId : prices.basicPriceId)
-          : plan === 'pro'
-          ? (annual && prices.proAnnualPriceId ? prices.proAnnualPriceId : prices.proPriceId)
-          : (annual && prices.agencyAnnualPriceId ? prices.agencyAnnualPriceId : prices.agencyPriceId)
+      let priceId: string
+      if (plan === 'founding_workflow') {
+        if (!prices.foundingWorkflowPriceId) {
+          return res.status(400).json({ message: 'Founding Workflow plan is not available.' })
+        }
+        priceId = prices.foundingWorkflowPriceId
+      } else if (plan === 'basic') {
+        priceId = annual && prices.basicAnnualPriceId ? prices.basicAnnualPriceId : prices.basicPriceId
+      } else if (plan === 'pro') {
+        priceId = annual && prices.proAnnualPriceId ? prices.proAnnualPriceId : prices.proPriceId
+      } else {
+        priceId = annual && prices.agencyAnnualPriceId ? prices.agencyAnnualPriceId : prices.agencyPriceId
+      }
 
       // Promo codes only for Basic and Pro (30/50/70/100% off for early testers)
       const promoId =
@@ -157,7 +164,17 @@ router.post('/portal', async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'No account found. Complete a purchase first, then you can manage your subscription here.' })
     }
 
-    const customerId = user.stripeCustomerId || (user.id && user.id.startsWith('cus_') ? user.id : null)
+    // Stripe Billing Portal requires an existing Stripe customer (created at checkout).
+    let customerId = user.stripeCustomerId || (user.id && user.id.startsWith('cus_') ? user.id : null)
+    if (!customerId && user.email && (user.plan === 'basic' || user.plan === 'pro' || user.plan === 'agency' || user.plan === 'founding_workflow')) {
+      const found = await findStripeCustomerIdByEmail(user.email)
+      if (found) {
+        user.stripeCustomerId = found
+        user.updatedAt = new Date()
+        await saveUser(user)
+        customerId = found
+      }
+    }
     if (!customerId) {
       return res.status(403).json({ message: 'No active subscription. Upgrade on the Pricing page to manage your plan.' })
     }
@@ -203,7 +220,7 @@ router.get('/session-details', async (req: Request, res: Response) => {
       const email = session.customer_details?.email || `${customerId}@checkout.example.com`
       const planFromMeta = session.metadata?.plan as PlanType | undefined
       const plan: PlanType =
-        planFromMeta === 'basic' || planFromMeta === 'pro' || planFromMeta === 'agency' ? planFromMeta : 'pro'
+        planFromMeta === 'basic' || planFromMeta === 'pro' || planFromMeta === 'agency' || planFromMeta === 'founding_workflow' ? planFromMeta : 'pro'
       const now = new Date()
       const limits = getPlanLimits(plan)
       user = {
@@ -252,10 +269,12 @@ router.get('/session-details', async (req: Request, res: Response) => {
       }
     }
 
+    const token = signAuthToken(user)
     return res.json({
       userId: user.id,
       plan: user.plan,
       email: user.email,
+      token,
       ...(passwordSetupToken && passwordSetupExpiresAt
         ? { passwordSetupToken, passwordSetupExpiresAt }
         : {}),

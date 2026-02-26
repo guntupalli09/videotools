@@ -1,0 +1,459 @@
+import { motion, useScroll, useTransform } from "motion/react";
+import { useRef, useMemo, useState, useEffect } from "react";
+import {
+  Play,
+  Mic,
+  FileText,
+  Subtitles,
+  Globe,
+  Clock,
+  CheckCircle2,
+  ChevronRight,
+  Languages,
+  ArrowDown,
+} from "lucide-react";
+import { ImageWithFallback } from "./figma/ImageWithFallback";
+
+/* ─────────── HOOKS ─────────── */
+
+function useTypingEffect(text: string, speed = 35, delay = 0) {
+  const [displayed, setDisplayed] = useState("");
+  const [started, setStarted] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setStarted(true), delay);
+    return () => clearTimeout(t);
+  }, [delay]);
+  useEffect(() => {
+    if (!started) return;
+    let i = 0;
+    const iv = setInterval(() => {
+      setDisplayed(text.slice(0, i + 1));
+      i++;
+      if (i >= text.length) clearInterval(iv);
+    }, speed);
+    return () => clearInterval(iv);
+  }, [text, speed, started]);
+  return displayed;
+}
+
+/* ─────────── WAVEFORM ─────────── */
+
+function WaveformBars({ count = 24 }: { count?: number }) {
+  const bars = useMemo(
+    () =>
+      Array.from({ length: count }).map(() => ({
+        h1: 4 + Math.random() * 16,
+        h2: 2 + Math.random() * 18,
+        h3: 4 + Math.random() * 16,
+        dur: 0.7 + Math.random() * 0.5,
+      })),
+    [count]
+  );
+  return (
+    <div className="flex items-end gap-[2px] h-5">
+      {bars.map((b, i) => (
+        <motion.div
+          key={i}
+          className="w-[2px] rounded-full bg-purple-500/60 dark:bg-purple-400/70"
+          animate={{ height: [`${b.h1}px`, `${b.h2}px`, `${b.h3}px`] }}
+          transition={{ duration: b.dur, repeat: Infinity, ease: "easeInOut", delay: i * 0.025 }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ─────────── SOCIAL PROOF ─────────── */
+
+const CREATOR_AVATARS = [
+  "https://i.pravatar.cc/80?img=12",
+  "https://i.pravatar.cc/80?img=32",
+  "https://i.pravatar.cc/80?img=47",
+  "https://i.pravatar.cc/80?img=25",
+  "https://i.pravatar.cc/80?img=56",
+];
+
+function SocialProof() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 1.0, duration: 0.6 }}
+      className="flex flex-col items-center gap-3 mt-10 mb-8"
+    >
+      <div className="flex items-center -space-x-2.5">
+        {CREATOR_AVATARS.map((src, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 1.1 + i * 0.08, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <ImageWithFallback
+              src={src}
+              alt=""
+              className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-950 object-cover transition-colors duration-500"
+            />
+          </motion.div>
+        ))}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.5 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 1.5, duration: 0.4 }}
+          className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-950 bg-purple-100 dark:bg-purple-500/20 flex items-center justify-center transition-colors duration-500"
+        >
+          <span className="text-[9px] font-semibold text-purple-600 dark:text-purple-400">2K+</span>
+        </motion.div>
+      </div>
+      <p className="text-[12px] text-gray-400 dark:text-white/25 transition-colors duration-500">
+        Trusted by <span className="text-gray-600 dark:text-white/50 font-medium transition-colors duration-500">2,000+ creators</span> who stopped wasting time on captions
+      </p>
+    </motion.div>
+  );
+}
+
+/* ─────────── LIVE TRANSCRIPT PANEL ─────────── */
+
+function LiveTranscriptPanel() {
+  const line1 = useTypingEffect(
+    "Hey everyone, welcome back to the channel. Today I want to share something that completely changed my editing workflow...",
+    28,
+    2000
+  );
+  const line2 = useTypingEffect(
+    "Instead of spending hours manually typing out captions, I just drop my video and the AI handles everything.",
+    28,
+    6000
+  );
+
+  const fullLine1 =
+    "Hey everyone, welcome back to the channel. Today I want to share something that completely changed my editing workflow...";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 1.4, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+      className="w-full max-w-2xl mx-auto"
+    >
+      {/* Browser chrome */}
+      <div className="rounded-t-xl border border-b-0 border-gray-200 dark:border-white/[0.06] bg-gray-50 dark:bg-white/[0.03] px-4 py-2.5 flex items-center gap-3 transition-colors duration-500">
+        <div className="flex gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-red-400/60 dark:bg-white/[0.08]" />
+          <div className="w-2 h-2 rounded-full bg-yellow-400/60 dark:bg-white/[0.08]" />
+          <div className="w-2 h-2 rounded-full bg-green-400/60 dark:bg-white/[0.08]" />
+        </div>
+        <div className="flex-1 flex justify-center">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.04] transition-colors duration-500">
+            <img src="/logo.svg" alt="" className="w-3 h-3 opacity-50" />
+            <span className="text-[10px] text-gray-400 dark:text-white/25 font-mono">videotext.io/transcript</span>
+          </div>
+        </div>
+      </div>
+
+      {/* App body */}
+      <div className="rounded-b-xl border border-gray-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] overflow-hidden transition-colors duration-500 shadow-xl shadow-gray-200/50 dark:shadow-black/30">
+        <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-100 dark:divide-white/[0.04]">
+          {/* Left: Video area */}
+          <div className="p-4 sm:p-5">
+            <div className="aspect-video rounded-lg bg-gray-100 dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.04] overflow-hidden relative flex items-center justify-center transition-colors duration-500">
+              <ImageWithFallback
+                src="https://images.unsplash.com/photo-1604272986062-67ef7145f0ef?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3V0dWJlciUyMHJlY29yZGluZyUyMGNhbWVyYSUyMHNjcmVlbiUyMHN0dWRpbyUyMGRhcmt8ZW58MXx8fHwxNzcxODgyOTI0fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
+                alt="Creator recording"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+
+              {/* Subtitle overlay */}
+              <motion.div
+                className="absolute bottom-3 left-3 right-3"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 3.5, duration: 0.5 }}
+              >
+                <div className="bg-black/70 backdrop-blur-sm rounded-md px-3 py-1.5 text-center">
+                  <span className="text-[11px] text-white/90 leading-snug">
+                    ...something that completely changed my editing workflow
+                  </span>
+                </div>
+              </motion.div>
+
+              {/* Play overlay */}
+              <motion.div
+                className="absolute inset-0 flex items-center justify-center"
+                animate={{ opacity: [0.7, 0.3, 0.7] }}
+                transition={{ duration: 3, repeat: Infinity }}
+              >
+                <div className="w-10 h-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center border border-white/25">
+                  <Play className="w-4 h-4 text-white/90 ml-0.5" />
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Waveform */}
+            <div className="mt-3 flex items-center gap-2">
+              <motion.div
+                className="w-6 h-6 rounded-md bg-purple-100 dark:bg-purple-500/20 flex items-center justify-center transition-colors duration-500"
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+              >
+                <Mic className="w-3 h-3 text-purple-500 dark:text-purple-400" />
+              </motion.div>
+              <div className="flex-1">
+                <WaveformBars count={32} />
+              </div>
+              <span className="text-[9px] font-mono text-gray-400 dark:text-white/20">04:32</span>
+            </div>
+          </div>
+
+          {/* Right: Transcript */}
+          <div className="p-4 sm:p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <FileText className="w-3.5 h-3.5 text-purple-500/70 dark:text-purple-400/70" />
+              <span className="text-[11px] font-medium text-gray-500 dark:text-white/50">Transcript</span>
+              <motion.div
+                className="ml-auto flex items-center gap-1"
+                animate={{ opacity: [1, 0.3, 1] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
+                <span className="text-[9px] text-emerald-600 dark:text-emerald-400/80 font-medium">Processing</span>
+              </motion.div>
+            </div>
+
+            <div className="space-y-2.5 text-[12px] text-gray-700 dark:text-white/70 leading-relaxed min-h-[100px] transition-colors duration-500">
+              <div className="flex gap-2">
+                <span className="text-[9px] font-mono text-purple-400/50 dark:text-purple-400/40 mt-0.5 shrink-0 w-8">00:00</span>
+                <p>
+                  {line1}
+                  {line1.length < fullLine1.length && (
+                    <motion.span
+                      className="inline-block w-[1.5px] h-3.5 bg-purple-500 dark:bg-purple-400 ml-0.5 align-middle"
+                      animate={{ opacity: [1, 0] }}
+                      transition={{ duration: 0.5, repeat: Infinity }}
+                    />
+                  )}
+                </p>
+              </div>
+              {line1.length >= fullLine1.length && (
+                <motion.div className="flex gap-2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+                  <span className="text-[9px] font-mono text-purple-400/50 dark:text-purple-400/40 mt-0.5 shrink-0 w-8">00:08</span>
+                  <p>
+                    {line2}
+                    <motion.span
+                      className="inline-block w-[1.5px] h-3.5 bg-purple-500 dark:bg-purple-400 ml-0.5 align-middle"
+                      animate={{ opacity: [1, 0] }}
+                      transition={{ duration: 0.5, repeat: Infinity }}
+                    />
+                  </p>
+                </motion.div>
+              )}
+            </div>
+
+            {/* Format pills */}
+            <motion.div
+              className="mt-4 pt-3 border-t border-gray-100 dark:border-white/[0.04] flex flex-wrap gap-1.5 transition-colors duration-500"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 3, duration: 0.5 }}
+            >
+              {[
+                { label: "SRT", icon: Subtitles },
+                { label: "TXT", icon: FileText },
+                { label: "Translate", icon: Languages },
+              ].map((f) => (
+                <div
+                  key={f.label}
+                  className="flex items-center gap-1 px-2 py-1 rounded-md bg-gray-50 dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.05] text-[9px] text-gray-500 dark:text-white/40 transition-colors duration-500"
+                >
+                  <f.icon className="w-2.5 h-2.5" />
+                  {f.label}
+                </div>
+              ))}
+            </motion.div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ─────────── STATS BAR ─────────── */
+
+function StatsBar() {
+  const stats = [
+    { icon: Clock, value: "2M+", label: "minutes transcribed" },
+    { icon: Globe, value: "50+", label: "languages" },
+    { icon: CheckCircle2, value: "98.5%", label: "accuracy" },
+  ];
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 1.8, duration: 0.7 }}
+      className="flex items-center justify-center gap-6 sm:gap-10 mt-10"
+    >
+      {stats.map((s, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <s.icon className="w-3.5 h-3.5 text-gray-300 dark:text-white/15 transition-colors duration-500" />
+          <div className="flex items-baseline gap-1">
+            <span className="text-sm font-semibold text-gray-500 dark:text-white/50 transition-colors duration-500">{s.value}</span>
+            <span className="text-[10px] text-gray-400 dark:text-white/20 hidden sm:inline transition-colors duration-500">{s.label}</span>
+          </div>
+        </div>
+      ))}
+    </motion.div>
+  );
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   ██  HERO  ██
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+export function Hero() {
+  const ref = useRef<HTMLDivElement>(null);
+
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start start", "end start"],
+  });
+
+  const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 0.92]);
+  const heroY = useTransform(scrollYProgress, [0, 0.5], [0, -50]);
+  const heroOpacity = useTransform(scrollYProgress, [0.05, 0.45], [1, 0]);
+  const bgY = useTransform(scrollYProgress, [0, 1], [0, -120]);
+
+  return (
+    <div ref={ref} className="relative">
+      {/* ── HERO ── */}
+      <motion.section
+        style={{ scale: heroScale, y: heroY, opacity: heroOpacity }}
+        className="relative flex flex-col items-center overflow-hidden bg-white dark:bg-gray-950 transition-colors duration-500"
+      >
+        {/* BG: photo + overlay */}
+        <motion.div style={{ y: bgY }} className="absolute inset-0 z-0">
+          <ImageWithFallback
+            src="https://images.unsplash.com/photo-1514471157964-06459a4b9241?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx2aWRlbyUyMGVkaXRvciUyMHRpbWVsaW5lJTIwc2NyZWVuJTIwZGFyayUyMHdvcmtzcGFjZXxlbnwxfHx8fDE3NzE4ODI5MjV8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
+            alt=""
+            className="w-full h-full object-cover opacity-[0.04] dark:opacity-[0.12] scale-110 transition-opacity duration-700"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-white/50 via-white/90 to-white dark:from-gray-950/40 dark:via-gray-950/90 dark:to-gray-950 transition-colors duration-500" />
+        </motion.div>
+
+        {/* Ambient glows */}
+        <div className="absolute inset-0 z-[1] pointer-events-none">
+          <div className="absolute top-[20%] left-[15%] w-[500px] h-[500px] bg-purple-400/[0.06] dark:bg-purple-600/[0.07] rounded-full blur-[120px]" />
+          <div className="absolute top-[30%] right-[10%] w-[400px] h-[400px] bg-indigo-400/[0.05] dark:bg-blue-600/[0.05] rounded-full blur-[100px]" />
+        </div>
+
+        {/* ── CONTENT ── */}
+        <div className="relative z-10 w-full max-w-4xl mx-auto px-6 pt-24 sm:pt-28 pb-4">
+          {/* Chip */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+            className="flex justify-center mb-6"
+          >
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 dark:bg-white/[0.04] border border-purple-200/50 dark:border-white/[0.07] transition-colors duration-500">
+              <Play className="w-2.5 h-2.5 text-purple-500 dark:text-purple-400" />
+              <span className="text-[11px] text-purple-600/70 dark:text-white/40 font-medium tracking-wide transition-colors duration-500">
+                The creator's transcription tool
+              </span>
+            </div>
+          </motion.div>
+
+          {/* Headline */}
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            className="text-center text-4xl sm:text-5xl md:text-6xl lg:text-[4.25rem] font-semibold tracking-tight text-gray-900 dark:text-white leading-[1.1] mb-5 transition-colors duration-500"
+          >
+            You create the content.
+            <br />
+            <span className="bg-gradient-to-r from-purple-600 via-violet-500 to-indigo-500 dark:from-purple-400 dark:via-violet-400 dark:to-indigo-400 bg-clip-text text-transparent">
+              We handle the rest.
+            </span>
+          </motion.h1>
+
+          {/* Sub */}
+          <motion.p
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.55, duration: 0.6 }}
+            className="text-center text-[15px] text-gray-500 dark:text-white/40 max-w-lg mx-auto leading-relaxed mb-8 transition-colors duration-500"
+          >
+            Drop your video — get accurate transcripts, burned-in subtitles,
+            and translations in 50+ languages. No manual work, no waiting.
+          </motion.p>
+
+          {/* CTA */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7, duration: 0.5 }}
+            className="flex flex-col sm:flex-row items-center justify-center gap-3.5 mb-3"
+          >
+            <motion.button
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.97 }}
+              className="group relative bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-8 py-3.5 rounded-xl font-medium shadow-lg shadow-purple-500/20 dark:shadow-purple-600/20 hover:shadow-purple-500/40 dark:hover:shadow-purple-600/40 transition-all overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <span className="relative flex items-center gap-2 text-[15px]">
+                Start transcribing — it's free
+                <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+              </span>
+            </motion.button>
+            <motion.button
+              whileHover={{ x: 3 }}
+              className="text-gray-400 dark:text-white/30 hover:text-gray-600 dark:hover:text-white/60 transition-colors text-sm font-medium flex items-center gap-1"
+            >
+              Watch how it works
+              <Play className="w-3 h-3" />
+            </motion.button>
+          </motion.div>
+
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.9, duration: 0.6 }}
+            className="text-center text-[10px] text-gray-400 dark:text-white/15 tracking-wider uppercase transition-colors duration-500"
+          >
+            No signup · No data stored · Cancel anytime
+          </motion.p>
+
+          {/* ── SOCIAL PROOF ── */}
+          <SocialProof />
+
+          {/* ── LIVE APP MOCKUP ── */}
+          <LiveTranscriptPanel />
+
+          {/* Stats */}
+          <StatsBar />
+
+          {/* Scroll hint */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 2.5, duration: 0.8 }}
+            className="flex justify-center mt-10"
+          >
+            <motion.div
+              animate={{ y: [0, 6, 0] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              className="flex flex-col items-center gap-1"
+            >
+              <span className="text-[9px] uppercase tracking-widest text-gray-300 dark:text-white/10 transition-colors duration-500">Scroll</span>
+              <ArrowDown className="w-3.5 h-3.5 text-gray-300 dark:text-white/10 transition-colors duration-500" />
+            </motion.div>
+          </motion.div>
+        </div>
+
+        {/* Bottom fade */}
+        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white dark:from-gray-950 to-transparent z-[8] transition-colors duration-500" />
+      </motion.section>
+    </div>
+  );
+}

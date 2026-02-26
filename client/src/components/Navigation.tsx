@@ -28,7 +28,7 @@ export default function Navigation() {
             onMouseEnter={() => prefetchRoute('/')}
             onFocus={() => prefetchRoute('/')}
           >
-            <img src="/logo.svg" alt="VideoText" className="h-8 w-8" />
+            <img src="/logo.svg" alt="VideoText" width={32} height={32} className="h-8 w-8" />
             <span className="text-xl font-display font-semibold text-gray-800 dark:text-white">VideoText</span>
           </Link>
 

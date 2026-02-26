@@ -20,7 +20,7 @@ export default function FilePreviewCard({ preview, compact = false }: FilePrevie
     return (
       <div className="flex items-center gap-3 rounded-xl bg-gray-50/80 px-4 py-3">
         {thumbnailDataUrl ? (
-          <img src={thumbnailDataUrl} alt="" className="h-12 w-20 rounded object-cover shrink-0" />
+          <img src={thumbnailDataUrl} alt="" width={80} height={48} className="h-12 w-20 rounded object-cover shrink-0" />
         ) : (
           <div className="h-12 w-20 rounded bg-violet-100 flex items-center justify-center shrink-0">
             {isVideo ? <File className="h-6 w-6 text-violet-600" strokeWidth={1.5} /> : <Music className="h-6 w-6 text-violet-600" strokeWidth={1.5} />}
@@ -44,6 +44,8 @@ export default function FilePreviewCard({ preview, compact = false }: FilePrevie
           <img
             src={thumbnailDataUrl}
             alt=""
+            width={128}
+            height={72}
             className="w-32 h-[72px] rounded-lg object-cover shrink-0"
           />
         ) : (

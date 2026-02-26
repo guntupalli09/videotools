@@ -52,6 +52,18 @@ export function getPlanLimits(plan: PlanType): PlanLimits {
         batchMaxDuration: 300,
         batchMaxPerDay: 999,
       }
+    case 'founding_workflow':
+      return {
+        minutesPerMonth: 600,
+        maxVideoDuration: 120,
+        maxFileSize: 10 * 1024 * 1024 * 1024, // 10 GB
+        maxConcurrentJobs: 2,
+        maxLanguages: 5,
+        batchEnabled: true,
+        batchMaxVideos: 20,
+        batchMaxDuration: 60,
+        batchMaxPerDay: 999,
+      }
     default:
       return getPlanLimits('free')
   }
@@ -64,6 +76,7 @@ export function getMaxJobRuntimeMinutes(plan: PlanType): number {
     basic: 15,
     pro: 30,
     agency: 45,
+    founding_workflow: 30,
   }
   return runtimes[plan] ?? 10
 }
@@ -74,6 +87,7 @@ export function getJobPriority(plan: PlanType): number {
     basic: 5,
     pro: 10,
     agency: 20,
+    founding_workflow: 10,
   }
   return priorities[plan] ?? 1
 }

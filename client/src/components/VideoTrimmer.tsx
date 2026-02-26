@@ -14,6 +14,17 @@ export default function VideoTrimmer({ file, onChange }: VideoTrimmerProps) {
   const [start, setStart] = useState(0)
   const [end, setEnd] = useState(0)
   const [dragging, setDragging] = useState<'start' | 'end' | null>(null)
+  const [objectUrl, setObjectUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file)
+    setObjectUrl(url)
+    return () => {
+      setObjectUrl(null)
+      const u = url
+      setTimeout(() => URL.revokeObjectURL(u), 0)
+    }
+  }, [file])
 
   useEffect(() => {
     setStart(0)
@@ -108,7 +119,7 @@ export default function VideoTrimmer({ file, onChange }: VideoTrimmerProps) {
         controls
         onLoadedMetadata={handleLoadedMetadata}
         className="mb-3 h-48 w-full rounded-lg bg-black object-contain"
-        src={URL.createObjectURL(file)}
+        src={objectUrl ?? ''}
       />
       {duration > 0 && (
         <>

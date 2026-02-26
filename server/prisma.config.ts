@@ -1,21 +1,21 @@
-import 'dotenv/config'
+import dotenv from 'dotenv'
 import path from 'path'
 import fs from 'fs'
 import { defineConfig } from 'prisma/config'
 
-// Load project root .env so POSTGRES_PASSWORD is available (docker-compose uses it)
-const rootEnv = path.join(process.cwd(), '..', '.env')
-if (fs.existsSync(rootEnv)) {
-  require('dotenv').config({ path: rootEnv, override: false })
+// Align Prisma with the same NODE_ENV-based env loading as the server.
+const envFileName = process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development'
+const envPath = path.join(__dirname, envFileName)
+
+if (fs.existsSync(envPath)) {
+  dotenv.config({ path: envPath, override: false })
 }
-// Build DATABASE_URL for localhost if only POSTGRES_* is set (root .env has no DATABASE_URL with localhost)
-if (!process.env.DATABASE_URL && process.env.POSTGRES_PASSWORD) {
-  const user = process.env.POSTGRES_USER || 'videotools'
-  const db = process.env.POSTGRES_DB || 'videotext'
-  const pass = encodeURIComponent(process.env.POSTGRES_PASSWORD)
-  process.env.DATABASE_URL = `postgresql://${user}:${pass}@localhost:5433/${db}`
+
+const url = process.env.DATABASE_URL
+
+if (!url || url.trim().length === 0) {
+  throw new Error('DATABASE_URL must be set for Prisma (via server/.env.development or server/.env.production)')
 }
-const url = process.env.DATABASE_URL ?? 'postgresql://videotools:videotools@localhost:5433/videotext'
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
@@ -23,6 +23,6 @@ export default defineConfig({
     path: 'prisma/migrations',
   },
   datasource: {
-    url,
+    url: url.trim(),
   },
 })

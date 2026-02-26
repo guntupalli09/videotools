@@ -1,18 +1,19 @@
 import { useState, useEffect, useRef, Suspense, lazy } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Wrench, Loader2, CheckCircle } from 'lucide-react'
-import FileUploadZone from '../components/FileUploadZone'
-import UsageCounter from '../components/UsageCounter'
-import PlanBadge from '../components/PlanBadge'
-import ProgressBar from '../components/ProgressBar'
-import SuccessState from '../components/SuccessState'
+import { Wrench, CheckCircle } from 'lucide-react'
 import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
-import UsageDisplay from '../components/UsageDisplay'
+import { ToolLayout } from '../components/figma/ToolLayout'
+import { UploadZone } from '../components/figma/UploadZone'
+import { ProcessingInterface } from '../components/figma/ProcessingInterface'
+import { ProcessingProgress } from '../components/figma/ProcessingProgress'
+import { TranslateResult } from '../components/figma/TranslateResult'
+import { ToolSidebar } from '../components/figma/ToolSidebar'
+import { Checkbox } from '../components/figma/FormControls'
 import type { SubtitleRow } from '../components/SubtitleEditor'
 const SubtitleEditor = lazy(() => import('../components/SubtitleEditor'))
 import { incrementUsage } from '../lib/usage'
-import { uploadFile, getJobStatus, BACKEND_TOOL_TYPES, SessionExpiredError } from '../lib/api'
+import { uploadFileWithProgress, getJobStatus, BACKEND_TOOL_TYPES, SessionExpiredError } from '../lib/api'
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { FREE_EXPORT_WATERMARK } from '../lib/watermark'
@@ -21,6 +22,7 @@ import { trackEvent } from '../lib/analytics'
 import { texJobStarted, texJobCompleted, texJobFailed } from '../tex'
 import toast from 'react-hot-toast'
 import { Film, Languages, MessageSquare } from 'lucide-react'
+import { emitToolCompleted } from '../workflow/workflowStore'
 
 /** Optional SEO overrides for alternate entry points. Do NOT duplicate logic. */
 export type FixSubtitlesSeoProps = {
@@ -42,16 +44,18 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
   const [lineBreakFix, setLineBreakFix] = useState(false)
   const [removeFillers, setRemoveFillers] = useState(false)
   const [status, setStatus] = useState<'idle' | 'analyzing' | 'processing' | 'completed' | 'failed'>('idle')
+  const [uploadPhase, setUploadPhase] = useState<'uploading' | 'processing'>('processing')
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [progress, setProgress] = useState(0)
   const [queuePosition, setQueuePosition] = useState<number | undefined>(undefined)
-  const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null)
   const [result, setResult] = useState<{ downloadUrl: string; fileName?: string; issues?: any[]; warnings?: { type: string; message: string; line?: number }[] } | null>(null)
   const [subtitleRows, setSubtitleRows] = useState<SubtitleRow[]>([])
   const [freeExportsUsed, setFreeExportsUsed] = useState(0)
+  const [lastProcessingMs, setLastProcessingMs] = useState<number | null>(null)
   const processingStartedAtRef = useRef<number | null>(null)
 
   const plan = (localStorage.getItem('plan') || 'free').toLowerCase()
-  const canEdit = plan !== 'free'
+  const canEdit = ['basic', 'pro', 'agency'].includes(plan)
 
   useEffect(() => {
     if (result?.downloadUrl) setFreeExportsUsed(0)
@@ -110,16 +114,18 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
 
     try {
       setStatus('analyzing')
+      setUploadPhase('uploading')
+      setUploadProgress(0)
       setProgress(0)
       const startedAt = Date.now()
-      setProcessingStartedAt(startedAt)
       processingStartedAtRef.current = startedAt
       texJobStarted()
 
-      // Upload and process to detect issues (no fix options for analyze)
-      const response = await uploadFile(selectedFile, {
+      const response = await uploadFileWithProgress(selectedFile, {
         toolType: BACKEND_TOOL_TYPES.FIX_SUBTITLES,
-      })
+      }, { onProgress: (p) => setUploadProgress(p) })
+      setUploadPhase('processing')
+      setUploadProgress(100)
 
       persistJobId(location.pathname, response.jobId, response.jobToken)
       const pollIntervalRef = { current: 0 as number }
@@ -168,19 +174,22 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
 
     try {
       setStatus('processing')
+      setUploadPhase('uploading')
+      setUploadProgress(0)
       setProgress(0)
       const startedAtFix = Date.now()
-      setProcessingStartedAt(startedAtFix)
       processingStartedAtRef.current = startedAtFix
       texJobStarted()
 
-      const response = await uploadFile(selectedFile, {
+      const response = await uploadFileWithProgress(selectedFile, {
         toolType: BACKEND_TOOL_TYPES.FIX_SUBTITLES,
         fixTiming,
         grammarFix,
         lineBreakFix,
         removeFillers,
-      })
+      }, { onProgress: (p) => setUploadProgress(p) })
+      setUploadPhase('processing')
+      setUploadProgress(100)
 
       persistJobId(location.pathname, response.jobId, response.jobToken)
       const pollIntervalRef = { current: 0 as number }
@@ -193,12 +202,15 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
           const transition = getJobLifecycleTransition(jobStatus)
           if (transition === 'completed') {
             clearInterval(pollIntervalRef.current)
+            const started = processingStartedAtRef.current ?? Date.now()
+            const processingMs = Date.now() - started
+            setLastProcessingMs(processingMs)
             setStatus('completed')
             setResult(jobStatus.result ?? null)
+            emitToolCompleted({ toolId: 'fix-subtitles', pathname: '/fix-subtitles', processingMs })
             setWarnings(jobStatus.result?.warnings ?? [])
             incrementUsage('fix-subtitles')
-            const started = processingStartedAtRef.current ?? Date.now()
-            texJobCompleted(Date.now() - started, 'fix-subtitles')
+            texJobCompleted(processingMs, 'fix-subtitles')
             if (jobStatus.result?.downloadUrl) {
               try {
                 const res = await fetch(getAbsoluteDownloadUrl(jobStatus.result.downloadUrl))
@@ -241,6 +253,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
     setFixTiming(false)
     setGrammarFix(false)
     setLineBreakFix(false)
+    setRemoveFillers(false)
     setStatus('idle')
     setProgress(0)
     setResult(null)
@@ -262,107 +275,86 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
     return labels[type] || type
   }
 
-  return (
-    <div className="min-h-screen py-12">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-8">
-          <div className="mb-4">
-            <PlanBadge />
-          </div>
-          <div className="bg-violet-100 rounded-xl p-4 w-16 h-16 flex items-center justify-center mx-auto mb-4">
-            <Wrench className="h-8 w-8 text-violet-600" strokeWidth={1.5} />
-          </div>
-          <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-6">{seoH1 ?? 'Fix Subtitles'}</h1>
-          <p className="text-lg font-normal text-gray-600 dark:text-gray-400 leading-relaxed mb-6 max-w-prose mx-auto">
-            {seoIntro ?? 'Auto-correct timing issues and formatting errors'}
-          </p>
-          <UsageCounter refreshTrigger={status} />
-          <UsageDisplay refreshTrigger={status} />
-        </div>
+  const breadcrumbs = [{ label: 'Fix Subtitles', href: '/fix-subtitles' }]
+  const layoutProps = {
+    breadcrumbs,
+    title: seoH1 ?? 'Fix Subtitles',
+    subtitle: seoIntro ?? 'Auto-correct timing issues and formatting errors',
+    icon: <Wrench className="w-8 h-8 text-blue-600 dark:text-blue-400" />,
+    tags: ['Timing', 'Sync', 'Format', 'Clean', 'Repair', 'Auto-fix'],
+    sidebar: (
+      <ToolSidebar
+        refreshTrigger={status}
+        showWhatYouGet={status === 'idle'}
+        whatYouGetContent="Corrected timing and formatting. Fixed SRT/VTT download, same timestamps."
+      />
+    ),
+  }
 
-        {status === 'idle' && !showIssues && (
-          <div className="bg-white rounded-2xl p-8 shadow-card mb-6">
-            <FileUploadZone
-              onFileSelect={handleFileSelect}
-              accept={{ 'text/*': ['.srt', '.vtt'] }}
-              maxSize={10 * 1024 * 1024}
+  return (
+    <>
+      <ToolLayout {...layoutProps}>
+        {status === 'idle' && !selectedFile && !showIssues && (
+          <UploadZone
+            immediateSelect
+            onFileSelect={handleFileSelect}
+            initialFiles={selectedFile ? [selectedFile] : null}
+            onRemove={() => { setSelectedFile(null); setIssues([]); setShowIssues(false) }}
+            acceptedFormats={['SRT', 'VTT']}
+            acceptAttribute=".srt,.vtt"
+            maxSize="10 MB"
+          />
+        )}
+
+        {status === 'idle' && selectedFile && !showIssues && (
+          <ProcessingInterface
+            file={{
+              name: selectedFile.name,
+              size: `${((selectedFile.size ?? 0) / 1024).toFixed(2)} KB`,
+            }}
+            onRemove={() => { setSelectedFile(null); setIssues([]); setShowIssues(false) }}
+            actionLabel="Analyze Subtitles"
+            onAction={() => handleAnalyze()}
+            actionLoading={false}
+            showVideoPlayer={false}
+          />
+        )}
+
+        {status === 'analyzing' && (
+          <div className="rounded-2xl bg-blue-50 dark:bg-blue-950/30 p-6 sm:p-8">
+            <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+              {selectedFile?.name} • {((selectedFile?.size ?? 0) / 1024).toFixed(2)} KB
+            </div>
+            <ProcessingProgress
+              steps={[
+                { label: 'Uploading', status: uploadPhase === 'uploading' ? 'active' : 'completed' },
+                { label: 'Analyzing', status: uploadPhase === 'processing' ? 'active' : 'pending' },
+                { label: 'Finalizing', status: progress >= 100 ? 'completed' : 'pending' },
+              ]}
+              currentMessage={uploadPhase === 'uploading' ? 'Uploading...' : 'Analyzing subtitles...'}
+              progress={uploadPhase === 'uploading' ? uploadProgress : progress}
+              estimatedTime={uploadPhase === 'uploading' ? undefined : '10–30 seconds'}
+              statusSubtext={uploadPhase === 'processing' && queuePosition !== undefined && queuePosition > 0 ? `Queue position: ${queuePosition}` : undefined}
+              onCancel={handleProcessAnother}
             />
-            {selectedFile && (
-              <button
-                onClick={handleAnalyze}
-                className="mt-6 w-full bg-violet-600 hover:bg-violet-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
-              >
-                Analyze Subtitles
-              </button>
-            )}
           </div>
         )}
 
         {status === 'idle' && showIssues && (
-          <div className="bg-white rounded-2xl p-8 shadow-card mb-6">
-            <h3 className="text-lg font-medium text-gray-800 mb-3">Fix options (optional)</h3>
-            <p className="text-sm text-gray-600 mb-4">Fixes timing drift, long durations, and overflow issues. Original subtitles are always preserved.</p>
-            <div className="space-y-3 mb-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={fixTiming}
-                  onChange={(e) => setFixTiming(e.target.checked)}
-                  className="rounded text-violet-600 focus:ring-violet-500"
-                />
-                <span className="text-gray-700">Fix timing (offset correction, clamp long durations)</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={grammarFix}
-                  onChange={(e) => setGrammarFix(e.target.checked)}
-                  className="rounded text-violet-600 focus:ring-violet-500"
-                />
-                <span className="text-gray-700">Grammar (normalize casing, punctuation)</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={lineBreakFix}
-                  onChange={(e) => setLineBreakFix(e.target.checked)}
-                  className="rounded text-violet-600 focus:ring-violet-500"
-                />
-                <span className="text-gray-700">Line breaks (max characters per line, reading speed)</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={removeFillers}
-                  onChange={(e) => setRemoveFillers(e.target.checked)}
-                  className="rounded text-violet-600 focus:ring-violet-500"
-                />
-                <span className="text-gray-700">Remove filler words (um, uh, like, you know, etc.)</span>
-              </label>
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm">
+              <h3 className="text-lg font-medium text-gray-800 dark:text-gray-200 mb-3">Fix options (optional)</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Fixes timing drift, long durations, and overflow issues. Original subtitles are always preserved.</p>
+              <div className="space-y-4 mb-6">
+                <Checkbox label="Fix timing (offset correction, clamp long durations)" checked={fixTiming} onChange={setFixTiming} />
+                <Checkbox label="Grammar (normalize casing, punctuation)" checked={grammarFix} onChange={setGrammarFix} />
+                <Checkbox label="Line breaks (max characters per line, reading speed)" checked={lineBreakFix} onChange={setLineBreakFix} />
+                <Checkbox label="Remove filler words (um, uh, like, you know, etc.)" checked={removeFillers} onChange={setRemoveFillers} />
+              </div>
             </div>
-          </div>
-        )}
 
-        {status === 'analyzing' && (
-          <div className="bg-white rounded-2xl p-8 shadow-card mb-6 text-center">
-            <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" strokeWidth={1.5} />
-            <p className="text-lg font-medium text-gray-800 mb-4 break-words">Analyzing subtitles...</p>
-            <ProgressBar
-              progress={progress}
-              status="Checking for issues"
-              queuePosition={queuePosition}
-              processingStartedAt={processingStartedAt}
-            />
-            <p className="text-sm text-gray-500 mt-4">
-              {queuePosition !== undefined && queuePosition > 0
-                ? `${queuePosition} jobs ahead of you. Usually 10–30 seconds.`
-                : 'Usually 10–30 seconds'}
-            </p>
-          </div>
-        )}
-
-        {showIssues && (issues.length > 0 || warnings.length > 0) && status === 'idle' && (
-          <div className="bg-white rounded-2xl p-8 shadow-card mb-6">
+            {((issues.length > 0 || warnings.length > 0) && (
+              <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm">
             <div className="flex items-center space-x-2 mb-4">
               <CheckCircle className="h-6 w-6 text-green-600" strokeWidth={1.5} />
               <h3 className="text-xl font-semibold text-gray-800">
@@ -404,11 +396,11 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
             >
               Auto-fix all issues →
             </button>
-          </div>
-        )}
+              </div>
+            ))}
 
-        {showIssues && issues.length === 0 && warnings.length === 0 && status === 'idle' && (
-          <div className="bg-white rounded-2xl p-8 shadow-card mb-6 text-center">
+            {issues.length === 0 && warnings.length === 0 && (
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm text-center">
             <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" strokeWidth={1.5} />
             <h3 className="text-xl font-semibold text-gray-800 mb-2">No issues found!</h3>
             <p className="text-gray-600 mb-4">Your subtitles are already in good shape. You can still apply optional fixes (timing, grammar, line breaks) above.</p>
@@ -427,34 +419,38 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
               </button>
             </div>
           </div>
+            )}
+          </div>
         )}
 
         {status === 'processing' && (
-          <div className="bg-white rounded-2xl p-8 shadow-card mb-6 text-center">
-            <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" strokeWidth={1.5} />
-            <p className="text-lg font-medium text-gray-800 mb-4 break-words">Fixing issues...</p>
-            <ProgressBar
-              progress={progress}
-              status="Applying fixes to subtitle file"
-              queuePosition={queuePosition}
-              processingStartedAt={processingStartedAt}
+          <div className="rounded-2xl bg-blue-50 dark:bg-blue-950/30 p-6 sm:p-8">
+            <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+              {selectedFile?.name} • {((selectedFile?.size ?? 0) / 1024).toFixed(2)} KB
+            </div>
+            <ProcessingProgress
+              steps={[
+                { label: 'Uploading', status: uploadPhase === 'uploading' ? 'active' : 'completed' },
+                { label: 'Fixing', status: uploadPhase === 'processing' ? 'active' : 'pending' },
+                { label: 'Finalizing', status: progress >= 100 ? 'completed' : 'pending' },
+              ]}
+              currentMessage={uploadPhase === 'uploading' ? 'Uploading...' : 'Fixing issues...'}
+              progress={uploadPhase === 'uploading' ? uploadProgress : progress}
+              estimatedTime={uploadPhase === 'uploading' ? undefined : '10–30 seconds'}
+              statusSubtext={uploadPhase === 'processing' && queuePosition !== undefined && queuePosition > 0 ? `Queue position: ${queuePosition}` : undefined}
+              onCancel={handleProcessAnother}
             />
-            <p className="text-sm text-gray-500 mt-4">
-              {queuePosition !== undefined && queuePosition > 0
-                ? `${queuePosition} jobs ahead of you. Usually 10–30 seconds.`
-                : 'Usually 10–30 seconds'}
-            </p>
           </div>
         )}
 
         {status === 'completed' && result && (
           <div className="space-y-6">
-            <SuccessState
-              fileName={result.fileName}
-              downloadUrl={plan === 'free' ? undefined : getDownloadUrl()}
-              onProcessAnother={handleProcessAnother}
-              toolType={BACKEND_TOOL_TYPES.FIX_SUBTITLES}
-              onDownloadClick={
+            <TranslateResult
+              title="Subtitles fixed!"
+              fileName={result.fileName ?? 'fixed.srt'}
+              processingTime={lastProcessingMs != null ? `${(lastProcessingMs / 1000).toFixed(1)}s` : '—'}
+              downloadLabel={plan === 'free' ? (freeExportsUsed >= 2 ? '2/2 free downloads used' : 'Download with watermark') : 'Download fixed subtitles'}
+              onDownload={
                 plan === 'free'
                   ? async () => {
                       if (freeExportsUsed >= 2) {
@@ -477,9 +473,19 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
                         toast.error('Download failed')
                       }
                     }
-                  : undefined
+                  : () => {
+                      const a = document.createElement('a')
+                      a.href = getDownloadUrl()
+                      a.download = result?.fileName || 'fixed.srt'
+                      a.click()
+                    }
               }
-              downloadLabel={plan === 'free' ? (freeExportsUsed >= 2 ? '2/2 used' : 'Download with watermark') : undefined}
+              onProcessAnother={handleProcessAnother}
+              relatedTools={[
+                { path: '/burn-subtitles', name: 'Burn Subtitles', description: 'Hardcode into video' },
+                { path: '/translate-subtitles', name: 'Translate Subtitles', description: 'Translate to another language' },
+                { path: '/video-to-subtitles', name: 'Video → Subtitles', description: 'Generate SRT/VTT from video' },
+              ]}
             />
 
             {subtitleRows.length > 0 && (
@@ -551,21 +557,21 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         {status === 'failed' && (
           <FailedState onTryAgain={handleProcessAnother} />
         )}
+      </ToolLayout>
 
-        {faq.length > 0 && (
-          <section className="mt-12 pt-8 border-t border-gray-100/70" aria-label="FAQ">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently asked questions</h2>
-            <dl className="space-y-4">
-              {faq.map((item, i) => (
-                <div key={i}>
-                  <dt className="font-medium text-gray-800">{item.q}</dt>
-                  <dd className="mt-1 text-gray-600">{item.a}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-        )}
-      </div>
-    </div>
+      {faq.length > 0 && (
+        <section className="mt-12 pt-8 border-t border-gray-100/70 max-w-4xl mx-auto px-4" aria-label="FAQ">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently asked questions</h2>
+          <dl className="space-y-4">
+            {faq.map((item, i) => (
+              <div key={i}>
+                <dt className="font-medium text-gray-800">{item.q}</dt>
+                <dd className="mt-1 text-gray-600">{item.a}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
+    </>
   )
 }

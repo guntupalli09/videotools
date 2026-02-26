@@ -1,10 +1,9 @@
 /**
  * Site base URL for canonical, OG, sitemap. Set VITE_SITE_URL in .env for production.
- * Must not end with slash. Use import.meta.env.VITE_SITE_URL so Vite replaces it at build time (e.g. CI smoke).
+ * Must not end with slash. Prefer single canonical origin (e.g. https://www.videotext.io) to avoid PSI "conflicting URLs".
  */
 export const SITE_URL =
-  (typeof import.meta.env?.VITE_SITE_URL === 'string' && import.meta.env.VITE_SITE_URL) ||
-  (typeof window !== 'undefined' && window.location?.origin) ||
+  (typeof import.meta.env?.VITE_SITE_URL === 'string' && import.meta.env.VITE_SITE_URL.trim()) ||
   'https://www.videotext.io'
 
 export const SITE_NAME = 'VideoText'

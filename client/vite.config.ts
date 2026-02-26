@@ -22,6 +22,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: 'script-defer',
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         cleanupOutdatedCaches: true,
@@ -36,6 +37,9 @@ export default defineConfig({
       '/api': {
         target: 'http://127.0.0.1:3001',
         changeOrigin: true,
+        // Allow long chunked uploads (large files with 1–2 MB chunks) without proxy timeout
+        timeout: 600_000,
+        proxyTimeout: 600_000,
       },
     },
   },

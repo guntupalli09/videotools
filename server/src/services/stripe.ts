@@ -38,12 +38,13 @@ export const stripe = new Stripe(stripeSecretKey!, {
   apiVersion: '2026-01-28.clover',
 })
 
-export type BillingPlan = 'basic' | 'pro' | 'agency'
+export type BillingPlan = 'basic' | 'pro' | 'agency' | 'founding_workflow'
 
 export interface StripePriceConfig {
   basicPriceId: string
   proPriceId: string
   agencyPriceId: string
+  foundingWorkflowPriceId?: string
   basicAnnualPriceId?: string
   proAnnualPriceId?: string
   agencyAnnualPriceId?: string
@@ -55,6 +56,7 @@ export function getStripePriceConfig(): StripePriceConfig {
   const proPriceId = process.env.STRIPE_PRICE_PRO
   const agencyPriceId = process.env.STRIPE_PRICE_AGENCY
   const overagePriceId = process.env.STRIPE_PRICE_OVERAGE
+  const foundingWorkflowPriceId = process.env.STRIPE_PRICE_FOUNDING_WORKFLOW_MONTHLY
   const basicAnnualPriceId = process.env.STRIPE_PRICE_BASIC_ANNUAL
   const proAnnualPriceId = process.env.STRIPE_PRICE_PRO_ANNUAL
   const agencyAnnualPriceId = process.env.STRIPE_PRICE_AGENCY_ANNUAL
@@ -69,6 +71,7 @@ export function getStripePriceConfig(): StripePriceConfig {
     basicPriceId,
     proPriceId,
     agencyPriceId,
+    foundingWorkflowPriceId: foundingWorkflowPriceId || undefined,
     basicAnnualPriceId,
     proAnnualPriceId,
     agencyAnnualPriceId,
@@ -82,7 +85,29 @@ export function getPlanFromPriceId(priceId: string): BillingPlan | null {
     if (priceId === config.basicPriceId || priceId === config.basicAnnualPriceId) return 'basic'
     if (priceId === config.proPriceId || priceId === config.proAnnualPriceId) return 'pro'
     if (priceId === config.agencyPriceId || priceId === config.agencyAnnualPriceId) return 'agency'
+    if (config.foundingWorkflowPriceId && priceId === config.foundingWorkflowPriceId) return 'founding_workflow'
     return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Find a Stripe customer ID by email. Used when the user has a paid plan in our DB but
+ * stripeCustomerId is missing (e.g. webhook missed, or account linked after checkout).
+ * Prefers a customer that has an active subscription.
+ */
+export async function findStripeCustomerIdByEmail(email: string): Promise<string | null> {
+  if (!email || !email.includes('@')) return null
+  try {
+    const list = await stripe.customers.list({ email: email.trim().toLowerCase(), limit: 10 })
+    if (!list.data?.length) return null
+    for (const customer of list.data) {
+      if (customer.deleted) continue
+      const subs = await stripe.subscriptions.list({ customer: customer.id, status: 'active', limit: 1 })
+      if (subs.data.length > 0) return customer.id
+    }
+    return list.data[0]?.deleted ? null : list.data[0].id
   } catch {
     return null
   }

@@ -1,8 +1,14 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { createCheckoutSession, createBillingPortalSession } from '../lib/billing'
 import { trackEvent } from '../lib/analytics'
 import type { BillingPlan } from '../lib/billing'
 import { getCurrentUsage, sendOtp, verifyOtp } from '../lib/api'
+
+// Must match server auth validation: /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((email || '').trim())
+}
 
 function CheckIcon({ className = '' }: { className?: string }) {
   return (
@@ -30,7 +36,7 @@ export default function Pricing() {
       .catch(() => setCurrentPlan((localStorage.getItem('plan') || 'free').toLowerCase()))
   }, [])
 
-  const isPaidPlan = currentPlan === 'basic' || currentPlan === 'pro' || currentPlan === 'agency'
+  const isPaidPlan = currentPlan === 'basic' || currentPlan === 'pro' || currentPlan === 'agency' || currentPlan === 'founding_workflow'
 
   async function handleManageSubscription() {
     if (!isPaidPlan) return
@@ -56,10 +62,8 @@ export default function Pricing() {
   }
 
   function handleEmailPromptContinue() {
-    const email = emailInput.trim()
-    if (!email || !email.includes('@')) {
-      return
-    }
+    const email = emailInput.trim().toLowerCase()
+    if (!email || !isValidEmail(email)) return
     if (!emailPrompt) return
     setCheckoutEmail(email)
     setOtpModal({ email, plan: emailPrompt.plan, annual: emailPrompt.annual })
@@ -71,6 +75,10 @@ export default function Pricing() {
 
   async function handleSendOtp() {
     if (!otpModal) return
+    if (!isValidEmail(otpModal.email)) {
+      setOtpError('Please enter a valid email address.')
+      return
+    }
     setOtpLoading(true)
     setOtpError(null)
     try {
@@ -141,7 +149,35 @@ export default function Pricing() {
           )}
         </header>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8 items-stretch">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 lg:gap-8 items-stretch">
+          {/* FOUNDING WORKFLOW — $10/month (UI only; not wired to Stripe yet) */}
+          <div className="flex flex-col bg-white dark:bg-gray-800 rounded-2xl border border-purple-300/80 dark:border-purple-500/50 shadow-card shadow-purple-500/10 p-6 sm:p-8 min-h-[420px] hover:shadow-card-elevated hover:shadow-purple-500/15 transition-motion relative">
+            <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-purple-600 text-white text-[10px] font-semibold px-2.5 py-1 rounded-full shadow-card whitespace-nowrap">
+              Founding
+            </span>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mt-1">Founding Workflow Plan</h3>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-2xl font-bold text-gray-900 dark:text-white">$10</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">/ month — forever</span>
+            </div>
+            <p className="mt-2 text-sm text-amber-600 dark:text-amber-400 font-medium">Limited to first 20 users</p>
+            <ul className="mt-6 space-y-3 flex-1">
+              <li className={bulletRow}><CheckIcon /><span>600 minutes per month</span></li>
+              <li className={bulletRow}><CheckIcon /><span>Batch processing enabled</span></li>
+              <li className={bulletRow}><CheckIcon /><span>Up to 120 min per video</span></li>
+              <li className={bulletRow}><CheckIcon /><span>3–5 languages</span></li>
+              <li className={bulletRow}><CheckIcon /><span>Priority queue</span></li>
+              <li className={bulletRow}><CheckIcon /><span>Direct feature feedback access</span></li>
+            </ul>
+            <button
+              type="button"
+              className="mt-6 w-full py-3 rounded-xl bg-primary hover:bg-primary-hover text-white font-medium text-sm transition-colors"
+              onClick={() => handleSubscribe('founding_workflow', false)}
+            >
+              Join Founding Plan
+            </button>
+          </div>
+
           {/* FREE — $0 */}
           <div className="flex flex-col bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-600 shadow-card p-6 sm:p-8 min-h-[420px] hover:shadow-card-elevated transition-motion">
             <div className="flex items-center justify-between">
@@ -284,7 +320,7 @@ export default function Pricing() {
               <button
                 type="button"
                 onClick={handleEmailPromptContinue}
-                disabled={!emailInput.trim() || !emailInput.includes('@')}
+                disabled={!emailInput.trim() || !isValidEmail(emailInput)}
                 className="flex-1 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Continue
@@ -310,22 +346,32 @@ export default function Pricing() {
               We’ll send a 6-digit code to <strong>{otpModal.email}</strong> so you can manage your plan and get receipts.
             </p>
             {!otpSent ? (
-              <div className="mt-4 flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleSendOtp}
-                  disabled={otpLoading}
-                  className="flex-1 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-sm font-medium disabled:opacity-60"
-                >
-                  {otpLoading ? 'Sending…' : 'Send code'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOtpModal(null)}
-                  className="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
+              <div className="mt-4 space-y-3">
+                {otpError && (
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    {otpError}
+                    {otpError.includes('Account already exists') && (
+                      <> <Link to="/login" className="underline font-medium text-violet-600 dark:text-violet-400 hover:text-violet-700">Log in</Link></>
+                    )}
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={otpLoading}
+                    className="flex-1 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-sm font-medium disabled:opacity-60"
+                  >
+                    {otpLoading ? 'Sending…' : 'Send code'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOtpModal(null)}
+                    className="px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="mt-4 space-y-3">
@@ -340,7 +386,14 @@ export default function Pricing() {
                   className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-center text-lg tracking-widest focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
                   aria-label="Verification code"
                 />
-                {otpError && <p className="text-sm text-red-600">{otpError}</p>}
+                {otpError && (
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    {otpError}
+                    {otpError.includes('Account already exists') && (
+                      <> <Link to="/login" className="underline font-medium text-violet-600 dark:text-violet-400 hover:text-violet-700">Log in</Link></>
+                    )}
+                  </p>
+                )}
                 <div className="flex gap-2">
                   <button
                     type="button"

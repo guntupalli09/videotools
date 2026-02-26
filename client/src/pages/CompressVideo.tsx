@@ -1,20 +1,22 @@
-import { useState, useRef, Suspense, lazy, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Minimize2, Loader2 } from 'lucide-react'
+import { Minimize2 } from 'lucide-react'
 import { useWorkflow } from '../contexts/WorkflowContext'
-import FileUploadZone from '../components/FileUploadZone'
-import UsageCounter from '../components/UsageCounter'
-import PlanBadge from '../components/PlanBadge'
-import ProgressBar from '../components/ProgressBar'
-import SuccessState from '../components/SuccessState'
 import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import WorkflowChainSuggestion from '../components/WorkflowChainSuggestion'
 import PaywallModal from '../components/PaywallModal'
-import UsageDisplay from '../components/UsageDisplay'
-const VideoTrimmer = lazy(() => import('../components/VideoTrimmer'))
+import { ToolLayout } from '../components/figma/ToolLayout'
+import { UploadZone } from '../components/figma/UploadZone'
+import { ProcessingInterface } from '../components/figma/ProcessingInterface'
+import { ProcessingProgress } from '../components/figma/ProcessingProgress'
+import { ResultSkeleton } from '../components/figma/ResultSkeleton'
+import { TranslateResult } from '../components/figma/TranslateResult'
+import { ToolSidebar } from '../components/figma/ToolSidebar'
+import { RadioGroup } from '../components/figma/FormControls'
+import { getFilePreview, formatDuration, type FilePreviewData } from '../lib/filePreview'
 import { incrementUsage } from '../lib/usage'
-import { uploadFile, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError } from '../lib/api'
+import { uploadFileWithProgress, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError } from '../lib/api'
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { persistJobId, clearPersistedJobId } from '../lib/jobSession'
@@ -23,6 +25,7 @@ import { texJobStarted, texJobCompleted, texJobFailed } from '../tex'
 import toast from 'react-hot-toast'
 import { MessageSquare, Film, FileText } from 'lucide-react'
 import { formatFileSize } from '../lib/utils'
+import { emitToolCompleted } from '../workflow/workflowStore'
 
 type CompressionLevel = 'light' | 'medium' | 'heavy'
 type CompressProfile = 'web' | 'mobile' | 'archive'
@@ -41,6 +44,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
   const workflow = useWorkflow()
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [fileFromWorkflow, setFileFromWorkflow] = useState(false)
+  const [status, setStatus] = useState<'idle' | 'processing' | 'completed' | 'failed'>('idle')
 
   useEffect(() => {
     const state = location.state as { useWorkflowVideo?: boolean } | undefined
@@ -49,20 +53,29 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
       setFileFromWorkflow(true)
     }
   }, [location.state, workflow.videoFile])
+
+  // Keep workflow in sync when result is shown so "Next step" links pre-fill the file on the next tool
+  useEffect(() => {
+    if (status === 'completed' && selectedFile) workflow.setVideo(selectedFile)
+  }, [status, selectedFile])
+
   const [trimStart, setTrimStart] = useState<number | null>(null)
   const [trimEnd, setTrimEnd] = useState<number | null>(null)
   const [compressionLevel, setCompressionLevel] = useState<CompressionLevel>('medium')
   const [compressProfile, setCompressProfile] = useState<CompressProfile | ''>('')
-  const [status, setStatus] = useState<'idle' | 'processing' | 'completed' | 'failed'>('idle')
+  const [uploadPhase, setUploadPhase] = useState<'uploading' | 'processing'>('processing')
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [progress, setProgress] = useState(0)
   const [queuePosition, setQueuePosition] = useState<number | undefined>(undefined)
-  const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null)
   const [result, setResult] = useState<{ downloadUrl: string; fileName?: string } | null>(null)
   const [showPaywall, setShowPaywall] = useState(false)
   const [availableMinutes, setAvailableMinutes] = useState<number | null>(null)
   const [usedMinutes, setUsedMinutes] = useState<number | null>(null)
   const [freeExportsUsed, setFreeExportsUsed] = useState(0)
   const [lastJobCompletedToolId, setLastJobCompletedToolId] = useState<string | null>(null)
+  const [lastProcessingMs, setLastProcessingMs] = useState<number | null>(null)
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null)
+  const [filePreview, setFilePreview] = useState<FilePreviewData | null>(null)
   const processingStartedAtRef = useRef<number | null>(null)
 
   const plan = (localStorage.getItem('plan') || 'free').toLowerCase()
@@ -70,6 +83,31 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
   useEffect(() => {
     if (result?.downloadUrl) setFreeExportsUsed(0)
   }, [result?.downloadUrl])
+
+  useEffect(() => {
+    if (!selectedFile) {
+      setFilePreview(null)
+      return
+    }
+    let cancelled = false
+    getFilePreview(selectedFile).then((p) => {
+      if (!cancelled) setFilePreview(p)
+    })
+    return () => { cancelled = true }
+  }, [selectedFile])
+
+  useEffect(() => {
+    if (selectedFile && selectedFile.type.startsWith('video/')) {
+      const url = URL.createObjectURL(selectedFile)
+      setVideoPreviewUrl(url)
+      return () => {
+        setVideoPreviewUrl(null)
+        const u = url
+        setTimeout(() => URL.revokeObjectURL(u), 0)
+      }
+    }
+    setVideoPreviewUrl(null)
+  }, [selectedFile])
 
   const handleFileSelect = (file: File) => {
     try {
@@ -97,11 +135,15 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
     return selectedFile.size * (1 - reductionMap[compressionLevel])
   }
 
-  const handleProcess = async () => {
+  const handleProcess = async (trimStartPercent?: number, trimEndPercent?: number) => {
     if (!selectedFile) {
       toast.error('Please select a file')
       return
     }
+
+    const durationSeconds = filePreview?.durationSeconds ?? 0
+    const trimStartSec = trimStartPercent != null ? (durationSeconds * trimStartPercent) / 100 : trimStart
+    const trimEndSec = trimEndPercent != null ? (durationSeconds * trimEndPercent) / 100 : trimEnd
 
     try {
       const usageData = await getCurrentUsage()
@@ -120,19 +162,22 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
 
     try {
       setStatus('processing')
+      setUploadPhase('uploading')
+      setUploadProgress(0)
       setProgress(0)
       const startedAt = Date.now()
-      setProcessingStartedAt(startedAt)
       processingStartedAtRef.current = startedAt
       texJobStarted()
 
-      const response = await uploadFile(selectedFile, {
+      const response = await uploadFileWithProgress(selectedFile, {
         toolType: BACKEND_TOOL_TYPES.COMPRESS_VIDEO,
         compressionLevel,
         compressProfile: compressProfile || undefined,
-        trimmedStart: trimStart ?? undefined,
-        trimmedEnd: trimEnd ?? undefined,
-      })
+        trimmedStart: (trimStartSec ?? trimStart) ?? undefined,
+        trimmedEnd: (trimEndSec ?? trimEnd) ?? undefined,
+      }, { onProgress: (p) => setUploadProgress(p) })
+      setUploadPhase('processing')
+      setUploadProgress(100)
 
       persistJobId(location.pathname, response.jobId, response.jobToken)
       const pollIntervalRef = { current: 0 as number }
@@ -145,11 +190,14 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
           const transition = getJobLifecycleTransition(jobStatus)
           if (transition === 'completed') {
             clearInterval(pollIntervalRef.current)
+            const started = processingStartedAtRef.current ?? Date.now()
+            const processingMs = Date.now() - started
+            setLastProcessingMs(processingMs)
             setStatus('completed')
             setResult(jobStatus.result ?? null)
+            emitToolCompleted({ toolId: 'compress-video', pathname: '/compress-video', processingMs })
             incrementUsage('compress-video')
-            const started = processingStartedAtRef.current ?? Date.now()
-            texJobCompleted(Date.now() - started, 'compress-video')
+            texJobCompleted(processingMs, 'compress-video')
             setLastJobCompletedToolId('compress-video')
           } else if (transition === 'failed') {
             clearInterval(pollIntervalRef.current)
@@ -179,6 +227,8 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
     clearPersistedJobId(location.pathname, navigate)
     setSelectedFile(null)
     setStatus('idle')
+    setUploadPhase('processing')
+    setUploadProgress(0)
     setProgress(0)
     setResult(null)
   }
@@ -188,176 +238,122 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
     return getAbsoluteDownloadUrl(result.downloadUrl)
   }
 
+  const breadcrumbs = [{ label: 'Compress Video', href: '/compress-video' }]
+  const layoutProps = {
+    breadcrumbs,
+    title: seoH1 ?? 'Compress Video',
+    subtitle: seoIntro ?? 'Reduce file size while keeping quality high',
+    icon: <Minimize2 className="w-8 h-8 text-blue-600 dark:text-blue-400" />,
+    tags: ['Compression', 'Reduce size', 'Quality', 'Optimize'],
+    sidebar: (
+      <ToolSidebar
+        refreshTrigger={status}
+        showWhatYouGet={status === 'idle'}
+        whatYouGetContent="Smaller video file with same quality. Download compressed MP4."
+      />
+    ),
+  }
+
   return (
-    <div className="min-h-screen py-12">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-8">
-          <div className="mb-4">
-            <PlanBadge />
-          </div>
-          <div className="bg-violet-100 rounded-xl p-4 w-16 h-16 flex items-center justify-center mx-auto mb-4">
-            <Minimize2 className="h-8 w-8 text-violet-600" strokeWidth={1.5} />
-          </div>
-          <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-6">{seoH1 ?? 'Compress Video'}</h1>
-          <p className="text-lg font-normal text-gray-600 dark:text-gray-400 leading-relaxed mb-6 max-w-prose mx-auto">
-            {seoIntro ?? 'Reduce file size while keeping quality high'}
-          </p>
-          <UsageCounter refreshTrigger={status} />
-          <UsageDisplay refreshTrigger={status} />
-        </div>
+    <>
+      <ToolLayout {...layoutProps}>
+        {status === 'idle' && !selectedFile && (
+          <UploadZone
+            immediateSelect
+            onFileSelect={handleFileSelect}
+            initialFiles={selectedFile ? [selectedFile] : null}
+            onRemove={() => {
+              if (fileFromWorkflow) workflow.clearVideo()
+              setSelectedFile(null)
+              setFileFromWorkflow(false)
+            }}
+            fromWorkflowLabel={fileFromWorkflow ? 'From previous step' : undefined}
+            acceptedFormats={['MP4', 'MOV', 'AVI', 'WEBM', 'MKV']}
+            maxSize="10 GB"
+          />
+        )}
 
-        {status === 'idle' && (
-          <div className="bg-white rounded-2xl p-8 shadow-card mb-6">
-            {/* Phase 1B: Profile (Web / Mobile / Archive) or legacy level */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-3">Profile (recommended)</label>
-              <div className="flex flex-wrap gap-3 mb-3">
-                {(['web', 'mobile', 'archive'] as const).map((p) => (
-                  <label key={p} className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="profile"
-                      value={p}
-                      checked={compressProfile === p}
-                      onChange={() => setCompressProfile(p)}
-                      className="text-violet-600 focus:ring-violet-500"
-                    />
-                    <span className="text-gray-700 capitalize">{p}</span>
-                  </label>
-                ))}
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="profile"
-                    value=""
-                    checked={compressProfile === ''}
-                    onChange={() => setCompressProfile('')}
-                    className="text-violet-600 focus:ring-violet-500"
-                  />
-                  <span className="text-gray-700">Custom level</span>
-                </label>
-              </div>
-            </div>
-
-            {compressProfile === '' && (
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-3">Compression Level</label>
-                <div className="space-y-3">
-                  <label className="flex items-center space-x-3 cursor-pointer p-4 border-2 rounded-lg hover:border-violet-400 transition-colors">
-                    <input
-                      type="radio"
-                      name="compression"
-                      value="light"
-                      checked={compressionLevel === 'light'}
-                      onChange={(e) => setCompressionLevel(e.target.value as CompressionLevel)}
-                      className="text-violet-600 focus:ring-violet-500"
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-800">Light (best quality, ~30% smaller)</div>
-                    </div>
-                  </label>
-                  <label className="flex items-center space-x-3 cursor-pointer p-4 border-2 border-violet-600 rounded-lg bg-violet-50">
-                    <input
-                      type="radio"
-                      name="compression"
-                      value="medium"
-                      checked={compressionLevel === 'medium'}
-                      onChange={(e) => setCompressionLevel(e.target.value as CompressionLevel)}
-                      className="text-violet-600 focus:ring-violet-500"
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-800">Medium (recommended, ~50% smaller)</div>
-                    </div>
-                  </label>
-                  <label className="flex items-center space-x-3 cursor-pointer p-4 border-2 rounded-lg hover:border-violet-400 transition-colors">
-                    <input
-                      type="radio"
-                      name="compression"
-                      value="heavy"
-                      checked={compressionLevel === 'heavy'}
-                      onChange={(e) => setCompressionLevel(e.target.value as CompressionLevel)}
-                      className="text-violet-600 focus:ring-violet-500"
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-800">Heavy (smallest size, ~70% smaller)</div>
-                    </div>
-                  </label>
-                </div>
-              </div>
-            )}
-
-            {/* File Size Estimate */}
-            {selectedFile && (
-              <div className="mb-6 p-4 bg-violet-50 rounded-lg">
-                <p className="text-sm text-gray-700">
-                  Your <span className="font-medium">{formatFileSize(selectedFile.size)}</span> file will be approximately{' '}
+        {status === 'idle' && selectedFile && (
+          <ProcessingInterface
+            file={{
+              name: selectedFile.name,
+              size: `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB`,
+              duration: filePreview?.durationSeconds != null ? formatDuration(filePreview.durationSeconds) : undefined,
+            }}
+            onRemove={() => {
+              if (fileFromWorkflow) workflow.clearVideo()
+              setSelectedFile(null)
+              setFileFromWorkflow(false)
+            }}
+            actionLabel="Compress Video"
+            onAction={(trimStartPercent, trimEndPercent) => handleProcess(trimStartPercent, trimEndPercent)}
+            actionLoading={false}
+            showVideoPlayer={!!(videoPreviewUrl || filePreview?.durationSeconds)}
+            videoSrc={videoPreviewUrl ?? undefined}
+          >
+            <div className="space-y-6">
+              <RadioGroup
+                label="Profile (recommended)"
+                options={[
+                  { value: 'web', label: 'Web', description: 'Streaming & web playback' },
+                  { value: 'mobile', label: 'Mobile', description: 'Phones & tablets' },
+                  { value: 'archive', label: 'Archive', description: 'Long-term storage' },
+                  { value: '', label: 'Custom level', description: 'Choose light / medium / heavy' },
+                ]}
+                value={compressProfile}
+                onChange={(v) => setCompressProfile(v as CompressProfile | '')}
+              />
+              {compressProfile === '' && (
+                <RadioGroup
+                  label="Compression level"
+                  options={[
+                    { value: 'light', label: 'Light', description: 'Best quality, ~30% smaller' },
+                    { value: 'medium', label: 'Medium', description: 'Recommended, ~50% smaller' },
+                    { value: 'heavy', label: 'Heavy', description: 'Smallest size, ~70% smaller' },
+                  ]}
+                  value={compressionLevel}
+                  onChange={(v) => setCompressionLevel(v as CompressionLevel)}
+                />
+              )}
+              <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  Your <span className="font-medium">{formatFileSize(selectedFile.size)}</span> file → approximately{' '}
                   <span className="font-medium">{formatFileSize(getEstimatedSize())}</span>
                 </p>
               </div>
-            )}
-
-            <FileUploadZone
-              onFileSelect={handleFileSelect}
-              accept={{ 'video/*': ['.mp4', '.mov', '.avi', '.webm', '.mkv'] }}
-              maxSize={10 * 1024 * 1024 * 1024}
-              initialFiles={selectedFile ? [selectedFile] : null}
-              onRemove={() => {
-                if (fileFromWorkflow) workflow.clearVideo()
-                setSelectedFile(null)
-                setFileFromWorkflow(false)
-              }}
-              fromWorkflowLabel={fileFromWorkflow ? 'From previous step' : undefined}
-            />
-
-            {selectedFile && (
-              <Suspense fallback={null}>
-                <VideoTrimmer
-                  file={selectedFile}
-                  onChange={(startSeconds, endSeconds) => {
-                    setTrimStart(startSeconds)
-                    setTrimEnd(endSeconds)
-                  }}
-                />
-              </Suspense>
-            )}
-
-            {selectedFile && (
-              <button
-                onClick={handleProcess}
-                className="mt-6 w-full bg-violet-600 hover:bg-violet-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
-              >
-                Compress Video
-              </button>
-            )}
-          </div>
+            </div>
+          </ProcessingInterface>
         )}
 
         {status === 'processing' && (
-          <div className="bg-white rounded-2xl p-8 shadow-card mb-6 text-center">
-            <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" strokeWidth={1.5} />
-            <p className="text-lg font-medium text-gray-800 mb-4 break-words">Compressing video...</p>
-            <ProgressBar
-              progress={progress}
-              status="Reducing file size while preserving quality"
-              queuePosition={queuePosition}
-              processingStartedAt={processingStartedAt}
+          <div className="rounded-2xl bg-blue-50 dark:bg-blue-950/30 p-6 sm:p-8">
+            <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+              {selectedFile?.name} • {filePreview?.durationSeconds != null ? formatDuration(filePreview.durationSeconds) : '—'}
+            </div>
+            <ProcessingProgress
+              steps={[
+                { label: 'Uploading', status: uploadPhase === 'uploading' ? 'active' : 'completed' },
+                { label: 'Compressing', status: uploadPhase === 'processing' ? 'active' : 'pending' },
+                { label: 'Finalizing', status: progress >= 100 ? 'completed' : 'pending' },
+              ]}
+              currentMessage={uploadPhase === 'uploading' ? 'Uploading...' : 'Compressing video...'}
+              progress={uploadPhase === 'uploading' ? uploadProgress : progress}
+              estimatedTime={uploadPhase === 'uploading' ? undefined : '2–4 minutes'}
+              statusSubtext={uploadPhase === 'processing' && queuePosition !== undefined && queuePosition > 0 ? `Queue position: ${queuePosition}` : undefined}
+              onCancel={handleProcessAnother}
             />
-            <p className="text-sm text-gray-500 mt-4">
-              {queuePosition !== undefined && queuePosition > 0
-                ? `${queuePosition} jobs ahead of you. Then ~2–4 min.`
-                : 'Usually 2–4 minutes'}
-            </p>
+            <ResultSkeleton variant="compress" />
           </div>
         )}
 
         {status === 'completed' && result && selectedFile && (
           <div className="space-y-6">
-            <SuccessState
-              fileName={result.fileName}
-              downloadUrl={plan === 'free' ? undefined : getDownloadUrl()}
-              onProcessAnother={handleProcessAnother}
-              toolType={BACKEND_TOOL_TYPES.COMPRESS_VIDEO}
-              onDownloadClick={
+            <TranslateResult
+              title="Video compressed!"
+              fileName={result.fileName ?? 'compressed.mp4'}
+              processingTime={lastProcessingMs != null ? `${(lastProcessingMs / 1000).toFixed(1)}s` : '—'}
+              downloadLabel={plan === 'free' ? (freeExportsUsed >= 2 ? '2/2 free downloads used' : 'Download (2 free)') : 'Download Video'}
+              onDownload={
                 plan === 'free'
                   ? async () => {
                       if (freeExportsUsed >= 2) {
@@ -378,9 +374,19 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
                         toast.error('Download failed')
                       }
                     }
-                  : undefined
+                  : () => {
+                      const a = document.createElement('a')
+                      a.href = getDownloadUrl()
+                      a.download = result?.fileName || 'compressed.mp4'
+                      a.click()
+                    }
               }
-              downloadLabel={plan === 'free' ? (freeExportsUsed >= 2 ? '2/2 used' : 'Download (2 free)') : undefined}
+              onProcessAnother={handleProcessAnother}
+              relatedTools={[
+                { path: '/burn-subtitles', name: 'Burn Subtitles', description: 'Burn captions into video' },
+                { path: '/video-to-subtitles', name: 'Video → Subtitles', description: 'Generate SRT/VTT' },
+                { path: '/video-to-transcript', name: 'Video → Transcript', description: 'Get transcript & chapters' },
+              ]}
             />
             <div className="mt-2 min-h-[2.75rem]">
             <WorkflowChainSuggestion
@@ -425,31 +431,31 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
         {status === 'failed' && (
           <FailedState onTryAgain={handleProcessAnother} />
         )}
+      </ToolLayout>
 
-        <PaywallModal
-          isOpen={showPaywall}
-          onClose={() => setShowPaywall(false)}
-          usedMinutes={usedMinutes ?? 0}
-          availableMinutes={availableMinutes ?? 0}
-          onUpgrade={() => {
-            window.location.href = '/pricing'
-          }}
-        />
+      <PaywallModal
+        isOpen={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        usedMinutes={usedMinutes ?? 0}
+        availableMinutes={availableMinutes ?? 0}
+        onUpgrade={() => {
+          window.location.href = '/pricing'
+        }}
+      />
 
-        {faq.length > 0 && (
-          <section className="mt-12 pt-8 border-t border-gray-100/70" aria-label="FAQ">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently asked questions</h2>
-            <dl className="space-y-4">
-              {faq.map((item, i) => (
-                <div key={i}>
-                  <dt className="font-medium text-gray-800">{item.q}</dt>
-                  <dd className="mt-1 text-gray-600">{item.a}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-        )}
-      </div>
-    </div>
+      {faq.length > 0 && (
+        <section className="mt-12 pt-8 border-t border-gray-100/70 max-w-4xl mx-auto px-4" aria-label="FAQ">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently asked questions</h2>
+          <dl className="space-y-4">
+            {faq.map((item, i) => (
+              <div key={i}>
+                <dt className="font-medium text-gray-800">{item.q}</dt>
+                <dd className="mt-1 text-gray-600">{item.a}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
+    </>
   )
 }

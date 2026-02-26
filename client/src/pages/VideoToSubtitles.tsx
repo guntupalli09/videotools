@@ -1,30 +1,26 @@
 import { useState, useEffect, useRef, Suspense, lazy } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { MessageSquare, Loader2 } from 'lucide-react'
-import FileUploadZone from '../components/FileUploadZone'
-import FilePreviewCard from '../components/FilePreviewCard'
-import UploadStageIndicator from '../components/UploadStageIndicator'
-import ProcessingTimeBlock from '../components/ProcessingTimeBlock'
-import UsageCounter from '../components/UsageCounter'
-import PlanBadge from '../components/PlanBadge'
-import ProgressBar from '../components/ProgressBar'
-import SuccessState from '../components/SuccessState'
+import { MessageSquare, Languages, Film, Wrench, FileDown, Minimize2 } from 'lucide-react'
 import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import WorkflowChainSuggestion from '../components/WorkflowChainSuggestion'
 import PaywallModal from '../components/PaywallModal'
-import UsageDisplay from '../components/UsageDisplay'
-import UsageRemaining from '../components/UsageRemaining'
-const VideoTrimmer = lazy(() => import('../components/VideoTrimmer'))
 import LanguageSelector from '../components/LanguageSelector'
+import { ToolLayout } from '../components/figma/ToolLayout'
+import { UploadZone } from '../components/figma/UploadZone'
+import { ProcessingInterface } from '../components/figma/ProcessingInterface'
+import { ProcessingProgress } from '../components/figma/ProcessingProgress'
+import { ResultSkeleton } from '../components/figma/ResultSkeleton'
+import { SubtitleResult } from '../components/figma/SubtitleResult'
+import { ToolSidebar } from '../components/figma/ToolSidebar'
+import { RadioGroup, Select } from '../components/figma/FormControls'
 import type { SubtitleRow } from '../components/SubtitleEditor'
 const SubtitleEditor = lazy(() => import('../components/SubtitleEditor'))
 import { incrementUsage } from '../lib/usage'
-import { uploadFile, uploadFileWithProgress, getJobStatus, getCurrentUsage, getConnectionProbeIfNeeded, BACKEND_TOOL_TYPES, SessionExpiredError, getUserFacingMessage, isNetworkError, translateTranscript, TRANSCRIPT_TRANSLATION_LANGUAGES } from '../lib/api'
+import { uploadFile, uploadFileWithProgress, getJobStatus, subscribeJobStatus, getCurrentUsage, getConnectionProbeIfNeeded, BACKEND_TOOL_TYPES, SessionExpiredError, getUserFacingMessage, isNetworkError, POLL_STOP_AFTER_CONSECUTIVE_NETWORK_ERRORS } from '../lib/api'
 import { getFailureMessage } from '../lib/failureMessage'
 import { checkVideoPreflight } from '../lib/uploadPreflight'
-import { getFilePreview, type FilePreviewData } from '../lib/filePreview'
-import { extractAudioInBrowser, isAudioExtractionSupported } from '../lib/audioExtraction'
+import { getFilePreview, formatDuration, type FilePreviewData } from '../lib/filePreview'
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { FREE_EXPORT_WATERMARK } from '../lib/watermark'
@@ -33,8 +29,8 @@ import { createCheckoutSession } from '../lib/billing'
 import { trackEvent } from '../lib/analytics'
 import { texJobStarted, texJobCompleted, texJobFailed } from '../tex'
 import toast from 'react-hot-toast'
-import { Languages, Film, Wrench, FileDown, Copy, ChevronDown, Minimize2 } from 'lucide-react'
 import { useWorkflow } from '../contexts/WorkflowContext'
+import { emitToolCompleted } from '../workflow/workflowStore'
 
 /** Optional SEO overrides for alternate entry points (e.g. /mp4-to-srt, /subtitle-generator). Do NOT duplicate logic. */
 export type VideoToSubtitlesSeoProps = {
@@ -55,10 +51,9 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
   const [additionalLanguages, setAdditionalLanguages] = useState<string[]>([])
   const [status, setStatus] = useState<'idle' | 'processing' | 'completed' | 'failed'>('idle')
   const [progress, setProgress] = useState(0)
-  const [uploadPhase, setUploadPhase] = useState<'preparing' | 'uploading' | 'processing'>('preparing')
+  const [uploadPhase, setUploadPhase] = useState<'uploading' | 'processing'>('uploading')
   const [uploadProgress, setUploadProgress] = useState(0)
   const [result, setResult] = useState<{ downloadUrl: string; fileName?: string; warnings?: { type: string; message: string; line?: number }[] } | null>(null)
-  const [subtitlePreview, setSubtitlePreview] = useState('')
   const [subtitleRows, setSubtitleRows] = useState<SubtitleRow[]>([])
   const [showPaywall, setShowPaywall] = useState(false)
   const [availableMinutes, setAvailableMinutes] = useState<number | null>(null)
@@ -66,7 +61,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
   const [queuePosition, setQueuePosition] = useState<number | undefined>(undefined)
   const [isRehydrating, setIsRehydrating] = useState(false)
   const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null)
-  const [elapsedMs, setElapsedMs] = useState(0)
+  const [_elapsedMs, setElapsedMs] = useState(0)
   const [filePreview, setFilePreview] = useState<FilePreviewData | null>(null)
   const [connectionSpeed, setConnectionSpeed] = useState<'fast' | 'medium' | 'slow' | undefined>(undefined)
   const [currentJobId, setCurrentJobId] = useState<string | null>(null)
@@ -76,12 +71,10 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
   const [convertProgress, setConvertProgress] = useState(false)
   const [convertPreview, setConvertPreview] = useState<string | null>(null)
   const [convertDownloadUrl, setConvertDownloadUrl] = useState<string | null>(null)
-  const [translationLanguage, setTranslationLanguage] = useState<string | null>(null)
-  const [translatedCache, setTranslatedCache] = useState<Record<string, string>>({})
-  const [translating, setTranslating] = useState(false)
-  const [translateDropdownOpen, setTranslateDropdownOpen] = useState(false)
   const rehydratePollRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const activeUploadPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const activeUploadPollRef = useRef<(() => void) | null>(null)
+  const pollConsecutiveNetworkErrorsRef = useRef(0)
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null)
   const jobStartedTrackedRef = useRef<string | null>(null)
   const processingStartedAtRef = useRef<number | null>(null)
   const terminalRef = useRef(false)
@@ -99,16 +92,9 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
   }, [result?.downloadUrl])
 
   const plan = (localStorage.getItem('plan') || 'free').toLowerCase()
-  const canEdit = plan !== 'free'
+  const canEdit = ['basic', 'pro', 'agency'].includes(plan)
   const canMultiLanguage = plan === 'basic' || plan === 'pro' || plan === 'agency'
   const maxAdditionalLanguages = plan === 'agency' ? 9 : plan === 'pro' ? 4 : plan === 'basic' ? 1 : 0
-
-  // Plain text from subtitles for translation and copy
-  const subtitleTextForTranslation = subtitleRows.length > 0 ? subtitleRows.map((r) => r.text).join('\n\n') : ''
-  const displaySubtitleText =
-    translationLanguage && translatedCache[translationLanguage] != null
-      ? translatedCache[translationLanguage]
-      : subtitleTextForTranslation
 
   // Instant file preview (browser only); persists through upload + processing
   useEffect(() => {
@@ -125,6 +111,19 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
     }
   }, [selectedFile])
 
+  useEffect(() => {
+    if (selectedFile && selectedFile.type.startsWith('video/')) {
+      const url = URL.createObjectURL(selectedFile)
+      setVideoPreviewUrl(url)
+      return () => {
+        setVideoPreviewUrl(null)
+        const u = url
+        setTimeout(() => URL.revokeObjectURL(u), 0)
+      }
+    }
+    setVideoPreviewUrl(null)
+  }, [selectedFile])
+
   // Elapsed time ticker when processing (cleanup on unmount/complete/fail)
   useEffect(() => {
     if (status !== 'processing' || !processingStartedAt) {
@@ -136,12 +135,6 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
     const id = setInterval(tick, 500)
     return () => clearInterval(id)
   }, [status, processingStartedAt])
-
-  // Reset translation when result changes (new job)
-  useEffect(() => {
-    setTranslationLanguage(null)
-    setTranslatedCache({})
-  }, [result])
 
   // Rehydrate from URL/sessionStorage after idle or reload (e.g. mobile Safari)
   useEffect(() => {
@@ -175,6 +168,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           setPartialSegments([])
           setStatus('completed')
           setResult(jobStatus.result ?? null)
+          emitToolCompleted({ toolId: 'video-to-subtitles', pathname: '/video-to-subtitles' })
           setUploadPhase('processing')
           setUploadProgress(100)
           if (jobStatus.result?.downloadUrl) {
@@ -185,11 +179,8 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                 jobStatus.result.fileName?.toLowerCase().endsWith('.zip') || ct.includes('application/zip')
               if (!isZip) {
                 const subtitleText = await subtitleResponse.text()
-                const lines = subtitleText.split('\n\n').slice(0, 10)
-                setSubtitlePreview(lines.join('\n\n'))
                 setSubtitleRows(parseSubtitlesToRows(subtitleText))
               } else {
-                setSubtitlePreview('')
                 setSubtitleRows([])
               }
             } catch {
@@ -221,6 +212,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             const s = await getJobStatus(jobId, jobToken ? { jobToken } : undefined)
             if (cancelled) return
             if (terminalRef.current) return
+            pollConsecutiveNetworkErrorsRef.current = 0
             setProgress(s.progress ?? 0)
             if (s.queuePosition !== undefined) setQueuePosition(s.queuePosition)
             const t = getJobLifecycleTransition(s)
@@ -231,6 +223,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               rehydratePollRef.current = null
               setStatus('completed')
               setResult(s.result ?? null)
+              emitToolCompleted({ toolId: 'video-to-subtitles', pathname: '/video-to-subtitles' })
               if (s.result?.downloadUrl) {
                 try {
                   const res = await fetch(getAbsoluteDownloadUrl(s.result.downloadUrl))
@@ -238,11 +231,8 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                   const isZip = s.result.fileName?.toLowerCase().endsWith('.zip') || ct.includes('application/zip')
                   if (!isZip) {
                     const text = await res.text()
-                    const lines = text.split('\n\n').slice(0, 10)
-                    setSubtitlePreview(lines.join('\n\n'))
                     setSubtitleRows(parseSubtitlesToRows(text))
                   } else {
-                    setSubtitlePreview('')
                     setSubtitleRows([])
                   }
                 } catch {
@@ -270,15 +260,24 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               setIsRehydrating(false)
               setStatus('idle')
               setCurrentJobId(null)
-              setUploadPhase('preparing')
+              setUploadPhase('uploading')
               setUploadProgress(0)
               setProgress(0)
               setResult(null)
               setPartialSegments([])
               toast.error(err.message)
+            } else if (isNetworkError(err)) {
+              pollConsecutiveNetworkErrorsRef.current += 1
+              if (pollConsecutiveNetworkErrorsRef.current >= POLL_STOP_AFTER_CONSECUTIVE_NETWORK_ERRORS) {
+                if (rehydratePollRef.current) clearInterval(rehydratePollRef.current)
+                rehydratePollRef.current = null
+                setIsRehydrating(false)
+                toast.error('Server unreachable. Start the backend and refresh the page.')
+              }
             }
           }
         }
+        pollConsecutiveNetworkErrorsRef.current = 0
         rehydratePollRef.current = setInterval(doPoll, JOB_POLL_INTERVAL_MS)
         doPoll()
       } catch (err) {
@@ -288,7 +287,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           clearPersistedJobId(pathname, navigate)
           setStatus('idle')
           setCurrentJobId(null)
-          setUploadPhase('preparing')
+          setUploadPhase('uploading')
           setUploadProgress(0)
           setProgress(0)
           setResult(null)
@@ -325,6 +324,11 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
     }
   }, [location.state, workflow.videoFile])
 
+  // Keep workflow in sync when result is shown so "Next step" links pre-fill the file on the next tool
+  useEffect(() => {
+    if (status === 'completed' && selectedFile) workflow.setVideo(selectedFile)
+  }, [status, selectedFile])
+
   const handleFileSelect = (file: File) => {
     try {
       trackEvent('file_selected', {
@@ -348,17 +352,23 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
       uploadAbortRef.current = null
     }
     if (activeUploadPollRef.current) {
-      clearInterval(activeUploadPollRef.current)
+      activeUploadPollRef.current()
       activeUploadPollRef.current = null
     }
     if (currentJobId) {
       clearPersistedJobId(location.pathname, navigate)
       setCurrentJobId(null)
       setStatus('idle')
-      setUploadPhase('preparing')
+      setUploadPhase('uploading')
       setUploadProgress(0)
       setProgress(0)
       toast('Cancelled. You can upload a new file; the previous job may still complete in the background.', { icon: 'ℹ️', duration: 5000 })
+    } else if (status === 'processing' && uploadPhase === 'uploading') {
+      setStatus('idle')
+      setUploadPhase('uploading')
+      setUploadProgress(0)
+      setProgress(0)
+      toast('Cancelled. You can try again or upload a different file.')
     }
   }
 
@@ -397,11 +407,15 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
       .join('\n\n')
   }
 
-  const handleProcess = async () => {
+  const handleProcess = async (trimStartPercent?: number, trimEndPercent?: number) => {
     if (!selectedFile) {
       toast.error('Please select a file')
       return
     }
+
+    const durationSeconds = filePreview?.durationSeconds ?? 0
+    const trimStartSec = trimStartPercent != null ? (durationSeconds * trimStartPercent) / 100 : trimStart
+    const trimEndSec = trimEndPercent != null ? (durationSeconds * trimEndPercent) / 100 : trimEnd
 
     let usageData: Awaited<ReturnType<typeof getCurrentUsage>> | null = null
     try {
@@ -423,7 +437,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
     let connectionSpeedResult: 'fast' | 'medium' | 'slow' | undefined
     try {
       setStatus('processing')
-      setUploadPhase('preparing')
+      setUploadPhase('uploading')
       setUploadProgress(0)
       setProgress(0)
       uploadAbortRef.current = new AbortController()
@@ -456,35 +470,17 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
     try {
       const baseOptions = {
         toolType: BACKEND_TOOL_TYPES.VIDEO_TO_SUBTITLES,
-        format,
+        format: plan === 'free' ? 'srt' : format,
         language: language || undefined,
-        trimmedStart: trimStart ?? undefined,
-        trimmedEnd: trimEnd ?? undefined,
+        trimmedStart: (trimStartSec ?? trimStart) ?? undefined,
+        trimmedEnd: (trimEndSec ?? trimEnd) ?? undefined,
         additionalLanguages: canMultiLanguage ? additionalLanguages : undefined,
-      }
-      let fileToUpload: File = selectedFile
-      const useAudioOnly =
-        trimStart == null &&
-        trimEnd == null &&
-        isAudioExtractionSupported()
-      if (useAudioOnly) {
-        setUploadPhase('preparing')
-        const extracted = await extractAudioInBrowser(selectedFile)
-        if (extracted) {
-          const baseName = selectedFile.name.replace(/\.[^.]+$/, '') || 'audio'
-          fileToUpload = new File([extracted.blob], `${baseName}_audio.mp3`, { type: 'audio/mpeg' })
-          Object.assign(baseOptions, {
-            uploadMode: 'audio-only' as const,
-            originalFileName: selectedFile.name,
-            originalFileSize: selectedFile.size,
-          })
-        }
       }
       setUploadPhase('uploading')
       trackEvent('processing_started', { tool: 'video-to-subtitles' })
 
       const response = await uploadFileWithProgress(
-        fileToUpload,
+        selectedFile,
         baseOptions,
         {
           onProgress: (p) => setUploadProgress(p),
@@ -507,105 +503,123 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
       texJobStarted()
 
       const jobToken = response.jobToken
+      const handleJobStatus = (jobStatus: import('../lib/api').JobStatus) => {
+        if (terminalRef.current) return
+        setProgress(jobStatus.progress ?? 0)
+        if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
+        if (jobStatus.status === 'processing' && jobStartedTrackedRef.current !== response.jobId) {
+          jobStartedTrackedRef.current = response.jobId
+          try {
+            trackEvent('job_started', { job_id: response.jobId, tool_type: BACKEND_TOOL_TYPES.VIDEO_TO_SUBTITLES })
+          } catch {
+            // non-blocking
+          }
+        }
+        const transition = getJobLifecycleTransition(jobStatus)
+        if (transition === 'completed') {
+          terminalRef.current = true
+          setPartialSegments([])
+          if (activeUploadPollRef.current) {
+            activeUploadPollRef.current()
+            activeUploadPollRef.current = null
+          }
+          jobStartedTrackedRef.current = null
+          setStatus('completed')
+          setResult(jobStatus.result ?? null)
+          const started = processingStartedAtRef.current ?? Date.now()
+          const processingMs = Date.now() - started
+          emitToolCompleted({ toolId: 'video-to-subtitles', pathname: '/video-to-subtitles', processingMs })
+          if (jobStatus.result?.downloadUrl) {
+            try {
+              fetch(getAbsoluteDownloadUrl(jobStatus.result.downloadUrl))
+                .then((subtitleResponse) => {
+                  const ct = subtitleResponse.headers.get('content-type') || ''
+                  const isZip =
+                    (jobStatus.result?.fileName?.toLowerCase().endsWith('.zip')) ||
+                    ct.includes('application/zip')
+                  if (isZip) {
+                    setSubtitleRows([])
+                    return
+                  }
+                  return subtitleResponse.text()
+                })
+                .then((subtitleText) => {
+                  if (typeof subtitleText === 'string') setSubtitleRows(parseSubtitlesToRows(subtitleText))
+                })
+                .catch(() => setSubtitleRows([]))
+            } catch {
+              // Ignore preview fetch errors
+            }
+          }
+          incrementUsage('video-to-subtitles')
+          try {
+            trackEvent('job_completed', {
+              job_id: response.jobId,
+              tool_type: BACKEND_TOOL_TYPES.VIDEO_TO_SUBTITLES,
+              processing_time_ms: processingMs,
+            })
+            trackEvent('processing_completed', { tool: 'video-to-subtitles' })
+            texJobCompleted(processingMs, 'video-to-subtitles')
+            setLastProcessingMs(processingMs)
+            setLastJobCompletedToolId('video-to-subtitles')
+          } catch {
+            // non-blocking
+          }
+        } else if (transition === 'failed') {
+          terminalRef.current = true
+          setPartialSegments([])
+          if (activeUploadPollRef.current) {
+            activeUploadPollRef.current()
+            activeUploadPollRef.current = null
+          }
+          const msg = getFailureMessage({
+            fileSizeBytes: selectedFile?.size,
+            mimeType: selectedFile?.type,
+            remainingMinutes: availableMinutes ?? undefined,
+            planQuotaMinutes: 60,
+            durationMinutes: filePreview?.durationSeconds != null ? filePreview.durationSeconds / 60 : undefined,
+          })
+          setFailedMessage(msg)
+          setStatus('failed')
+          texJobFailed(msg)
+          toast.error('Processing failed. Please try again.')
+        } else if (jobStatus.status === 'processing' && jobStatus.partialVersion != null && jobStatus.partialVersion > lastPartialVersionRef.current) {
+          lastPartialVersionRef.current = jobStatus.partialVersion
+          if (jobStatus.partialSegments?.length) {
+            setPartialSegments(jobStatus.partialSegments)
+          }
+        }
+      }
       const doPoll = async () => {
         try {
           if (terminalRef.current) return
           const jobStatus = await getJobStatus(response.jobId, jobToken ? { jobToken } : undefined)
           if (terminalRef.current) return
-          setProgress(jobStatus.progress ?? 0)
-          if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
-
-          if (jobStatus.status === 'processing' && jobStartedTrackedRef.current !== response.jobId) {
-            jobStartedTrackedRef.current = response.jobId
-            try {
-              trackEvent('job_started', { job_id: response.jobId, tool_type: BACKEND_TOOL_TYPES.VIDEO_TO_SUBTITLES })
-            } catch {
-              // non-blocking
-            }
-          }
-
-          const transition = getJobLifecycleTransition(jobStatus)
-          if (transition === 'completed') {
-            terminalRef.current = true
-            setPartialSegments([])
-            if (activeUploadPollRef.current) {
-              clearInterval(activeUploadPollRef.current)
-              activeUploadPollRef.current = null
-            }
-            jobStartedTrackedRef.current = null
-            setStatus('completed')
-            setResult(jobStatus.result ?? null)
-            if (jobStatus.result?.downloadUrl) {
-              try {
-                const subtitleResponse = await fetch(getAbsoluteDownloadUrl(jobStatus.result.downloadUrl))
-                const ct = subtitleResponse.headers.get('content-type') || ''
-                const isZip =
-                  jobStatus.result.fileName?.toLowerCase().endsWith('.zip') ||
-                  ct.includes('application/zip')
-                if (!isZip) {
-                  const subtitleText = await subtitleResponse.text()
-                  const lines = subtitleText.split('\n\n').slice(0, 10)
-                  setSubtitlePreview(lines.join('\n\n'))
-                  setSubtitleRows(parseSubtitlesToRows(subtitleText))
-                } else {
-                  setSubtitlePreview('')
-                  setSubtitleRows([])
-                }
-              } catch (e) {
-                // Ignore preview fetch errors
-              }
-            }
-            incrementUsage('video-to-subtitles')
-            const started = processingStartedAtRef.current ?? Date.now()
-            const processingMs = Date.now() - started
-            try {
-              trackEvent('job_completed', {
-                job_id: response.jobId,
-                tool_type: BACKEND_TOOL_TYPES.VIDEO_TO_SUBTITLES,
-                processing_time_ms: processingMs,
-              })
-              trackEvent('processing_completed', { tool: 'video-to-subtitles' })
-              texJobCompleted(processingMs, 'video-to-subtitles')
-              setLastProcessingMs(processingMs)
-              setLastJobCompletedToolId('video-to-subtitles')
-            } catch {
-              // non-blocking
-            }
-          } else if (transition === 'failed') {
-            terminalRef.current = true
-            setPartialSegments([])
-            if (activeUploadPollRef.current) {
-              clearInterval(activeUploadPollRef.current)
-              activeUploadPollRef.current = null
-            }
-            const msg = getFailureMessage({
-              fileSizeBytes: selectedFile?.size,
-              mimeType: selectedFile?.type,
-              remainingMinutes: availableMinutes ?? undefined,
-              planQuotaMinutes: 60,
-              durationMinutes: filePreview?.durationSeconds != null ? filePreview.durationSeconds / 60 : undefined,
-            })
-            setFailedMessage(msg)
-            setStatus('failed')
-            texJobFailed(msg)
-            toast.error('Processing failed. Please try again.')
-          } else if (jobStatus.status === 'processing' && jobStatus.partialVersion != null && jobStatus.partialVersion > lastPartialVersionRef.current) {
-            lastPartialVersionRef.current = jobStatus.partialVersion
-            if (jobStatus.partialSegments?.length) {
-              setPartialSegments(jobStatus.partialSegments)
-            }
-          }
+          pollConsecutiveNetworkErrorsRef.current = 0
+          handleJobStatus(jobStatus)
         } catch (error: any) {
-          // Network/parse errors: do not set failed; keep polling.
+          if (isNetworkError(error)) {
+            pollConsecutiveNetworkErrorsRef.current += 1
+            if (pollConsecutiveNetworkErrorsRef.current >= POLL_STOP_AFTER_CONSECUTIVE_NETWORK_ERRORS) {
+              if (activeUploadPollRef.current) {
+                activeUploadPollRef.current()
+                activeUploadPollRef.current = null
+              }
+              toast.error('Server unreachable. Start the backend and refresh the page.')
+            }
+          }
         }
       }
-      activeUploadPollRef.current = setInterval(doPoll, JOB_POLL_INTERVAL_MS)
-      doPoll()
+      pollConsecutiveNetworkErrorsRef.current = 0
+      doPoll().then(() => {
+        if (terminalRef.current) return
+        activeUploadPollRef.current = subscribeJobStatus(response.jobId, jobToken ? { jobToken } : undefined, handleJobStatus)
+      })
     } catch (error: any) {
       uploadAbortRef.current = null
       if (error instanceof Error && error.message === 'Upload cancelled') {
         setStatus('idle')
-        setUploadPhase('preparing')
+        setUploadPhase('uploading')
         setUploadProgress(0)
         setCurrentJobId(null)
         return
@@ -640,14 +654,11 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
     setAdditionalLanguages([])
     setStatus('idle')
     setProgress(0)
-    setUploadPhase('preparing')
+    setUploadPhase('uploading')
     setUploadProgress(0)
     setResult(null)
-    setSubtitlePreview('')
     setSubtitleRows([])
     setPartialSegments([])
-    setTranslationLanguage(null)
-    setTranslatedCache({})
   }
 
   const getDownloadUrl = () => {
@@ -664,6 +675,11 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
       return
     }
     try {
+      const effectiveFormat = plan === 'free' ? 'srt' : convertTargetFormat
+      if (plan === 'free' && convertTargetFormat !== 'srt') {
+        toast('Free plan: SRT only. Upgrade for VTT and other formats.')
+        return
+      }
       setConvertProgress(true)
       setConvertPreview(null)
       const res = await fetch(getDownloadUrl())
@@ -671,7 +687,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
       const file = new File([blob], result.fileName || 'subtitles.srt', { type: blob.type || 'text/plain' })
       const uploadRes = await uploadFile(file, {
         toolType: BACKEND_TOOL_TYPES.CONVERT_SUBTITLES,
-        targetFormat: convertTargetFormat,
+        targetFormat: effectiveFormat,
       })
       const pollIntervalRef = { current: 0 as number }
       const doPoll = async () => {
@@ -706,161 +722,88 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
     }
   }
 
-  const handleTranslateLanguage = async (language: string) => {
-    if (language === 'Original') {
-      setTranslationLanguage(null)
-      setTranslateDropdownOpen(false)
-      return
-    }
-    if (translatedCache[language] != null) {
-      setTranslationLanguage(language)
-      setTranslateDropdownOpen(false)
-      return
-    }
-    if (!subtitleTextForTranslation.trim()) {
-      toast.error('No subtitles to translate')
-      return
-    }
-    setTranslating(true)
-    setTranslateDropdownOpen(false)
-    try {
-      const { translatedText } = await translateTranscript(subtitleTextForTranslation, language)
-      setTranslatedCache((prev) => ({ ...prev, [language]: translatedText }))
-      setTranslationLanguage(language)
-      toast.success(`Translated to ${language}`)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Translation failed')
-    } finally {
-      setTranslating(false)
-    }
-  }
-
-  const handleCopySubtitlesToClipboard = async () => {
-    const textToCopy = displaySubtitleText.trim()
-    if (!textToCopy) return
-    try {
-      await navigator.clipboard.writeText(textToCopy)
-      toast.success('Copied to clipboard!')
-    } catch {
-      try {
-        const textArea = document.createElement('textarea')
-        textArea.value = textToCopy
-        textArea.style.position = 'fixed'
-        textArea.style.opacity = '0'
-        document.body.appendChild(textArea)
-        textArea.select()
-        document.execCommand('copy')
-        document.body.removeChild(textArea)
-        toast.success('Copied to clipboard!')
-      } catch {
-        toast.error('Failed to copy to clipboard')
-      }
-    }
+  const breadcrumbs = [{ label: 'Video to Subtitles', href: '/video-to-subtitles' }]
+  const layoutProps = {
+    breadcrumbs,
+    title: seoH1 ?? 'Video → Subtitles',
+    subtitle: seoIntro ?? 'Generate SRT and VTT subtitle files instantly',
+    icon: <MessageSquare className="w-8 h-8 text-blue-600 dark:text-blue-400" />,
+    tags: ['SRT', 'VTT', 'Subtitles', 'Captions', 'Timestamps', 'Multi-format'],
+    sidebar: (
+      <ToolSidebar
+        refreshTrigger={status}
+        showWhatYouGet={status === 'idle'}
+        whatYouGetContent="SRT, VTT, or other subtitle formats. Optional multi-language. Same timestamps, no re-upload."
+      />
+    ),
   }
 
   return (
-    <div className="min-h-screen py-12">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-8">
-          <div className="mb-4">
-            <PlanBadge />
-          </div>
-          <div className="bg-violet-100/80 rounded-2xl p-4 w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-card">
-            <MessageSquare className="h-8 w-8 text-violet-600" strokeWidth={1.5} />
-          </div>
-          <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-6">{seoH1 ?? 'Video → Subtitles'}</h1>
-          <p className="text-lg font-normal text-gray-600 dark:text-gray-400 leading-relaxed mb-6 max-w-prose mx-auto">
-            {seoIntro ?? 'Generate SRT and VTT subtitle files instantly'}
-          </p>
-          <UsageCounter refreshTrigger={status} />
-          <UsageDisplay refreshTrigger={status} />
-        </div>
+    <>
+      <ToolLayout {...layoutProps}>
+        {status === 'idle' && !selectedFile && (
+          <UploadZone
+            immediateSelect
+            onFileSelect={handleFileSelect}
+            initialFiles={selectedFile ? [selectedFile] : null}
+            onRemove={() => {
+              if (fileFromWorkflow) workflow.clearVideo()
+              setSelectedFile(null)
+              setFileFromWorkflow(false)
+            }}
+            fromWorkflowLabel={fileFromWorkflow ? 'From previous step' : undefined}
+          />
+        )}
 
-        {status === 'idle' && (
-          <div className="surface-card p-8 mb-8">
-            {/* Format Selector */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-3">Subtitle Format</label>
-              <div className="flex space-x-4">
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="format"
-                    value="srt"
-                    checked={format === 'srt'}
-                    onChange={(e) => setFormat(e.target.value as 'srt' | 'vtt')}
-                    className="text-violet-600 focus:ring-violet-500"
-                  />
-                  <span className="text-gray-700">SRT (recommended for YouTube)</span>
-                </label>
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="format"
-                    value="vtt"
-                    checked={format === 'vtt'}
-                    onChange={(e) => setFormat(e.target.value as 'srt' | 'vtt')}
-                    className="text-violet-600 focus:ring-violet-500"
-                  />
-                  <span className="text-gray-700">VTT (recommended for web)</span>
-                </label>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">Not sure? Use SRT for most platforms</p>
-            </div>
-
-            {/* Language Selector */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Language (optional)
-              </label>
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-              >
-                <option value="">Auto-detect</option>
-                <option value="en">English</option>
-                <option value="es">Spanish</option>
-                <option value="fr">French</option>
-                <option value="de">German</option>
-                <option value="ar">Arabic</option>
-                <option value="hi">Hindi</option>
-                <option value="zh">Chinese</option>
-                <option value="ja">Japanese</option>
-              </select>
-            </div>
-
-            <div>
-              <FileUploadZone
-                onFileSelect={handleFileSelect}
-                accept={{ 'video/*': ['.mp4', '.mov', '.avi', '.webm', '.mkv'] }}
-                maxSize={10 * 1024 * 1024 * 1024}
-                initialFiles={selectedFile ? [selectedFile] : null}
-                onRemove={() => {
-                  if (fileFromWorkflow) workflow.clearVideo()
-                  setSelectedFile(null)
-                  setFileFromWorkflow(false)
-                }}
-                fromWorkflowLabel={fileFromWorkflow ? 'From previous step' : undefined}
+        {status === 'idle' && selectedFile && (
+          <ProcessingInterface
+            file={{
+              name: selectedFile.name,
+              size: `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB`,
+              duration: filePreview?.durationSeconds != null ? formatDuration(filePreview.durationSeconds) : undefined,
+            }}
+            onRemove={() => {
+              if (fileFromWorkflow) workflow.clearVideo()
+              setSelectedFile(null)
+              setFileFromWorkflow(false)
+            }}
+            actionLabel="Generate Subtitles"
+            onAction={(trimStartPercent, trimEndPercent) => handleProcess(trimStartPercent, trimEndPercent)}
+            actionLoading={false}
+            showVideoPlayer={!!(videoPreviewUrl || filePreview?.durationSeconds)}
+            videoSrc={videoPreviewUrl ?? undefined}
+          >
+            <div className="space-y-6">
+              <RadioGroup
+                label="Subtitle Format"
+                options={
+                  plan === 'free'
+                    ? [{ value: 'srt', label: 'SRT (Recommended for YouTube)', description: 'Free plan: SRT only. Upgrade for VTT.' }]
+                    : [
+                        { value: 'srt', label: 'SRT (Recommended for YouTube)', description: 'Use SRT for most platforms' },
+                        { value: 'vtt', label: 'VTT (Recommended for web)', description: 'Web Video Text Tracks format' },
+                      ]
+                }
+                value={plan === 'free' ? 'srt' : format}
+                onChange={(v) => setFormat(v as 'srt' | 'vtt')}
               />
-              <UsageRemaining />
-              {selectedFile && filePreview && (
-                <div className="mt-4">
-                  <FilePreviewCard preview={filePreview} />
-                </div>
-              )}
-
-              {selectedFile && (
-                <VideoTrimmer
-                  file={selectedFile}
-                  onChange={(startSeconds: number, endSeconds: number) => {
-                    setTrimStart(startSeconds)
-                    setTrimEnd(endSeconds)
-                  }}
-                />
-              )}
-
-              {selectedFile && canMultiLanguage && (
+              <Select
+                label="Language (optional)"
+                options={[
+                  { value: '', label: 'Auto-detect' },
+                  { value: 'en', label: 'English' },
+                  { value: 'es', label: 'Spanish' },
+                  { value: 'fr', label: 'French' },
+                  { value: 'de', label: 'German' },
+                  { value: 'ar', label: 'Arabic' },
+                  { value: 'hi', label: 'Hindi' },
+                  { value: 'zh', label: 'Chinese' },
+                  { value: 'ja', label: 'Japanese' },
+                ]}
+                value={language}
+                onChange={setLanguage}
+              />
+              {canMultiLanguage && (
                 <LanguageSelector
                   primaryLanguage={language || 'en'}
                   selected={additionalLanguages}
@@ -868,104 +811,64 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                   maxAdditional={maxAdditionalLanguages}
                 />
               )}
-              {selectedFile && (
-                <button
-                  onClick={handleProcess}
-                  className="mt-6 w-full btn-primary"
-                >
-                  Generate Subtitles
-                </button>
-              )}
             </div>
-          </div>
+          </ProcessingInterface>
         )}
 
         {status === 'processing' && (
-          <div className="surface-card p-6 sm:p-8 mb-8 text-center processing-gradient-bg overflow-x-hidden">
-            <UploadStageIndicator
-              uploadPhase={uploadPhase}
-              status={status}
-              isRehydrating={isRehydrating}
-            />
-            {uploadPhase === 'processing' && !isRehydrating && (
-              <ProcessingTimeBlock
-                elapsedMs={elapsedMs}
-                videoDurationSeconds={filePreview?.durationSeconds}
-                label="Processing video…"
-                className="mb-4"
-              />
-            )}
-            {filePreview && (
-              <div className="flex justify-center mb-4">
-                <FilePreviewCard preview={filePreview} compact />
-              </div>
-            )}
-            {connectionSpeed === 'slow' && uploadPhase === 'uploading' && (
-              <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-4 inline-block" role="status">
-                Slow connection detected; optimizing upload
-              </p>
-            )}
-            <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" strokeWidth={1.5} />
-            <p className="text-base sm:text-lg font-medium text-gray-800 mb-4 break-words">
-              {isRehydrating && 'Resuming…'}
-              {!isRehydrating && uploadPhase === 'preparing' && 'Preparing audio…'}
-              {!isRehydrating && uploadPhase === 'uploading' && `Uploading (${uploadProgress}%)`}
-              {!isRehydrating && uploadPhase === 'processing' && 'Generating subtitles…'}
-            </p>
-            <ProgressBar
-              progress={uploadPhase === 'uploading' ? uploadProgress : progress}
-              status={
-                uploadPhase === 'uploading'
-                  ? ''
-                  : queuePosition !== undefined
-                    ? `Processing… ${queuePosition} jobs ahead of you.`
-                    : 'Processing video and extracting speech'
+          <div className="rounded-2xl bg-blue-50 dark:bg-blue-950/30 p-6 sm:p-8">
+            <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+              {selectedFile?.name} • {filePreview?.durationSeconds != null ? formatDuration(filePreview.durationSeconds) : '—'}
+            </div>
+            <ProcessingProgress
+              steps={[
+                { label: 'Uploading', status: uploadPhase === 'uploading' ? 'active' : 'completed' },
+                { label: 'Processing', status: uploadPhase === 'processing' ? 'active' : 'pending' },
+                { label: 'Finalizing', status: progress >= 100 ? 'completed' : 'pending' },
+              ]}
+              currentMessage={
+                isRehydrating
+                  ? 'Resuming…'
+                  : uploadPhase === 'uploading'
+                    ? `Uploading (${uploadProgress}%)`
+                    : 'Generating subtitles…'
               }
-              isRehydrating={isRehydrating}
-              isUploadPhase={uploadPhase === 'uploading'}
-              queuePosition={queuePosition}
-              processingStartedAt={uploadPhase === 'processing' ? processingStartedAt : null}
+              progress={uploadPhase === 'uploading' ? uploadProgress : progress}
+              estimatedTime={uploadPhase === 'uploading' ? '1–2 minutes for large files' : '20–40 seconds'}
+              statusSubtext={
+                uploadPhase === 'processing' && queuePosition !== undefined
+                  ? `Queue position: ${queuePosition}`
+                  : connectionSpeed === 'slow' && uploadPhase === 'uploading'
+                    ? 'Slow connection; optimizing upload'
+                    : undefined
+              }
+              livePreviewLabel="Live subtitles with timestamps"
+              liveTranscript={
+                uploadPhase === 'processing' && partialSegments.length > 0
+                  ? partialSegments
+                      .map((s) => {
+                        const h = Math.floor(s.start / 3600)
+                        const m = Math.floor((s.start % 3600) / 60)
+                        const sec = s.start % 60
+                        const ts = h > 0 ? `${h}:${m.toString().padStart(2, '0')}:${sec.toFixed(1)}` : `${m}:${sec.toFixed(1)}`
+                        return `${ts}  ${s.text.trim()}`
+                      })
+                      .join('\n')
+                  : undefined
+              }
+              onCancel={handleCancelUpload}
             />
-            <p className="text-sm text-gray-500 mt-4">
-              {uploadPhase === 'uploading' ? 'Large files may take a minute.' : 'Estimated time: 30-60 seconds'}
-            </p>
-            {uploadPhase === 'processing' && partialSegments.length > 0 && (
-              <div className="mt-6 text-left max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-white/80 p-4">
-                <p className="text-sm font-medium text-gray-600 mb-2">Live subtitles</p>
-                {partialSegments.length >= 2000 && (
-                  <p className="text-xs text-gray-500 mb-2">Live preview limited for very long videos. Final subtitles will include full content.</p>
-                )}
-                <div className="space-y-1">
-                  {partialSegments.map((seg) => (
-                    <div key={`${seg.start}-${seg.end}`} className="text-sm text-gray-800">
-                      {seg.text}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {(uploadPhase === 'preparing' || uploadPhase === 'uploading' || (uploadPhase === 'processing' && currentJobId)) && (
-              <button
-                type="button"
-                onClick={handleCancelUpload}
-                className="mt-4 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-motion"
-              >
-                Cancel
-              </button>
-            )}
+            <ResultSkeleton variant="subtitle" />
           </div>
         )}
 
         {status === 'completed' && result && (
           <div className="space-y-6">
-            <SuccessState
-              fileName={result.fileName}
-              downloadUrl={plan === 'free' ? undefined : getDownloadUrl()}
-              onProcessAnother={handleProcessAnother}
-              toolType={BACKEND_TOOL_TYPES.VIDEO_TO_SUBTITLES}
-              jobId={currentJobId ?? undefined}
-              processedInSeconds={lastProcessingMs != null ? lastProcessingMs / 1000 : undefined}
-              onDownloadClick={
+            <SubtitleResult
+              fileName={result.fileName ?? 'subtitles.srt'}
+              processingTime={lastProcessingMs != null ? `${(lastProcessingMs / 1000).toFixed(1)}s` : '—'}
+              format={format.toUpperCase() as 'SRT' | 'VTT'}
+              onDownload={
                 plan === 'free'
                   ? async () => {
                       if (freeExportsUsed >= 2) {
@@ -988,9 +891,15 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                         toast.error('Download failed')
                       }
                     }
-                  : undefined
+                  : () => {
+                      const a = document.createElement('a')
+                      a.href = getDownloadUrl()
+                      a.download = result?.fileName || 'subtitles.srt'
+                      a.click()
+                    }
               }
-              downloadLabel={plan === 'free' ? (freeExportsUsed >= 2 ? '2/2 used' : 'Download with watermark') : undefined}
+              onProcessAnother={handleProcessAnother}
+              relatedTools={[]}
             />
             <div className="mt-2 min-h-[2.75rem]">
             <WorkflowChainSuggestion
@@ -1036,72 +945,6 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               </div>
             )}
 
-            {subtitleTextForTranslation && (
-              <div className="bg-white rounded-2xl p-6 shadow-card">
-                <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                  <Languages className="h-5 w-5 text-violet-600" strokeWidth={1.5} />
-                  View in another language
-                </h3>
-                <div className="flex flex-wrap items-center gap-2 mb-4">
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setTranslateDropdownOpen((o) => !o)}
-                      disabled={translating || !subtitleTextForTranslation.trim()}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Languages className="h-4 w-4" strokeWidth={1.5} />
-                      <span>{translationLanguage ?? 'Translate'}</span>
-                      <ChevronDown className="h-4 w-4" />
-                    </button>
-                    {translateDropdownOpen && (
-                      <>
-                        <div className="fixed inset-0 z-10" aria-hidden onClick={() => setTranslateDropdownOpen(false)} />
-                        <div className="absolute left-0 top-full mt-1 py-1 w-48 bg-white border border-gray-200 rounded-lg shadow-card-elevated z-20">
-                          <button
-                            type="button"
-                            onClick={() => handleTranslateLanguage('Original')}
-                            className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                          >
-                            Original
-                          </button>
-                          {TRANSCRIPT_TRANSLATION_LANGUAGES.map((lang) => (
-                            <button
-                              key={lang}
-                              type="button"
-                              onClick={() => handleTranslateLanguage(lang)}
-                              disabled={translating}
-                              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                            >
-                              {lang}
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleCopySubtitlesToClipboard}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-violet-600 hover:bg-violet-50"
-                  >
-                    <Copy className="h-4 w-4" strokeWidth={1.5} />
-                    Copy
-                  </button>
-                </div>
-                {translating ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-gray-500">
-                    <Loader2 className="h-8 w-8 animate-spin text-violet-600 mb-2" strokeWidth={1.5} />
-                    <p className="text-sm">Translating subtitles…</p>
-                  </div>
-                ) : (
-                  <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{displaySubtitleText || '-'}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
             {result.warnings && result.warnings.length > 0 && (
               <div className="bg-amber-50/80 rounded-2xl p-6 shadow-card border border-amber-100">
                 <h3 className="text-lg font-semibold text-amber-800 mb-2">Validation (informational)</h3>
@@ -1115,15 +958,6 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               </div>
             )}
 
-            {subtitlePreview && (
-              <div className="bg-white rounded-2xl p-6 shadow-card">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Preview (first 10 entries)</h3>
-                <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
-                  <pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono">{subtitlePreview}</pre>
-                </div>
-              </div>
-            )}
-
             {/* Phase 1B — UTILITY 2B: Convert format. Derived from subtitle files; free: preview 30 lines, paid: full download. */}
             <div className="bg-white rounded-2xl p-6 shadow-card">
               <h3 className="text-lg font-semibold text-gray-800 mb-2 flex items-center gap-2">
@@ -1133,13 +967,18 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               <p className="text-sm text-gray-600 mb-4">Download subtitles in another format (SRT, VTT, or plain text).</p>
               <div className="flex flex-wrap items-center gap-3">
                 <select
-                  value={convertTargetFormat}
+                  value={plan === 'free' ? 'srt' : convertTargetFormat}
                   onChange={(e) => setConvertTargetFormat(e.target.value as 'srt' | 'vtt' | 'txt')}
                   className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 text-sm"
+                  disabled={plan === 'free'}
                 >
                   <option value="srt">SRT</option>
-                  <option value="vtt">VTT</option>
-                  <option value="txt">TXT (plain text)</option>
+                  {plan !== 'free' && (
+                    <>
+                      <option value="vtt">VTT</option>
+                      <option value="txt">TXT (plain text)</option>
+                    </>
+                  )}
                 </select>
                 <button
                   onClick={handleConvertFormat}
@@ -1151,7 +990,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               </div>
               {plan === 'free' && (
                 <p className="text-xs text-gray-500 mt-2">
-                  Free plan: preview below. You can download 1 format with watermark ({freeExportsUsed}/2 total downloads used).
+                  Free plan: SRT only. Preview below. You can download 1 format with watermark ({freeExportsUsed}/2 total downloads used).
                 </p>
               )}
               {convertPreview !== null && (
@@ -1169,7 +1008,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                       const res = await fetch(convertDownloadUrl)
                       const text = await res.text()
                       const watermarked = text + FREE_EXPORT_WATERMARK
-                      const ext = convertTargetFormat === 'srt' ? 'srt' : convertTargetFormat === 'vtt' ? 'vtt' : 'txt'
+                      const ext = plan === 'free' ? 'srt' : (convertTargetFormat === 'srt' ? 'srt' : convertTargetFormat === 'vtt' ? 'vtt' : 'txt')
                       const blob = new Blob([watermarked], { type: 'text/plain' })
                       const a = document.createElement('a')
                       a.href = URL.createObjectURL(blob)
@@ -1211,8 +1050,9 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             message={failedMessage}
           />
         )}
+      </ToolLayout>
 
-        <PaywallModal
+      <PaywallModal
           isOpen={showPaywall}
           onClose={() => setShowPaywall(false)}
           usedMinutes={usedMinutes ?? 0}
@@ -1236,20 +1076,19 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           }}
         />
 
-        {faq.length > 0 && (
-          <section className="mt-12 pt-8 border-t border-gray-100/70" aria-label="FAQ">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently asked questions</h2>
-            <dl className="space-y-4">
-              {faq.map((item, i) => (
-                <div key={i}>
-                  <dt className="font-medium text-gray-800">{item.q}</dt>
-                  <dd className="mt-1 text-gray-600">{item.a}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-        )}
-      </div>
-    </div>
+      {faq.length > 0 && (
+        <section className="mt-12 pt-8 border-t border-gray-100/70 max-w-4xl mx-auto px-4" aria-label="FAQ">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently asked questions</h2>
+          <dl className="space-y-4">
+            {faq.map((item, i) => (
+              <div key={i}>
+                <dt className="font-medium text-gray-800">{item.q}</dt>
+                <dd className="mt-1 text-gray-600">{item.a}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
+    </>
   )
 }

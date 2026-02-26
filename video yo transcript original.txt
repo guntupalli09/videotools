@@ -1,0 +1,898 @@
+import { useState, useRef, useCallback, useEffect, useMemo, Suspense, lazy } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { FileText, Copy, Loader2, Users, ListOrdered, BookOpen, Sparkles, Hash, FileCode, Download, Eraser, Search, Pencil, FileDown, Languages, ChevronDown } from 'lucide-react'
+import FileUploadZone from '../components/FileUploadZone'
+import FilePreviewCard from '../components/FilePreviewCard'
+import UploadStageIndicator from '../components/UploadStageIndicator'
+import ProcessingTimeBlock from '../components/ProcessingTimeBlock'
+import UsageCounter from '../components/UsageCounter'
+import PlanBadge from '../components/PlanBadge'
+import ProgressBar from '../components/ProgressBar'
+import SuccessState from '../components/SuccessState'
+import FailedState from '../components/FailedState'
+import CrossToolSuggestions from '../components/CrossToolSuggestions'
+import WorkflowChainSuggestion from '../components/WorkflowChainSuggestion'
+import PaywallModal from '../components/PaywallModal'
+import UsageDisplay from '../components/UsageDisplay'
+import UsageRemaining from '../components/UsageRemaining'
+const VideoTrimmer = lazy(() => import('../components/VideoTrimmer'))
+import { incrementUsage } from '../lib/usage'
+import { uploadFileWithProgress, getJobStatus, getCurrentUsage, getConnectionProbeIfNeeded, BACKEND_TOOL_TYPES, SessionExpiredError, getUserFacingMessage, isNetworkError, translateTranscript, TRANSCRIPT_TRANSLATION_LANGUAGES } from '../lib/api'
+import { getFailureMessage } from '../lib/failureMessage'
+import { checkVideoPreflight } from '../lib/uploadPreflight'
+import { getFilePreview, type FilePreviewData } from '../lib/filePreview'
+import { extractAudioInBrowser, isAudioExtractionSupported } from '../lib/audioExtraction'
+import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
+import { getAbsoluteDownloadUrl } from '../lib/apiBase'
+import { persistJobId, getPersistedJobId, getPersistedJobToken, clearPersistedJobId } from '../lib/jobSession'
+import { trackEvent } from '../lib/analytics'
+import { texJobStarted, texJobCompleted, texJobFailed } from '../tex'
+import { segmentsToSrt, segmentsToVtt, formatTimestamp, type Segment } from '../lib/srtExport'
+import toast from 'react-hot-toast'
+import { Subtitles, Film, Minimize2 } from 'lucide-react'
+import { useWorkflow } from '../contexts/WorkflowContext'
+
+// ─── Phase 1 – Derived Transcript Utilities (client-side only) ─────────────────
+const BRANCH_IDS = ['transcript', 'speakers', 'summary', 'chapters', 'highlights', 'keywords', 'clean', 'exports'] as const
+type BranchId = (typeof BRANCH_IDS)[number]
+const BRANCH_LABELS: Record<BranchId, string> = {
+  transcript: 'Transcript',
+  speakers: 'Speakers',
+  summary: 'Summary',
+  chapters: 'Chapters',
+  highlights: 'Highlights',
+  keywords: 'Keywords',
+  clean: 'Clean',
+  exports: 'Exports',
+}
+const BRANCH_ICONS: Record<BranchId, typeof FileText> = {
+  transcript: FileText,
+  speakers: Users,
+  summary: ListOrdered,
+  chapters: BookOpen,
+  highlights: Sparkles,
+  keywords: Hash,
+  clean: Eraser,
+  exports: FileCode,
+}
+const FILLER_WORDS = new Set(['um', 'uh', 'like', 'you know', 'basically', 'actually', 'literally', 'so', 'well', 'just', 'really', 'right', 'i mean', 'kind of', 'sort of'])
+const STOPWORDS = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been', 'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'what', 'which', 'who', 'when', 'where', 'why', 'how'])
+
+/** Optional SEO overrides for alternate entry points (e.g. /video-to-text, /mp4-to-text). Do NOT duplicate logic here. */
+export type VideoToTranscriptSeoProps = {
+  seoH1?: string
+  seoIntro?: string
+  faq?: { q: string; a: string }[]
+}
+
+export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {}) {
+  const { seoH1, seoIntro, faq = [] } = props
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [trimStart, setTrimStart] = useState<number | null>(null)
+  const [trimEnd, setTrimEnd] = useState<number | null>(null)
+  const [status, setStatus] = useState<'idle' | 'processing' | 'completed' | 'failed'>('idle')
+  const [progress, setProgress] = useState(0)
+  const [uploadPhase, setUploadPhase] = useState<'preparing' | 'uploading' | 'processing'>('preparing')
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [result, setResult] = useState<{
+    downloadUrl: string
+    fileName?: string
+    segments?: { start: number; end: number; text: string; speaker?: string }[]
+    summary?: { summary: string; bullets: string[]; actionItems?: string[] }
+    chapters?: { title: string; startTime: number; endTime?: number }[]
+  } | null>(null)
+  const [transcriptPreview, setTranscriptPreview] = useState('')
+  const [fullTranscript, setFullTranscript] = useState('')
+  const [includeSummary, setIncludeSummary] = useState(true)
+  const [includeChapters, setIncludeChapters] = useState(true)
+  const [exportFormats, setExportFormats] = useState<('txt' | 'json' | 'docx' | 'pdf')[]>(['txt'])
+  const [speakerDiarization, setSpeakerDiarization] = useState(false)
+  const [glossary, setGlossary] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [transcriptEditMode, setTranscriptEditMode] = useState(false)
+  const [editableSegments, setEditableSegments] = useState<Segment[] | null>(null)
+  const [showPaywall, setShowPaywall] = useState(false)
+  const [availableMinutes, setAvailableMinutes] = useState<number | null>(null)
+  const [usedMinutes, setUsedMinutes] = useState<number | null>(null)
+  const [queuePosition, setQueuePosition] = useState<number | undefined>(undefined)
+  const [isRehydrating, setIsRehydrating] = useState(false)
+  const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null)
+  const [elapsedMs, setElapsedMs] = useState(0)
+  const [filePreview, setFilePreview] = useState<FilePreviewData | null>(null)
+  const [connectionSpeed, setConnectionSpeed] = useState<'fast' | 'medium' | 'slow' | undefined>(undefined)
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null)
+  const [fileFromWorkflow, setFileFromWorkflow] = useState(false)
+  const uploadAbortRef = useRef<AbortController | null>(null)
+  // Phase 1 – Derived Transcript Utilities: branch tab (no remount/refetch)
+  const [activeBranch, setActiveBranch] = useState<BranchId>('transcript')
+  const [cleanTranscriptEnabled, setCleanTranscriptEnabled] = useState(false)
+  const [translationLanguage, setTranslationLanguage] = useState<string | null>(null)
+  const [translatedCache, setTranslatedCache] = useState<Record<string, string>>({})
+  const [translating, setTranslating] = useState(false)
+  const [translateDropdownOpen, setTranslateDropdownOpen] = useState(false)
+  const transcriptScrollRef = useRef<HTMLDivElement>(null)
+  const segmentRefsRef = useRef<Map<number, HTMLDivElement>>(new Map())
+  const rehydratePollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const activeUploadPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const jobStartedTrackedRef = useRef<string | null>(null)
+  const processingStartedAtRef = useRef<number | null>(null)
+  const terminalRef = useRef(false)
+  const lastPartialVersionRef = useRef(0)
+  const partialScrollRef = useRef<HTMLDivElement>(null)
+  const savedScrollTopRef = useRef(0)
+  const scrollRestoreRafRef = useRef<{ first: number; second: number }>({ first: 0, second: 0 })
+  /** Phase 6: when we first show partial transcript (for min stream visibility delay). */
+  const partialFirstSeenAtRef = useRef<number | null>(null)
+  const minStreamDelayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [partialSegments, setPartialSegments] = useState<{ start: number; end: number; text: string; speaker?: string }[]>([])
+  /** Free plan: number of export downloads used for this transcript (max 2, with watermark). */
+  const [freeExportsUsed, setFreeExportsUsed] = useState(0)
+  /** Set on job_completed for "Processed in XX.Xs" badge (UI only). */
+  const [lastProcessingMs, setLastProcessingMs] = useState<number | null>(null)
+  /** Set on job_completed for workflow chain suggestion (UI only). */
+  const [lastJobCompletedToolId, setLastJobCompletedToolId] = useState<string | null>(null)
+  /** Contextual failure message (from getFailureMessage); shown in FailedState and Tex. */
+  const [failedMessage, setFailedMessage] = useState<string | undefined>(undefined)
+
+  // Reset free export count when user gets a new result (e.g. process another file)
+  useEffect(() => {
+    setFreeExportsUsed(0)
+  }, [result?.downloadUrl])
+
+  // Instant file preview (browser only); persists through upload + processing
+  useEffect(() => {
+    if (!selectedFile) {
+      setFilePreview(null)
+      return
+    }
+    let cancelled = false
+    getFilePreview(selectedFile).then((p) => {
+      if (!cancelled) setFilePreview(p)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedFile])
+
+  // Sync editable segments from result (so inline edits are preserved until result changes)
+  useEffect(() => {
+    if (result?.segments?.length) {
+      setEditableSegments(result.segments.map((s) => ({ start: s.start, end: s.end, text: s.text })))
+    } else {
+      setEditableSegments(null)
+    }
+    setTranscriptEditMode(false)
+  }, [result?.segments])
+
+  // Elapsed time ticker when processing (cleanup on unmount/complete/fail)
+  useEffect(() => {
+    if (status !== 'processing' || !processingStartedAt) {
+      setElapsedMs(0)
+      return
+    }
+    const tick = () => setElapsedMs(Date.now() - processingStartedAt)
+    tick()
+    const id = setInterval(tick, 500)
+    return () => clearInterval(id)
+  }, [status, processingStartedAt])
+
+  // Reset translation when transcript result changes
+  useEffect(() => {
+    setTranslationLanguage(null)
+    setTranslatedCache({})
+  }, [result])
+
+  // Restore scroll position when transitioning from partial to completed transcript.
+  // Double rAF so we run after DOM/layout has stabilized (avoids jump when height changes).
+  useEffect(() => {
+    if (status !== 'completed' || !result) return
+    const saved = savedScrollTopRef.current
+    if (saved <= 0) return
+    scrollRestoreRafRef.current.first = requestAnimationFrame(() => {
+      scrollRestoreRafRef.current.second = requestAnimationFrame(() => {
+        if (transcriptScrollRef.current) {
+          transcriptScrollRef.current.scrollTop = saved
+        }
+      })
+    })
+    return () => {
+      cancelAnimationFrame(scrollRestoreRafRef.current.first)
+      cancelAnimationFrame(scrollRestoreRafRef.current.second)
+    }
+  }, [status, result])
+
+  // Rehydrate from URL/sessionStorage after idle or reload (e.g. mobile Safari)
+  useEffect(() => {
+    const pathname = location.pathname
+    const jobId = getPersistedJobId(pathname)
+    if (!jobId) return
+
+    terminalRef.current = false
+    lastPartialVersionRef.current = 0
+    setStatus('processing')
+    setUploadPhase('processing')
+    setUploadProgress(100)
+    setCurrentJobId(jobId)
+    setIsRehydrating(true)
+    setProcessingStartedAt(Date.now())
+    setPartialSegments([])
+
+    const jobToken = getPersistedJobToken(pathname)
+    let cancelled = false
+    const run = async () => {
+      try {
+        const jobStatus = await getJobStatus(jobId, jobToken ? { jobToken } : undefined)
+        if (cancelled) return
+        setIsRehydrating(false)
+        setProgress(jobStatus.progress ?? 0)
+        if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
+
+        const transition = getJobLifecycleTransition(jobStatus)
+        if (transition === 'completed') {
+          terminalRef.current = true
+          setPartialSegments([])
+          setStatus('completed')
+          setResult(jobStatus.result ?? null)
+          setUploadPhase('processing')
+          setUploadProgress(100)
+          const res = jobStatus.result
+          if (res?.segments?.length) {
+            const textFromSegments = res.segments.map((s: { text: string }) => s.text).join('\n\n')
+            setFullTranscript(textFromSegments)
+            setTranscriptPreview(textFromSegments.substring(0, 500))
+          } else if (res?.downloadUrl) {
+            try {
+              const transcriptResponse = await fetch(getAbsoluteDownloadUrl(res.downloadUrl))
+              const transcriptText = await transcriptResponse.text()
+              setTranscriptPreview(transcriptText.substring(0, 500))
+              setFullTranscript(transcriptText)
+            } catch {
+              // ignore (e.g. ZIP file)
+            }
+          }
+          return
+        }
+        if (transition === 'failed') {
+          terminalRef.current = true
+          setPartialSegments([])
+          setIsRehydrating(false)
+          setStatus('failed')
+          toast.error('Processing failed. Please try again.')
+          clearPersistedJobId(pathname, navigate)
+          return
+        }
+        if (jobStatus.status === 'processing' && jobStatus.partialVersion != null && jobStatus.partialVersion > lastPartialVersionRef.current) {
+          lastPartialVersionRef.current = jobStatus.partialVersion
+          if (jobStatus.partialSegments?.length) setPartialSegments(jobStatus.partialSegments)
+        }
+        // Resume polling for queued/processing
+        setStatus('processing')
+        setUploadPhase('processing')
+        setUploadProgress(100)
+        const doPoll = async () => {
+          if (cancelled) return
+          try {
+            if (terminalRef.current) return
+            const s = await getJobStatus(jobId, jobToken ? { jobToken } : undefined)
+            if (cancelled) return
+            if (terminalRef.current) return
+            setProgress(s.progress ?? 0)
+            if (s.queuePosition !== undefined) setQueuePosition(s.queuePosition)
+            const t = getJobLifecycleTransition(s)
+            if (t === 'completed') {
+              terminalRef.current = true
+              if (rehydratePollRef.current) clearInterval(rehydratePollRef.current)
+              rehydratePollRef.current = null
+              setPartialSegments([])
+              setStatus('completed')
+              setResult(s.result ?? null)
+              if (s.result?.segments?.length) {
+                const textFromSegments = s.result.segments.map((seg: { text: string }) => seg.text).join('\n\n')
+                setFullTranscript(textFromSegments)
+                setTranscriptPreview(textFromSegments.substring(0, 500))
+              } else if (s.result?.downloadUrl) {
+                try {
+                  const res = await fetch(getAbsoluteDownloadUrl(s.result.downloadUrl))
+                  const text = await res.text()
+                  setTranscriptPreview(text.substring(0, 500))
+                  setFullTranscript(text)
+                } catch {
+                  // ignore
+                }
+              }
+            } else if (t === 'failed') {
+              terminalRef.current = true
+              setPartialSegments([])
+              if (rehydratePollRef.current) clearInterval(rehydratePollRef.current)
+              rehydratePollRef.current = null
+              setIsRehydrating(false)
+              setStatus('failed')
+              toast.error('Processing failed. Please try again.')
+              clearPersistedJobId(pathname, navigate)
+            } else if (s.status === 'processing' && s.partialVersion != null && s.partialVersion > lastPartialVersionRef.current) {
+              lastPartialVersionRef.current = s.partialVersion
+              if (s.partialSegments?.length) setPartialSegments(s.partialSegments)
+            }
+          } catch (err) {
+            if (err instanceof SessionExpiredError) {
+              if (rehydratePollRef.current) clearInterval(rehydratePollRef.current)
+              rehydratePollRef.current = null
+              clearPersistedJobId(pathname, navigate)
+              toast.error(err.message)
+            }
+            // other errors: keep polling
+          }
+        }
+        rehydratePollRef.current = setInterval(doPoll, JOB_POLL_INTERVAL_MS)
+        doPoll()
+      } catch (err) {
+        if (cancelled) return
+        setIsRehydrating(false)
+        if (err instanceof SessionExpiredError) {
+          clearPersistedJobId(pathname, navigate)
+          toast.error(err.message)
+        }
+      }
+    }
+    run()
+    return () => {
+      cancelled = true
+      if (rehydratePollRef.current) clearInterval(rehydratePollRef.current)
+      rehydratePollRef.current = null
+    }
+  }, [location.pathname, navigate])
+
+  // Remind user to keep tab open when they switch away during upload (helps mobile)
+  useEffect(() => {
+    if (uploadPhase !== 'uploading') return
+    const onVisibility = () => {
+      if (document.hidden) toast('Keep this tab open until the upload finishes.', { icon: '📤', duration: 4000 })
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [uploadPhase])
+
+  const workflow = useWorkflow()
+
+  useEffect(() => {
+    const state = location.state as { useWorkflowVideo?: boolean } | undefined
+    if (state?.useWorkflowVideo && workflow.videoFile) {
+      setSelectedFile(workflow.videoFile)
+      setFileFromWorkflow(true)
+    }
+  }, [location.state, workflow.videoFile])
+
+  const handleFileSelect = (file: File) => {
+    try {
+      trackEvent('file_selected', {
+        tool_type: BACKEND_TOOL_TYPES.VIDEO_TO_TRANSCRIPT,
+        file_size_bytes: file.size,
+      })
+    } catch {
+      // non-blocking
+    }
+    workflow.setVideo(file)
+    setSelectedFile(file)
+    setFileFromWorkflow(false)
+    setTrimStart(null)
+    setTrimEnd(null)
+  }
+
+  const handleCancelUpload = () => {
+    if (uploadAbortRef.current) {
+      uploadAbortRef.current.abort()
+      uploadAbortRef.current = null
+    }
+    if (activeUploadPollRef.current) {
+      clearInterval(activeUploadPollRef.current)
+      activeUploadPollRef.current = null
+    }
+    if (currentJobId) {
+      clearPersistedJobId(location.pathname, navigate)
+      setCurrentJobId(null)
+      setStatus('idle')
+      setUploadPhase('preparing')
+      setUploadProgress(0)
+      setProgress(0)
+      toast('Cancelled. You can upload a new file; the previous job may still complete in the background.', { icon: 'ℹ️', duration: 5000 })
+    }
+  }
+
+  const handleProcess = async () => {
+    if (!selectedFile) {
+      toast.error('Please select a file')
+      return
+    }
+
+    // Minute-based limit check
+    let usageData: Awaited<ReturnType<typeof getCurrentUsage>> | null = null
+    try {
+      usageData = await getCurrentUsage()
+      const totalAvailable = usageData.limits.minutesPerMonth + usageData.overages.minutes
+      const used = usageData.usage.totalMinutes
+      setAvailableMinutes(totalAvailable)
+      setUsedMinutes(used)
+      const atOrOverLimit = totalAvailable > 0 && used >= totalAvailable
+      if (atOrOverLimit) {
+        setShowPaywall(true)
+        trackEvent('paywall_shown', { tool: 'video-to-transcript' })
+        return
+      }
+    } catch {
+      // If usage lookup fails, fall back to allowing processing
+    }
+
+    let connectionSpeedResult: 'fast' | 'medium' | 'slow' | undefined
+    try {
+      setStatus('processing')
+      setUploadPhase('preparing')
+      setUploadProgress(0)
+      setProgress(0)
+      uploadAbortRef.current = new AbortController()
+      setCurrentJobId(null)
+
+      const limits = usageData?.limits
+        ? { maxFileSize: usageData.limits.maxFileSize, maxVideoDuration: usageData.limits.maxVideoDuration }
+        : {}
+      const probePromise = getConnectionProbeIfNeeded(selectedFile)
+      const [preflight, probeResult] = await Promise.all([
+        checkVideoPreflight(selectedFile, limits),
+        probePromise ?? Promise.resolve(null),
+      ])
+      connectionSpeedResult = probeResult ?? undefined
+      setConnectionSpeed(connectionSpeedResult)
+      if (!preflight.allowed) {
+        uploadAbortRef.current = null
+        setStatus('idle')
+        toast.error(preflight.reason ?? 'Video exceeds plan limits.')
+        trackEvent('paywall_shown', { tool: 'video-to-transcript', reason: 'preflight' })
+        return
+      }
+    } catch (e) {
+      uploadAbortRef.current = null
+      setStatus('idle')
+      toast.error('Could not validate video. Try again.')
+      return
+    }
+
+    try {
+      const baseOptions: Parameters<typeof uploadFileWithProgress>[1] = {
+        toolType: BACKEND_TOOL_TYPES.VIDEO_TO_TRANSCRIPT,
+        trimmedStart: trimStart ?? undefined,
+        trimmedEnd: trimEnd ?? undefined,
+        includeSummary,
+        includeChapters,
+        exportFormats: exportFormats.length > 0 ? exportFormats : (['txt'] as const),
+        speakerDiarization,
+        glossary: glossary.trim() || undefined,
+      }
+      let fileToUpload: File = selectedFile
+      const useAudioOnly =
+        trimStart == null &&
+        trimEnd == null &&
+        isAudioExtractionSupported()
+      if (useAudioOnly) {
+        setUploadPhase('preparing')
+        const extracted = await extractAudioInBrowser(selectedFile)
+        if (extracted) {
+          const baseName = selectedFile.name.replace(/\.[^.]+$/, '') || 'audio'
+          fileToUpload = new File([extracted.blob], `${baseName}_audio.mp3`, { type: 'audio/mpeg' })
+          Object.assign(baseOptions, {
+            uploadMode: 'audio-only' as const,
+            originalFileName: selectedFile.name,
+            originalFileSize: selectedFile.size,
+          })
+        }
+      }
+      setUploadPhase('uploading')
+      trackEvent('processing_started', { tool: 'video-to-transcript' })
+
+      const response = await uploadFileWithProgress(
+        fileToUpload,
+        baseOptions,
+        {
+          onProgress: (p) => setUploadProgress(p),
+          connectionSpeed: connectionSpeedResult,
+          signal: uploadAbortRef.current?.signal,
+        }
+      )
+
+      uploadAbortRef.current = null
+      setCurrentJobId(response.jobId)
+      persistJobId(location.pathname, response.jobId, response.jobToken)
+      setUploadPhase('processing')
+      setUploadProgress(100)
+      terminalRef.current = false
+      lastPartialVersionRef.current = 0
+      partialFirstSeenAtRef.current = null
+      if (minStreamDelayTimeoutRef.current) {
+        clearTimeout(minStreamDelayTimeoutRef.current)
+        minStreamDelayTimeoutRef.current = null
+      }
+      setPartialSegments([])
+      const startedAt = Date.now()
+      setProcessingStartedAt(startedAt)
+      processingStartedAtRef.current = startedAt
+      texJobStarted()
+
+      // Poll for status: run first poll immediately, then every 2s.
+      // Lifecycle depends ONLY on jobStatus.status; missing result never causes failure.
+      const jobToken = response.jobToken
+      const doPoll = async () => {
+        try {
+          if (terminalRef.current) return
+          const jobStatus = await getJobStatus(response.jobId, jobToken ? { jobToken } : undefined)
+          if (terminalRef.current) return
+          setProgress(jobStatus.progress ?? 0)
+          if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
+
+          if (jobStatus.status === 'processing' && jobStartedTrackedRef.current !== response.jobId) {
+            jobStartedTrackedRef.current = response.jobId
+            try {
+              trackEvent('job_started', { job_id: response.jobId, tool_type: BACKEND_TOOL_TYPES.VIDEO_TO_TRANSCRIPT })
+            } catch {
+              // non-blocking
+            }
+          }
+
+          const transition = getJobLifecycleTransition(jobStatus)
+          if (transition === 'completed') {
+            terminalRef.current = true
+            if (activeUploadPollRef.current) {
+              clearInterval(activeUploadPollRef.current)
+              activeUploadPollRef.current = null
+            }
+            jobStartedTrackedRef.current = null
+            savedScrollTopRef.current = partialScrollRef.current?.scrollTop ?? 0
+
+            const MIN_STREAM_VISIBILITY_MS = 8000
+            const res = jobStatus.result
+            const streamProgress = res && typeof (res as { streamProgress?: boolean }).streamProgress === 'boolean' && (res as { streamProgress?: boolean }).streamProgress
+            const firstSeenAt = partialFirstSeenAtRef.current
+            const remainingMs = streamProgress && firstSeenAt != null ? MIN_STREAM_VISIBILITY_MS - (Date.now() - firstSeenAt) : 0
+
+            const applyCompletedTransition = () => {
+              minStreamDelayTimeoutRef.current = null
+              setPartialSegments([])
+              setStatus('completed')
+              setResult(jobStatus.result ?? null)
+              if (res?.segments?.length) {
+                const textFromSegments = res.segments.map((s: { text: string }) => s.text).join('\n\n')
+                setFullTranscript(textFromSegments)
+                setTranscriptPreview(textFromSegments.substring(0, 500))
+              } else if (res?.downloadUrl) {
+                try {
+                  fetch(getAbsoluteDownloadUrl(res.downloadUrl))
+                    .then((transcriptResponse) => transcriptResponse.text())
+                    .then((transcriptText) => {
+                      setTranscriptPreview(transcriptText.substring(0, 500))
+                      setFullTranscript(transcriptText)
+                    })
+                    .catch(() => {})
+                } catch {
+                  // Ignore
+                }
+              }
+              incrementUsage('video-to-transcript')
+              const started = processingStartedAtRef.current ?? Date.now()
+              const processingMs = Date.now() - started
+              try {
+                trackEvent('job_completed', {
+                  job_id: response.jobId,
+                  tool_type: BACKEND_TOOL_TYPES.VIDEO_TO_TRANSCRIPT,
+                  processing_time_ms: processingMs,
+                })
+                trackEvent('processing_completed', { tool: 'video-to-transcript' })
+                texJobCompleted(processingMs, 'video-to-transcript')
+                setLastProcessingMs(processingMs)
+                setLastJobCompletedToolId('video-to-transcript')
+              } catch {
+                // non-blocking
+              }
+            }
+
+            if (remainingMs > 0) {
+              minStreamDelayTimeoutRef.current = setTimeout(() => { void applyCompletedTransition() }, remainingMs)
+            } else {
+              void applyCompletedTransition()
+            }
+          } else if (transition === 'failed') {
+            terminalRef.current = true
+            setPartialSegments([])
+            if (activeUploadPollRef.current) {
+              clearInterval(activeUploadPollRef.current)
+              activeUploadPollRef.current = null
+            }
+            const msg = getFailureMessage({
+              fileSizeBytes: selectedFile?.size,
+              mimeType: selectedFile?.type,
+              remainingMinutes: availableMinutes ?? undefined,
+              planQuotaMinutes: 60,
+              durationMinutes: filePreview?.durationSeconds != null ? filePreview.durationSeconds / 60 : undefined,
+            })
+            setFailedMessage(msg)
+            setStatus('failed')
+            texJobFailed(msg)
+            toast.error('Processing failed. Please try again.')
+          } else if (jobStatus.status === 'processing' && jobStatus.partialVersion != null && jobStatus.partialVersion > lastPartialVersionRef.current) {
+            lastPartialVersionRef.current = jobStatus.partialVersion
+            if (jobStatus.partialSegments?.length) {
+              if (partialFirstSeenAtRef.current === null) partialFirstSeenAtRef.current = Date.now()
+              setPartialSegments(jobStatus.partialSegments)
+            }
+          }
+          // transition === 'continue': keep polling (queued | processing)
+        } catch (error: any) {
+          // Network/parse errors: do not set failed; keep polling.
+        }
+      }
+      activeUploadPollRef.current = setInterval(doPoll, JOB_POLL_INTERVAL_MS)
+      doPoll()
+    } catch (error: any) {
+      uploadAbortRef.current = null
+      if (error instanceof Error && error.message === 'Upload cancelled') {
+        setStatus('idle')
+        setUploadPhase('preparing')
+        setUploadProgress(0)
+        setCurrentJobId(null)
+        return
+      }
+      if (error instanceof SessionExpiredError) {
+        clearPersistedJobId(location.pathname, navigate)
+        setStatus('idle')
+      } else {
+        const msg = getFailureMessage({
+          fileSizeBytes: selectedFile?.size,
+          mimeType: selectedFile?.type,
+          isNetworkError: isNetworkError(error),
+        })
+        setFailedMessage(msg)
+        setStatus('failed')
+        texJobFailed(msg)
+      }
+      toast.error(getUserFacingMessage(error))
+    }
+  }
+
+  const handleCopyToClipboard = async () => {
+    const textToCopy =
+      translationLanguage && translatedCache[translationLanguage] != null
+        ? translatedCache[translationLanguage]
+        : (displayTranscript || fullTranscript || '').trim()
+    if (!textToCopy) return
+    try {
+      await navigator.clipboard.writeText(textToCopy)
+      toast.success('Copied to clipboard!')
+    } catch {
+      // Fallback for environments where clipboard API is restricted
+      try {
+        const textArea = document.createElement('textarea')
+        textArea.value = textToCopy
+        textArea.style.position = 'fixed'
+        textArea.style.opacity = '0'
+        document.body.appendChild(textArea)
+        textArea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textArea)
+        toast.success('Copied to clipboard!')
+      } catch {
+        toast.error('Failed to copy to clipboard')
+      }
+    }
+  }
+
+  const handleProcessAnother = () => {
+    clearPersistedJobId(location.pathname, navigate)
+    setSelectedFile(null)
+    setFilePreview(null)
+    setCurrentJobId(null)
+    uploadAbortRef.current = null
+    terminalRef.current = false
+    lastPartialVersionRef.current = 0
+    partialFirstSeenAtRef.current = null
+    if (minStreamDelayTimeoutRef.current) {
+      clearTimeout(minStreamDelayTimeoutRef.current)
+      minStreamDelayTimeoutRef.current = null
+    }
+    setStatus('idle')
+    setProgress(0)
+    setUploadPhase('preparing')
+    setUploadProgress(0)
+    setResult(null)
+    setTranscriptPreview('')
+    setFullTranscript('')
+    setPartialSegments([])
+    setActiveBranch('transcript')
+    setCleanTranscriptEnabled(false)
+    setIncludeSummary(true)
+    setIncludeChapters(true)
+    setExportFormats(['txt'])
+    setSpeakerDiarization(false)
+    setGlossary('')
+    setSearchQuery('')
+    setTranscriptEditMode(false)
+    setEditableSegments(null)
+  }
+
+  const getDownloadUrl = () => {
+    if (!result?.downloadUrl) return ''
+    return getAbsoluteDownloadUrl(result.downloadUrl)
+  }
+
+  // Phase 1 – scroll transcript to segment index; switch to Transcript branch first so segment is mounted
+  const scrollToSegment = useCallback((index: number) => {
+    setActiveBranch('transcript')
+    setTimeout(() => {
+      const el = segmentRefsRef.current.get(index)
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
+  }, [])
+
+  // Phase 1 – Derived Transcript Utilities (client-side; failures must not affect transcript)
+  const getParagraphs = useCallback((text: string): string[] => {
+    if (!text.trim()) return []
+    return text.split(/\n\n+/).map((p) => p.trim()).filter(Boolean)
+  }, [])
+
+  const getSpeakersData = useCallback((): { speaker: string; text: string; isDiarized: boolean }[] => {
+    if (result?.segments?.length) {
+      const rawLabels = result.segments.map((s) => s.speaker?.trim() || 'Speaker')
+      const unique = [...new Set(rawLabels)]
+      // Only treat as diarized when we have at least 2 distinct speaker labels from the backend
+      const isDiarized = unique.length >= 2
+      const labelToFriendly: Record<string, string> = {}
+      unique.forEach((label, idx) => {
+        labelToFriendly[label] = `Speaker ${idx + 1}`
+      })
+      return result.segments.map((s) => ({
+        speaker: labelToFriendly[s.speaker?.trim() || 'Speaker'] || 'Speaker',
+        text: s.text,
+        isDiarized,
+      }))
+    }
+    try {
+      const raw = fullTranscript || ''
+      if (!raw.trim()) return []
+      const paras = getParagraphs(raw)
+      return paras.map((p, i) => ({
+        speaker: `Speaker ${(i % 3) + 1}`,
+        text: p,
+        isDiarized: false,
+      }))
+    } catch {
+      return []
+    }
+  }, [result?.segments, fullTranscript, getParagraphs])
+
+  const getSummarySchema = useCallback((): { summary?: string; bullets: string[]; decisions: string[]; action_items: string[]; key_points: string[] } => {
+    if (result?.summary) {
+      return {
+        summary: result.summary.summary,
+        bullets: result.summary.bullets || [],
+        decisions: [],
+        action_items: result.summary.actionItems || [],
+        key_points: result.summary.bullets || [],
+      }
+    }
+    try {
+      const raw = fullTranscript || ''
+      if (!raw.trim()) return { bullets: [], decisions: [], action_items: [], key_points: [] }
+      const sentences = raw.split(/(?<=[.!?])\s+/).filter(Boolean)
+      const decisions: string[] = []
+      const action_items: string[] = []
+      const key_points: string[] = []
+      const decRe = /\b(decided|decision|agree|agreed|we'll|we will)\b/i
+      const actRe = /\b(action|todo|to do|will \w+|need to|must)\b/i
+      const keyRe = /\b(important|key point|takeaway|summary|in conclusion)\b/i
+      for (const s of sentences) {
+        const t = s.trim()
+        if (!t) continue
+        if (decRe.test(t)) decisions.push(t)
+        else if (actRe.test(t)) action_items.push(t)
+        else if (keyRe.test(t)) key_points.push(t)
+      }
+      return { bullets: [], decisions, action_items, key_points }
+    } catch {
+      return { bullets: [], decisions: [], action_items: [], key_points: [] }
+    }
+  }, [result?.summary, fullTranscript])
+
+  const getChaptersData = useCallback((): { label: string; segmentIndex: number; startTime?: number }[] => {
+    if (result?.chapters?.length) {
+      const segs = result.segments || []
+      return result.chapters.map((c) => {
+        let segmentIndex = 0
+        if (segs.length) {
+          const idx = segs.findIndex((s) => s.start >= c.startTime)
+          segmentIndex = idx >= 0 ? idx : segs.length - 1
+        }
+        return { label: c.title, segmentIndex, startTime: c.startTime }
+      })
+    }
+    try {
+      const paras = getParagraphs(fullTranscript || '')
+      if (paras.length === 0) return []
+      const chunkSize = Math.max(1, Math.ceil(paras.length / 6))
+      const chapters: { label: string; segmentIndex: number }[] = []
+      for (let i = 0; i < paras.length; i += chunkSize) {
+        const first = paras[i]
+        const preview = first.length > 40 ? first.slice(0, 40) + '…' : first
+        chapters.push({ label: `Section ${chapters.length + 1}: ${preview}`, segmentIndex: i })
+      }
+      return chapters
+    } catch {
+      return []
+    }
+  }, [result?.chapters, fullTranscript, getParagraphs])
+
+  const getHighlightsData = useCallback((): { type: string; text: string }[] => {
+    try {
+      const raw = fullTranscript || ''
+      if (!raw.trim()) return []
+      const out: { type: string; text: string }[] = []
+      const sentences = raw.split(/(?<=[.!?])\s+/).filter(Boolean)
+      const defRe = /\b(means|defined as|is when|refers to)\b/i
+      const conclRe = /\b(in conclusion|to conclude|therefore|thus|so we)\b/i
+      const quoteRe = /^["'].*["']$|".*"/
+      for (const s of sentences) {
+        const t = s.trim()
+        if (t.length < 15) continue
+        if (defRe.test(t)) out.push({ type: 'Definition', text: t })
+        else if (conclRe.test(t)) out.push({ type: 'Conclusion', text: t })
+        else if (quoteRe.test(t) || t.endsWith('!')) out.push({ type: 'Quote', text: t })
+        else if (/\b(important|critical|key)\b/i.test(t)) out.push({ type: 'Important', text: t })
+      }
+      return out
+    } catch {
+      return []
+    }
+  }, [fullTranscript])
+
+  const getKeywordsData = useCallback((): { keyword: string; count: number; segmentIndex: number }[] => {
+    try {
+      const paras = getParagraphs(fullTranscript || '')
+      if (paras.length === 0) return []
+      const countMap = new Map<string, number>()
+      const firstIndexMap = new Map<string, number>()
+      paras.forEach((p, idx) => {
+        const words = p.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter((w) => w.length > 2 && !STOPWORDS.has(w))
+        words.forEach((w) => {
+          countMap.set(w, (countMap.get(w) || 0) + 1)
+          if (!firstIndexMap.has(w)) firstIndexMap.set(w, idx)
+        })
+      })
+      return Array.from(countMap.entries())
+        .filter(([, c]) => c >= 2)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 24)
+        .map(([keyword, count]) => ({ keyword, count, segmentIndex: firstIndexMap.get(keyword) ?? 0 }))
+    } catch {
+      return []
+    }
+  }, [fullTranscript, getParagraphs])
+
+  const getCleanTranscript = useCallback((): string => {
+    try {
+      const raw = fullTranscript || ''
+      if (!raw.trim()) return ''
+      const paras = getParagraphs(raw)
+      return paras
+        .map((p) =>
+          p.split(/\s+/)
+            .filter((w) => !FILLER_WORDS.has(w.toLowerCase().replace(/[^\w]/g, '')))
+            .join(' ')
+            .replace(/\s+/g, ' ')
+        )
+        .map((s) => (s.length ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s))
+        .join('\n\n')
+    } catch {
+      return ''
+    }
+  }, [fullTranscript, getParagraphs])
+
+  const transcriptParagraphs = getParagraphs(fullTranscript || '')
+  const displayTranscript =
+    translationLanguage && translatedCache[translationLanguage] != null
+      ? translat

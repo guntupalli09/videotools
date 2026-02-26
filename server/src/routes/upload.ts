@@ -30,7 +30,7 @@ if (!fs.existsSync(tempDir)) {
   fs.mkdirSync(tempDir, { recursive: true })
 }
 
-const MAX_CHUNKS = 300
+const MAX_CHUNKS = 2000
 
 // Chunked upload metadata (uploadId -> { userId?, plan, filename, totalChunks, totalSize, toolType, options })
 const chunkUploadMeta = new Map<string, {

@@ -7,7 +7,8 @@
     @apply scroll-smooth;
   }
   body {
-    @apply font-sans font-normal antialiased bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 leading-relaxed;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    @apply font-normal antialiased bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 leading-relaxed;
   }
   /* Consistent focus ring for accessibility; does not affect functionality */
   :focus-visible {
@@ -138,18 +139,16 @@
   50% { background-position: 100% 0; }
 }
 
-/* Route change: fade + translate (200ms, consistent easing) */
+/* Route change: opacity only (200ms, no transform — avoids CLS) */
 .route-transition-enter {
   animation: route-enter 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 @keyframes route-enter {
   from {
     opacity: 0;
-    transform: translateY(4px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 

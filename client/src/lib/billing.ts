@@ -1,6 +1,6 @@
 import { api } from './api'
 
-export type BillingPlan = 'basic' | 'pro' | 'agency'
+export type BillingPlan = 'basic' | 'pro' | 'agency' | 'founding_workflow'
 
 export interface CheckoutParams {
   mode: 'subscription' | 'payment'
@@ -68,13 +68,14 @@ export async function createBillingPortalSession(returnUrl: string): Promise<{ u
   return response.json()
 }
 
-/** After checkout success: exchange session_id for userId, plan, email, and optional password-setup token. */
+/** After checkout success: exchange session_id for userId, plan, email, JWT token, and optional password-setup token. */
 export async function getSessionDetails(
   sessionId: string
 ): Promise<{
   userId: string
   plan: string
   email?: string
+  token: string
   passwordSetupToken?: string
   passwordSetupExpiresAt?: string
 }> {

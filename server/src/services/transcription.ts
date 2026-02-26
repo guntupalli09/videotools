@@ -1,9 +1,9 @@
 import 'dotenv/config'
-import OpenAI from 'openai'
+import OpenAI, { toFile } from 'openai'
 import pLimit from 'p-limit'
 import fs from 'fs'
 import path from 'path'
-import { extractAudio, extractAndSplitAudio, getVideoDuration, splitAudioIntoChunks } from './ffmpeg'
+import { convertAudioToWav, extractAudio, extractAudioToWav, extractAndSplitAudio, getVideoDuration, splitAudioIntoChunks } from './ffmpeg'
 import { PROCESSING_V2 } from '../utils/featureFlags'
 import { toSRT, toVTT } from '../utils/srtParser'
 import type { SubtitleEntry } from '../utils/srtParser'
@@ -39,28 +39,80 @@ export interface VerboseTranscriptionResult {
   language?: string
 }
 
-/** Transcribe a single audio chunk with Whisper; return segments with time offset applied. */
+/** Min bytes for an audio file to be sent to Whisper (avoids "format not supported" for empty/corrupt extraction). */
+const MIN_AUDIO_BYTES = 256
+
+const EXTRACT_EMPTY_MSG =
+  'The extracted audio is empty or too short. The source file may have no audio track or an unsupported codec.'
+
+/** Read audio file and return a File with explicit name so Whisper can detect format (avoids 400 on Windows/path/stream). */
+async function readAudioAsFile(audioPath: string, filename = 'audio.mp3'): Promise<File> {
+  const buf = await fs.promises.readFile(audioPath)
+  if (buf.length < MIN_AUDIO_BYTES) {
+    throw new Error(EXTRACT_EMPTY_MSG)
+  }
+  return toFile(buf, filename)
+}
+
+/**
+ * If extracted MP3 is too small (unsupported codec), try WAV extraction. Returns path and filename to use; caller must delete cleanupWav if set.
+ */
+async function ensureAudioForWhisper(
+  videoPath: string,
+  extractedMp3Path: string
+): Promise<{ path: string; filename: string; cleanupWav?: string }> {
+  const stat = await fs.promises.stat(extractedMp3Path).catch(() => null)
+  if (stat && stat.size >= MIN_AUDIO_BYTES) {
+    return { path: extractedMp3Path, filename: path.basename(extractedMp3Path) || 'audio.mp3' }
+  }
+  const tempDir = path.dirname(videoPath)
+  const wavPath = path.join(tempDir, `audio-${Date.now()}.wav`)
+  await extractAudioToWav(videoPath, wavPath)
+  const wavStat = await fs.promises.stat(wavPath).catch(() => null)
+  if (!wavStat || wavStat.size < MIN_AUDIO_BYTES) {
+    try {
+      fs.unlinkSync(wavPath)
+    } catch {
+      /* ignore */
+    }
+    throw new Error(EXTRACT_EMPTY_MSG)
+  }
+  return { path: wavPath, filename: 'audio.wav', cleanupWav: wavPath }
+}
+
+/** Transcribe a single audio chunk with Whisper; return segments with time offset applied. Chunk is converted to WAV so API always gets a supported format. */
 async function transcribeChunkVerbose(
   chunkPath: string,
   timeOffsetSec: number,
   language?: string,
   prompt?: string
 ): Promise<WhisperSegment[]> {
-  const audioFile = fs.createReadStream(chunkPath)
-  const transcription = await openai.audio.transcriptions.create({
-    file: audioFile as any,
-    model: 'whisper-1',
-    response_format: 'verbose_json',
-    timestamp_granularities: ['segment'],
-    language: language || undefined,
-    prompt: prompt?.trim().slice(0, 1500) || undefined,
-  }) as { segments?: Array<{ start: number; end: number; text: string }> }
-  const segments = (transcription.segments || []).map((s) => ({
-    start: Number(s.start) + timeOffsetSec,
-    end: Number(s.end) + timeOffsetSec,
-    text: typeof s.text === 'string' ? s.text.trim() : '',
-  })).filter((s) => s.text)
-  return segments
+  const tempDir = path.dirname(chunkPath)
+  const wavPath = path.join(tempDir, `whisper_${Date.now()}_${path.basename(chunkPath, path.extname(chunkPath))}.wav`)
+  try {
+    await convertAudioToWav(chunkPath, wavPath)
+    const audioFile = await readAudioAsFile(wavPath, 'chunk.wav')
+    const transcription = await openai.audio.transcriptions.create({
+      file: audioFile,
+      model: 'whisper-1',
+      response_format: 'verbose_json',
+      timestamp_granularities: ['segment'],
+      language: language || undefined,
+      prompt: prompt?.trim().slice(0, 1500) || undefined,
+    }) as { segments?: Array<{ start: number; end: number; text: string }> }
+    const segments = (transcription.segments || []).map((s) => ({
+      start: Number(s.start) + timeOffsetSec,
+      end: Number(s.end) + timeOffsetSec,
+      text: typeof s.text === 'string' ? s.text.trim() : '',
+    })).filter((s) => s.text)
+    return segments
+  } finally {
+    try {
+      if (fs.existsSync(wavPath)) fs.unlinkSync(wavPath)
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 const PARTIAL_SEGMENTS_CAP = 2000
@@ -122,12 +174,22 @@ async function transcribeVideoParallel(
 
     const whisperStartMs = Date.now()
     const limit = pLimit(MAX_WHISPER_CONCURRENCY)
-    // Contiguous prefix is strictly INDEX-based (chunk index 0..k), not start-time based.
-    // If chunk 0 fails, resultsByIndex[0] is never set; when chunk 1 completes, k = -1 so we
-    // do not write partial. That avoids showing out-of-order segments (e.g. later video before earlier).
-    const results = await Promise.all(
-      chunkPaths.map((chunkPath, i) =>
-        limit(() =>
+
+    // TTFW: Prioritize chunk 0 — run it first and emit first partial immediately when it completes.
+    // Then run remaining chunks with limit (MAX_WHISPER_CONCURRENCY respected).
+    const chunk0Segs = await transcribeChunkVerbose(chunkPaths[0], 0 * offsetStep, language, prompt)
+    resultsByIndex[0] = chunk0Segs
+    if (onPartial && chunk0Segs.length > 0) {
+      lastContiguousK = 0
+      onPartial(mergeContiguousSegments(resultsByIndex, 0))
+    }
+    if (onChunkProgress) onChunkProgress(1, chunkPaths.length)
+
+    // Remaining chunks (1..n-1) with concurrency limit.
+    const rest = await Promise.all(
+      chunkPaths.slice(1).map((chunkPath, idx) => {
+        const i = idx + 1
+        return limit(() =>
           transcribeChunkVerbose(chunkPath, i * offsetStep, language, prompt).then((segs) => {
             resultsByIndex[i] = segs
             if (onPartial) {
@@ -144,8 +206,9 @@ async function transcribeVideoParallel(
             return segs
           })
         )
-      )
+      })
     )
+    const results = [chunk0Segs, ...rest]
     const whisperTotalMs = Date.now() - whisperStartMs
     if (jobId != null) {
       transcriptionLog.info({
@@ -194,33 +257,40 @@ export async function transcribeVideo(
   }
   if (durationSec < PARALLEL_THRESHOLD_SEC) {
     const audioPath = isAlreadyAudio ? videoPath : path.join(path.dirname(videoPath), `audio-${Date.now()}.mp3`)
+    let cleanupWav: string | undefined
     try {
       if (!isAlreadyAudio) {
         await extractAudio(videoPath, audioPath)
+        const ensured = await ensureAudioForWhisper(videoPath, audioPath)
+        cleanupWav = ensured.cleanupWav
+        const audioFile = await readAudioAsFile(ensured.path, ensured.filename)
+        const transcription = await openai.audio.transcriptions.create({
+          file: audioFile,
+          model: 'whisper-1',
+          response_format: responseFormat,
+          language: language || undefined,
+          prompt: prompt?.trim().slice(0, 1500) || undefined, // Whisper limit ~224 tokens; ~1500 chars safe
+        })
+        if (!isAlreadyAudio) {
+          try { fs.unlinkSync(audioPath) } catch { /* ignore */ }
+          if (cleanupWav) try { fs.unlinkSync(cleanupWav) } catch { /* ignore */ }
+        }
+        return transcription as any
       }
-      const audioFile = fs.createReadStream(audioPath)
+      const name = path.basename(audioPath) && path.extname(audioPath) ? path.basename(audioPath) : 'audio.mp3'
+      const audioFile = await readAudioAsFile(audioPath, name)
       const transcription = await openai.audio.transcriptions.create({
-        file: audioFile as any,
+        file: audioFile,
         model: 'whisper-1',
         response_format: responseFormat,
         language: language || undefined,
-        prompt: prompt?.trim().slice(0, 1500) || undefined, // Whisper limit ~224 tokens; ~1500 chars safe
+        prompt: prompt?.trim().slice(0, 1500) || undefined,
       })
-      if (!isAlreadyAudio) {
-        try {
-          fs.unlinkSync(audioPath)
-        } catch (e) {
-          // Ignore cleanup errors
-        }
-      }
       return transcription as any
     } catch (error) {
       if (!isAlreadyAudio) {
-        try {
-          if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath)
-        } catch (e) {
-          // Ignore cleanup errors
-        }
+        try { if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath) } catch { /* ignore */ }
+        if (cleanupWav) try { fs.unlinkSync(cleanupWav) } catch { /* ignore */ }
       }
       throw error
     }
@@ -262,17 +332,24 @@ export async function transcribeVideoVerbose(
   }
   const tempDir = path.dirname(videoPath)
   const audioPath = isAlreadyAudio ? videoPath : path.join(tempDir, `audio-${Date.now()}.mp3`)
+  let cleanupWav: string | undefined
   try {
     let extractAudioMs: number | undefined
+    let pathToUse = audioPath
+    let filenameToUse = path.basename(audioPath) && path.extname(audioPath) ? path.basename(audioPath) : 'audio.mp3'
     if (!isAlreadyAudio) {
       const t0 = Date.now()
       await extractAudio(videoPath, audioPath)
       extractAudioMs = Date.now() - t0
+      const ensured = await ensureAudioForWhisper(videoPath, audioPath)
+      pathToUse = ensured.path
+      filenameToUse = ensured.filename
+      cleanupWav = ensured.cleanupWav
     }
     const whisperStart = Date.now()
-    const audioFile = fs.createReadStream(audioPath)
+    const audioFile = await readAudioAsFile(pathToUse, filenameToUse)
     const transcription = await openai.audio.transcriptions.create({
-      file: audioFile as any,
+      file: audioFile,
       model: 'whisper-1',
       response_format: 'verbose_json',
       timestamp_granularities: ['segment'],
@@ -289,11 +366,8 @@ export async function transcribeVideoVerbose(
       })
     }
     if (!isAlreadyAudio) {
-      try {
-        fs.unlinkSync(audioPath)
-      } catch (e) {
-        // ignore
-      }
+      try { fs.unlinkSync(audioPath) } catch { /* ignore */ }
+      if (cleanupWav) try { fs.unlinkSync(cleanupWav) } catch { /* ignore */ }
     }
     const text = typeof transcription.text === 'string' ? transcription.text : ''
     const segments: WhisperSegment[] = (transcription.segments || []).map((s) => ({
@@ -308,11 +382,8 @@ export async function transcribeVideoVerbose(
     return { text, segments, language: transcription.language }
   } catch (error) {
     if (!isAlreadyAudio) {
-      try {
-        if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath)
-      } catch (e) {
-        // ignore
-      }
+      try { if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath) } catch { /* ignore */ }
+      if (cleanupWav) try { fs.unlinkSync(cleanupWav) } catch { /* ignore */ }
     }
     throw error
   }

@@ -1,7 +1,7 @@
 import { prisma } from '../db'
 import type { Prisma, User as DbUser } from '@prisma/client'
 
-export type PlanType = 'free' | 'basic' | 'pro' | 'agency'
+export type PlanType = 'free' | 'basic' | 'pro' | 'agency' | 'founding_workflow'
 
 export interface UsageThisMonth {
   totalMinutes: number

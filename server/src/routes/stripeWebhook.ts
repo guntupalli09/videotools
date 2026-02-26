@@ -122,7 +122,7 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event): Promise<void
 
   // Activate subscription plan
   if (purchaseType === 'subscription' && planFromMetadata) {
-    if (planFromMetadata === 'basic' || planFromMetadata === 'pro' || planFromMetadata === 'agency') {
+    if (planFromMetadata === 'basic' || planFromMetadata === 'pro' || planFromMetadata === 'agency' || planFromMetadata === 'founding_workflow') {
       user.plan = planFromMetadata
       user.limits = getPlanLimits(planFromMetadata)
     }

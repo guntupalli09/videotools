@@ -1,15 +1,16 @@
 import { useState, useRef } from 'react'
-import FileUploadZone from '../components/FileUploadZone'
-import PlanBadge from '../components/PlanBadge'
-import UsageCounter from '../components/UsageCounter'
-import UsageDisplay from '../components/UsageDisplay'
-import ProgressBar from '../components/ProgressBar'
 import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
-import { Loader2, FolderPlus, Film, Minimize2, FileText } from 'lucide-react'
+import { FolderPlus, Film, Minimize2, FileText } from 'lucide-react'
+import { ToolLayout } from '../components/figma/ToolLayout'
+import { UploadZone } from '../components/figma/UploadZone'
+import { ProcessingProgress } from '../components/figma/ProcessingProgress'
+import { TranslateResult } from '../components/figma/TranslateResult'
+import { ToolSidebar } from '../components/figma/ToolSidebar'
 import { getBatchDownloadUrl, getBatchStatus, uploadBatch } from '../lib/api'
 import { JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { texJobStarted, texJobCompleted, texJobFailed } from '../tex'
+import { emitToolCompleted } from '../workflow/workflowStore'
 
 interface BatchStatus {
   batchId: string
@@ -36,6 +37,7 @@ export default function BatchProcess(props: BatchProcessSeoProps = {}) {
     'idle'
   )
   const [batchInfo, setBatchInfo] = useState<BatchStatus | null>(null)
+  const [lastProcessingMs, setLastProcessingMs] = useState<number | null>(null)
   const batchStartedAtRef = useRef<number | null>(null)
 
   const handleFilesSelected = (selected: File[]) => {
@@ -68,11 +70,16 @@ export default function BatchProcess(props: BatchProcessSeoProps = {}) {
               texJobFailed()
             } else {
               const started = batchStartedAtRef.current ?? Date.now()
-              texJobCompleted(Date.now() - started, 'batch-process')
+              const processingMs = Date.now() - started
+              setLastProcessingMs(processingMs)
+              emitToolCompleted({ toolId: 'batch-process', pathname: '/batch-process', processingMs })
+              texJobCompleted(processingMs, 'batch-process')
             }
           }
         } catch {
           clearInterval(poll)
+          setStatus('failed')
+          texJobFailed()
         }
       }, JOB_POLL_INTERVAL_MS)
     } catch (e) {
@@ -82,79 +89,111 @@ export default function BatchProcess(props: BatchProcessSeoProps = {}) {
     }
   }
 
-  return (
-    <div className="min-h-screen py-12">
-      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-8 text-center">
-          <div className="mb-4">
-            <PlanBadge />
-          </div>
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-100/80 shadow-card">
-            <FolderPlus className="h-8 w-8 text-violet-600" />
-          </div>
-          <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-6">
-            {seoH1 ?? 'Batch Processing'}
-          </h1>
-          <p className="text-lg font-normal text-gray-600 dark:text-gray-400 leading-relaxed mb-6 max-w-prose mx-auto">
-            {seoIntro ?? 'Upload multiple videos and process them together.'}
-          </p>
-          <UsageCounter refreshTrigger={status} />
-          <UsageDisplay refreshTrigger={status} />
-        </div>
+  const handleProcessAnother = () => {
+    setStatus('idle')
+    setFiles([])
+    setBatchInfo(null)
+  }
 
-        {status === 'idle' && (
-          <div className="mb-6 rounded-2xl shadow-card bg-white p-8">
-            <FileUploadZone
-              onFilesSelect={handleFilesSelected}
-              accept={{ 'video/*': ['.mp4', '.mov', '.avi', '.webm', '.mkv'] }}
-              maxSize={10 * 1024 * 1024 * 1024}
-              multiple
-            />
-            {files.length > 0 && (
-              <div className="mt-4 text-sm text-gray-700">
-                {files.length} file{files.length > 1 ? 's' : ''} selected
+  const breadcrumbs = [{ label: 'Batch Processing', href: '/batch-process' }]
+  const layoutProps = {
+    breadcrumbs,
+    title: seoH1 ?? 'Batch Processing',
+    subtitle: seoIntro ?? 'Upload multiple videos and process them together.',
+    icon: <FolderPlus className="w-8 h-8 text-blue-600 dark:text-blue-400" />,
+    tags: ['Bulk', 'Multiple files', 'Batch', 'Queue'],
+    sidebar: (
+      <ToolSidebar
+        refreshTrigger={status}
+        showWhatYouGet={status === 'idle'}
+        whatYouGetContent="Process multiple videos in one batch. Same tools (transcript, subtitles, etc.) applied to each."
+      />
+    ),
+  }
+
+  return (
+    <>
+      <ToolLayout {...layoutProps}>
+        {status === 'idle' && files.length === 0 && (
+          <UploadZone
+            multiple
+            onFilesSelect={handleFilesSelected}
+            acceptedFormats={['MP4', 'MOV', 'AVI', 'WEBM', 'MKV']}
+            maxSize="10 GB"
+          />
+        )}
+
+        {status === 'idle' && files.length > 0 && (
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm">
+              <div className="flex items-center justify-between gap-4 mb-4">
+                <p className="font-semibold text-gray-900 dark:text-white">
+                  {files.length} file{files.length !== 1 ? 's' : ''} selected
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setFiles([])}
+                  className="text-sm text-red-600 hover:text-red-700 dark:text-red-400"
+                >
+                  Clear all
+                </button>
               </div>
-            )}
-            <button
-              onClick={handleStartBatch}
-              disabled={!files.length}
-              className="mt-6 w-full rounded-lg bg-violet-600 py-3 text-sm font-medium text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-gray-300"
-            >
-              Start Batch
-            </button>
+              <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 max-h-40 overflow-y-auto mb-4">
+                {files.slice(0, 20).map((f, i) => (
+                  <li key={i} className="truncate">{f.name}</li>
+                ))}
+                {files.length > 20 && <li>… and {files.length - 20} more</li>}
+              </ul>
+              <button
+                type="button"
+                onClick={handleStartBatch}
+                className="w-full rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 py-4 text-white font-semibold hover:opacity-95 transition-opacity"
+              >
+                Start Batch
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+              Clear all to choose different files.
+            </p>
           </div>
         )}
 
         {status === 'processing' && (
-          <div className="mb-6 rounded-2xl shadow-card bg-white p-8 text-center">
-            <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-violet-600" strokeWidth={1.5} />
-            <p className="mb-2 text-lg font-medium text-gray-800 break-words">
-              Processing your batch...
-            </p>
-            <ProgressBar
+          <div className="rounded-2xl bg-blue-50 dark:bg-blue-950/30 p-6 sm:p-8">
+            <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+              {files.length} file{files.length !== 1 ? 's' : ''} in batch
+            </div>
+            <ProcessingProgress
+              steps={[
+                { label: 'Uploading', status: 'completed' },
+                { label: 'Processing', status: 'active' },
+                { label: 'Completed', status: (batchInfo?.progress?.percentage ?? 0) >= 100 ? 'completed' : 'pending' },
+              ]}
+              currentMessage="Processing your batch..."
               progress={batchInfo?.progress?.percentage ?? 10}
-              status="Processing videos in batch"
+              estimatedTime="Varies by batch size"
+              onCancel={handleProcessAnother}
             />
           </div>
         )}
 
         {status === 'done' && batchInfo && (
-          <>
-            <div className="mb-6 rounded-2xl shadow-card bg-white p-8 text-center">
-              <p className="mb-2 text-lg font-semibold text-gray-800">
-                Batch complete
-              </p>
-              <p className="mb-4 text-sm text-gray-600">
-                {batchInfo.progress.completed} completed,{' '}
-                {batchInfo.progress.failed} failed.
-              </p>
-              <a
-                href={getBatchDownloadUrl(batchInfo.batchId)}
-                className="inline-flex items-center justify-center rounded-lg bg-violet-600 px-5 py-3 text-sm font-medium text-white hover:bg-violet-700"
-              >
-                Download ZIP
-              </a>
-            </div>
+          <div className="space-y-6">
+            <TranslateResult
+              title="Batch complete!"
+              fileName={`${batchInfo.progress.completed} completed, ${batchInfo.progress.failed} failed`}
+              processingTime={lastProcessingMs != null ? `${(lastProcessingMs / 1000).toFixed(1)}s` : '—'}
+              downloadLabel="Download ZIP"
+              onDownload={() => {
+                window.open(getBatchDownloadUrl(batchInfo.batchId), '_blank')
+              }}
+              onProcessAnother={handleProcessAnother}
+              relatedTools={[
+                { path: '/burn-subtitles', name: 'Burn Subtitles', description: 'Burn SRT into videos' },
+                { path: '/compress-video', name: 'Compress Video', description: 'Reduce file size' },
+                { path: '/video-to-transcript', name: 'Video → Transcript', description: 'Transcript & chapters' },
+              ]}
+            />
             <CrossToolSuggestions
               workflowHint="Next steps for your files."
               suggestions={[
@@ -163,34 +202,31 @@ export default function BatchProcess(props: BatchProcessSeoProps = {}) {
                 { icon: FileText, title: 'Video → Transcript', path: '/video-to-transcript', description: 'Transcript & chapters' },
               ]}
             />
-          </>
+          </div>
         )}
 
         {status === 'failed' && (
           <FailedState
-            onTryAgain={() => {
-              setStatus('idle')
-              setBatchInfo(null)
-            }}
+            onTryAgain={handleProcessAnother}
             message="Something went wrong while starting your batch. Your files weren't changed. Try again; it usually works."
           />
         )}
+      </ToolLayout>
 
-        {faq.length > 0 && (
-          <section className="mt-12 pt-8 border-t border-gray-100/70" aria-label="FAQ">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently asked questions</h2>
-            <dl className="space-y-4">
-              {faq.map((item, i) => (
-                <div key={i}>
-                  <dt className="font-medium text-gray-800">{item.q}</dt>
-                  <dd className="mt-1 text-gray-600">{item.a}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-        )}
-      </div>
-    </div>
+      {faq.length > 0 && (
+        <section className="mt-12 pt-8 border-t border-gray-100/70 max-w-4xl mx-auto px-4" aria-label="FAQ">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently asked questions</h2>
+          <dl className="space-y-4">
+            {faq.map((item, i) => (
+              <div key={i}>
+                <dt className="font-medium text-gray-800">{item.q}</dt>
+                <dd className="mt-1 text-gray-600">{item.a}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
+    </>
   )
 }
 

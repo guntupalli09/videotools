@@ -1,6 +1,21 @@
 import { API_ORIGIN } from './apiBase'
 import { trackEvent } from './analytics'
 
+/** True when requests hit same origin (e.g. Vite dev server) and are proxied to backend — use conservative chunking. */
+function isLikelyDevProxy(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    const origin = (API_ORIGIN || '').toLowerCase()
+    return (
+      origin === window.location.origin.toLowerCase() ||
+      (origin.includes('localhost') && origin.includes('3000')) ||
+      (origin.includes('127.0.0.1') && origin.includes('3000'))
+    )
+  } catch {
+    return false
+  }
+}
+
 /** Fire-and-forget analytics; never throws. */
 function trackUploadEvent(event: 'upload_started' | 'upload_completed', props: Record<string, unknown>) {
   try {
@@ -172,8 +187,28 @@ export interface UploadProgressOptions {
 
 const CHUNK_THRESHOLD = 15 * 1024 * 1024 // 15 MB — use chunked upload above this
 const CHUNKED_UPLOAD_STATE_KEY = 'videotools_chunked_upload'
-/** Server accepts up to 10 MB per chunk (express.raw limit). */
+/** Server accepts up to 10 MB per chunk (express.raw limit). Use smaller chunks for reliability. */
 const SERVER_CHUNK_LIMIT = 10 * 1024 * 1024
+/** Must match server upload route MAX_CHUNKS so totalChunks is accepted. */
+const MAX_CHUNKS = 2000
+/** Prefer smaller chunks so each request completes reliably (avoids proxy/connection timeouts). */
+const PREFERRED_CHUNK_SIZE = 4 * 1024 * 1024 // 4 MB
+const LARGE_FILE_THRESHOLD = 80 * 1024 * 1024 // 80 MB — use conservative chunking above this
+const VERY_LARGE_FILE_THRESHOLD = 400 * 1024 * 1024 // 400 MB — use 1 MB chunks for max reliability
+
+/** Plan max file size (bytes). Mirror of server getPlanLimits(plan).maxFileSize. */
+const PLAN_MAX_FILE_SIZE: Record<string, number> = {
+  free: 2 * 1024 * 1024 * 1024,
+  basic: 5 * 1024 * 1024 * 1024,
+  pro: 10 * 1024 * 1024 * 1024,
+  agency: 20 * 1024 * 1024 * 1024,
+}
+
+/** Minimum chunk size so a file at plan max size has totalChunks <= MAX_CHUNKS. */
+function getMinChunkSizeForPlan(plan: string): number {
+  const maxBytes = PLAN_MAX_FILE_SIZE[plan.toLowerCase()] ?? PLAN_MAX_FILE_SIZE.free
+  return Math.min(SERVER_CHUNK_LIMIT, Math.ceil(maxBytes / MAX_CHUNKS))
+}
 
 /** Heuristic: touch device or narrow screen or common mobile UA. Used to pick smaller chunks + sequential upload. */
 function isMobile(): boolean {
@@ -259,7 +294,7 @@ function clearChunkedUploadState(): void {
 }
 
 function buildInitBody(file: File, options: UploadOptions, totalChunks?: number): Record<string, unknown> {
-  const defaultChunkSize = isMobile() ? 2 * 1024 * 1024 : SERVER_CHUNK_LIMIT // 2 MB mobile (reliable), 10 MB desktop (fewer round trips)
+  const defaultChunkSize = isMobile() ? 2 * 1024 * 1024 : PREFERRED_CHUNK_SIZE // 2 MB mobile, 4 MB desktop (reliable)
   const body: Record<string, unknown> = {
     filename: file.name,
     totalSize: file.size,
@@ -323,27 +358,53 @@ async function uploadFileChunked(
 
   let defaultChunkSize: number
   let chunkParallel: number
-  const chunkTimeoutMs = mobile ? 90_000 : 120_000
-  const maxChunkRetries = 3
+  const devProxy = isLikelyDevProxy()
+  const chunkTimeoutMs = devProxy ? 300_000 : mobile ? 90_000 : 180_000
+  const maxChunkRetries = 4
 
-  if (mobile) {
-    defaultChunkSize = 2 * 1024 * 1024
+  const minChunkForPlan = getMinChunkSizeForPlan(plan)
+
+  const isVeryLarge = file.size > VERY_LARGE_FILE_THRESHOLD
+  if (isVeryLarge && !useExistingChunking) {
+    defaultChunkSize = Math.max(1 * 1024 * 1024, minChunkForPlan)
     chunkParallel = 1
+  } else if (mobile || devProxy) {
+    defaultChunkSize = Math.max(2 * 1024 * 1024, minChunkForPlan)
+    chunkParallel = 1
+    // Mobile: allow 2 parallel chunks when file > 200MB and network latency is acceptable (safe optimization).
+    if (mobile && file.size > 200 * 1024 * 1024 && !useExistingChunking && !isVeryLarge) {
+      const speed = progressOptions?.connectionSpeed ?? (await measureConnectionSpeed())
+      if (speed === 'fast' || speed === 'medium') chunkParallel = 2
+    }
   } else if (useExistingChunking) {
-    defaultChunkSize = existing!.chunkSize ?? SERVER_CHUNK_LIMIT
-    chunkParallel = 4
+    defaultChunkSize = existing!.chunkSize ?? Math.max(PREFERRED_CHUNK_SIZE, minChunkForPlan)
+    chunkParallel = 2
   } else {
     const speed = progressOptions?.connectionSpeed ?? (await measureConnectionSpeed())
     if (speed === 'fast') {
-      defaultChunkSize = SERVER_CHUNK_LIMIT
-      chunkParallel = 4
+      defaultChunkSize = Math.max(PREFERRED_CHUNK_SIZE, minChunkForPlan)
+      chunkParallel = 2
     } else if (speed === 'medium') {
-      defaultChunkSize = 5 * 1024 * 1024
+      defaultChunkSize = Math.max(3 * 1024 * 1024, minChunkForPlan)
       chunkParallel = 2
     } else {
-      defaultChunkSize = 2 * 1024 * 1024
+      defaultChunkSize = Math.max(2 * 1024 * 1024, minChunkForPlan)
       chunkParallel = 1
     }
+  }
+
+  const isLargeFile = file.size > LARGE_FILE_THRESHOLD
+  if (isLargeFile && !useExistingChunking && !isVeryLarge) {
+    defaultChunkSize = Math.max(3 * 1024 * 1024, minChunkForPlan)
+    chunkParallel = 2
+  }
+
+  defaultChunkSize = Math.min(defaultChunkSize, SERVER_CHUNK_LIMIT)
+
+  if (devProxy && file.size > 100 * 1024 * 1024 && typeof console !== 'undefined' && console.warn) {
+    console.warn(
+      '[VideoText] Large file upload through dev proxy can be unreliable. For 100MB+ files, add VITE_API_URL=http://localhost:3001 to client/.env and restart the dev server so uploads go directly to the API.'
+    )
   }
 
   const chunkSize = sameFile ? (existing!.chunkSize ?? defaultChunkSize) : defaultChunkSize
@@ -775,6 +836,89 @@ export async function uploadDualFiles(
   return data
 }
 
+/** Dual-file upload with XHR progress. Same API and form as uploadDualFiles. */
+export function uploadDualFilesWithProgress(
+  videoFile: File,
+  subtitleFile: File,
+  toolType: BackendToolType,
+  options: {
+    trimmedStart?: number
+    trimmedEnd?: number
+    burnFontSize?: 'small' | 'medium' | 'large'
+    burnPosition?: 'bottom' | 'middle'
+    burnBackgroundOpacity?: 'none' | 'low' | 'high'
+  } | undefined,
+  progressOptions?: { onProgress?: (percent: number) => void; signal?: AbortSignal }
+): Promise<UploadResponse> {
+  trackUploadEvent('upload_started', {
+    tool_type: toolType,
+    file_size_bytes: videoFile.size,
+    upload_mode: 'dual',
+  })
+  const formData = new FormData()
+  formData.append('video', videoFile)
+  formData.append('subtitles', subtitleFile)
+  formData.append('toolType', toolType)
+  if (options?.trimmedStart !== undefined) formData.append('trimmedStart', options.trimmedStart.toString())
+  if (options?.trimmedEnd !== undefined) formData.append('trimmedEnd', options.trimmedEnd.toString())
+  if (options?.burnFontSize) formData.append('burnFontSize', options.burnFontSize)
+  if (options?.burnPosition) formData.append('burnPosition', options.burnPosition)
+  if (options?.burnBackgroundOpacity) formData.append('burnBackgroundOpacity', options.burnBackgroundOpacity)
+
+  const url = `${API_ORIGIN}/api/upload/dual`
+  const userId = localStorage.getItem('userId') || 'demo-user'
+  const plan = localStorage.getItem('plan') || 'free'
+  const signal = progressOptions?.signal
+
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new Error('Upload cancelled'))
+      return
+    }
+    const xhr = new XMLHttpRequest()
+    const onAbort = () => { xhr.abort() }
+    signal?.addEventListener('abort', onAbort, { once: true })
+
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable && progressOptions?.onProgress) {
+        progressOptions.onProgress(Math.round((e.loaded / e.total) * 100))
+      }
+    })
+    xhr.addEventListener('load', () => {
+      signal?.removeEventListener('abort', onAbort)
+      if (xhr.status === 204 || !xhr.responseText?.trim()) {
+        reject(new Error('Upload accepted but no job ID returned. Please retry.'))
+        return
+      }
+      let data: UploadResponse & { message?: string }
+      try {
+        data = JSON.parse(xhr.responseText) as UploadResponse & { message?: string }
+      } catch {
+        reject(new Error('Invalid upload response. Please retry.'))
+        return
+      }
+      if (xhr.status >= 200 && xhr.status < 300 && data?.jobId) {
+        trackUploadEvent('upload_completed', { job_id: data.jobId, tool_type: toolType, file_size_bytes: videoFile.size, upload_mode: 'dual' })
+        resolve({ jobId: data.jobId, status: data.status ?? 'queued', jobToken: data.jobToken })
+        return
+      }
+      reject(new Error(data?.message || 'Upload failed'))
+    })
+    xhr.addEventListener('error', () => {
+      signal?.removeEventListener('abort', onAbort)
+      reject(new Error('Upload failed'))
+    })
+    xhr.addEventListener('abort', () => {
+      signal?.removeEventListener('abort', onAbort)
+      reject(new Error('Upload cancelled'))
+    })
+    xhr.open('POST', url)
+    xhr.setRequestHeader('x-user-id', userId)
+    xhr.setRequestHeader('x-plan', plan)
+    xhr.send(formData)
+  })
+}
+
 /** Thrown when GET /api/job/:id returns 404 (job expired or never existed). Show "Session expired. Please upload again." */
 export class SessionExpiredError extends Error {
   constructor(message = 'Session expired. Please upload again.') {
@@ -783,12 +927,15 @@ export class SessionExpiredError extends Error {
   }
 }
 
-/** True if the error is a network/abort failure (timeout, offline, DNS). */
+/** True if the error is a network/abort failure (timeout, offline, DNS, connection refused). */
 export function isNetworkError(e: unknown): boolean {
   if (e instanceof TypeError && (e.message === 'Failed to fetch' || e.message === 'Load failed')) return true
-  if (e instanceof Error && e.name === 'AbortError') return true
+  if (e instanceof Error && (e.name === 'AbortError' || e.message?.includes('fetch'))) return true
   return false
 }
+
+/** After this many consecutive network errors during job polling, we stop polling and show "Server unreachable". */
+export const POLL_STOP_AFTER_CONSECUTIVE_NETWORK_ERRORS = 5
 
 /** User-facing message for API failures: network hint when applicable, else error message or generic. */
 export function getUserFacingMessage(e: unknown): string {
@@ -816,6 +963,80 @@ export async function getJobStatus(jobId: string, options?: { jobToken?: string 
   }
 
   return response.json()
+}
+
+/**
+ * Optional SSE subscription for job status and partials. Same payload shape as getJobStatus.
+ * On SSE error or unsupported, falls back to polling automatically. Call the returned function to stop.
+ */
+export function subscribeJobStatus(
+  jobId: string,
+  options: { jobToken?: string } | undefined,
+  onStatus: (status: JobStatus) => void
+): () => void {
+  let stopped = false
+  let eventSource: EventSource | null = null
+  let pollTimer: ReturnType<typeof setInterval> | null = null
+
+  const stop = () => {
+    stopped = true
+    if (eventSource) {
+      eventSource.close()
+      eventSource = null
+    }
+    if (pollTimer != null) {
+      clearInterval(pollTimer)
+      pollTimer = null
+    }
+  }
+
+  const fallbackToPolling = () => {
+    if (stopped || pollTimer != null) return
+    const poll = () => {
+      if (stopped) return
+      getJobStatus(jobId, options)
+        .then((s) => {
+          if (stopped) return
+          onStatus(s)
+          if (s.status === 'completed' || s.status === 'failed') stop()
+        })
+        .catch(() => {
+          /* keep polling on error; caller handles consecutive errors */
+        })
+    }
+    poll()
+    pollTimer = setInterval(poll, 1500)
+  }
+
+  try {
+    let url = `${API_ORIGIN}/api/job/${jobId}/stream`
+    if (options?.jobToken) {
+      url += `?jobToken=${encodeURIComponent(options.jobToken)}`
+    }
+    const es = new EventSource(url)
+    eventSource = es
+    es.onmessage = (e) => {
+      if (stopped) return
+      try {
+        const payload = JSON.parse(e.data) as JobStatus
+        onStatus(payload)
+        if (payload.status === 'completed' || payload.status === 'failed') {
+          stop()
+        }
+      } catch (_) {
+        /* ignore parse error */
+      }
+    }
+    es.onerror = () => {
+      es.close()
+      eventSource = null
+      if (!stopped && pollTimer == null) fallbackToPolling()
+    }
+  } catch (_) {
+    fallbackToPolling()
+  }
+
+  return stop
 }
 
 // Batch processing APIs
@@ -942,20 +1163,35 @@ export function invalidateUsageCache(): void {
   usageCache = null
 }
 
+const USAGE_BACKOFF_MS = 20_000
+let lastUsageFailureAt = 0
+
 export async function getCurrentUsage(options?: { skipCache?: boolean }): Promise<UsageData> {
   const now = Date.now()
+  if (lastUsageFailureAt > 0 && now - lastUsageFailureAt < USAGE_BACKOFF_MS) {
+    throw new Error('Server unreachable')
+  }
   if (!options?.skipCache && usageCache && now - usageCache.at < USAGE_CACHE_MS) return usageCache.data as UsageData
-  const response = await api('/api/usage/current', {
-    timeout: API_GET_TIMEOUT_MS,
-    headers: {
-      'x-user-id': localStorage.getItem('userId') || 'demo-user',
-      'x-plan': localStorage.getItem('plan') || 'free',
-    },
-  })
-  if (!response.ok) throw new Error('Failed to get usage data')
-  const data = await response.json()
-  usageCache = { data, at: Date.now() }
-  return data as UsageData
+  try {
+    const response = await api('/api/usage/current', {
+      timeout: API_GET_TIMEOUT_MS,
+      headers: {
+        'x-user-id': localStorage.getItem('userId') || 'demo-user',
+        'x-plan': localStorage.getItem('plan') || 'free',
+      },
+    })
+    if (!response.ok) {
+      lastUsageFailureAt = Date.now()
+      throw new Error('Failed to get usage data')
+    }
+    const data = await response.json()
+    lastUsageFailureAt = 0
+    usageCache = { data, at: Date.now() }
+    return data as UsageData
+  } catch (e) {
+    if (isNetworkError(e)) lastUsageFailureAt = Date.now()
+    throw e
+  }
 }
 
 /** Submit feedback from Tex panel (post-job). Optional toolId, stars 1–5, comment, userNameOrEmail (free users), planAtSubmit. */

@@ -32,6 +32,7 @@ export function trimVideoSegment(options: TrimOptions): Promise<TrimResult> {
   )
 
   return new Promise((resolve, reject) => {
+    const stderrLines: string[] = []
     ffmpeg(inputPath)
       .inputOptions(['-ss', String(startTime)])
       .outputOptions([
@@ -39,16 +40,20 @@ export function trimVideoSegment(options: TrimOptions): Promise<TrimResult> {
         '-c', 'copy',
         '-t', String(duration),
         '-avoid_negative_ts', 'make_zero',
+        '-strict', '-2', // allow Opus in MP4 (experimental in muxer)
       ])
       .output(outputPath)
+      .on('stderr', (line: string) => { stderrLines.push(line) })
       .on('end', () => {
         resolve({
           outputPath,
           trimmedDuration: duration,
         })
       })
-      .on('error', (err) => {
-        reject(err)
+      .on('error', (err: Error) => {
+        const stderr = stderrLines.length ? stderrLines.join('\n').trim().slice(-2000) : ''
+        const msg = stderr ? `${err.message}\nffmpeg stderr:\n${stderr}` : err.message
+        reject(new Error(msg))
       })
       .run()
   })

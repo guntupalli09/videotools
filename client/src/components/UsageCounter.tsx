@@ -1,43 +1,43 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { getCurrentUsage } from '../lib/api'
 
-/** When refreshTrigger changes (e.g. status becomes 'completed'), usage is refetched so remaining minutes stay accurate. */
-export default function UsageCounter({ refreshTrigger }: { refreshTrigger?: string | number }) {
+function useUsage(refreshTrigger?: string | number) {
   const [usage, setUsage] = useState<{
     remaining: number
     totalPlanMinutes: number
     usedPercent: number
   } | null>(null)
 
-  useEffect(() => {
-    async function fetchUsage() {
-      try {
-        // After a job completes, skip cache so balance updates immediately
-        const data = await getCurrentUsage({ skipCache: refreshTrigger === 'completed' })
-        const totalPlanMinutes =
-          data.limits.minutesPerMonth + data.overages.minutes
+  const fetchUsage = useCallback((skipCache = false) => {
+    getCurrentUsage({ skipCache: skipCache || refreshTrigger === 'completed' })
+      .then((data) => {
+        const totalPlanMinutes = data.limits.minutesPerMonth + data.overages.minutes
         const remaining = data.usage.remaining
         const usedPercent =
           totalPlanMinutes === 0
             ? 0
-            : Math.min(
-                100,
-                Math.round(
-                  (data.usage.totalMinutes / totalPlanMinutes) * 100
-                )
-              )
-        setUsage({
-          remaining,
-          totalPlanMinutes,
-          usedPercent,
-        })
-      } catch {
-        // Silent failure – usage display is non-critical
-      }
-    }
-
-    fetchUsage()
+            : Math.min(100, Math.round((data.usage.totalMinutes / totalPlanMinutes) * 100))
+        setUsage({ remaining, totalPlanMinutes, usedPercent })
+      })
+      .catch(() => {})
   }, [refreshTrigger])
+
+  useEffect(() => {
+    fetchUsage()
+  }, [fetchUsage])
+
+  const refetchFresh = useCallback(() => fetchUsage(true), [fetchUsage])
+  return { usage, refetchFresh }
+}
+
+/** When refreshTrigger changes (e.g. status becomes 'completed'), usage is refetched so remaining minutes stay accurate. */
+export default function UsageCounter({ refreshTrigger }: { refreshTrigger?: string | number }) {
+  const { usage, refetchFresh } = useUsage(refreshTrigger)
+
+  useEffect(() => {
+    window.addEventListener('videotext:plan-updated', refetchFresh)
+    return () => window.removeEventListener('videotext:plan-updated', refetchFresh)
+  }, [refetchFresh])
 
   if (!usage) return null
 

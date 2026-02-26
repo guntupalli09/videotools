@@ -3,9 +3,14 @@ import { PrismaPg } from '@prisma/adapter-pg'
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined }
 
-// pg/SCRAM requires a string URL with user:password (env.ts sets default before this is imported)
+// pg/SCRAM requires a string URL with user:password; env.ts sets DATABASE_URL before this is imported.
 const raw = process.env.DATABASE_URL
-const connectionString = typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : 'postgresql://videotools:videotools@localhost:5433/videotext'
+
+if (!raw || raw.trim().length === 0) {
+  throw new Error('DATABASE_URL must be set before importing db.ts')
+}
+
+const connectionString = raw.trim()
 const adapter = new PrismaPg({ connectionString })
 
 export const prisma =

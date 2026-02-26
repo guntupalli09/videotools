@@ -31,6 +31,26 @@ export function isAudioExtractionSupported(): boolean {
 }
 
 /**
+ * Start loading FFmpeg in the background so extraction is fast when user clicks Process.
+ * Call when the user selects a file (e.g. in VideoToTranscript / VideoToSubtitles).
+ * Idempotent: safe to call multiple times.
+ */
+export function preloadAudioExtraction(): void {
+  if (!isAudioExtractionSupported() || ffmpegLoadPromise) return
+  ffmpegLoadPromise = (async () => {
+    try {
+      const { FFmpeg } = await import('@ffmpeg/ffmpeg')
+      if (!ffmpegInstance) {
+        ffmpegInstance = new FFmpeg()
+        await ffmpegInstance.load()
+      }
+    } catch {
+      ffmpegLoadPromise = null
+    }
+  })()
+}
+
+/**
  * Attempt to extract audio from a video file in the browser.
  * Returns { blob, originalName } on success, null on any failure (unsupported codec, timeout, error).
  * Caller must fall back to uploading the original video when null is returned.

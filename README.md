@@ -148,12 +148,27 @@ cd server && npm install && npm run dev
 - Client: `http://localhost:3000`
 - Server: `http://localhost:3001`
 
+LOCAL DEV (host API, Docker Postgres + Redis):
+
+```bash
+docker compose up -d postgres redis
+cd server
+npm run dev
+```
+
+PRODUCTION (all services in Docker):
+
+```bash
+docker compose up -d --build
+```
+
 ### Redis
 
 Start Redis so the job queue works:
 
-- **Docker:** from project root run `docker compose up -d` (Redis, Postgres, API, worker). The API runs Prisma migrations on startup.
-- **Local:** e.g. `brew install redis && brew services start redis` (macOS), or install Redis on Windows/Linux and ensure it listens on `localhost:6379`.
+- **Docker (local dev):** from project root run `docker compose up -d postgres redis` (Redis + Postgres only; API runs on the host via `npm run dev`).
+- **Docker (production):** from project root run `docker compose up -d --build` (Redis, Postgres, API, worker).
+- **Local (no Docker):** e.g. `brew install redis && brew services start redis` (macOS), or install Redis on Windows/Linux and ensure it listens on `localhost:6379`.
 
 See [§7 Redis](#7-redis) for URL and migration options.
 
@@ -514,8 +529,8 @@ VideoText has a single **observability stack** for debugging across UI, API, and
 | Run server | `cd server && npm run dev` |
 | Build client | `cd client && npm run build` (output: `client/dist`) |
 | Build server | `cd server && npm run build` (output: `server/dist`) |
-| Redis (Docker) | `docker compose up -d` (Redis + Postgres + API + worker) |
-| Deploy backend | `docker compose up --build -d` |
+| Redis (Docker, local dev) | `docker compose up -d postgres redis` |
+| Deploy backend | `docker compose up -d --build` |
 | Restart API + worker | `docker compose up -d --build api worker` |
 | API logs (OTP, auth) | `docker logs -f videotools-api` |
 | Inspect DB (psql) | `docker exec -it videotools-postgres psql -U videotools -d videotext` |

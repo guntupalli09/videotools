@@ -26,9 +26,9 @@ export default function CrossToolSuggestions({ suggestions, workflowHint }: Cros
   const navigate = useNavigate()
   return (
     <section className="surface-card p-6" aria-labelledby="continue-tool-heading">
-      <h2 id="continue-tool-heading" className="page-heading text-lg mb-2">Next step</h2>
+      <h2 id="continue-tool-heading" className="page-heading text-lg mb-2 text-gray-900 dark:text-white">Next step</h2>
       {workflowHint && (
-        <p className="text-sm text-gray-500 mb-4" aria-hidden="true">
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4" aria-hidden="true">
           {workflowHint}
         </p>
       )}
@@ -39,16 +39,16 @@ export default function CrossToolSuggestions({ suggestions, workflowHint }: Cros
             <>
               <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                 <div className="flex items-center gap-3">
-                  <div className="bg-primary/10 rounded-lg p-2 shrink-0" aria-hidden>
-                    <Icon className="h-5 w-5 text-primary" strokeWidth={1.5} />
+                  <div className="bg-primary/10 dark:bg-violet-500/25 rounded-lg p-2 shrink-0" aria-hidden>
+                    <Icon className="h-5 w-5 text-primary dark:text-violet-300" strokeWidth={1.5} />
                   </div>
-                  <span className="font-medium text-gray-800">{suggestion.title}</span>
+                  <span className="font-medium text-gray-800 dark:text-gray-100">{suggestion.title}</span>
                 </div>
                 {suggestion.description && (
-                  <span className="text-xs text-gray-500 pl-11 leading-tight block">{suggestion.description}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 pl-11 leading-tight block">{suggestion.description}</span>
                 )}
               </div>
-              <ArrowRight className="h-5 w-5 text-gray-400 shrink-0" strokeWidth={1.5} aria-hidden />
+              <ArrowRight className="h-5 w-5 text-gray-400 dark:text-gray-400 shrink-0" strokeWidth={1.5} aria-hidden />
             </>
           )
           if (suggestion.onBeforeNavigate) {

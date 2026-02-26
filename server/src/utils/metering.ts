@@ -27,7 +27,7 @@ export function calculateTotalMultiLanguageMinutes(
 }
 
 export function getPlanTranslatedMinutesCap(plan: PlanType): number | null {
-  if (plan === 'pro') return 500
+  if (plan === 'pro' || plan === 'founding_workflow') return 500
   if (plan === 'agency') return 2000
   return null
 }

@@ -1,9 +1,15 @@
 /**
- * Phase 2.5: Max 3 uploads per minute per user (includes retries + URL imports).
+ * Phase 2.5: Max N uploads per minute per user (includes retries + URL imports).
  * Call checkAndRecordUpload(userId) at start of upload/batch/URL-import; returns false if over limit.
+ * In dev, UPLOAD_RATE_LIMIT_PER_MIN can increase the limit (e.g. 10) so retries don't block.
  */
 const WINDOW_MS = 60 * 1000
-const MAX_UPLOADS_PER_WINDOW = 3
+const MAX_UPLOADS_PER_WINDOW =
+  typeof process.env.UPLOAD_RATE_LIMIT_PER_MIN !== 'undefined'
+    ? Math.max(1, parseInt(process.env.UPLOAD_RATE_LIMIT_PER_MIN, 10) || 3)
+    : process.env.NODE_ENV === 'production'
+      ? 3
+      : 10
 
 const timestampsByUser = new Map<string, number[]>()
 

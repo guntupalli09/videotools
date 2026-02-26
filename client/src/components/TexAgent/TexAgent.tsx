@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from '../../lib/theme'
 import { subscribeTexEvents, type TexEventType } from '../../tex'
@@ -13,8 +13,20 @@ export default function TexAgent() {
   const [showPulse, setShowPulse] = useState(false)
   const [isDesktop, setIsDesktop] = useState(true)
   const [inputFocused, setInputFocused] = useState(false)
+  const panelRef = useRef<HTMLDivElement>(null)
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+
+  // When panel is closed, set inert so focusable descendants are not in a11y tree (fixes PSI: aria-hidden + focusable)
+  useEffect(() => {
+    const el = panelRef.current
+    if (!el) return
+    if (open) {
+      el.removeAttribute('inert')
+    } else {
+      el.setAttribute('inert', '')
+    }
+  }, [open])
 
   useEffect(() => {
     const mq = window.matchMedia(`(min-width: ${MOBILE_BREAKPOINT}px)`)
@@ -116,6 +128,7 @@ export default function TexAgent() {
 
       {/* Panel: always mounted so history is preserved when closed and reopened */}
       <motion.div
+        ref={panelRef}
         initial={false}
         animate={
           open

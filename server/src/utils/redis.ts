@@ -18,7 +18,7 @@ const redisOptions: {
 
 /**
  * Create a Redis client for Bull. Works with both:
- * - Self-hosted Redis: redis://host:6379 (or redis://redis:6379 in Docker)
+ * - Self-hosted Redis: redis://host:6379 (e.g. Docker service name on 6379)
  * - Upstash (TLS): rediss://...
  *
  * When using Upstash (rediss://) we set: tls, enableReadyCheck: false, maxRetriesPerRequest: null.

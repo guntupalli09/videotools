@@ -4,16 +4,16 @@ import { getPopularFooterLinks } from '../lib/seoRegistry'
 export default function Footer() {
   const popularLinks = getPopularFooterLinks()
   return (
-    <footer className="bg-gray-900 text-gray-400">
+    <footer className="bg-gray-900 text-gray-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand */}
           <div>
             <div className="flex items-center space-x-2 mb-4">
-              <img src="/logo.svg" alt="VideoText" className="h-8 w-8" />
+              <img src="/logo.svg" alt="VideoText" width={32} height={32} className="h-8 w-8" />
               <span className="text-xl font-semibold text-white">VideoText</span>
             </div>
-            <p className="text-sm">
+            <p className="text-sm text-gray-300">
               Turn speech into text: transcripts, subtitles, translation. For creators & teams. We don’t store your data.
             </p>
           </div>
@@ -78,7 +78,7 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <span className="text-gray-500">Contact: use in-app support</span>
+                <span className="text-gray-400">Contact: use in-app support</span>
               </li>
             </ul>
           </div>

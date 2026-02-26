@@ -1,19 +1,21 @@
-import { useState, useRef, Suspense, lazy, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Film, Loader2 } from 'lucide-react'
+import { Film } from 'lucide-react'
 import { useWorkflow } from '../contexts/WorkflowContext'
-import FileUploadZone from '../components/FileUploadZone'
-import UsageCounter from '../components/UsageCounter'
-import PlanBadge from '../components/PlanBadge'
-import ProgressBar from '../components/ProgressBar'
-import SuccessState from '../components/SuccessState'
 import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import PaywallModal from '../components/PaywallModal'
-import UsageDisplay from '../components/UsageDisplay'
-const VideoTrimmer = lazy(() => import('../components/VideoTrimmer'))
+import { ToolLayout } from '../components/figma/ToolLayout'
+import { UploadZone } from '../components/figma/UploadZone'
+import { ProcessingInterface } from '../components/figma/ProcessingInterface'
+import { ProcessingProgress } from '../components/figma/ProcessingProgress'
+import { ResultSkeleton } from '../components/figma/ResultSkeleton'
+import { TranslateResult } from '../components/figma/TranslateResult'
+import { ToolSidebar } from '../components/figma/ToolSidebar'
+import { Select } from '../components/figma/FormControls'
+import { getFilePreview, formatDuration, type FilePreviewData } from '../lib/filePreview'
 import { incrementUsage } from '../lib/usage'
-import { uploadDualFiles, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError } from '../lib/api'
+import { uploadDualFilesWithProgress, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError } from '../lib/api'
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { persistJobId, clearPersistedJobId } from '../lib/jobSession'
@@ -21,6 +23,7 @@ import { trackEvent } from '../lib/analytics'
 import { texJobStarted, texJobCompleted, texJobFailed } from '../tex'
 import toast from 'react-hot-toast'
 import { Minimize2, FileText, MessageSquare } from 'lucide-react'
+import { emitToolCompleted } from '../workflow/workflowStore'
 
 /** Optional SEO overrides for alternate entry points. Do NOT duplicate logic. */
 export type BurnSubtitlesSeoProps = {
@@ -38,6 +41,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
   const [subtitleFile, setSubtitleFile] = useState<File | null>(null)
   const [videoFromWorkflow, setVideoFromWorkflow] = useState(false)
   const [srtFromWorkflow, setSrtFromWorkflow] = useState(false)
+  const [status, setStatus] = useState<'idle' | 'processing' | 'completed' | 'failed'>('idle')
 
   useEffect(() => {
     const state = location.state as { useWorkflowVideo?: boolean; useWorkflowSrt?: boolean } | undefined
@@ -51,20 +55,29 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
       setSrtFromWorkflow(true)
     }
   }, [location.state, workflow.videoFile, workflow.srtContent])
+
+  // Keep workflow in sync when result is shown so "Next step" links pre-fill video on the next tool
+  useEffect(() => {
+    if (status === 'completed' && videoFile) workflow.setVideo(videoFile)
+  }, [status, videoFile])
+
   const [trimStart, setTrimStart] = useState<number | null>(null)
   const [trimEnd, setTrimEnd] = useState<number | null>(null)
   const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large'>('medium')
   const [position, setPosition] = useState<'bottom' | 'middle'>('bottom')
   const [backgroundOpacity, setBackgroundOpacity] = useState<'none' | 'low' | 'high'>('low')
-  const [status, setStatus] = useState<'idle' | 'processing' | 'completed' | 'failed'>('idle')
+  const [uploadPhase, setUploadPhase] = useState<'uploading' | 'processing'>('processing')
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [progress, setProgress] = useState(0)
   const [queuePosition, setQueuePosition] = useState<number | undefined>(undefined)
-  const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null)
   const [result, setResult] = useState<{ downloadUrl: string; fileName?: string } | null>(null)
   const [showPaywall, setShowPaywall] = useState(false)
   const [availableMinutes, setAvailableMinutes] = useState<number | null>(null)
   const [usedMinutes, setUsedMinutes] = useState<number | null>(null)
   const [freeExportsUsed, setFreeExportsUsed] = useState(0)
+  const [lastProcessingMs, setLastProcessingMs] = useState<number | null>(null)
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null)
+  const [filePreview, setFilePreview] = useState<FilePreviewData | null>(null)
   const processingStartedAtRef = useRef<number | null>(null)
 
   const plan = (localStorage.getItem('plan') || 'free').toLowerCase()
@@ -72,6 +85,31 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
   useEffect(() => {
     if (result?.downloadUrl) setFreeExportsUsed(0)
   }, [result?.downloadUrl])
+
+  useEffect(() => {
+    if (!videoFile) {
+      setFilePreview(null)
+      return
+    }
+    let cancelled = false
+    getFilePreview(videoFile).then((p) => {
+      if (!cancelled) setFilePreview(p)
+    })
+    return () => { cancelled = true }
+  }, [videoFile])
+
+  useEffect(() => {
+    if (videoFile && videoFile.type.startsWith('video/')) {
+      const url = URL.createObjectURL(videoFile)
+      setVideoPreviewUrl(url)
+      return () => {
+        setVideoPreviewUrl(null)
+        const u = url
+        setTimeout(() => URL.revokeObjectURL(u), 0)
+      }
+    }
+    setVideoPreviewUrl(null)
+  }, [videoFile])
 
   const handleVideoSelect = (file: File) => {
     try {
@@ -103,11 +141,15 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
     setSubtitleFile(file)
   }
 
-  const handleProcess = async () => {
+  const handleProcess = async (trimStartPercent?: number, trimEndPercent?: number) => {
     if (!videoFile || !subtitleFile) {
       toast.error('Please upload both video and subtitle files')
       return
     }
+
+    const durationSeconds = filePreview?.durationSeconds ?? 0
+    const trimStartSec = trimStartPercent != null ? (durationSeconds * trimStartPercent) / 100 : trimStart
+    const trimEndSec = trimEndPercent != null ? (durationSeconds * trimEndPercent) / 100 : trimEnd
 
     try {
       const usageData = await getCurrentUsage()
@@ -126,19 +168,22 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
 
     try {
       setStatus('processing')
+      setUploadPhase('uploading')
+      setUploadProgress(0)
       setProgress(0)
       const startedAt = Date.now()
-      setProcessingStartedAt(startedAt)
       processingStartedAtRef.current = startedAt
       texJobStarted()
 
-      const response = await uploadDualFiles(videoFile, subtitleFile, BACKEND_TOOL_TYPES.BURN_SUBTITLES, {
-        trimmedStart: trimStart ?? undefined,
-        trimmedEnd: trimEnd ?? undefined,
+      const response = await uploadDualFilesWithProgress(videoFile, subtitleFile, BACKEND_TOOL_TYPES.BURN_SUBTITLES, {
+        trimmedStart: (trimStartSec ?? trimStart) ?? undefined,
+        trimmedEnd: (trimEndSec ?? trimEnd) ?? undefined,
         burnFontSize: fontSize,
         burnPosition: position,
         burnBackgroundOpacity: backgroundOpacity,
-      })
+      }, { onProgress: (p) => setUploadProgress(p) })
+      setUploadPhase('processing')
+      setUploadProgress(100)
 
       persistJobId(location.pathname, response.jobId, response.jobToken)
       const pollIntervalRef = { current: 0 as number }
@@ -151,11 +196,14 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
           const transition = getJobLifecycleTransition(jobStatus)
           if (transition === 'completed') {
             clearInterval(pollIntervalRef.current)
+            const started = processingStartedAtRef.current ?? Date.now()
+            const processingMs = Date.now() - started
+            setLastProcessingMs(processingMs)
             setStatus('completed')
             setResult(jobStatus.result ?? null)
+            emitToolCompleted({ toolId: 'burn-subtitles', pathname: '/burn-subtitles', processingMs })
             incrementUsage('burn-subtitles')
-            const started = processingStartedAtRef.current ?? Date.now()
-            texJobCompleted(Date.now() - started, 'burn-subtitles')
+            texJobCompleted(processingMs, 'burn-subtitles')
           } else if (transition === 'failed') {
             clearInterval(pollIntervalRef.current)
             setStatus('failed')
@@ -187,6 +235,8 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
     setTrimStart(null)
     setTrimEnd(null)
     setStatus('idle')
+    setUploadPhase('processing')
+    setUploadProgress(0)
     setProgress(0)
     setResult(null)
   }
@@ -196,147 +246,178 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
     return getAbsoluteDownloadUrl(result.downloadUrl)
   }
 
+  const breadcrumbs = [{ label: 'Burn Subtitles', href: '/burn-subtitles' }]
+  const layoutProps = {
+    breadcrumbs,
+    title: seoH1 ?? 'Burn Subtitles',
+    subtitle: seoIntro ?? 'Hardcode captions directly into your video',
+    icon: <Film className="w-8 h-8 text-blue-600 dark:text-blue-400" />,
+    tags: ['Hardcode', 'Burn-in', 'Permanent', 'Styling', 'Position'],
+    sidebar: (
+      <ToolSidebar
+        refreshTrigger={status}
+        showWhatYouGet={status === 'idle'}
+        whatYouGetContent="Video with captions baked in. Upload video + SRT/VTT; download a single MP4 with hardcoded subtitles."
+      />
+    ),
+  }
+
   return (
-    <div className="min-h-screen py-12">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-8">
-          <div className="mb-4">
-            <PlanBadge />
-          </div>
-          <div className="bg-violet-100 rounded-xl p-4 w-16 h-16 flex items-center justify-center mx-auto mb-4">
-            <Film className="h-8 w-8 text-violet-600" strokeWidth={1.5} />
-          </div>
-          <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-6">{seoH1 ?? 'Burn Subtitles'}</h1>
-          <p className="text-lg font-normal text-gray-600 dark:text-gray-400 leading-relaxed mb-6 max-w-prose mx-auto">
-            {seoIntro ?? 'Hardcode captions directly into your video'}
-          </p>
-          <UsageCounter refreshTrigger={status} />
-          <UsageDisplay refreshTrigger={status} />
-        </div>
+    <>
+      <ToolLayout {...layoutProps}>
+        {status === 'idle' && !videoFile && (
+          <UploadZone
+            immediateSelect
+            onFileSelect={handleVideoSelect}
+            initialFiles={videoFile ? [videoFile] : null}
+            onRemove={() => {
+              if (videoFromWorkflow) workflow.clearVideo()
+              setVideoFile(null)
+              setVideoFromWorkflow(false)
+            }}
+            fromWorkflowLabel={videoFromWorkflow ? 'From previous step' : undefined}
+            acceptedFormats={['MP4', 'MOV', 'AVI', 'WEBM']}
+            maxSize="10 GB"
+          />
+        )}
 
-        {status === 'idle' && (
-          <div className="bg-white rounded-2xl p-8 shadow-card mb-6">
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Caption style (preset)</label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {status === 'idle' && videoFile && !subtitleFile && (
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm">
+              <div className="flex items-center justify-between gap-4 mb-4">
                 <div>
-                  <span className="text-xs text-gray-600 block mb-1">Font size</span>
-                  <select
-                    value={fontSize}
-                    onChange={(e) => setFontSize(e.target.value as 'small' | 'medium' | 'large')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  >
-                    <option value="small">Small</option>
-                    <option value="medium">Medium</option>
-                    <option value="large">Large</option>
-                  </select>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Video</p>
+                  <p className="font-semibold text-gray-900 dark:text-white">{videoFile.name}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{(videoFile.size / (1024 * 1024)).toFixed(2)} MB</p>
                 </div>
-                <div>
-                  <span className="text-xs text-gray-600 block mb-1">Position</span>
-                  <select
-                    value={position}
-                    onChange={(e) => setPosition(e.target.value as 'bottom' | 'middle')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  >
-                    <option value="bottom">Bottom</option>
-                    <option value="middle">Middle</option>
-                  </select>
-                </div>
-                <div>
-                  <span className="text-xs text-gray-600 block mb-1">Background</span>
-                  <select
-                    value={backgroundOpacity}
-                    onChange={(e) => setBackgroundOpacity(e.target.value as 'none' | 'low' | 'high')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  >
-                    <option value="none">None</option>
-                    <option value="low">Low</option>
-                    <option value="high">High</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Upload video</label>
-                <FileUploadZone
-                  onFileSelect={handleVideoSelect}
-                  accept={{ 'video/*': ['.mp4', '.mov', '.avi', '.webm'] }}
-                  maxSize={10 * 1024 * 1024 * 1024}
-                  initialFiles={videoFile ? [videoFile] : null}
-                  onRemove={() => {
+                <button
+                  type="button"
+                  onClick={() => {
                     if (videoFromWorkflow) workflow.clearVideo()
                     setVideoFile(null)
                     setVideoFromWorkflow(false)
                   }}
-                  fromWorkflowLabel={videoFromWorkflow ? 'From previous step' : undefined}
-                />
-                {videoFile && (
-                  <Suspense fallback={null}>
-                    <VideoTrimmer
-                      file={videoFile}
-                      onChange={(startSeconds, endSeconds) => {
-                        setTrimStart(startSeconds)
-                        setTrimEnd(endSeconds)
-                      }}
-                    />
-                  </Suspense>
-                )}
+                  className="text-sm text-red-600 hover:text-red-700 dark:text-red-400"
+                >
+                  Remove
+                </button>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Upload subtitles</label>
-                <FileUploadZone
-                  onFileSelect={handleSubtitleSelect}
-                  accept={{ 'text/*': ['.srt', '.vtt'] }}
-                  maxSize={10 * 1024 * 1024}
-                  initialFiles={subtitleFile ? [subtitleFile] : null}
-                  onRemove={() => {
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Upload subtitles (SRT/VTT)</p>
+              <UploadZone
+                immediateSelect
+                onFileSelect={handleSubtitleSelect}
+                initialFiles={subtitleFile ? [subtitleFile] : null}
+                onRemove={() => {
+                  if (srtFromWorkflow) workflow.clearSrt()
+                  setSubtitleFile(null)
+                  setSrtFromWorkflow(false)
+                }}
+                fromWorkflowLabel={srtFromWorkflow ? 'From previous step' : undefined}
+                acceptedFormats={['SRT', 'VTT']}
+                acceptAttribute=".srt,.vtt"
+                maxSize="10 MB"
+              />
+            </div>
+          </div>
+        )}
+
+        {status === 'idle' && videoFile && subtitleFile && (
+          <ProcessingInterface
+            file={{
+              name: videoFile.name,
+              size: `${(videoFile.size / (1024 * 1024)).toFixed(2)} MB`,
+              duration: filePreview?.durationSeconds != null ? formatDuration(filePreview.durationSeconds) : undefined,
+            }}
+            onRemove={() => {
+              if (videoFromWorkflow) workflow.clearVideo()
+              setVideoFile(null)
+              setVideoFromWorkflow(false)
+            }}
+            actionLabel="Process Video"
+            onAction={(trimStartPercent, trimEndPercent) => handleProcess(trimStartPercent, trimEndPercent)}
+            actionLoading={false}
+            showVideoPlayer={!!(videoPreviewUrl || filePreview?.durationSeconds)}
+            videoSrc={videoPreviewUrl ?? undefined}
+          >
+            <div className="space-y-6">
+              <div className="flex items-center justify-between rounded-lg bg-gray-50 dark:bg-gray-800/50 p-3">
+                <span className="text-sm text-gray-700 dark:text-gray-300">Subtitle: {subtitleFile.name}</span>
+                <button
+                  type="button"
+                  onClick={() => {
                     if (srtFromWorkflow) workflow.clearSrt()
                     setSubtitleFile(null)
                     setSrtFromWorkflow(false)
                   }}
-                  fromWorkflowLabel={srtFromWorkflow ? 'From previous step' : undefined}
-                />
+                  className="text-sm text-red-600 hover:text-red-700 dark:text-red-400"
+                >
+                  Remove
+                </button>
               </div>
+              <Select
+                label="Font size"
+                options={[
+                  { value: 'small', label: 'Small' },
+                  { value: 'medium', label: 'Medium' },
+                  { value: 'large', label: 'Large' },
+                ]}
+                value={fontSize}
+                onChange={(v) => setFontSize(v as 'small' | 'medium' | 'large')}
+              />
+              <Select
+                label="Position"
+                options={[
+                  { value: 'bottom', label: 'Bottom' },
+                  { value: 'middle', label: 'Middle' },
+                ]}
+                value={position}
+                onChange={(v) => setPosition(v as 'bottom' | 'middle')}
+              />
+              <Select
+                label="Background"
+                options={[
+                  { value: 'none', label: 'None' },
+                  { value: 'low', label: 'Low' },
+                  { value: 'high', label: 'High' },
+                ]}
+                value={backgroundOpacity}
+                onChange={(v) => setBackgroundOpacity(v as 'none' | 'low' | 'high')}
+              />
             </div>
-
-            <button
-              onClick={handleProcess}
-              disabled={!videoFile || !subtitleFile}
-              className="w-full bg-violet-600 hover:bg-violet-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium py-3 px-6 rounded-lg transition-colors"
-            >
-              Process Video
-            </button>
-          </div>
+          </ProcessingInterface>
         )}
 
         {status === 'processing' && (
-          <div className="bg-white rounded-2xl p-8 shadow-card mb-6 text-center">
-            <Loader2 className="h-12 w-12 text-violet-600 animate-spin mx-auto mb-4" strokeWidth={1.5} />
-            <p className="text-lg font-medium text-gray-800 mb-4 break-words">Burning subtitles into video...</p>
-            <ProgressBar
-              progress={progress}
-              status="Processing video with hardcoded subtitles"
-              queuePosition={queuePosition}
-              processingStartedAt={processingStartedAt}
+          <div className="rounded-2xl bg-blue-50 dark:bg-blue-950/30 p-6 sm:p-8">
+            <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+              {videoFile?.name} • {subtitleFile?.name}
+            </div>
+            <ProcessingProgress
+              steps={[
+                { label: 'Uploading', status: uploadPhase === 'uploading' ? 'active' : 'completed' },
+                { label: 'Burning', status: uploadPhase === 'processing' ? 'active' : 'pending' },
+                { label: 'Finalizing', status: progress >= 100 ? 'completed' : 'pending' },
+              ]}
+              currentMessage={uploadPhase === 'uploading' ? 'Uploading...' : 'Burning subtitles into video...'}
+              progress={uploadPhase === 'uploading' ? uploadProgress : progress}
+              estimatedTime={uploadPhase === 'uploading' ? undefined : '3–5 min for a 10-min video'}
+              statusSubtext={uploadPhase === 'processing' && queuePosition !== undefined && queuePosition > 0 ? `Queue position: ${queuePosition}` : undefined}
+              onCancel={handleProcessAnother}
             />
-            <p className="text-sm text-gray-500 mt-4">
-              {queuePosition !== undefined && queuePosition > 0
-                ? `${queuePosition} jobs ahead of you. Then ~3–5 min for a 10-min video.`
-                : 'Usually 3–5 minutes for a 10-minute video'}
-            </p>
+            <ResultSkeleton variant="burn" />
           </div>
         )}
 
         {status === 'completed' && result && (
           <div className="space-y-6">
-            <SuccessState
-              fileName={result.fileName}
-              downloadUrl={plan === 'free' ? undefined : getDownloadUrl()}
-              onProcessAnother={handleProcessAnother}
-              toolType={BACKEND_TOOL_TYPES.BURN_SUBTITLES}
-              onDownloadClick={
+            <TranslateResult
+              title="Video with burned subtitles ready!"
+              fileName={result.fileName ?? 'video-with-subtitles.mp4'}
+              processingTime={lastProcessingMs != null ? `${(lastProcessingMs / 1000).toFixed(1)}s` : '—'}
+              downloadLabel={plan === 'free' ? (freeExportsUsed >= 2 ? '2/2 free downloads used' : 'Download (2 free)') : 'Download Video'}
+              onDownload={
                 plan === 'free'
                   ? async () => {
                       if (freeExportsUsed >= 2) {
@@ -357,9 +438,19 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
                         toast.error('Download failed')
                       }
                     }
-                  : undefined
+                  : () => {
+                      const a = document.createElement('a')
+                      a.href = getDownloadUrl()
+                      a.download = result?.fileName || 'video-with-subtitles.mp4'
+                      a.click()
+                    }
               }
-              downloadLabel={plan === 'free' ? (freeExportsUsed >= 2 ? '2/2 used' : 'Download (2 free)') : undefined}
+              onProcessAnother={handleProcessAnother}
+              relatedTools={[
+                { path: '/compress-video', name: 'Compress Video', description: 'Reduce file size' },
+                { path: '/video-to-transcript', name: 'Video → Transcript', description: 'Get transcript' },
+                { path: '/video-to-subtitles', name: 'Video → Subtitles', description: 'Generate SRT/VTT' },
+              ]}
             />
 
             <CrossToolSuggestions
@@ -376,31 +467,31 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
         {status === 'failed' && (
           <FailedState onTryAgain={handleProcessAnother} />
         )}
+      </ToolLayout>
 
-        <PaywallModal
-          isOpen={showPaywall}
-          onClose={() => setShowPaywall(false)}
-          usedMinutes={usedMinutes ?? 0}
-          availableMinutes={availableMinutes ?? 0}
-          onUpgrade={() => {
-            window.location.href = '/pricing'
-          }}
-        />
+      <PaywallModal
+        isOpen={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        usedMinutes={usedMinutes ?? 0}
+        availableMinutes={availableMinutes ?? 0}
+        onUpgrade={() => {
+          window.location.href = '/pricing'
+        }}
+      />
 
-        {faq.length > 0 && (
-          <section className="mt-12 pt-8 border-t border-gray-100/70" aria-label="FAQ">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently asked questions</h2>
-            <dl className="space-y-4">
-              {faq.map((item, i) => (
-                <div key={i}>
-                  <dt className="font-medium text-gray-800">{item.q}</dt>
-                  <dd className="mt-1 text-gray-600">{item.a}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-        )}
-      </div>
-    </div>
+      {faq.length > 0 && (
+        <section className="mt-12 pt-8 border-t border-gray-100/70 max-w-4xl mx-auto px-4" aria-label="FAQ">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently asked questions</h2>
+          <dl className="space-y-4">
+            {faq.map((item, i) => (
+              <div key={i}>
+                <dt className="font-medium text-gray-800">{item.q}</dt>
+                <dd className="mt-1 text-gray-600">{item.a}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
+    </>
   )
 }

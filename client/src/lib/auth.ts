@@ -1,15 +1,17 @@
 import { api, getAuthToken, invalidateUsageCache } from './api'
+import { clearAllPersistedJobs } from './jobSession'
 
 const AUTH_TOKEN_KEY = 'authToken'
 const USER_ID_KEY = 'userId'
 const PLAN_KEY = 'plan'
 const USER_EMAIL_KEY = 'userEmail'
+const WORKFLOW_STORAGE_KEY = 'videotext:workflow'
 
 export function isLoggedIn(): boolean {
   return !!getAuthToken()
 }
 
-/** Clear session (logout). Clears auth token and identity so user appears as free guest until they log in again. */
+/** Clear session (logout). Clears auth, identity, and any persisted job/workflow data so results are not shown after reload. */
 export function logout(): void {
   if (typeof localStorage === 'undefined') return
   localStorage.removeItem(AUTH_TOKEN_KEY)
@@ -17,6 +19,12 @@ export function logout(): void {
   localStorage.removeItem(PLAN_KEY)
   localStorage.removeItem(USER_EMAIL_KEY)
   invalidateUsageCache()
+  clearAllPersistedJobs()
+  try {
+    if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(WORKFLOW_STORAGE_KEY)
+  } catch {
+    // ignore
+  }
 }
 
 /** Log in with email and password. Returns { token, userId, plan, email } on success. Caller should store these and then refresh/navigate. */
