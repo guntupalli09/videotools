@@ -15,6 +15,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Install dependencies (lockfile for reproducible builds). Prisma needs schema + config for postinstall (prisma generate).
+# Set a placeholder DATABASE_URL so prisma generate succeeds at build time; runtime URL comes from docker-compose env.
+ENV DATABASE_URL=postgresql://videotools:videotools@localhost:5432/videotext
 COPY server/package.json server/package-lock.json ./
 COPY server/prisma ./prisma/
 COPY server/prisma.config.ts ./
