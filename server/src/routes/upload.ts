@@ -34,7 +34,7 @@ const MAX_CHUNKS = 2000
 /** Early enqueue once this many bytes written (avoid waiting for full stream finish). */
 const EARLY_ENQUEUE_THRESHOLD_BYTES = 10 * 1024 * 1024 // 10MB
 
-// Chunked upload metadata (uploadId -> { userId?, plan, filename, totalChunks, totalSize, toolType, options })
+// Chunked upload metadata (uploadId -> { ... }). Not deleted until /complete finishes successfully.
 const chunkUploadMeta = new Map<string, {
   userId: string | null
   plan: PlanType
@@ -43,6 +43,8 @@ const chunkUploadMeta = new Map<string, {
   totalSize: number
   toolType: string
   options: Record<string, unknown>
+  /** Set when early enqueue has run; chunk handler still accepts chunks. */
+  earlyEnqueued?: boolean
 }>()
 const chunksDir = path.join(tempDir, 'chunks')
 if (!fs.existsSync(chunksDir)) {
@@ -658,6 +660,15 @@ router.post('/init', async (req: Request, res: Response) => {
       options: rest || {},
     })
 
+    uploadLog.info({
+      msg: 'upload_start',
+      env: process.env.NODE_ENV,
+      uploadId,
+      totalChunks,
+      totalSizeBytes: totalSize,
+      earlyEnqueueThreshold: EARLY_ENQUEUE_THRESHOLD_BYTES,
+    })
+
     return res.json({ uploadId })
   } catch (error: any) {
     const msg = error?.message || String(error)
@@ -678,6 +689,12 @@ export async function handleUploadChunk(req: Request, res: Response): Promise<vo
     }
 
     const meta = chunkUploadMeta.get(uploadId)
+    uploadLog.info({
+      msg: 'chunk_upload_state',
+      uploadId,
+      earlyEnqueued: meta?.earlyEnqueued ?? false,
+      metaExists: !!meta,
+    })
     if (!meta) {
       res.status(404).json({ message: 'Upload session not found or expired' })
       return
@@ -718,7 +735,7 @@ router.post('/complete', async (req: Request, res: Response) => {
     if (!meta) {
       return res.status(404).json({ message: 'Upload session not found or expired' })
     }
-    chunkUploadMeta.delete(uploadId)
+    // Do NOT delete meta here — only after /complete finishes successfully (in finish handler)
 
     const dir = path.join(chunksDir, uploadId)
     if (!fs.existsSync(dir)) {
@@ -867,6 +884,7 @@ router.post('/complete', async (req: Request, res: Response) => {
             try {
               const { job, fileSize } = await doEnqueueJob()
               yetEnqueued = true
+              meta.earlyEnqueued = true
               earlyJobResult = { jobId: String(job.id), jobToken: (job.data as any)?.jobToken }
               uploadLog.info({
                 msg: 'upload_early_enqueue',
@@ -930,6 +948,7 @@ router.post('/complete', async (req: Request, res: Response) => {
           try {
             const { job, fileSize } = await doEnqueueJob()
             yetEnqueued = true
+            meta.earlyEnqueued = true
             earlyJobResult = { jobId: String(job.id), jobToken: (job.data as any)?.jobToken }
             uploadLog.info({
               msg: 'upload_early_enqueue',
@@ -974,6 +993,13 @@ router.post('/complete', async (req: Request, res: Response) => {
             }
           })
           .catch(() => { /* best-effort */ })
+        console.error('[upload/complete] 500', err?.message || err, err?.stack)
+        res.status(500).json({
+          message: err?.message || 'Upload complete failed',
+          jobId: earlyJobResult.jobId,
+          jobToken: earlyJobResult.jobToken,
+        })
+        return
       }
       console.error('[upload/complete] 500', err?.message || err, err?.stack)
       res.status(500).json({ message: err?.message || 'Upload complete failed' })
@@ -987,6 +1013,7 @@ router.post('/complete', async (req: Request, res: Response) => {
         try { fs.rmdirSync(dir) } catch { /* ignore if not empty or missing */ }
         if (yetEnqueued && earlyJobResult) {
           timings.tBeforeResponse = Date.now()
+          chunkUploadMeta.delete(uploadId)
           uploadLog.info({
             msg: 'upload_complete_timing',
             uploadId,
@@ -1009,6 +1036,7 @@ router.post('/complete', async (req: Request, res: Response) => {
         const { job, fileSize } = await doEnqueueJob()
         timings.tAfterEnqueue = Date.now()
         timings.tBeforeResponse = Date.now()
+        chunkUploadMeta.delete(uploadId)
         uploadLog.info({
           msg: 'upload_complete_timing',
           uploadId,

@@ -700,17 +700,23 @@ async function uploadFileChunked(
   }
 
   const indicesToUpload = Array.from({ length: totalChunks }, (_, i) => i).filter((i) => !uploadedChunks.includes(i))
-  let done = uploadedChunks.length
+  // Progress = bytesUploadedSoFar / totalFileSize (monotonic; never decrement; no double-count on retry)
+  let bytesUploadedSoFar = uploadedChunks.reduce(
+    (sum, idx) => sum + Math.min(chunkSize, file.size - idx * chunkSize),
+    0
+  )
   progressOptions?.onAdaptiveStatus?.('Optimizing connection...')
 
   let i = 0
   while (i < indicesToUpload.length) {
     if (signal?.aborted) throw new Error('Upload cancelled')
     const batchSize = Math.min(currentParallel, indicesToUpload.length - i)
-    const batch = indicesToUpload.slice(i, i + batchSize).map((chunkIndex) => uploadChunk(chunkIndex))
+    const batchIndices = indicesToUpload.slice(i, i + batchSize)
+    const batch = batchIndices.map((chunkIndex) => uploadChunk(chunkIndex))
     const results = await Promise.all(batch)
     const prevAvg = rollingAvgDuration(adaptiveState.chunkMetrics)
-    for (const metric of results) {
+    for (let j = 0; j < results.length; j++) {
+      const metric = results[j]
       const stallDetected = prevAvg > 0 && metric.uploadDuration > ADAPTIVE_STALL_MULTIPLIER * prevAvg
       const withStall: ChunkMetric = { ...metric, stallDetected }
       adaptiveState.chunkMetrics.push(withStall)
@@ -722,10 +728,14 @@ async function uploadFileChunked(
         adaptiveState.rollingDurations.shift()
       }
       adaptiveState.chunksUploaded += 1
+      const chunkIndex = batchIndices[j]
+      const startByte = chunkIndex * chunkSize
+      const endByte = Math.min(startByte + chunkSize, file.size)
+      bytesUploadedSoFar += endByte - startByte
     }
     runAdaptiveDecisionEngine()
-    done += batch.length
-    progressOptions?.onProgress?.(Math.round((done / totalChunks) * 100))
+    const progressPct = Math.min(100, Math.round((bytesUploadedSoFar / file.size) * 100))
+    progressOptions?.onProgress?.(progressPct)
     i += batchSize
   }
 
@@ -750,6 +760,29 @@ async function uploadFileChunked(
       throw new Error(
         msg + ' Your progress was cleared. Please try again from the start (refresh the page if needed).'
       )
+    }
+    // After early enqueue, server may 500 but job is already in queue; poll before showing fatal error
+    if (completeRes.status === 500 && err.jobId) {
+      const jobToken = err.jobToken as string | undefined
+      const pollMax = 5
+      const pollDelayMs = 1500
+      for (let p = 0; p < pollMax; p++) {
+        await new Promise((r) => setTimeout(r, pollDelayMs))
+        try {
+          const status = await getJobStatus(err.jobId, { jobToken })
+          if (status.status === 'failed') throw new Error(msg)
+          if (status.status === 'completed') {
+            clearChunkedUploadState()
+            return { jobId: err.jobId, status: 'queued' as const, jobToken }
+          }
+        } catch (e) {
+          if (e instanceof Error && e.message === msg) throw e
+          // Network or other error; keep polling
+        }
+      }
+      // Job still processing or poll failed; return so UI shows "Processing..." instead of fatal error
+      clearChunkedUploadState()
+      return { jobId: err.jobId, status: 'queued' as const, jobToken }
     }
     throw new Error(msg)
   }

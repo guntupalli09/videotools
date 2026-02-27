@@ -29,6 +29,7 @@ import { parseSRT, parseVTT, detectSubtitleFormat, toSRT, toVTT } from '../utils
 import type { SubtitleEntry } from '../utils/srtParser'
 import { createPartialWriter, deleteJobPartial } from '../utils/jobPartial'
 import { setJobSummary } from '../utils/jobSummary'
+import { waitForFileStable } from '../utils/fileStable'
 import { DEFER_SUMMARY, PROCESSING_V2, STREAM_PROGRESS, WORKER_CONCURRENCY_V2 } from '../utils/featureFlags'
 import { MAX_GLOBAL_WORKERS, PAID_TIER_RESERVATION_QUEUE_THRESHOLD } from '../utils/queueConfig'
 import {
@@ -288,6 +289,11 @@ async function processJob(job: import('bull').Job<JobData>) {
 
     try {
       await job.progress(5)
+
+      // Wait for file to be stable before extraction (avoids reading partially flushed file after early enqueue)
+      if (data.filePath && fs.existsSync(data.filePath)) {
+        await waitForFileStable(data.filePath, 400)
+      }
 
       let result: any
 
