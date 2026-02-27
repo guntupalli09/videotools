@@ -47,6 +47,7 @@ services:
       REDIS_URL: redis://redis:6379
       DATABASE_URL: postgresql://videotools:${POSTGRES_PASSWORD:-videotools}@postgres:5432/videotext
       TEMP_FILE_PATH: /tmp
+      STREAM_UPLOAD_ASSEMBLY: "true"
       DISABLE_WORKER: "true"
       FFMPEG_PATH: /usr/bin/ffmpeg
       FFPROBE_PATH: /usr/bin/ffprobe
@@ -69,6 +70,8 @@ services:
       TEMP_FILE_PATH: /tmp
       FFMPEG_PATH: /usr/bin/ffmpeg
       FFPROBE_PATH: /usr/bin/ffprobe
+      # TTFW: extract first 20s chunk early instead of full-file extract then split
+      PROCESSING_V2: "true"
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }

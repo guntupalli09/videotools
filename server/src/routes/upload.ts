@@ -4,7 +4,7 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
-import { fileQueue, addJobToQueue, getTotalQueueCount as getQueueCountFromWorker } from '../workers/videoProcessor'
+import { fileQueue, addJobToQueue, getJobById, getTotalQueueCount as getQueueCountFromWorker } from '../workers/videoProcessor'
 import { validateFileType, validateFileSize, validateSubtitleFile } from '../utils/fileValidation'
 import { enforceLanguageLimits, enforceUsageLimits, getJobPriority, getPlanLimits } from '../utils/limits'
 import { getUser, saveUser, PlanType, User } from '../models/User'
@@ -31,6 +31,8 @@ if (!fs.existsSync(tempDir)) {
 }
 
 const MAX_CHUNKS = 2000
+/** Early enqueue once this many bytes written (avoid waiting for full stream finish). */
+const EARLY_ENQUEUE_THRESHOLD_BYTES = 10 * 1024 * 1024 // 10MB
 
 // Chunked upload metadata (uploadId -> { userId?, plan, filename, totalChunks, totalSize, toolType, options })
 const chunkUploadMeta = new Map<string, {
@@ -689,6 +691,14 @@ export async function handleUploadChunk(req: Request, res: Response): Promise<vo
 
     const chunkPath = path.join(chunksDir, uploadId, `chunk_${chunkIndex}`)
     await fs.promises.writeFile(chunkPath, body)
+    // Verify chunk was written so we never confirm a chunk the server doesn't have
+    const stat = await fs.promises.stat(chunkPath).catch(() => null)
+    if (!stat || stat.size !== body.length) {
+      try { await fs.promises.unlink(chunkPath) } catch { /* ignore */ }
+      console.error('[upload/chunk] write verify failed', { uploadId, chunkIndex, expected: body.length, actual: stat?.size })
+      res.status(500).json({ message: 'Chunk write failed. Please retry.' })
+      return
+    }
     res.json({ ok: true })
   } catch (error: any) {
     console.error('[upload/chunk] 500', error?.message || error, error?.stack)
@@ -697,6 +707,7 @@ export async function handleUploadChunk(req: Request, res: Response): Promise<vo
 }
 
 router.post('/complete', async (req: Request, res: Response) => {
+  const tStart = Date.now()
   try {
     const { uploadId } = req.body as { uploadId?: string }
     if (!uploadId) {
@@ -715,6 +726,7 @@ router.post('/complete', async (req: Request, res: Response) => {
     }
 
     const totalChunks = Math.min(meta.totalChunks, MAX_CHUNKS)
+    const totalSizeBytes = meta.totalSize
     const safeFilename = sanitizeFilename(meta.filename)
     const outPath = path.join(tempDir, `${uuidv4()}-${safeFilename}`)
     try {
@@ -726,8 +738,94 @@ router.post('/complete', async (req: Request, res: Response) => {
     let totalSizeSoFar = 0
     const maxFileSize = getPlanLimits(meta.plan).maxFileSize
     const declaredTotal = meta.totalSize
-    const reassemblyStartMs = Date.now()
 
+    let yetEnqueued = false
+    let earlyJobResult: { jobId: string; jobToken?: string } | null = null
+
+    async function doEnqueueJob(): Promise<{ job: Awaited<ReturnType<typeof addJobToQueue>>; fileSize: number }> {
+      if (!meta) throw new Error('Upload session not found')
+      let user = meta.userId ? await getUser(meta.userId) : null
+      if (!user && meta.userId) {
+        const limits = getPlanLimits(meta.plan)
+        const now = new Date()
+        const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+        user = {
+          id: meta.userId!,
+          email: `${meta.userId}@example.com`,
+          passwordHash: '',
+          plan: meta.plan,
+          stripeCustomerId: '',
+          subscriptionId: '',
+          paymentMethodId: undefined,
+          usageThisMonth: {
+            totalMinutes: 0,
+            videoCount: 0,
+            batchCount: 0,
+            languageCount: 0,
+            translatedMinutes: 0,
+            resetDate,
+          },
+          limits,
+          overagesThisMonth: { minutes: 0, languages: 0, batches: 0, totalCharge: 0 },
+          createdAt: now,
+          updatedAt: now,
+        }
+        await saveUser(user)
+      }
+      const fileSize = fs.statSync(outPath).size
+      const planLimit = getPlanLimits(meta.plan).maxFileSize
+      if (fileSize > planLimit) {
+        fs.unlinkSync(outPath)
+        throw Object.assign(new Error('File exceeds plan limit. Upgrade for larger files.'), { statusCode: 400 })
+      }
+      const opts = meta.options || {}
+      const trimmedStart = opts.trimmedStart != null ? (typeof opts.trimmedStart === 'number' ? opts.trimmedStart : parseFloat(String(opts.trimmedStart))) : undefined
+      const trimmedEnd = opts.trimmedEnd != null ? (typeof opts.trimmedEnd === 'number' ? opts.trimmedEnd : parseFloat(String(opts.trimmedEnd))) : undefined
+      const { trimmedStart: _s, trimmedEnd: _e, uploadMode: _um, originalFileName: _ofn, originalFileSize: _ofs, ...restOptions } = opts
+      const isChunkedAudioOnly =
+        (meta.toolType === 'video-to-transcript' || meta.toolType === 'video-to-subtitles') &&
+        opts.uploadMode === 'audio-only'
+      const job = await addJobToQueue(meta.plan, {
+        toolType: meta.toolType,
+        filePath: outPath,
+        userId: meta.userId ?? undefined,
+        plan: meta.plan,
+        originalName: isChunkedAudioOnly && opts.originalFileName ? String(opts.originalFileName) : safeFilename,
+        fileSize,
+        trimmedStart,
+        trimmedEnd,
+        options: Object.keys(restOptions).length > 0 ? restOptions : undefined,
+        inputType: isChunkedAudioOnly ? 'audio' : undefined,
+        requestId: (req as RequestWithId).requestId,
+      })
+      return { job, fileSize }
+    }
+
+    const timings: {
+      tStart: number
+      tValidationStart: number
+      tValidationEnd: number
+      tAssemblyStart: number
+      tAssemblyEnd: number
+      tOutEnd: number
+      tFinishEnter: number
+      tBeforeEnqueue: number
+      tAfterEnqueue: number
+      tBeforeResponse: number
+    } = {
+      tStart,
+      tValidationStart: 0,
+      tValidationEnd: 0,
+      tAssemblyStart: 0,
+      tAssemblyEnd: 0,
+      tOutEnd: 0,
+      tFinishEnter: 0,
+      tBeforeEnqueue: 0,
+      tAfterEnqueue: 0,
+      tBeforeResponse: 0,
+    }
+
+    timings.tValidationStart = Date.now()
     if (STREAM_UPLOAD_ASSEMBLY) {
       // Phase 1: streaming reassembly — validate then stream chunks without loading into memory
       for (let i = 0; i < totalChunks; i++) {
@@ -750,9 +848,13 @@ router.post('/complete', async (req: Request, res: Response) => {
           return res.status(400).json({ message: 'Chunk total exceeds declared totalSize.' })
         }
       }
+    timings.tValidationEnd = Date.now()
+    timings.tAssemblyStart = Date.now()
       try {
+        let bytesWritten = 0
         for (let i = 0; i < totalChunks; i++) {
           const chunkPath = path.join(dir, `chunk_${i}`)
+          const chunkSize = fs.statSync(chunkPath).size
           await new Promise<void>((resolve, reject) => {
             const src = fs.createReadStream(chunkPath)
             src.on('error', reject)
@@ -760,6 +862,39 @@ router.post('/complete', async (req: Request, res: Response) => {
             src.pipe(out, { end: false })
           })
           await fs.promises.unlink(chunkPath)
+          bytesWritten += chunkSize
+          if (bytesWritten >= EARLY_ENQUEUE_THRESHOLD_BYTES && !yetEnqueued) {
+            try {
+              const { job, fileSize } = await doEnqueueJob()
+              yetEnqueued = true
+              earlyJobResult = { jobId: String(job.id), jobToken: (job.data as any)?.jobToken }
+              uploadLog.info({
+                msg: 'upload_early_enqueue',
+                uploadId,
+                early_enqueue: true,
+                bytes_at_enqueue: bytesWritten,
+                enqueue_delay_ms_from_start: Date.now() - tStart,
+              })
+              try {
+                trackJobCreated({
+                  job_id: String(job.id),
+                  user_id: meta.userId ?? undefined,
+                  tool_type: meta.toolType,
+                  file_size_bytes: fileSize,
+                  plan: meta.plan,
+                })
+              } catch {
+                // non-blocking
+              }
+            } catch (e: any) {
+              if (e?.statusCode === 400) {
+                out.destroy()
+                try { fs.unlinkSync(outPath) } catch { /* ignore */ }
+                return res.status(400).json({ message: e?.message || 'File exceeds plan limit. Upgrade for larger files.' })
+              }
+              throw e
+            }
+          }
         }
       } catch (err: any) {
         out.destroy()
@@ -767,6 +902,7 @@ router.post('/complete', async (req: Request, res: Response) => {
         console.error('[upload/complete] streaming reassembly failed', err?.message || err, err?.stack)
         return res.status(500).json({ message: err?.message || 'Upload complete failed' })
       }
+    timings.tAssemblyEnd = Date.now()
     } else {
       for (let i = 0; i < totalChunks; i++) {
         const chunkPath = path.join(dir, `chunk_${i}`)
@@ -790,95 +926,124 @@ router.post('/complete', async (req: Request, res: Response) => {
         const buf = fs.readFileSync(chunkPath)
         out.write(buf)
         fs.unlinkSync(chunkPath)
+        if (totalSizeSoFar >= EARLY_ENQUEUE_THRESHOLD_BYTES && !yetEnqueued) {
+          try {
+            const { job, fileSize } = await doEnqueueJob()
+            yetEnqueued = true
+            earlyJobResult = { jobId: String(job.id), jobToken: (job.data as any)?.jobToken }
+            uploadLog.info({
+              msg: 'upload_early_enqueue',
+              uploadId,
+              early_enqueue: true,
+              bytes_at_enqueue: totalSizeSoFar,
+              enqueue_delay_ms_from_start: Date.now() - tStart,
+            })
+            try {
+              trackJobCreated({
+                job_id: String(job.id),
+                user_id: meta.userId ?? undefined,
+                tool_type: meta.toolType,
+                file_size_bytes: fileSize,
+                plan: meta.plan,
+              })
+            } catch {
+              // non-blocking
+            }
+          } catch (e: any) {
+            if (e?.statusCode === 400) {
+              out.destroy()
+              return res.status(400).json({ message: e?.message || 'File exceeds plan limit. Upgrade for larger files.' })
+            }
+            throw e
+          }
+        }
       }
+    timings.tValidationEnd = Date.now()
+    timings.tAssemblyStart = timings.tValidationStart
+    timings.tAssemblyEnd = timings.tValidationEnd
     }
 
-    // Wait for the write stream to finish before stat/addJobToQueue (out.end() is async)
     const onError = (err: any) => {
+      if (res.headersSent) return
       try { fs.unlinkSync(outPath) } catch { /* ignore */ }
+      if (yetEnqueued && earlyJobResult) {
+        getJobById(earlyJobResult.jobId)
+          .then((job) => {
+            if (job && typeof (job as any).moveToFailed === 'function') {
+              return (job as any).moveToFailed(err)
+            }
+          })
+          .catch(() => { /* best-effort */ })
+      }
       console.error('[upload/complete] 500', err?.message || err, err?.stack)
       res.status(500).json({ message: err?.message || 'Upload complete failed' })
     }
     out.once('error', onError)
-      out.once('finish', async () => {
+    out.once('finish', async () => {
+      timings.tFinishEnter = Date.now()
       out.removeListener('error', onError)
+      if (res.headersSent) return
       try {
         try { fs.rmdirSync(dir) } catch { /* ignore if not empty or missing */ }
-        let user = meta.userId ? await getUser(meta.userId) : null
-          if (!user && meta.userId) {
-            const limits = getPlanLimits(meta.plan)
-            const now = new Date()
-            const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-            user = {
-              id: meta.userId!,
-              email: `${meta.userId}@example.com`,
-              passwordHash: '',
-              plan: meta.plan,
-              stripeCustomerId: '',
-              subscriptionId: '',
-              paymentMethodId: undefined,
-              usageThisMonth: {
-                totalMinutes: 0,
-                videoCount: 0,
-                batchCount: 0,
-                languageCount: 0,
-                translatedMinutes: 0,
-                resetDate,
-              },
-              limits,
-              overagesThisMonth: { minutes: 0, languages: 0, batches: 0, totalCharge: 0 },
-              createdAt: now,
-              updatedAt: now,
-            }
-            await saveUser(user)
-          }
-          const fileSize = fs.statSync(outPath).size
-          const planLimit = getPlanLimits(meta.plan).maxFileSize
-          if (fileSize > planLimit) {
-            fs.unlinkSync(outPath)
-            return res.status(400).json({ message: 'File exceeds plan limit. Upgrade for larger files.' })
-          }
-          const opts = meta.options || {}
-          const trimmedStart = opts.trimmedStart != null ? (typeof opts.trimmedStart === 'number' ? opts.trimmedStart : parseFloat(String(opts.trimmedStart))) : undefined
-          const trimmedEnd = opts.trimmedEnd != null ? (typeof opts.trimmedEnd === 'number' ? opts.trimmedEnd : parseFloat(String(opts.trimmedEnd))) : undefined
-          const { trimmedStart: _s, trimmedEnd: _e, uploadMode: _um, originalFileName: _ofn, originalFileSize: _ofs, ...restOptions } = opts
-          const isChunkedAudioOnly =
-            (meta.toolType === 'video-to-transcript' || meta.toolType === 'video-to-subtitles') &&
-            opts.uploadMode === 'audio-only'
-          const job = await addJobToQueue(meta.plan, {
-            toolType: meta.toolType,
-            filePath: outPath,
-            userId: meta.userId ?? undefined,
-            plan: meta.plan,
-            originalName: isChunkedAudioOnly && opts.originalFileName ? String(opts.originalFileName) : safeFilename,
-            fileSize,
-            trimmedStart,
-            trimmedEnd,
-            options: Object.keys(restOptions).length > 0 ? restOptions : undefined,
-            inputType: isChunkedAudioOnly ? 'audio' : undefined,
-            requestId: (req as RequestWithId).requestId,
+        if (yetEnqueued && earlyJobResult) {
+          timings.tBeforeResponse = Date.now()
+          uploadLog.info({
+            msg: 'upload_complete_timing',
+            uploadId,
+            totalChunks,
+            totalSizeBytes,
+            validation_ms: timings.tValidationEnd - timings.tValidationStart,
+            assembly_ms: timings.tAssemblyEnd - timings.tAssemblyStart,
+            stream_finish_wait_ms: timings.tFinishEnter - timings.tOutEnd,
+            enqueue_ms: 0,
+            total_complete_route_ms: timings.tBeforeResponse - timings.tStart,
+            early_enqueue: true,
           })
-          uploadLog.info({ msg: 'upload_end', jobId: job.id, durationMs: Date.now() - reassemblyStartMs, chunked: true })
-          try {
-            trackJobCreated({
-              job_id: String(job.id),
-              user_id: meta.userId ?? undefined,
-              tool_type: meta.toolType,
-              file_size_bytes: fileSize,
-              plan: meta.plan,
-            })
-          } catch {
-            // non-blocking
-          }
           return res.status(202).json({
-            jobId: job.id,
+            jobId: earlyJobResult.jobId,
             status: 'queued',
-            jobToken: (job.data as any)?.jobToken,
+            jobToken: earlyJobResult.jobToken,
           })
-        } catch (error: any) {
-          onError(error)
         }
-      })
+        timings.tBeforeEnqueue = Date.now()
+        const { job, fileSize } = await doEnqueueJob()
+        timings.tAfterEnqueue = Date.now()
+        timings.tBeforeResponse = Date.now()
+        uploadLog.info({
+          msg: 'upload_complete_timing',
+          uploadId,
+          totalChunks,
+          totalSizeBytes,
+          validation_ms: timings.tValidationEnd - timings.tValidationStart,
+          assembly_ms: timings.tAssemblyEnd - timings.tAssemblyStart,
+          stream_finish_wait_ms: timings.tFinishEnter - timings.tOutEnd,
+          enqueue_ms: timings.tAfterEnqueue - timings.tBeforeEnqueue,
+          total_complete_route_ms: timings.tBeforeResponse - timings.tStart,
+        })
+        try {
+          trackJobCreated({
+            job_id: String(job.id),
+            user_id: meta.userId ?? undefined,
+            tool_type: meta.toolType,
+            file_size_bytes: fileSize,
+            plan: meta.plan,
+          })
+        } catch {
+          // non-blocking
+        }
+        return res.status(202).json({
+          jobId: job.id,
+          status: 'queued',
+          jobToken: (job.data as any)?.jobToken,
+        })
+      } catch (error: any) {
+        if (error?.statusCode === 400) {
+          return res.status(400).json({ message: error?.message || 'File exceeds plan limit. Upgrade for larger files.' })
+        }
+        onError(error)
+      }
+    })
+    timings.tOutEnd = Date.now()
     out.end()
   } catch (error: any) {
     console.error('[upload/complete] 500', error?.message || error, error?.stack)

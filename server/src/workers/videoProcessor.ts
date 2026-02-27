@@ -29,7 +29,7 @@ import { parseSRT, parseVTT, detectSubtitleFormat, toSRT, toVTT } from '../utils
 import type { SubtitleEntry } from '../utils/srtParser'
 import { createPartialWriter, deleteJobPartial } from '../utils/jobPartial'
 import { setJobSummary } from '../utils/jobSummary'
-import { DEFER_SUMMARY, STREAM_PROGRESS, WORKER_CONCURRENCY_V2 } from '../utils/featureFlags'
+import { DEFER_SUMMARY, PROCESSING_V2, STREAM_PROGRESS, WORKER_CONCURRENCY_V2 } from '../utils/featureFlags'
 import { MAX_GLOBAL_WORKERS, PAID_TIER_RESERVATION_QUEUE_THRESHOLD } from '../utils/queueConfig'
 import {
   trackProcessingStarted,
@@ -309,6 +309,12 @@ async function processJob(job: import('bull').Job<JobData>) {
             ? options.exportFormats
             : ['txt']
           const isAlreadyAudio = data.inputType === 'audio'
+          let extractionStartAt: number | undefined
+          let firstChunkCreatedAt: number | undefined
+          let firstChunkTranscriptionStartAt: number | undefined
+          let firstPartialEmittedAt: number | undefined
+          let firstChunkDurationSec: number | undefined
+          let totalVideoDurationSec: number | undefined
 
           // Trim video if start/end times provided (not used for audio-only; client sends video when trim requested)
           if (
@@ -331,6 +337,10 @@ async function processJob(job: import('bull').Job<JobData>) {
           if (!durationCheck.valid) {
             throw new Error(durationCheck.error || 'Video too long')
           }
+          totalVideoDurationSec =
+            data.trimmedStart !== undefined && data.trimmedEnd !== undefined
+              ? Math.max(0, data.trimmedEnd - data.trimmedStart)
+              : durationCheck.duration || 0
 
           const needVerbose = includeSummary || includeChapters || exportFormats.includes('json')
           const wantDiarization = options?.speakerDiarization === true
@@ -338,12 +348,18 @@ async function processJob(job: import('bull').Job<JobData>) {
           let segments: { start: number; end: number; text: string; speaker?: string }[] = []
           const processingStartMs = Date.now()
 
-          if ((needVerbose || wantDiarization) && redis) {
+          // Live transcript (TTFW): stream partials whenever Redis is available
+          if (redis) {
             partialWriter = createPartialWriter(redis, jobId)
             partialWriter.startDrain()
           }
           const onPartial = partialWriter
-            ? (segs: { start: number; end: number; text: string; speaker?: string }[]) => partialWriter!.onPartial(segs)
+            ? (segs: { start: number; end: number; text: string; speaker?: string }[]) => {
+                if (!firstPartialEmittedAt) {
+                  firstPartialEmittedAt = Date.now()
+                }
+                partialWriter!.onPartial(segs)
+              }
             : undefined
           const onChunkProgress = STREAM_PROGRESS && needVerbose
             ? (contiguousChunks: number, totalChunks: number) => {
@@ -363,20 +379,98 @@ async function processJob(job: import('bull').Job<JobData>) {
                 partialWriter.onPartial(segments.slice(0, 2000))
               }
             } else {
-              const verbose = await transcribeVideoVerbose(videoPath, options?.language, glossary, isAlreadyAudio, onPartial, onChunkProgress, jobId)
+              const verbose = await transcribeVideoVerbose(
+                videoPath,
+                options?.language,
+                glossary,
+                isAlreadyAudio,
+                onPartial,
+                onChunkProgress,
+                jobId,
+                {
+                  onExtractionStart: () => {
+                    if (!extractionStartAt) extractionStartAt = Date.now()
+                  },
+                  onFirstChunkCreated: (durationSec: number) => {
+                    if (!firstChunkCreatedAt) {
+                      firstChunkCreatedAt = Date.now()
+                      firstChunkDurationSec = durationSec
+                    }
+                  },
+                  onFirstChunkTranscriptionStart: () => {
+                    if (!firstChunkTranscriptionStartAt) {
+                      firstChunkTranscriptionStartAt = Date.now()
+                    }
+                  },
+                }
+              )
               fullText = verbose.text
               segments = verbose.segments || []
             }
           } else if (needVerbose) {
             await job.progress(25)
             const glossary = options?.glossary?.trim()
-            const verbose = await transcribeVideoVerbose(videoPath, options?.language, glossary, isAlreadyAudio, onPartial, onChunkProgress, jobId)
+            const verbose = await transcribeVideoVerbose(
+              videoPath,
+              options?.language,
+              glossary,
+              isAlreadyAudio,
+              onPartial,
+              onChunkProgress,
+              jobId,
+              {
+                onExtractionStart: () => {
+                  if (!extractionStartAt) extractionStartAt = Date.now()
+                },
+                onFirstChunkCreated: (durationSec: number) => {
+                  if (!firstChunkCreatedAt) {
+                    firstChunkCreatedAt = Date.now()
+                    firstChunkDurationSec = durationSec
+                  }
+                },
+                onFirstChunkTranscriptionStart: () => {
+                  if (!firstChunkTranscriptionStartAt) {
+                    firstChunkTranscriptionStartAt = Date.now()
+                  }
+                },
+              }
+            )
             fullText = verbose.text
             segments = verbose.segments || []
           } else {
             await job.progress(30)
             const glossary = options?.glossary?.trim()
-            fullText = await transcribeVideo(videoPath, 'text', options?.language, glossary, isAlreadyAudio)
+            if (partialWriter) {
+              const verbose = await transcribeVideoVerbose(
+                videoPath,
+                options?.language,
+                glossary,
+                isAlreadyAudio,
+                onPartial,
+                undefined,
+                jobId,
+                {
+                  onExtractionStart: () => {
+                    if (!extractionStartAt) extractionStartAt = Date.now()
+                  },
+                  onFirstChunkCreated: (durationSec: number) => {
+                    if (!firstChunkCreatedAt) {
+                      firstChunkCreatedAt = Date.now()
+                      firstChunkDurationSec = durationSec
+                    }
+                  },
+                  onFirstChunkTranscriptionStart: () => {
+                    if (!firstChunkTranscriptionStartAt) {
+                      firstChunkTranscriptionStartAt = Date.now()
+                    }
+                  },
+                }
+              )
+              fullText = verbose.text
+              segments = verbose.segments || []
+            } else {
+              fullText = await transcribeVideo(videoPath, 'text', options?.language, glossary, isAlreadyAudio)
+            }
           }
 
           const fileReceivedToTranscriptionFinishedMs = Date.now() - processingStartMs
@@ -524,6 +618,18 @@ async function processJob(job: import('bull').Job<JobData>) {
             user.usageThisMonth.videoCount += 1
             user.updatedAt = new Date()
             await saveUser(user)
+          }
+
+          if (firstPartialEmittedAt && totalVideoDurationSec != null) {
+            const ttfwMs = firstPartialEmittedAt - processingStartMs
+            log.info({
+              msg: 'ttfw_metrics',
+              jobId: String(jobId),
+              ttfw_ms: ttfwMs,
+              first_chunk_duration_sec: firstChunkDurationSec ?? null,
+              total_video_duration_sec: totalVideoDurationSec,
+              file_size_bytes: data.fileSize ?? null,
+            })
           }
 
           if (data.webhookUrl) {
@@ -1190,6 +1296,7 @@ if (require.main === module) {
     msg: 'Worker process started',
     normalConcurrency: NORMAL_CONCURRENCY,
     priorityConcurrency: PRIORITY_CONCURRENCY,
+    PROCESSING_V2,
     ...(WORKER_CONCURRENCY_V2 && { workerConcurrencyV2: true, availableCPU }),
   })
 }

@@ -45,10 +45,15 @@ function getEncodePresetOptions(): string[] {
 export const HUNG_JOB_MS = 90 * 1000
 export const HUNG_JOB_MESSAGE = 'HUNG_JOB'
 
+/** Extraction-first: length of first chunk extracted early (seconds) to reduce TTFW. 10s targets ~5–10s first word. */
+export const EXTRACTION_FIRST_CHUNK_SEC = 10
+
 export interface FFmpegProgress {
   percent: number
   timemark?: string
 }
+
+type FirstChunkCreatedCallback = (durationSec: number) => void
 
 function setupHungProtection(
   cmd: { kill: (signal: string) => unknown },
@@ -172,12 +177,19 @@ export function convertAudioToWav(inputPath: string, outputPath: string): Promis
 /**
  * Split an audio file into fixed-duration chunks (for parallel transcription).
  * Returns paths to chunk files in order. Caller must delete them when done.
+ *
+ * When chunkDurationSec is an array, uses variable durations:
+ * [d0, d1, d2, ...] → chunk_000 covers d0 seconds, chunk_001 covers d1, etc.
  */
 export function splitAudioIntoChunks(
   audioPath: string,
-  chunkDurationSec: number,
-  outputDir: string
+  chunkDurationSec: number | number[],
+  outputDir: string,
+  onFirstChunkCreated?: FirstChunkCreatedCallback
 ): Promise<string[]> {
+  if (Array.isArray(chunkDurationSec)) {
+    return splitAudioIntoVariableChunks(audioPath, chunkDurationSec, outputDir, onFirstChunkCreated)
+  }
   return new Promise((resolve, reject) => {
     const pattern = path.join(outputDir, `chunk_%03d.mp3`)
     const stderrLines: string[] = []
@@ -205,6 +217,51 @@ export function splitAudioIntoChunks(
   })
 }
 
+function splitAudioIntoVariableChunks(
+  audioPath: string,
+  chunkDurationsSec: number[],
+  outputDir: string,
+  onFirstChunkCreated?: FirstChunkCreatedCallback
+): Promise<string[]> {
+  const cumulative: number[] = []
+  let acc = 0
+  for (const d of chunkDurationsSec) {
+    if (!(d > 0)) continue
+    acc += d
+    cumulative.push(acc)
+  }
+  if (cumulative.length === 0) {
+    return Promise.resolve([])
+  }
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true })
+  }
+  const pattern = path.join(outputDir, 'chunk_%03d.mp3')
+  const stderrLines: string[] = []
+  const firstDuration = chunkDurationsSec.find((d) => d > 0) ?? cumulative[0]
+  return new Promise((resolve, reject) => {
+    const opts = cumulative.length === 1
+      ? ['-f', 'segment', '-segment_time', String(cumulative[0]), '-reset_timestamps', '1', '-c', 'copy', '-map', '0']
+      : ['-f', 'segment', '-segment_times', cumulative.slice(0, -1).join(','), '-reset_timestamps', '1', '-c', 'copy', '-map', '0']
+    ffmpeg(audioPath)
+      .outputOptions(opts)
+      .output(pattern)
+      .on('stderr', (line: string) => { stderrLines.push(line) })
+      .on('end', () => {
+        const files = fs.readdirSync(outputDir)
+          .filter((f) => f.startsWith('chunk_') && f.endsWith('.mp3'))
+          .sort()
+        if (onFirstChunkCreated) onFirstChunkCreated(firstDuration)
+        resolve(files.map((f) => path.join(outputDir, f)))
+      })
+      .on('error', (err: Error) => {
+        const stderr = stderrLines.length ? stderrLines.join('\n').trim().slice(-2000) : ''
+        reject(new Error(stderr ? `${err.message}\nffmpeg stderr:\n${stderr}` : err.message))
+      })
+      .run()
+  })
+}
+
 /**
  * Extract audio from video and split into fixed-duration chunks in one ffmpeg pass (PROCESSING_V2).
  * Same chunk duration, format (mp3 16kHz mono), and naming (chunk_000.mp3, ...) as extractAudio + splitAudioIntoChunks.
@@ -212,9 +269,13 @@ export function splitAudioIntoChunks(
  */
 export function extractAndSplitAudio(
   videoPath: string,
-  chunkDurationSec: number,
-  outputDir: string
+  chunkDurationSec: number | number[],
+  outputDir: string,
+  onFirstChunkCreated?: FirstChunkCreatedCallback
 ): Promise<string[]> {
+  if (Array.isArray(chunkDurationSec)) {
+    return extractAndSplitAudioVariable(videoPath, chunkDurationSec, outputDir, onFirstChunkCreated)
+  }
   const pattern = path.join(outputDir, 'chunk_%03d.mp3')
   return new Promise((resolve, reject) => {
     const stderrLines: string[] = []
@@ -245,6 +306,204 @@ export function extractAndSplitAudio(
     const hung = setupHungProtection(cmd, reject)
     cmd.run()
   })
+}
+
+function extractAndSplitAudioVariable(
+  videoPath: string,
+  chunkDurationsSec: number[],
+  outputDir: string,
+  onFirstChunkCreated?: FirstChunkCreatedCallback
+): Promise<string[]> {
+  const cumulative: number[] = []
+  let acc = 0
+  for (const d of chunkDurationsSec) {
+    if (!(d > 0)) continue
+    acc += d
+    cumulative.push(acc)
+  }
+  if (cumulative.length === 0) {
+    return Promise.resolve([])
+  }
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true })
+  }
+  const pattern = path.join(outputDir, 'chunk_%03d.mp3')
+  const stderrLines: string[] = []
+  const firstDuration = chunkDurationsSec.find((d) => d > 0) ?? cumulative[0]
+  return new Promise((resolve, reject) => {
+    const baseOpts = [
+      '-threads', FFMPEG_THREADS,
+      '-vn', '-acodec', 'libmp3lame', '-ar', '16000', '-ac', '1', '-q:a', '5',
+      '-f', 'segment', '-reset_timestamps', '1',
+    ]
+    const segmentOpts = cumulative.length === 1
+      ? ['-segment_time', String(cumulative[0])]
+      : ['-segment_times', cumulative.slice(0, -1).join(',')]
+    const cmd = ffmpeg(videoPath)
+      .inputOptions(getGpuInputOptions())
+      .outputOptions([...baseOpts, ...segmentOpts])
+      .output(pattern)
+      .on('stderr', (line: string) => { stderrLines.push(line) })
+      .on('end', () => {
+        hung.clear()
+        const files = fs.readdirSync(outputDir)
+          .filter((f) => f.startsWith('chunk_') && f.endsWith('.mp3'))
+          .sort()
+        if (onFirstChunkCreated) onFirstChunkCreated(firstDuration)
+        resolve(files.map((f) => path.join(outputDir, f)))
+      })
+      .on('error', (err: Error) => {
+        hung.clear()
+        const stderr = stderrLines.length ? stderrLines.join('\n').trim().slice(-2000) : ''
+        const msg = stderr ? `${err.message}\nffmpeg stderr:\n${stderr}` : err.message
+        reject(new Error(msg))
+      })
+    const hung = setupHungProtection(cmd, reject)
+    cmd.run()
+  })
+}
+
+/**
+ * Result of extraction-first flow: chunk_000 path immediately, promise for chunk_001+.
+ * Used to start transcribing chunk_000 while remaining chunks are extracted in background.
+ */
+export interface ExtractionFirstResult {
+  firstChunkPath: string
+  remainingChunksPromise: Promise<string[]>
+  /** Call to kill background extraction (e.g. on job cancel). No-op if already finished. */
+  killBackground: () => void
+}
+
+/**
+ * Two-stage extraction for TTFW: extract first N seconds to chunk_000, return immediately;
+ * spawn background ffmpeg for remaining audio → chunk_001, chunk_002, ...
+ * chunkDurationsSec[0] is the first chunk duration (use EXTRACTION_FIRST_CHUNK_SEC); rest use DEFAULT_CHUNK_SEC.
+ * If background extraction fails, remainingChunksPromise rejects (caller should fail job).
+ * Optional signal: when aborted, kills background ffmpeg and remainingChunksPromise rejects.
+ */
+export function extractAndSplitAudioExtractionFirst(
+  videoPath: string,
+  chunkDurationsSec: number[],
+  outputDir: string,
+  onFirstChunkCreated?: FirstChunkCreatedCallback,
+  signal?: AbortSignal
+): Promise<ExtractionFirstResult> {
+  if (chunkDurationsSec.length === 0 || !(chunkDurationsSec[0]! > 0)) {
+    return Promise.reject(new Error('extractAndSplitAudioExtractionFirst: chunkDurationsSec must have positive first duration'))
+  }
+  const firstDuration = chunkDurationsSec[0]!
+  const remainingDurations = chunkDurationsSec.slice(1)
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true })
+  }
+  const chunk000Path = path.join(outputDir, 'chunk_000.mp3')
+  const baseOpts = [
+    '-threads', FFMPEG_THREADS,
+    '-vn', '-acodec', 'libmp3lame', '-ar', '16000', '-ac', '1', '-q:a', '5',
+  ]
+
+  // Stage 1: extract first N seconds to chunk_000.mp3, then resolve
+  const stage1Promise = new Promise<string>((resolve, reject) => {
+    const stderrLines: string[] = []
+    const cmd = ffmpeg(videoPath)
+      .inputOptions(getGpuInputOptions())
+      .outputOptions([...baseOpts, '-t', String(firstDuration)])
+      .output(chunk000Path)
+      .on('stderr', (line: string) => { stderrLines.push(line) })
+      .on('end', () => {
+        hung.clear()
+        if (onFirstChunkCreated) onFirstChunkCreated(firstDuration)
+        resolve(chunk000Path)
+      })
+      .on('error', (err: Error) => {
+        hung.clear()
+        const stderr = stderrLines.length ? stderrLines.join('\n').trim().slice(-2000) : ''
+        reject(new Error(stderr ? `${err.message}\nffmpeg stderr:\n${stderr}` : err.message))
+      })
+    const hung = setupHungProtection(cmd, reject)
+    cmd.run()
+  })
+
+  // Stage 2: background extraction from firstDuration to end, split into chunk_001, chunk_002, ...
+  let backgroundCmd: { kill: (signal: string) => unknown } | null = null
+  const remainingChunksPromise = new Promise<string[]>((resolve, reject) => {
+    if (remainingDurations.length === 0) {
+      resolve([])
+      return
+    }
+    const cumulative: number[] = []
+    let acc = 0
+    for (const d of remainingDurations) {
+      if (!(d > 0)) continue
+      acc += d
+      cumulative.push(acc)
+    }
+    if (cumulative.length === 0) {
+      resolve([])
+      return
+    }
+    const segmentOpts = cumulative.length === 1
+      ? ['-segment_time', String(cumulative[0])]
+      : ['-segment_times', cumulative.slice(0, -1).join(',')]
+    const pattern = path.join(outputDir, 'chunk_%03d.mp3')
+    const stderrLines: string[] = []
+    const cmd = ffmpeg(videoPath)
+      .inputOptions(getGpuInputOptions())
+      .inputOptions(['-ss', String(firstDuration)])
+      .outputOptions([
+        ...baseOpts,
+        '-f', 'segment',
+        ...segmentOpts,
+        '-segment_start_number', '1',
+        '-reset_timestamps', '1',
+      ])
+      .output(pattern)
+      .on('stderr', (line: string) => { stderrLines.push(line) })
+      .on('end', () => {
+        hung.clear()
+        backgroundCmd = null
+        const files = fs.readdirSync(outputDir)
+          .filter((f) => f.startsWith('chunk_') && f.endsWith('.mp3'))
+          .sort()
+        const paths = files.map((f) => path.join(outputDir, f)).filter((p) => p !== chunk000Path)
+        resolve(paths)
+      })
+      .on('error', (err: Error) => {
+        hung.clear()
+        backgroundCmd = null
+        const stderr = stderrLines.length ? stderrLines.join('\n').trim().slice(-2000) : ''
+        reject(new Error(stderr ? `${err.message}\nffmpeg stderr:\n${stderr}` : err.message))
+      })
+    backgroundCmd = cmd
+    const hung = setupHungProtection(cmd, reject)
+    cmd.run()
+  })
+
+  const killBackground = () => {
+    if (backgroundCmd) {
+      try {
+        backgroundCmd.kill('SIGKILL')
+      } catch {
+        /* ignore */
+      }
+      backgroundCmd = null
+    }
+  }
+
+  if (signal) {
+    const onAbort = () => {
+      killBackground()
+      // Reject remainingChunksPromise only if we're still waiting
+      // (we can't reject an already-resolved promise; ignore)
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+  }
+
+  return stage1Promise.then((firstChunkPath) => ({
+    firstChunkPath,
+    remainingChunksPromise,
+    killBackground,
+  }))
 }
 
 /** Phase 1B — UTILITY 5B: Style presets (subtitle metadata only). No custom styling editor. */

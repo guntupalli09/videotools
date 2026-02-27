@@ -29,7 +29,7 @@ Run the backend on a Hetzner VM (Docker recommended).
 ### 2.1 Database and Redis
 
 - **Postgres:** Use Hetzner Managed Database (Postgres) or run Postgres in Docker on the same VM. Note the connection string (e.g. `postgresql://user:pass@host:5432/videotext`).
-- **Redis:** Use Hetzner Managed Redis or run Redis in Docker. Note the URL (e.g. `redis://:password@host:6379` or `redis://localhost:6379` if local).
+- **Redis (self‑hosted in Docker):** Run Redis in a container on the same Hetzner server (e.g. via docker-compose). From the API/worker containers, use the Redis service name as host (e.g. `redis://redis:6379`) if they share a Docker network, or `redis://localhost:6379` if Redis is published on the host. With a password: `redis://:YOUR_PASSWORD@redis:6379`.
 
 ### 2.2 Server env (API + worker)
 
@@ -40,9 +40,11 @@ Create a **`.env`** next to `docker-compose.yml` (or set env in your process man
 | `NODE_ENV` | Yes | `production` |
 | `JWT_SECRET` | Yes | Strong random (e.g. `openssl rand -hex 32`). **Never** `dev-secret` in prod. |
 | `DATABASE_URL` | Yes | `postgresql://user:pass@host:5432/videotext` (Hetzner DB or Docker postgres) |
-| `REDIS_URL` | Yes | `redis://:password@host:6379` or `redis://localhost:6379` |
+| `REDIS_URL` | Yes | With Redis in Docker: `redis://redis:6379` (same compose network) or `redis://localhost:6379` (port published). With password: `redis://:pass@redis:6379` |
 | `CORS_ORIGINS` | Yes | Your frontend origin(s), e.g. `https://www.videotext.io` or `https://www.videotext.io,https://videotext.io` |
-| `TEMP_FILE_PATH` | Recommended | `/tmp` (API and worker must share this; same VM or shared volume) |
+| `TEMP_FILE_PATH` | Yes | `/tmp` (API and worker must share this; use shared volume so assembled files are visible to the worker) |
+| `PROCESSING_V2` | Yes (performance) | `true` — extraction-first TTFW (worker) |
+| `STREAM_UPLOAD_ASSEMBLY` | Yes (performance) | `true` — streaming chunk reassembly (API) |
 | `STRIPE_SECRET_KEY` | Yes | Stripe secret key |
 | `STRIPE_WEBHOOK_SECRET` | Yes | Webhook signing secret (endpoint: `https://api.yourdomain.com/api/stripe/webhook`) |
 | Stripe price IDs | Yes | As used in billing (e.g. `STRIPE_PRICE_ID_BASIC`, `STRIPE_PRICE_ID_PRO`, etc.) |
@@ -96,6 +98,7 @@ Optional: `LOG_LEVEL`, `SENTRY_DSN`, `RESEND_API_KEY` / `RESEND_FROM_EMAIL` (for
 | Migrations applied | Automatic on api startup (`prisma migrate deploy`) | |
 | Worker has `DATABASE_URL` (for batch) | docker-compose / env | |
 | API and worker share `TEMP_FILE_PATH` (e.g. volume) | docker-compose | |
+| `PROCESSING_V2=true` and `STREAM_UPLOAD_ASSEMBLY=true` in server `.env` | Hetzner (same perf as dev) | |
 | DNS: api.yourdomain.com → Hetzner; www → Vercel | DNS | |
 
 ---

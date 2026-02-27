@@ -183,6 +183,8 @@ export interface UploadProgressOptions {
   connectionSpeed?: 'fast' | 'medium' | 'slow'
   /** Optional AbortSignal to cancel upload (XHR abort / chunked stop). */
   signal?: AbortSignal
+  /** Optional non-blocking UX: adaptive status messages e.g. "Optimizing connection...", "High-speed mode enabled". */
+  onAdaptiveStatus?: (message: string) => void
 }
 
 const CHUNK_THRESHOLD = 15 * 1024 * 1024 // 15 MB — use chunked upload above this
@@ -191,10 +193,49 @@ const CHUNKED_UPLOAD_STATE_KEY = 'videotools_chunked_upload'
 const SERVER_CHUNK_LIMIT = 10 * 1024 * 1024
 /** Must match server upload route MAX_CHUNKS so totalChunks is accepted. */
 const MAX_CHUNKS = 2000
-/** Prefer smaller chunks so each request completes reliably (avoids proxy/connection timeouts). */
-const PREFERRED_CHUNK_SIZE = 4 * 1024 * 1024 // 4 MB
+/** Prefer larger chunks for fewer round-trips (server accepts up to 10 MB). */
+const PREFERRED_CHUNK_SIZE = 8 * 1024 * 1024 // 8 MB
 const LARGE_FILE_THRESHOLD = 80 * 1024 * 1024 // 80 MB — use conservative chunking above this
 const VERY_LARGE_FILE_THRESHOLD = 400 * 1024 * 1024 // 400 MB — use 1 MB chunks for max reliability
+
+// --- Adaptive upload tuning (additive layer; does not change API or chunk assembly) ---
+const ADAPTIVE_INITIAL_CHUNK_BYTES = 8 * 1024 * 1024   // 8 MB desktop start (fewer round-trips)
+const ADAPTIVE_INITIAL_PARALLEL = 3
+const ADAPTIVE_MOBILE_CHUNK_BYTES = 4 * 1024 * 1024    // 4 MB mobile
+const ADAPTIVE_MOBILE_PARALLEL = 1
+const ADAPTIVE_MAX_CHUNK_BYTES = 10 * 1024 * 1024      // cap 10 MB (server limit)
+const ADAPTIVE_MAX_PARALLEL = 4
+const ADAPTIVE_MOBILE_MAX_PARALLEL = 2
+const ADAPTIVE_CHUNKS_BEFORE_DECIDE = 5
+const ADAPTIVE_ROLLING_WINDOW = 5
+const ADAPTIVE_REEVAL_INTERVAL = 5
+const ADAPTIVE_UPGRADE_MBPS = 25
+const ADAPTIVE_DOWNGRADE_MBPS = 8
+const ADAPTIVE_STALL_MULTIPLIER = 2  // duration > 2x rolling avg = stall
+const ADAPTIVE_JITTER_HIGH_MULTIPLIER = 1.5
+const ADAPTIVE_PREF_KEY = 'videotext_adaptive_chunk_pref'
+
+interface ChunkMetric {
+  startTime: number
+  endTime: number
+  uploadDuration: number
+  effectiveThroughputMbps: number
+  retryCount: number
+  stallDetected: boolean
+}
+
+interface AdaptiveState {
+  chunkSizeBytes: number
+  parallel: number
+  avgThroughput: number
+  retryRate: number
+  jitterScore: number
+  rollingDurations: number[]
+  chunksUploaded: number
+  upgradeLevel: 0 | 1 | 2
+  hasDowngraded: boolean
+  chunkMetrics: ChunkMetric[]
+}
 
 /** Plan max file size (bytes). Mirror of server getPlanLimits(plan).maxFileSize. */
 const PLAN_MAX_FILE_SIZE: Record<string, number> = {
@@ -220,10 +261,10 @@ function isMobile(): boolean {
   return false
 }
 
-/** Probe connection speed via GET /health. Used to pick chunk size and parallelism for desktop chunked upload. */
+/** Probe connection speed via GET /health. Latency as proxy; tuned for high-speed uploads (max chunks, 2 parallel). */
 const PROBE_TIMEOUT_MS = 2_500
-const PROBE_FAST_MS = 400   // under this → fast (10 MB, 4 parallel)
-const PROBE_MEDIUM_MS = 1200 // under this → medium (5 MB, 2 parallel); else slow (2 MB, 1 parallel)
+const PROBE_FAST_MS = 1_000   // under this → fast (10 MB, 2 parallel)
+const PROBE_MEDIUM_MS = 2_000 // under this → medium (10 MB, 2 parallel); else slow (8 MB, 2 parallel)
 const PROBE_CACHE_MS = 30_000
 const USAGE_CACHE_MS = 45_000
 
@@ -343,6 +384,8 @@ async function uploadFileChunked(
   progressOptions?: UploadProgressOptions
 ): Promise<UploadResponse> {
   const uploadStartMs = Date.now()
+  const tl = typeof window !== 'undefined' ? (window as any).__uploadTimeline : undefined
+  if (tl) tl.uploadStart = uploadStartMs
   trackUploadEvent('upload_started', {
     tool_type: options.toolType,
     file_size_bytes: file.size,
@@ -364,42 +407,54 @@ async function uploadFileChunked(
 
   const minChunkForPlan = getMinChunkSizeForPlan(plan)
 
+  // Phase 1: Start with safe defaults. Latency probe is still run and kept for compatibility; adaptive overrides via parallel and future inits.
   const isVeryLarge = file.size > VERY_LARGE_FILE_THRESHOLD
   if (isVeryLarge && !useExistingChunking) {
-    defaultChunkSize = Math.max(1 * 1024 * 1024, minChunkForPlan)
-    chunkParallel = 1
+    defaultChunkSize = Math.max(ADAPTIVE_INITIAL_CHUNK_BYTES, minChunkForPlan)
+    chunkParallel = ADAPTIVE_INITIAL_PARALLEL
   } else if (mobile || devProxy) {
-    defaultChunkSize = Math.max(2 * 1024 * 1024, minChunkForPlan)
-    chunkParallel = 1
-    // Mobile: allow 2 parallel chunks when file > 200MB and network latency is acceptable (safe optimization).
+    defaultChunkSize = Math.max(ADAPTIVE_MOBILE_CHUNK_BYTES, minChunkForPlan)
+    chunkParallel = ADAPTIVE_MOBILE_PARALLEL
+    // Mobile: allow 2 parallel when file > 200MB and latency is acceptable (unchanged; cap at ADAPTIVE_MOBILE_MAX_PARALLEL).
     if (mobile && file.size > 200 * 1024 * 1024 && !useExistingChunking && !isVeryLarge) {
       const speed = progressOptions?.connectionSpeed ?? (await measureConnectionSpeed())
-      if (speed === 'fast' || speed === 'medium') chunkParallel = 2
+      if (speed === 'fast' || speed === 'medium') chunkParallel = Math.min(2, ADAPTIVE_MOBILE_MAX_PARALLEL)
     }
   } else if (useExistingChunking) {
-    defaultChunkSize = existing!.chunkSize ?? Math.max(PREFERRED_CHUNK_SIZE, minChunkForPlan)
-    chunkParallel = 2
+    defaultChunkSize = existing!.chunkSize ?? Math.max(ADAPTIVE_INITIAL_CHUNK_BYTES, minChunkForPlan)
+    chunkParallel = ADAPTIVE_INITIAL_PARALLEL
   } else {
-    const speed = progressOptions?.connectionSpeed ?? (await measureConnectionSpeed())
-    if (speed === 'fast') {
-      defaultChunkSize = Math.max(PREFERRED_CHUNK_SIZE, minChunkForPlan)
-      chunkParallel = 2
-    } else if (speed === 'medium') {
-      defaultChunkSize = Math.max(3 * 1024 * 1024, minChunkForPlan)
-      chunkParallel = 2
-    } else {
-      defaultChunkSize = Math.max(2 * 1024 * 1024, minChunkForPlan)
-      chunkParallel = 1
-    }
+    // Safe initial values; latency probe still run for backward compatibility / future use.
+    void (progressOptions?.connectionSpeed ?? measureConnectionSpeed())
+    defaultChunkSize = Math.max(ADAPTIVE_INITIAL_CHUNK_BYTES, minChunkForPlan)
+    chunkParallel = ADAPTIVE_INITIAL_PARALLEL
   }
 
   const isLargeFile = file.size > LARGE_FILE_THRESHOLD
   if (isLargeFile && !useExistingChunking && !isVeryLarge) {
-    defaultChunkSize = Math.max(3 * 1024 * 1024, minChunkForPlan)
-    chunkParallel = 2
+    defaultChunkSize = Math.max(ADAPTIVE_INITIAL_CHUNK_BYTES, minChunkForPlan)
+    chunkParallel = ADAPTIVE_INITIAL_PARALLEL
+  }
+
+  // If a previous upload successfully upgraded chunk size, apply that preference BEFORE init for new desktop uploads.
+  if (!useExistingChunking && !mobile) {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const stored = localStorage.getItem(ADAPTIVE_PREF_KEY)
+        if (stored) {
+          const parsed = JSON.parse(stored) as { chunkSizeBytes?: number }
+          if (parsed?.chunkSizeBytes && parsed.chunkSizeBytes > defaultChunkSize) {
+            defaultChunkSize = Math.min(parsed.chunkSizeBytes, ADAPTIVE_MAX_CHUNK_BYTES, SERVER_CHUNK_LIMIT)
+          }
+        }
+      }
+    } catch {
+      // ignore preference errors
+    }
   }
 
   defaultChunkSize = Math.min(defaultChunkSize, SERVER_CHUNK_LIMIT)
+  defaultChunkSize = Math.min(defaultChunkSize, ADAPTIVE_MAX_CHUNK_BYTES)
 
   if (devProxy && file.size > 100 * 1024 * 1024 && typeof console !== 'undefined' && console.warn) {
     console.warn(
@@ -454,10 +509,27 @@ async function uploadFileChunked(
     progressOptions?.onProgress?.(0)
   }
 
-  const uploadChunk = async (chunkIndex: number): Promise<void> => {
-    const start = chunkIndex * chunkSize
-    const end = Math.min(start + chunkSize, file.size)
-    const blob = file.slice(start, end)
+  // Adaptive state: tracks metrics and conservative upgrades/downgrades for CDN-grade behavior.
+  const adaptiveState: AdaptiveState = {
+    chunkSizeBytes: chunkSize,
+    parallel: chunkParallel,
+    avgThroughput: 0,
+    retryRate: 0,
+    jitterScore: 0,
+    rollingDurations: [],
+    chunksUploaded: 0,
+    upgradeLevel: 0,
+    hasDowngraded: false,
+    chunkMetrics: [],
+  }
+  let currentParallel = chunkParallel
+
+  const uploadChunk = async (chunkIndex: number): Promise<ChunkMetric> => {
+    const startByte = chunkIndex * chunkSize
+    const endByte = Math.min(startByte + chunkSize, file.size)
+    const blob = file.slice(startByte, endByte)
+    const chunkStartTime = performance.now()
+    let retryCount = 0
     for (let attempt = 0; attempt < maxChunkRetries; attempt++) {
       if (signal?.aborted) throw new Error('Upload cancelled')
       try {
@@ -481,8 +553,14 @@ async function uploadFileChunked(
         clearTimeout(timeoutId)
         if (!res.ok) {
           const err = await res.json().catch(() => ({ message: 'Chunk upload failed' }))
-          throw new Error(err.message || 'Chunk upload failed')
+          const msg = err.message || 'Chunk upload failed'
+          if (res.status === 404 && /session not found|expired/i.test(String(msg))) {
+            clearChunkedUploadState()
+            throw new Error('Upload session expired. Please refresh and try again from the start.')
+          }
+          throw new Error(msg)
         }
+        const chunkEndTime = performance.now()
         uploadedChunks.push(chunkIndex)
         setChunkedUploadState({
           uploadId,
@@ -492,9 +570,20 @@ async function uploadFileChunked(
           uploadedChunks: [...uploadedChunks],
           chunkSize,
         })
-        return
+        const uploadDuration = chunkEndTime - chunkStartTime
+        const chunkSizeBits = (endByte - startByte) * 8
+        const effectiveThroughputMbps = uploadDuration > 0 ? (chunkSizeBits / 1e6) / (uploadDuration / 1000) : 0
+        return {
+          startTime: chunkStartTime,
+          endTime: chunkEndTime,
+          uploadDuration,
+          effectiveThroughputMbps,
+          retryCount,
+          stallDetected: false, // set by caller from rolling avg
+        }
       } catch (e) {
         if (e instanceof Error && e.name === 'AbortError') throw new Error('Upload cancelled')
+        retryCount = attempt + 1
         if (attempt < maxChunkRetries - 1) {
           await new Promise((r) => setTimeout(r, getRetryDelayMs(attempt)))
         } else {
@@ -506,19 +595,143 @@ async function uploadFileChunked(
         }
       }
     }
+    throw new Error('Chunk upload failed')
+  }
+
+  function rollingAvgDuration(metrics: ChunkMetric[]): number {
+    if (metrics.length === 0) return 0
+    const sum = metrics.reduce((a, m) => a + m.uploadDuration, 0)
+    return sum / metrics.length
+  }
+
+  function computeStdDev(values: number[]): { mean: number; stdDev: number } {
+    if (values.length === 0) return { mean: 0, stdDev: 0 }
+    const mean = values.reduce((a, v) => a + v, 0) / values.length
+    const variance = values.reduce((a, v) => a + Math.pow(v - mean, 2), 0) / values.length
+    return { mean, stdDev: Math.sqrt(variance) }
+  }
+
+  function runAdaptiveDecisionEngine(): void {
+    if (adaptiveState.chunksUploaded < ADAPTIVE_CHUNKS_BEFORE_DECIDE) return
+    if (adaptiveState.chunksUploaded % ADAPTIVE_REEVAL_INTERVAL !== 0) return
+
+    const m = adaptiveState.chunkMetrics
+    if (m.length === 0) return
+
+    const avgThroughput = m.reduce((a, x) => a + x.effectiveThroughputMbps, 0) / m.length
+    const totalRetries = m.reduce((a, x) => a + x.retryCount, 0)
+    const retryRate = m.length > 0 ? totalRetries / m.length : 0
+    const anyStall = m.some((x) => x.stallDetected)
+
+    const { mean: meanDuration, stdDev } = computeStdDev(adaptiveState.rollingDurations)
+    const jitterScore = stdDev
+    const jitterHigh = meanDuration > 0 && stdDev > ADAPTIVE_JITTER_HIGH_MULTIPLIER * meanDuration
+
+    adaptiveState.avgThroughput = avgThroughput
+    adaptiveState.retryRate = retryRate
+    adaptiveState.jitterScore = jitterScore
+
+    const shouldDowngrade =
+      retryRate > 0 || anyStall || avgThroughput < ADAPTIVE_DOWNGRADE_MBPS || jitterHigh
+
+    if (shouldDowngrade) {
+      if (currentParallel !== 1) {
+        currentParallel = 1
+        adaptiveState.parallel = 1
+        adaptiveState.upgradeLevel = 0
+        adaptiveState.hasDowngraded = true
+        if (typeof console !== 'undefined' && console.log) {
+          console.log('[VideoText] Adaptive: congestion control engaged')
+        }
+        progressOptions?.onAdaptiveStatus?.('Stabilizing connection...')
+      }
+      return
+    }
+
+    // Once downgraded, do not upgrade again in the same upload session.
+    if (adaptiveState.hasDowngraded) {
+      return
+    }
+
+    if (
+      !mobile &&
+      avgThroughput > ADAPTIVE_UPGRADE_MBPS &&
+      retryRate === 0 &&
+      !anyStall &&
+      !jitterHigh
+    ) {
+      if (adaptiveState.upgradeLevel === 0) {
+        // Phase 1 upgrade: increase preferred chunk size to 8 MB for future uploads (before init only).
+        adaptiveState.upgradeLevel = 1
+        adaptiveState.chunkSizeBytes = Math.min(ADAPTIVE_MAX_CHUNK_BYTES, SERVER_CHUNK_LIMIT)
+        try {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(
+              ADAPTIVE_PREF_KEY,
+              JSON.stringify({ chunkSizeBytes: adaptiveState.chunkSizeBytes })
+            )
+          }
+        } catch {
+          // ignore preference errors
+        }
+        if (typeof console !== 'undefined' && console.log) {
+          console.log('[VideoText] Adaptive: increased chunk size')
+        }
+        progressOptions?.onAdaptiveStatus?.('Optimizing connection...')
+      } else if (adaptiveState.upgradeLevel === 1) {
+        // Phase 2 upgrade: step to high-speed parallel mode.
+        const nextParallel = ADAPTIVE_MAX_PARALLEL
+        if (nextParallel > currentParallel) {
+          currentParallel = nextParallel
+          adaptiveState.parallel = currentParallel
+          adaptiveState.upgradeLevel = 2
+          if (typeof console !== 'undefined' && console.log) {
+            console.log('[VideoText] Adaptive: high-speed parallel mode')
+          }
+          progressOptions?.onAdaptiveStatus?.('High-speed mode enabled')
+        }
+      }
+    }
+
+    if (mobile && currentParallel > ADAPTIVE_MOBILE_MAX_PARALLEL) {
+      currentParallel = ADAPTIVE_MOBILE_MAX_PARALLEL
+      adaptiveState.parallel = currentParallel
+    }
   }
 
   const indicesToUpload = Array.from({ length: totalChunks }, (_, i) => i).filter((i) => !uploadedChunks.includes(i))
   let done = uploadedChunks.length
-  for (let i = 0; i < indicesToUpload.length; i += chunkParallel) {
+  progressOptions?.onAdaptiveStatus?.('Optimizing connection...')
+
+  let i = 0
+  while (i < indicesToUpload.length) {
     if (signal?.aborted) throw new Error('Upload cancelled')
-    const batch = indicesToUpload.slice(i, i + chunkParallel).map((chunkIndex) => uploadChunk(chunkIndex))
-    await Promise.all(batch)
+    const batchSize = Math.min(currentParallel, indicesToUpload.length - i)
+    const batch = indicesToUpload.slice(i, i + batchSize).map((chunkIndex) => uploadChunk(chunkIndex))
+    const results = await Promise.all(batch)
+    const prevAvg = rollingAvgDuration(adaptiveState.chunkMetrics)
+    for (const metric of results) {
+      const stallDetected = prevAvg > 0 && metric.uploadDuration > ADAPTIVE_STALL_MULTIPLIER * prevAvg
+      const withStall: ChunkMetric = { ...metric, stallDetected }
+      adaptiveState.chunkMetrics.push(withStall)
+      if (adaptiveState.chunkMetrics.length > ADAPTIVE_ROLLING_WINDOW) {
+        adaptiveState.chunkMetrics.shift()
+      }
+      adaptiveState.rollingDurations.push(withStall.uploadDuration)
+      if (adaptiveState.rollingDurations.length > ADAPTIVE_ROLLING_WINDOW) {
+        adaptiveState.rollingDurations.shift()
+      }
+      adaptiveState.chunksUploaded += 1
+    }
+    runAdaptiveDecisionEngine()
     done += batch.length
     progressOptions?.onProgress?.(Math.round((done / totalChunks) * 100))
+    i += batchSize
   }
 
   if (signal?.aborted) throw new Error('Upload cancelled')
+  if (tl) tl.upload100 = Date.now()
+  if (tl) tl.beforeComplete = Date.now()
   const completeRes = await api('/api/upload/complete', {
     method: 'POST',
     headers: {
@@ -528,9 +741,17 @@ async function uploadFileChunked(
     },
     body: JSON.stringify({ uploadId }),
   })
+  if (tl) tl.uploadCompleteResponse = Date.now()
   if (!completeRes.ok) {
     const err = await completeRes.json().catch(() => ({ message: 'Upload complete failed' }))
-    throw new Error(err.message || 'Upload complete failed')
+    const msg = err.message || 'Upload complete failed'
+    if (completeRes.status === 400 && /Missing chunk/i.test(String(msg))) {
+      clearChunkedUploadState()
+      throw new Error(
+        msg + ' Your progress was cleared. Please try again from the start (refresh the page if needed).'
+      )
+    }
+    throw new Error(msg)
   }
   const data = (await completeRes.json()) as UploadResponse
   if (!data?.jobId) throw new Error('Invalid upload response. Please retry.')
@@ -576,6 +797,7 @@ export function uploadFileWithProgress(
     new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest()
       let uploadStartMs = 0
+      const tl = typeof window !== 'undefined' ? (window as any).__uploadTimeline : undefined
 
       if (signal?.aborted) {
         reject(new Error('Upload cancelled'))
@@ -589,6 +811,7 @@ export function uploadFileWithProgress(
       xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable && progressOptions?.onProgress) {
           progressOptions.onProgress(Math.round((e.loaded / e.total) * 100))
+          if (e.loaded >= e.total && tl) tl.upload100 = Date.now()
         }
       })
 
@@ -606,6 +829,7 @@ export function uploadFileWithProgress(
           return
         }
         if (xhr.status >= 200 && xhr.status < 300 && data?.jobId) {
+          if (tl) tl.uploadCompleteResponse = Date.now()
           const uploadDurationMs = uploadStartMs ? Date.now() - uploadStartMs : 0
           trackUploadEvent('upload_completed', {
             job_id: data.jobId,
@@ -977,6 +1201,7 @@ export function subscribeJobStatus(
   let stopped = false
   let eventSource: EventSource | null = null
   let pollTimer: ReturnType<typeof setInterval> | null = null
+  let firstMessage = true
 
   const stop = () => {
     stopped = true
@@ -1017,6 +1242,11 @@ export function subscribeJobStatus(
     eventSource = es
     es.onmessage = (e) => {
       if (stopped) return
+      if (firstMessage) {
+        firstMessage = false
+        const tl = typeof window !== 'undefined' ? (window as any).__uploadTimeline : undefined
+        if (tl) tl.firstSseMessage = Date.now()
+      }
       try {
         const payload = JSON.parse(e.data) as JobStatus
         onStatus(payload)

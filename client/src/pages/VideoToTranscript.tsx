@@ -122,6 +122,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   /** Phase 6: when we first show partial transcript (for min stream visibility delay). */
   const partialFirstSeenAtRef = useRef<number | null>(null)
   const minStreamDelayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const uploadTimelineFirstRenderLoggedRef = useRef(false)
   const [partialSegments, setPartialSegments] = useState<{ start: number; end: number; text: string; speaker?: string }[]>([])
   /** Free plan: number of export downloads used for this transcript (max 2, with watermark). */
   const [freeExportsUsed, setFreeExportsUsed] = useState(0)
@@ -136,6 +137,27 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   useEffect(() => {
     setFreeExportsUsed(0)
   }, [result?.downloadUrl])
+
+  // Upload-to-first-word timeline: log firstRender when partialSegments first paints
+  useEffect(() => {
+    if (partialSegments.length === 0 || uploadTimelineFirstRenderLoggedRef.current) return
+    uploadTimelineFirstRenderLoggedRef.current = true
+    requestAnimationFrame(() => {
+      const t = typeof window !== 'undefined' ? (window as any).__uploadTimeline : undefined
+      if (t) t.firstRender = Date.now()
+      if (t) {
+        console.log('[UPLOAD_TIMELINE]', {
+          uploadStart: t.uploadStart,
+          upload100: t.upload100,
+          uploadCompleteResponse: t.uploadCompleteResponse,
+          sseStart: t.sseStart,
+          firstSseMessage: t.firstSseMessage,
+          firstPartialReceived: t.firstPartialReceived,
+          firstRender: t.firstRender,
+        })
+      }
+    })
+  }, [partialSegments.length])
 
   // Instant file preview (browser only); persists through upload + processing
   useEffect(() => {
@@ -283,9 +305,12 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
           clearPersistedJobId(pathname, navigate)
           return
         }
-        if (jobStatus.status === 'processing' && jobStatus.partialVersion != null && jobStatus.partialVersion > lastPartialVersionRef.current) {
-          lastPartialVersionRef.current = jobStatus.partialVersion
-          if (jobStatus.partialSegments?.length) setPartialSegments(jobStatus.partialSegments)
+        if (jobStatus.status === 'processing' && jobStatus.partialSegments?.length) {
+          const version = jobStatus.partialVersion ?? 0
+          if (version > lastPartialVersionRef.current || lastPartialVersionRef.current === 0) {
+            lastPartialVersionRef.current = Math.max(version, lastPartialVersionRef.current)
+            setPartialSegments(jobStatus.partialSegments)
+          }
         }
         // Resume polling for queued/processing
         setStatus('processing')
@@ -340,9 +365,12 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
               setStatus('failed')
               toast.error('Processing failed. Please try again.')
               clearPersistedJobId(pathname, navigate)
-            } else if (s.status === 'processing' && s.partialVersion != null && s.partialVersion > lastPartialVersionRef.current) {
-              lastPartialVersionRef.current = s.partialVersion
-              if (s.partialSegments?.length) setPartialSegments(s.partialSegments)
+            } else if (s.status === 'processing' && s.partialSegments?.length) {
+              const version = s.partialVersion ?? 0
+              if (version > lastPartialVersionRef.current || lastPartialVersionRef.current === 0) {
+                lastPartialVersionRef.current = Math.max(version, lastPartialVersionRef.current)
+                setPartialSegments(s.partialSegments)
+              }
             }
           } catch (err) {
             if (err instanceof SessionExpiredError) {
@@ -523,6 +551,9 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
       setUploadPhase('uploading')
       trackEvent('processing_started', { tool: 'video-to-transcript' })
 
+      if (typeof window !== 'undefined') (window as any).__uploadTimeline = {}
+      if (typeof window !== 'undefined') (window as any).__uploadTimeline.uploadStart = Date.now()
+      uploadTimelineFirstRenderLoggedRef.current = false
       const response = await uploadFileWithProgress(
         selectedFile,
         baseOptions,
@@ -533,6 +564,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
         }
       )
 
+      const tl = typeof window !== 'undefined' ? (window as any).__uploadTimeline : undefined
       uploadAbortRef.current = null
       setCurrentJobId(response.jobId)
       persistJobId(location.pathname, response.jobId, response.jobToken)
@@ -657,6 +689,8 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
         } else if (jobStatus.status === 'processing' && jobStatus.partialVersion != null && jobStatus.partialVersion > lastPartialVersionRef.current) {
           lastPartialVersionRef.current = jobStatus.partialVersion
           if (jobStatus.partialSegments?.length) {
+            const t = typeof window !== 'undefined' ? (window as any).__uploadTimeline : undefined
+            if (t && t.firstPartialReceived == null) t.firstPartialReceived = Date.now()
             if (partialFirstSeenAtRef.current === null) partialFirstSeenAtRef.current = Date.now()
             setPartialSegments(jobStatus.partialSegments)
           }
@@ -683,6 +717,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
         }
       }
       pollConsecutiveNetworkErrorsRef.current = 0
+      if (tl) tl.sseStart = Date.now()
       doPoll().then(() => {
         if (terminalRef.current) return
         activeUploadPollRef.current = subscribeJobStatus(response.jobId, jobToken ? { jobToken } : undefined, handleJobStatus)

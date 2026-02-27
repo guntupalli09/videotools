@@ -3,7 +3,7 @@ import OpenAI, { toFile } from 'openai'
 import pLimit from 'p-limit'
 import fs from 'fs'
 import path from 'path'
-import { convertAudioToWav, extractAudio, extractAudioToWav, extractAndSplitAudio, getVideoDuration, splitAudioIntoChunks } from './ffmpeg'
+import { convertAudioToWav, extractAudio, extractAudioToWav, extractAndSplitAudio, extractAndSplitAudioExtractionFirst, EXTRACTION_FIRST_CHUNK_SEC, getVideoDuration, splitAudioIntoChunks } from './ffmpeg'
 import { PROCESSING_V2 } from '../utils/featureFlags'
 import { toSRT, toVTT } from '../utils/srtParser'
 import type { SubtitleEntry } from '../utils/srtParser'
@@ -18,10 +18,39 @@ if (!process.env.OPENAI_API_KEY) {
   console.warn('Warning: OPENAI_API_KEY not set. Transcription will fail.')
 }
 
-/** Use parallel chunked transcription for videos this long or longer (seconds). */
-const PARALLEL_THRESHOLD_SEC = 150
-/** Duration of each chunk for parallel transcription (seconds). Whisper limit 25MB; ~3 min mono 16kHz is safe. */
-const CHUNK_DURATION_SEC = 180
+/** Use parallel chunked transcription for videos this long or longer (seconds). Lower = more videos get TTFW. */
+const PARALLEL_THRESHOLD_SEC = 10
+/** Front-loaded chunk profile for parallel transcription (seconds). Shorter first = faster first partial. */
+const FIRST_CHUNK_SEC = 10
+const SECOND_CHUNK_SEC = 30
+/** Default back-half chunk duration (formerly 180). */
+const DEFAULT_CHUNK_SEC = 150
+
+/** Chunk durations for extraction-first (PROCESSING_V2): first chunk 20s, rest DEFAULT_CHUNK_SEC. Preserves time offsets. */
+function buildChunkDurationsExtractionFirst(totalDurationSec: number): number[] {
+  if (!Number.isFinite(totalDurationSec) || totalDurationSec <= 0) {
+    return [EXTRACTION_FIRST_CHUNK_SEC]
+  }
+  const durations: number[] = []
+  let remaining = totalDurationSec
+  if (remaining <= EXTRACTION_FIRST_CHUNK_SEC) {
+    durations.push(remaining)
+    return durations
+  }
+  durations.push(EXTRACTION_FIRST_CHUNK_SEC)
+  remaining -= EXTRACTION_FIRST_CHUNK_SEC
+  while (remaining > 0) {
+    if (remaining <= DEFAULT_CHUNK_SEC) {
+      durations.push(remaining)
+      break
+    }
+    durations.push(DEFAULT_CHUNK_SEC)
+    remaining -= DEFAULT_CHUNK_SEC
+  }
+  return durations
+}
+/** Legacy constant retained for safety; used as fallback when duration is unknown. */
+const CHUNK_DURATION_SEC = DEFAULT_CHUNK_SEC
 /** Max concurrent Whisper API calls in parallel path (env MAX_WHISPER_CONCURRENCY, default 4). */
 const MAX_WHISPER_CONCURRENCY = Math.max(1, Math.min(16, parseInt(process.env.MAX_WHISPER_CONCURRENCY || '4', 10)))
 
@@ -137,6 +166,41 @@ function mergeContiguousSegments(
   return deduped.slice(0, PARTIAL_SEGMENTS_CAP)
 }
 
+function buildChunkDurations(totalDurationSec: number): number[] {
+  if (!Number.isFinite(totalDurationSec) || totalDurationSec <= 0) {
+    return [CHUNK_DURATION_SEC]
+  }
+  const durations: number[] = []
+  let remaining = totalDurationSec
+
+  // First chunk
+  if (remaining <= FIRST_CHUNK_SEC) {
+    durations.push(remaining)
+    return durations
+  }
+  durations.push(FIRST_CHUNK_SEC)
+  remaining -= FIRST_CHUNK_SEC
+
+  // Second chunk
+  if (remaining <= SECOND_CHUNK_SEC) {
+    durations.push(remaining)
+    return durations
+  }
+  durations.push(SECOND_CHUNK_SEC)
+  remaining -= SECOND_CHUNK_SEC
+
+  // Tail chunks
+  while (remaining > 0) {
+    if (remaining <= DEFAULT_CHUNK_SEC) {
+      durations.push(remaining)
+      break
+    }
+    durations.push(DEFAULT_CHUNK_SEC)
+    remaining -= DEFAULT_CHUNK_SEC
+  }
+  return durations
+}
+
 /** Parallel path: extract audio (or use path as audio when isAlreadyAudio), split into chunks, transcribe in parallel, merge segments. */
 async function transcribeVideoParallel(
   videoPath: string,
@@ -145,7 +209,17 @@ async function transcribeVideoParallel(
   isAlreadyAudio?: boolean,
   onPartial?: (segments: WhisperSegment[]) => void,
   onChunkProgress?: (contiguousChunks: number, totalChunks: number) => void,
-  jobId?: string | number
+  jobId?: string | number,
+  opts?: {
+    totalDurationSec?: number
+    /** When aborted, kills background extraction (extraction-first path). No-op if job does not support cancel. */
+    signal?: AbortSignal
+    metrics?: {
+      onExtractionStart?: () => void
+      onFirstChunkCreated?: (durationSec: number) => void
+      onFirstChunkTranscriptionStart?: () => void
+    }
+  }
 ): Promise<{ text: string; segments: WhisperSegment[] }> {
   const tempDir = path.dirname(videoPath)
   const audioPath = isAlreadyAudio ? videoPath : path.join(tempDir, `audio-${Date.now()}.mp3`)
@@ -153,22 +227,129 @@ async function transcribeVideoParallel(
   let extractAudioMs: number | undefined
   let chunkSplitMs: number | undefined
   let extractAndSplitMs: number | undefined
+  let extractionFirstChunkMs: number | undefined
+  let firstPartialMs: number | undefined
+  let fullExtractionMs: number | undefined
+  let killBackgroundExtraction: (() => void) | undefined
+  let chunkOutputDir: string | undefined
   try {
     const phaseStart = Date.now()
+    const totalDurationSec = opts?.totalDurationSec
+    const metrics = opts?.metrics
+    const useExtractionFirst =
+      PROCESSING_V2 &&
+      typeof totalDurationSec === 'number' &&
+      totalDurationSec > EXTRACTION_FIRST_CHUNK_SEC
+    const chunkDurations =
+      typeof totalDurationSec === 'number' && totalDurationSec > 0
+        ? useExtractionFirst
+          ? buildChunkDurationsExtractionFirst(totalDurationSec)
+          : buildChunkDurations(totalDurationSec)
+        : [CHUNK_DURATION_SEC]
+    chunkOutputDir = path.join(tempDir, `chunks-${String(jobId ?? 'noid')}-${Date.now()}`)
+    fs.mkdirSync(chunkOutputDir, { recursive: true })
+    metrics?.onExtractionStart?.()
     if (isAlreadyAudio) {
-      chunkPaths = await splitAudioIntoChunks(audioPath, CHUNK_DURATION_SEC, tempDir)
+      chunkPaths = await splitAudioIntoChunks(audioPath, chunkDurations, chunkOutputDir, metrics?.onFirstChunkCreated)
       chunkSplitMs = Date.now() - phaseStart
+    } else if (useExtractionFirst) {
+      const extractionResult = await extractAndSplitAudioExtractionFirst(
+        videoPath,
+        chunkDurations,
+        chunkOutputDir,
+        metrics?.onFirstChunkCreated,
+        opts?.signal
+      )
+      killBackgroundExtraction = extractionResult.killBackground
+      extractionFirstChunkMs = Date.now() - phaseStart
+      chunkPaths = [extractionResult.firstChunkPath]
+      metrics?.onFirstChunkTranscriptionStart?.()
+      const chunk0Promise = transcribeChunkVerbose(extractionResult.firstChunkPath, 0, language, prompt)
+      const restPathsPromise = extractionResult.remainingChunksPromise
+      const chunk0Segs = await chunk0Promise
+      if (onPartial && chunk0Segs.length > 0) {
+        firstPartialMs = Date.now() - phaseStart
+        onPartial(mergeContiguousSegments([chunk0Segs], 0))
+      }
+      const restPaths = await restPathsPromise
+      fullExtractionMs = Date.now() - phaseStart
+      chunkPaths = [extractionResult.firstChunkPath, ...restPaths]
+      extractAndSplitMs = Date.now() - phaseStart
+      const offsets: number[] = []
+      let acc = 0
+      for (let i = 0; i < chunkPaths.length; i++) {
+        offsets.push(acc)
+        const dur = chunkDurations[i] ?? DEFAULT_CHUNK_SEC
+        acc += dur
+      }
+      const resultsByIndex: (WhisperSegment[] | undefined)[] = new Array(chunkPaths.length)
+      let lastContiguousK = -1
+      resultsByIndex[0] = chunk0Segs
+      if (chunk0Segs.length > 0) {
+        lastContiguousK = 0
+        if (firstPartialMs == null) firstPartialMs = Date.now() - phaseStart
+      }
+      if (onChunkProgress) onChunkProgress(1, chunkPaths.length)
+      const whisperStartMs = Date.now()
+      const limit = pLimit(MAX_WHISPER_CONCURRENCY)
+      const rest = await Promise.all(
+        chunkPaths.slice(1).map((chunkPath, idx) => {
+          const i = idx + 1
+          return limit(() =>
+            transcribeChunkVerbose(chunkPath, offsets[i] || 0, language, prompt).then((segs) => {
+              resultsByIndex[i] = segs
+              if (onPartial) {
+                let k = 0
+                while (k < resultsByIndex.length && resultsByIndex[k] !== undefined) k++
+                k--
+                if (k >= 0 && k > lastContiguousK) {
+                  lastContiguousK = k
+                  if (firstPartialMs == null) firstPartialMs = Date.now() - phaseStart
+                  const partial = mergeContiguousSegments(resultsByIndex, k)
+                  if (partial.length > 0) onPartial(partial)
+                  if (onChunkProgress) onChunkProgress(k + 1, chunkPaths.length)
+                }
+              }
+              return segs
+            })
+          )
+        })
+      )
+      const results = [chunk0Segs, ...rest]
+      const whisperTotalMs = Date.now() - whisperStartMs
+      if (jobId != null) {
+        transcriptionLog.info({
+          msg: 'transcription_timing',
+          jobId: String(jobId),
+          extraction_first_chunk_ms: extractionFirstChunkMs,
+          first_partial_ms: firstPartialMs,
+          full_extraction_ms: fullExtractionMs,
+          extractAndSplitMs,
+          whisperTotalMs,
+        })
+      }
+      const segments = results.flat().sort((a, b) => a.start - b.start)
+      const text = segments.map((s) => s.text).filter(Boolean).join(' ')
+      return { text, segments }
     } else if (PROCESSING_V2) {
-      chunkPaths = await extractAndSplitAudio(videoPath, CHUNK_DURATION_SEC, tempDir)
+      chunkPaths = await extractAndSplitAudio(videoPath, chunkDurations, chunkOutputDir, metrics?.onFirstChunkCreated)
       extractAndSplitMs = Date.now() - phaseStart
     } else {
       await extractAudio(videoPath, audioPath)
       extractAudioMs = Date.now() - phaseStart
       const splitStart = Date.now()
-      chunkPaths = await splitAudioIntoChunks(audioPath, CHUNK_DURATION_SEC, tempDir)
+      chunkPaths = await splitAudioIntoChunks(audioPath, chunkDurations, chunkOutputDir, metrics?.onFirstChunkCreated)
       chunkSplitMs = Date.now() - splitStart
     }
-    const offsetStep = CHUNK_DURATION_SEC
+    const offsets: number[] = []
+    {
+      let acc = 0
+      for (let i = 0; i < chunkPaths.length; i++) {
+        offsets.push(acc)
+        const dur = chunkDurations[i] ?? DEFAULT_CHUNK_SEC
+        acc += dur
+      }
+    }
     const resultsByIndex: (WhisperSegment[] | undefined)[] = new Array(chunkPaths.length)
     let lastContiguousK = -1
 
@@ -177,7 +358,8 @@ async function transcribeVideoParallel(
 
     // TTFW: Prioritize chunk 0 — run it first and emit first partial immediately when it completes.
     // Then run remaining chunks with limit (MAX_WHISPER_CONCURRENCY respected).
-    const chunk0Segs = await transcribeChunkVerbose(chunkPaths[0], 0 * offsetStep, language, prompt)
+    metrics?.onFirstChunkTranscriptionStart?.()
+    const chunk0Segs = await transcribeChunkVerbose(chunkPaths[0], offsets[0] || 0, language, prompt)
     resultsByIndex[0] = chunk0Segs
     if (onPartial && chunk0Segs.length > 0) {
       lastContiguousK = 0
@@ -190,7 +372,7 @@ async function transcribeVideoParallel(
       chunkPaths.slice(1).map((chunkPath, idx) => {
         const i = idx + 1
         return limit(() =>
-          transcribeChunkVerbose(chunkPath, i * offsetStep, language, prompt).then((segs) => {
+          transcribeChunkVerbose(chunkPath, offsets[i] || 0, language, prompt).then((segs) => {
             resultsByIndex[i] = segs
             if (onPartial) {
               let k = 0
@@ -224,6 +406,20 @@ async function transcribeVideoParallel(
     const text = segments.map((s) => s.text).filter(Boolean).join(' ')
     return { text, segments }
   } finally {
+    if (killBackgroundExtraction) {
+      killBackgroundExtraction()
+      if (chunkOutputDir && chunkPaths.length <= 1) {
+        try {
+          for (const f of fs.readdirSync(chunkOutputDir)) {
+            if (f.startsWith('chunk_') && f.endsWith('.mp3')) {
+              fs.unlinkSync(path.join(chunkOutputDir, f))
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+    }
     if (!isAlreadyAudio && !PROCESSING_V2) {
       try {
         if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath)
@@ -234,6 +430,15 @@ async function transcribeVideoParallel(
         if (fs.existsSync(p)) fs.unlinkSync(p)
       } catch {}
     })
+    if (chunkOutputDir) {
+      try {
+        if (fs.existsSync(chunkOutputDir) && fs.readdirSync(chunkOutputDir).length === 0) {
+          fs.rmdirSync(chunkOutputDir)
+        }
+      } catch {
+        /* ignore */
+      }
+    }
   }
 }
 
@@ -295,7 +500,9 @@ export async function transcribeVideo(
       throw error
     }
   }
-  const { text, segments } = await transcribeVideoParallel(videoPath, language, prompt, isAlreadyAudio)
+  const { text, segments } = await transcribeVideoParallel(videoPath, language, prompt, isAlreadyAudio, undefined, undefined, undefined, {
+    totalDurationSec: durationSec,
+  })
   if (responseFormat === 'text') return text
   const entries: SubtitleEntry[] = segments.map((s, i) => ({
     index: i + 1,
@@ -318,7 +525,12 @@ export async function transcribeVideoVerbose(
   isAlreadyAudio?: boolean,
   onPartial?: (segments: WhisperSegment[]) => void,
   onChunkProgress?: (contiguousChunks: number, totalChunks: number) => void,
-  jobId?: string | number
+  jobId?: string | number,
+  metrics?: {
+    onExtractionStart?: () => void
+    onFirstChunkCreated?: (durationSec: number) => void
+    onFirstChunkTranscriptionStart?: () => void
+  }
 ): Promise<VerboseTranscriptionResult> {
   let durationSec = 0
   try {
@@ -327,7 +539,19 @@ export async function transcribeVideoVerbose(
     // fallback to single-call
   }
   if (durationSec >= PARALLEL_THRESHOLD_SEC) {
-    const { text, segments } = await transcribeVideoParallel(videoPath, language, prompt, isAlreadyAudio, onPartial, onChunkProgress, jobId)
+    const { text, segments } = await transcribeVideoParallel(
+      videoPath,
+      language,
+      prompt,
+      isAlreadyAudio,
+      onPartial,
+      onChunkProgress,
+      jobId,
+      {
+        totalDurationSec: durationSec,
+        metrics,
+      }
+    )
     return { text, segments }
   }
   const tempDir = path.dirname(videoPath)
