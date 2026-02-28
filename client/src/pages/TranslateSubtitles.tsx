@@ -10,7 +10,6 @@ import { UploadZone } from '../components/figma/UploadZone'
 import { ProcessingInterface } from '../components/figma/ProcessingInterface'
 import { ProcessingProgress } from '../components/figma/ProcessingProgress'
 import { TranslateResult } from '../components/figma/TranslateResult'
-import { ToolSidebar } from '../components/figma/ToolSidebar'
 import { Select } from '../components/figma/FormControls'
 import type { SubtitleRow } from '../components/SubtitleEditor'
 const SubtitleEditor = lazy(() => import('../components/SubtitleEditor'))
@@ -24,6 +23,7 @@ import { trackEvent } from '../lib/analytics'
 import { texJobStarted, texJobCompleted, texJobFailed } from '../tex'
 import toast from 'react-hot-toast'
 import { Film, Wrench, MessageSquare } from 'lucide-react'
+import { dispatchJobCompletedForFeedback } from '../components/FeedbackPrompt'
 import { emitToolCompleted } from '../workflow/workflowStore'
 
 type Tab = 'upload' | 'paste'
@@ -111,11 +111,12 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
   const handleProcess = async () => {
     try {
       const usageData = await getCurrentUsage()
-      const totalAvailable = usageData.limits.minutesPerMonth + usageData.overages.minutes
-      const used = usageData.usage.totalMinutes
+      const isImports = usageData.quotaType === 'imports'
+      const totalAvailable = isImports ? (usageData.limit ?? 3) : (usageData.limits.minutesPerMonth + usageData.overages.minutes)
+      const used = isImports ? (usageData.used ?? usageData.usage?.importCount ?? 0) : usageData.usage.totalMinutes
       setAvailableMinutes(totalAvailable)
       setUsedMinutes(used)
-      const atOrOverLimit = totalAvailable > 0 && used >= totalAvailable
+      const atOrOverLimit = isImports ? used >= (usageData.limit ?? 3) : (totalAvailable > 0 && used >= totalAvailable)
       if (atOrOverLimit) {
         setShowPaywall(true)
         return
@@ -170,6 +171,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
             setLastProcessingMs(processingMs)
             setStatus('completed')
             setResult(jobStatus.result ?? null)
+            dispatchJobCompletedForFeedback()
             emitToolCompleted({ toolId: 'translate-subtitles', pathname: '/translate-subtitles', processingMs })
             if (jobStatus.result?.downloadUrl) {
               try {
@@ -231,13 +233,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
     subtitle: seoIntro ?? 'Convert SRT/VTT to Arabic, Hindi, and more',
     icon: <Languages className="w-8 h-8 text-blue-600 dark:text-blue-400" />,
     tags: ['Translation', 'Multi-language', 'Arabic', 'Hindi', 'SRT', 'VTT'],
-    sidebar: (
-      <ToolSidebar
-        refreshTrigger={status}
-        showWhatYouGet={status === 'idle'}
-        whatYouGetContent="Subtitles translated to your chosen language. Same timestamps; download SRT/VTT."
-      />
-    ),
+    sidebar: null,
   }
 
   return (

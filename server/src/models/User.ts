@@ -9,6 +9,7 @@ export interface UsageThisMonth {
   batchCount: number
   languageCount: number
   translatedMinutes: number
+  importCount: number
   resetDate: Date
 }
 
@@ -78,6 +79,7 @@ function rowToUser(row: DbUser): User {
       batchCount: Number(usage?.batchCount ?? 0),
       languageCount: Number(usage?.languageCount ?? 0),
       translatedMinutes: Number(usage?.translatedMinutes ?? 0),
+      importCount: Number(usage?.importCount ?? 0),
       resetDate: usage?.resetDate ? new Date(usage.resetDate as string) : new Date(),
     },
     limits: limits as PlanLimits,

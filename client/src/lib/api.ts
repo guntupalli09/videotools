@@ -1399,6 +1399,11 @@ export async function verifyOtp(email: string, code: string): Promise<{ token: s
 export interface UsageData {
   plan: string
   email?: string
+  /** When 'imports', free plan: used/limit/remaining are import-based. When 'minutes' or absent, paid: minute-based. */
+  quotaType?: 'imports' | 'minutes'
+  used?: number
+  limit?: number
+  remaining?: number
   limits: {
     minutesPerMonth: number
     maxLanguages: number
@@ -1411,12 +1416,15 @@ export interface UsageData {
     remaining: number
     videoCount: number
     batchCount: number
+    importCount?: number
   }
   overages: {
     minutes: number
     charge: number
   }
   resetDate: string
+  /** Per-user billing period end (paid only); when their plan resets. */
+  billingPeriodEnd?: string | null
 }
 
 let usageCache: { data: unknown; at: number } | null = null
@@ -1438,10 +1446,6 @@ export async function getCurrentUsage(options?: { skipCache?: boolean }): Promis
   try {
     const response = await api('/api/usage/current', {
       timeout: API_GET_TIMEOUT_MS,
-      headers: {
-        'x-user-id': localStorage.getItem('userId') || 'demo-user',
-        'x-plan': localStorage.getItem('plan') || 'free',
-      },
     })
     if (!response.ok) {
       lastUsageFailureAt = Date.now()

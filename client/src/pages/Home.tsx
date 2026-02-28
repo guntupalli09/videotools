@@ -26,7 +26,7 @@ export default function Home() {
               Start free. Upgrade when you need more.
             </h2>
             <p className="text-lg text-white/90">
-              60 min/month free · No credit card required
+              Sign up to try free
             </p>
           </motion.div>
           <motion.div
@@ -36,7 +36,7 @@ export default function Home() {
             className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto"
           >
             {[
-              { name: 'Free', price: '$0', min: '60 min', cta: null },
+              { name: 'Free', price: '$0', min: '3 free imports', cta: null },
               { name: 'Basic', price: '$19', min: '450 min', cta: 'Choose' },
               { name: 'Pro', price: '$49', min: '1,200 min', cta: 'Choose', popular: true },
               { name: 'Agency', price: '$129', min: '3,000 min', cta: 'Choose' },
@@ -55,7 +55,7 @@ export default function Home() {
                 )}
                 <p className="font-semibold text-lg mt-0.5">{plan.name}</p>
                 <p className="text-2xl font-bold mt-1">{plan.price}<span className="text-sm font-normal opacity-80">/mo</span></p>
-                <p className="text-sm opacity-90 mt-1">{plan.min} / month</p>
+                <p className="text-sm opacity-90 mt-1">{plan.name === 'Free' ? plan.min : `${plan.min} / month`}</p>
                 {plan.cta && (
                   <span className={`inline-block mt-4 text-sm font-medium ${plan.popular ? 'text-violet-600' : 'text-white'}`}>
                     {plan.cta} →

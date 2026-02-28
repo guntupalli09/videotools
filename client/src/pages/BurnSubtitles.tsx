@@ -11,7 +11,6 @@ import { ProcessingInterface } from '../components/figma/ProcessingInterface'
 import { ProcessingProgress } from '../components/figma/ProcessingProgress'
 import { ResultSkeleton } from '../components/figma/ResultSkeleton'
 import { TranslateResult } from '../components/figma/TranslateResult'
-import { ToolSidebar } from '../components/figma/ToolSidebar'
 import { Select } from '../components/figma/FormControls'
 import { getFilePreview, formatDuration, type FilePreviewData } from '../lib/filePreview'
 import { incrementUsage } from '../lib/usage'
@@ -23,6 +22,7 @@ import { trackEvent } from '../lib/analytics'
 import { texJobStarted, texJobCompleted, texJobFailed } from '../tex'
 import toast from 'react-hot-toast'
 import { Minimize2, FileText, MessageSquare } from 'lucide-react'
+import { dispatchJobCompletedForFeedback } from '../components/FeedbackPrompt'
 import { emitToolCompleted } from '../workflow/workflowStore'
 
 /** Optional SEO overrides for alternate entry points. Do NOT duplicate logic. */
@@ -153,11 +153,12 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
 
     try {
       const usageData = await getCurrentUsage()
-      const totalAvailable = usageData.limits.minutesPerMonth + usageData.overages.minutes
-      const used = usageData.usage.totalMinutes
+      const isImports = usageData.quotaType === 'imports'
+      const totalAvailable = isImports ? (usageData.limit ?? 3) : (usageData.limits.minutesPerMonth + usageData.overages.minutes)
+      const used = isImports ? (usageData.used ?? usageData.usage?.importCount ?? 0) : usageData.usage.totalMinutes
       setAvailableMinutes(totalAvailable)
       setUsedMinutes(used)
-      const atOrOverLimit = totalAvailable > 0 && used >= totalAvailable
+      const atOrOverLimit = isImports ? used >= (usageData.limit ?? 3) : (totalAvailable > 0 && used >= totalAvailable)
       if (atOrOverLimit) {
         setShowPaywall(true)
         return
@@ -201,6 +202,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
             setLastProcessingMs(processingMs)
             setStatus('completed')
             setResult(jobStatus.result ?? null)
+            dispatchJobCompletedForFeedback()
             emitToolCompleted({ toolId: 'burn-subtitles', pathname: '/burn-subtitles', processingMs })
             incrementUsage('burn-subtitles')
             texJobCompleted(processingMs, 'burn-subtitles')
@@ -253,13 +255,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
     subtitle: seoIntro ?? 'Hardcode captions directly into your video',
     icon: <Film className="w-8 h-8 text-blue-600 dark:text-blue-400" />,
     tags: ['Hardcode', 'Burn-in', 'Permanent', 'Styling', 'Position'],
-    sidebar: (
-      <ToolSidebar
-        refreshTrigger={status}
-        showWhatYouGet={status === 'idle'}
-        whatYouGetContent="Video with captions baked in. Upload video + SRT/VTT; download a single MP4 with hardcoded subtitles."
-      />
-    ),
+    sidebar: null,
   }
 
   return (
@@ -340,6 +336,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
             actionLoading={false}
             showVideoPlayer={!!(videoPreviewUrl || filePreview?.durationSeconds)}
             videoSrc={videoPreviewUrl ?? undefined}
+            durationSeconds={filePreview?.durationSeconds}
           >
             <div className="space-y-6">
               <div className="flex items-center justify-between rounded-lg bg-gray-50 dark:bg-gray-800/50 p-3">

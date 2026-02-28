@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { fileQueue, addJobToQueue, getJobById, getTotalQueueCount as getQueueCountFromWorker } from '../workers/videoProcessor'
 import { validateFileType, validateFileSize, validateSubtitleFile } from '../utils/fileValidation'
 import { enforceLanguageLimits, enforceUsageLimits, getJobPriority, getPlanLimits } from '../utils/limits'
+import { resetUserUsageIfNeeded } from '../utils/usageReset'
 import { getUser, saveUser, PlanType, User } from '../models/User'
 import { hashFile, checkDuplicateProcessing } from '../services/duplicate'
 import { getAuthFromRequest, getEffectiveUserId } from '../utils/auth'
@@ -77,6 +78,11 @@ async function getTotalQueueCount(): Promise<number> {
 router.post('/', upload.single('file'), async (req: Request, res: Response) => {
   const uploadStartMs = Date.now()
   try {
+    const userId = getEffectiveUserId(req)
+    if (!userId) {
+      return res.status(401).json({ message: 'Signup required to process videos.' })
+    }
+
     const { toolType, url, webhookUrl, ...options } = req.body
 
     if (url && (toolType === 'video-to-transcript' || toolType === 'video-to-subtitles')) {
@@ -84,11 +90,10 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     }
 
     const auth = getAuthFromRequest(req)
-    const userId = getEffectiveUserId(req)
-    const rateLimitKey = userId ?? (req.ip ?? 'anonymous')
-    let user = userId ? await getUser(userId) : null
+    const rateLimitKey = userId
+    let user = await getUser(userId)
     const plan: PlanType =
-      auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency')
+      auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency' || auth.plan === 'founding_workflow')
         ? auth.plan
         : user?.stripeCustomerId
           ? user.plan
@@ -106,7 +111,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
 
     const now = new Date()
     const limits = user?.limits ?? getPlanLimits(plan)
-    if (!user && userId) {
+    if (!user) {
       const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
       user = {
         id: userId,
@@ -122,6 +127,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
           batchCount: 0,
           languageCount: 0,
           translatedMinutes: 0,
+          importCount: 0,
           resetDate,
         },
         limits,
@@ -130,26 +136,25 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
         updatedAt: now,
       }
       await saveUser(user)
-    } else if (user) {
+    } else {
       if (user.plan !== plan) {
         user.plan = plan
         user.limits = getPlanLimits(plan)
         user.updatedAt = now
-        saveUser(user)
-      }
-      if (now > user.usageThisMonth.resetDate) {
-        const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-        user.usageThisMonth = {
-          totalMinutes: 0,
-          videoCount: 0,
-          batchCount: 0,
-          languageCount: 0,
-          translatedMinutes: 0,
-          resetDate,
-        }
-        user.overagesThisMonth = { minutes: 0, languages: 0, batches: 0, totalCharge: 0 }
-        user.updatedAt = now
         await saveUser(user)
+      }
+      if (resetUserUsageIfNeeded(user, now)) {
+        await saveUser(user)
+      }
+    }
+
+    // Free plan: 3 imports per month (not minute-based)
+    if (user.plan === 'free') {
+      if ((user.usageThisMonth.importCount ?? 0) >= 3) {
+        if (req.file) {
+          try { fs.unlinkSync(req.file.path) } catch { /* ignore */ }
+        }
+        return res.status(403).json({ message: 'Free plan allows 3 imports per month.' })
       }
     }
 
@@ -268,9 +273,9 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
       }
     }
 
-    // Server-side minute limit: reject before queueing if user would exceed plan (abuse-proof); only for authenticated users
+    // Server-side minute limit for paid plans only; free plan uses import count (checked above)
     const minuteChargingTools = ['video-to-transcript', 'video-to-subtitles', 'burn-subtitles', 'compress-video']
-    if (user && minuteChargingTools.includes(toolType)) {
+    if (user.plan !== 'free' && minuteChargingTools.includes(toolType)) {
       let durationSeconds: number
       try {
         durationSeconds = await getVideoDuration(file.path)
@@ -331,7 +336,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     const job = await addJobToQueue(plan, {
       toolType,
       filePath: file.path,
-      userId: userId ?? undefined,
+      userId,
       plan,
       videoHash,
       originalName: originalNameForJob,
@@ -347,7 +352,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     try {
       trackJobCreated({
         job_id: String(job.id),
-        user_id: userId ?? undefined,
+        user_id: userId,
         tool_type: toolType,
         file_size_bytes: file.size,
         plan,
@@ -379,14 +384,23 @@ router.post('/dual', upload.fields([
   { name: 'subtitles', maxCount: 1 },
 ]), async (req: Request, res: Response) => {
   try {
+    const userId = getEffectiveUserId(req)
+    if (!userId) {
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] }
+      if (files?.video?.[0]) {
+        try { fs.unlinkSync(files.video[0].path) } catch { /* ignore */ }
+      }
+      if (files?.subtitles?.[0]) {
+        try { fs.unlinkSync(files.subtitles[0].path) } catch { /* ignore */ }
+      }
+      return res.status(401).json({ message: 'Signup required to process videos.' })
+    }
+
     const { toolType, trimmedStart, trimmedEnd, burnFontSize, burnPosition, burnBackgroundOpacity } = req.body
     const auth = getAuthFromRequest(req)
-    const headerUserId = (req.headers['x-user-id'] as string) || 'demo-user'
-    const userId = auth?.userId || headerUserId
     let burnUser = await getUser(userId)
-    // Paid plans: from auth, or from existing Stripe-backed user; unauthenticated without Stripe = free (abuse-proof)
     const plan: PlanType =
-      auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency')
+      auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency' || auth.plan === 'founding_workflow')
         ? auth.plan
         : burnUser?.stripeCustomerId
           ? burnUser.plan
@@ -418,8 +432,8 @@ router.post('/dual', upload.fields([
     const subtitleFile = files.subtitles[0]
 
     const burnLimits = getPlanLimits(plan)
-    if (!burnUser && userId) {
-      const now = new Date()
+    const now = new Date()
+    if (!burnUser) {
       const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
       burnUser = {
         id: userId,
@@ -429,18 +443,31 @@ router.post('/dual', upload.fields([
         stripeCustomerId: '',
         subscriptionId: '',
         paymentMethodId: undefined,
-        usageThisMonth: { totalMinutes: 0, videoCount: 0, batchCount: 0, languageCount: 0, translatedMinutes: 0, resetDate },
+        usageThisMonth: { totalMinutes: 0, videoCount: 0, batchCount: 0, languageCount: 0, translatedMinutes: 0, importCount: 0, resetDate },
         limits: burnLimits,
         overagesThisMonth: { minutes: 0, languages: 0, batches: 0, totalCharge: 0 },
         createdAt: now,
         updatedAt: now,
       }
       await saveUser(burnUser)
-    } else if (burnUser && burnUser.plan !== plan) {
-      burnUser.plan = plan
-      burnUser.limits = getPlanLimits(plan)
-      burnUser.updatedAt = new Date()
-      await saveUser(burnUser)
+    } else {
+      if (burnUser.plan !== plan) {
+        burnUser.plan = plan
+        burnUser.limits = getPlanLimits(plan)
+        burnUser.updatedAt = now
+        await saveUser(burnUser)
+      }
+      if (resetUserUsageIfNeeded(burnUser, now)) {
+        await saveUser(burnUser)
+      }
+    }
+
+    if (burnUser.plan === 'free') {
+      if ((burnUser.usageThisMonth.importCount ?? 0) >= 3) {
+        fs.unlinkSync(videoFile.path)
+        fs.unlinkSync(subtitleFile.path)
+        return res.status(403).json({ message: 'Free plan allows 3 imports per month.' })
+      }
     }
 
     const activeJobs = await fileQueue.getJobs(['active', 'waiting', 'delayed'])
@@ -492,7 +519,7 @@ router.post('/dual', upload.fields([
       durationSeconds = Math.max(0, end - start)
     }
     const requestedMinutes = Math.ceil(durationSeconds / 60)
-    if (burnUser != null) {
+    if (burnUser.plan !== 'free') {
       const limitCheck = await enforceUsageLimits(burnUser, requestedMinutes)
       if (!limitCheck.allowed) {
         fs.unlinkSync(videoFile.path)
@@ -505,7 +532,7 @@ router.post('/dual', upload.fields([
       toolType: 'burn-subtitles',
       filePath: videoFile.path,
       filePath2: subtitleFile.path,
-      userId: userId ?? undefined,
+      userId,
       plan,
       originalName: videoFile.originalname,
       originalName2: subtitleFile.originalname,
@@ -567,31 +594,32 @@ router.get('/init', (_req: Request, res: Response) => {
 })
 router.post('/init', async (req: Request, res: Response) => {
   try {
-    const auth = getAuthFromRequest(req)
     const userId = getEffectiveUserId(req)
-    const rateLimitKey = userId ?? (req.ip ?? 'anonymous')
+    if (!userId) {
+      return res.status(401).json({ message: 'Signup required to process videos.' })
+    }
+    const auth = getAuthFromRequest(req)
+    const rateLimitKey = userId
     let user: User | null = null
-    if (userId) {
-      try {
-        user = (await withTimeout(getUser(userId), INIT_TIMEOUT_MS, 'getUser')) ?? null
-      } catch (e) {
-        const msg = (e as Error)?.message ?? ''
-        const isTimeout = msg.includes('timed out')
-        if (isTimeout) {
-          console.error('[upload/init] getUser timeout')
-          return res.status(503).json({ message: 'Service temporarily busy. Please retry.' })
-        }
-        console.warn('[upload/init] getUser failed', msg)
+    try {
+      user = (await withTimeout(getUser(userId), INIT_TIMEOUT_MS, 'getUser')) ?? null
+    } catch (e) {
+      const msg = (e as Error)?.message ?? ''
+      const isTimeout = msg.includes('timed out')
+      if (isTimeout) {
+        console.error('[upload/init] getUser timeout')
+        return res.status(503).json({ message: 'Service temporarily busy. Please retry.' })
       }
+      console.warn('[upload/init] getUser failed', msg)
     }
     const rawPlan =
-      auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency')
+      auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency' || auth.plan === 'founding_workflow')
         ? auth.plan
         : user?.stripeCustomerId
           ? user.plan
           : 'free'
     const plan: PlanType =
-      rawPlan === 'basic' || rawPlan === 'pro' || rawPlan === 'agency' ? rawPlan : 'free'
+      rawPlan === 'basic' || rawPlan === 'pro' || rawPlan === 'agency' || rawPlan === 'founding_workflow' ? rawPlan : 'free'
 
     if (!checkAndRecordUpload(rateLimitKey)) {
       res.setHeader('Retry-After', '60')
@@ -780,6 +808,7 @@ router.post('/complete', async (req: Request, res: Response) => {
             batchCount: 0,
             languageCount: 0,
             translatedMinutes: 0,
+            importCount: 0,
             resetDate,
           },
           limits,
@@ -788,6 +817,9 @@ router.post('/complete', async (req: Request, res: Response) => {
           updatedAt: now,
         }
         await saveUser(user)
+      }
+      if (user && user.plan === 'free' && (user.usageThisMonth.importCount ?? 0) >= 3) {
+        throw Object.assign(new Error('Free plan allows 3 imports per month.'), { statusCode: 403 })
       }
       const fileSize = fs.statSync(outPath).size
       const planLimit = getPlanLimits(meta.plan).maxFileSize
@@ -805,7 +837,7 @@ router.post('/complete', async (req: Request, res: Response) => {
       const job = await addJobToQueue(meta.plan, {
         toolType: meta.toolType,
         filePath: outPath,
-        userId: meta.userId ?? undefined,
+        userId: meta.userId!,
         plan: meta.plan,
         originalName: isChunkedAudioOnly && opts.originalFileName ? String(opts.originalFileName) : safeFilename,
         fileSize,

@@ -81,8 +81,23 @@ export function HowItWorks() {
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
+          transition={{ duration: 0.6, delay: 0.5 }}
+          className="mt-16 p-6 sm:p-8 rounded-2xl bg-white/80 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-center"
+        >
+          <h3 className="text-lg font-semibold text-purple-600 dark:text-purple-400 mb-2">
+            What you get
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base max-w-2xl mx-auto">
+            Transcript, Speakers, Summary, Chapters, Highlights, Keywords, Clean, Exports: all after one upload.
+          </p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
           transition={{ duration: 0.8, delay: 0.8 }}
-          className="text-center mt-16"
+          className="text-center mt-8"
         >
           <p className="text-sm text-gray-500 dark:text-gray-500">
             Your videos and files are processed then deleted. We don't keep copies. Your content stays yours.

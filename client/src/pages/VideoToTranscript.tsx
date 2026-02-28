@@ -11,8 +11,7 @@ import { ProcessingInterface } from '../components/figma/ProcessingInterface'
 import { ProcessingProgress } from '../components/figma/ProcessingProgress'
 import { ResultSkeleton } from '../components/figma/ResultSkeleton'
 import { TranscriptResult } from '../components/figma/TranscriptResult'
-import { ToolSidebar } from '../components/figma/ToolSidebar'
-import { Checkbox, ExportFormat, Input } from '../components/figma/FormControls'
+import { Checkbox } from '../components/figma/FormControls'
 import { incrementUsage } from '../lib/usage'
 import { uploadFileWithProgress, getJobStatus, subscribeJobStatus, getCurrentUsage, invalidateUsageCache, getConnectionProbeIfNeeded, BACKEND_TOOL_TYPES, SessionExpiredError, getUserFacingMessage, isNetworkError, POLL_STOP_AFTER_CONSECUTIVE_NETWORK_ERRORS } from '../lib/api'
 import { getFailureMessage } from '../lib/failureMessage'
@@ -21,6 +20,7 @@ import { getFilePreview, formatDuration, type FilePreviewData } from '../lib/fil
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { persistJobId, getPersistedJobId, getPersistedJobToken, clearPersistedJobId } from '../lib/jobSession'
+import { dispatchJobCompletedForFeedback } from '../components/FeedbackPrompt'
 import { trackEvent } from '../lib/analytics'
 import { texJobStarted, texJobCompleted, texJobFailed } from '../tex'
 import { segmentsToSrt, segmentsToVtt, type Segment } from '../lib/srtExport'
@@ -268,6 +268,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
           setPartialSegments([])
           setStatus('completed')
           setResult(jobStatus.result ?? null)
+          dispatchJobCompletedForFeedback()
           emitToolCompleted({ toolId: 'video-to-transcript', pathname: '/video-to-transcript' })
           setUploadPhase('processing')
           setUploadProgress(100)
@@ -289,9 +290,11 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
           invalidateUsageCache()
           getCurrentUsage({ skipCache: true })
             .then((data) => {
-              const total = data.limits.minutesPerMonth + data.overages.minutes
+              const isImports = data.quotaType === 'imports'
+              const total = isImports ? (data.limit ?? 3) : (data.limits.minutesPerMonth + data.overages.minutes)
+              const used = isImports ? (data.used ?? data.usage?.importCount ?? 0) : data.usage.totalMinutes
               setAvailableMinutes(total)
-              setUsedMinutes(data.usage.totalMinutes)
+              setUsedMinutes(used)
             })
             .catch(() => {})
           return
@@ -333,6 +336,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
               setPartialSegments([])
               setStatus('completed')
               setResult(s.result ?? null)
+              dispatchJobCompletedForFeedback()
               emitToolCompleted({ toolId: 'video-to-transcript', pathname: '/video-to-transcript' })
               if (s.result?.segments?.length) {
                 const textFromSegments = s.result.segments.map((seg: { text: string }) => seg.text).join('\n\n')
@@ -351,9 +355,11 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
               invalidateUsageCache()
               getCurrentUsage({ skipCache: true })
                 .then((data) => {
-                  const total = data.limits.minutesPerMonth + data.overages.minutes
+                  const isImports = data.quotaType === 'imports'
+                  const total = isImports ? (data.limit ?? 3) : (data.limits.minutesPerMonth + data.overages.minutes)
+                  const used = isImports ? (data.used ?? data.usage?.importCount ?? 0) : data.usage.totalMinutes
                   setAvailableMinutes(total)
-                  setUsedMinutes(data.usage.totalMinutes)
+                  setUsedMinutes(used)
                 })
                 .catch(() => {})
             } else if (t === 'failed') {
@@ -486,15 +492,16 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     const trimStartSec = trimStartPercent != null ? (durationSeconds * trimStartPercent) / 100 : trimStart
     const trimEndSec = trimEndPercent != null ? (durationSeconds * trimEndPercent) / 100 : trimEnd
 
-    // Minute-based limit check
+    // Quota check: imports for free, minutes for paid
     let usageData: Awaited<ReturnType<typeof getCurrentUsage>> | null = null
     try {
       usageData = await getCurrentUsage()
-      const totalAvailable = usageData.limits.minutesPerMonth + usageData.overages.minutes
-      const used = usageData.usage.totalMinutes
+      const isImports = usageData.quotaType === 'imports'
+      const totalAvailable = isImports ? (usageData.limit ?? 3) : (usageData.limits.minutesPerMonth + usageData.overages.minutes)
+      const used = isImports ? (usageData.used ?? usageData.usage?.importCount ?? 0) : usageData.usage.totalMinutes
       setAvailableMinutes(totalAvailable)
       setUsedMinutes(used)
-      const atOrOverLimit = totalAvailable > 0 && used >= totalAvailable
+      const atOrOverLimit = isImports ? used >= (usageData.limit ?? 3) : (totalAvailable > 0 && used >= totalAvailable)
       if (atOrOverLimit) {
         setShowPaywall(true)
         trackEvent('paywall_shown', { tool: 'video-to-transcript' })
@@ -616,6 +623,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             setPartialSegments([])
             setStatus('completed')
             setResult(jobStatus.result ?? null)
+            dispatchJobCompletedForFeedback()
             const started = processingStartedAtRef.current ?? Date.now()
             const processingMs = Date.now() - started
             emitToolCompleted({ toolId: 'video-to-transcript', pathname: '/video-to-transcript', processingMs })
@@ -641,9 +649,11 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             const refreshUsage = () => {
               getCurrentUsage({ skipCache: true })
                 .then((data) => {
-                  const total = data.limits.minutesPerMonth + data.overages.minutes
+                  const isImports = data.quotaType === 'imports'
+                  const total = isImports ? (data.limit ?? 3) : (data.limits.minutesPerMonth + data.overages.minutes)
+                  const used = isImports ? (data.used ?? data.usage?.importCount ?? 0) : data.usage.totalMinutes
                   setAvailableMinutes(total)
-                  setUsedMinutes(data.usage.totalMinutes)
+                  setUsedMinutes(used)
                 })
                 .catch(() => {})
             }
@@ -679,7 +689,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             fileSizeBytes: selectedFile?.size,
             mimeType: selectedFile?.type,
             remainingMinutes: availableMinutes ?? undefined,
-            planQuotaMinutes: 60,
+            planQuotaMinutes: availableMinutes ?? undefined,
             durationMinutes: filePreview?.durationSeconds != null ? filePreview.durationSeconds / 60 : undefined,
           })
           setFailedMessage(msg)
@@ -1059,13 +1069,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     title: seoH1 ?? 'Video → Transcript',
     subtitle: seoIntro ?? 'Extract spoken text from any video in seconds',
     icon: <FileText className="w-8 h-8 text-purple-600 dark:text-purple-400" />,
-    sidebar: (
-      <ToolSidebar
-        refreshTrigger={status}
-        showWhatYouGet={status === 'idle'}
-        whatYouGetContent="Transcript, Speakers, Summary, Chapters, Highlights, Keywords, Clean, Exports: all after one upload."
-      />
-    ),
+    sidebar: null,
   }
 
   return (
@@ -1102,6 +1106,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
             actionLoading={false}
             showVideoPlayer={!!(videoPreviewUrl || filePreview?.durationSeconds)}
             videoSrc={videoPreviewUrl ?? undefined}
+            durationSeconds={filePreview?.durationSeconds}
           >
             <div className="space-y-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Options</h3>
@@ -1123,22 +1128,6 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                   onChange={(checked) => setSpeakerDiarization(checked)}
                 />
               </div>
-              <Input
-                label="Glossary (names, terms; improves accuracy)"
-                placeholder="e.g. Acme Corp, Dr. Smith, API, SaaS"
-                value={glossary}
-                onChange={setGlossary}
-              />
-              <ExportFormat
-                formats={[
-                  { value: 'TXT', label: 'TXT' },
-                  { value: 'JSON', label: 'JSON' },
-                  { value: 'DOCX', label: 'DOCX' },
-                  { value: 'PDF', label: 'PDF' },
-                ]}
-                selected={exportFormats.map((f) => f.toUpperCase())}
-                onChange={(formats) => setExportFormats(formats.map((f) => f.toLowerCase() as 'txt' | 'json' | 'docx' | 'pdf'))}
-              />
             </div>
           </ProcessingInterface>
         )}
@@ -1186,7 +1175,6 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
               processingTime={lastProcessingMs != null ? `${(lastProcessingMs / 1000).toFixed(1)}s` : '—'}
               fileSize={result.fileName ? undefined : undefined}
               transcript={displayTranscript || fullTranscript || transcriptPreview || ''}
-              minutesRemaining={availableMinutes != null && usedMinutes != null ? availableMinutes - usedMinutes : null}
               onDownload={() => {
                 const url = getDownloadUrl()
                 if (url) {

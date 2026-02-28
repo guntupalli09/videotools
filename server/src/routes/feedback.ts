@@ -30,7 +30,7 @@ router.post('/', async (req: Request, res: Response) => {
         ? body.userNameOrEmail.slice(0, 500).trim() || null
         : null
     const planAtSubmit =
-      typeof body.planAtSubmit === 'string' && /^(free|basic|pro|agency)$/i.test(body.planAtSubmit)
+      typeof body.planAtSubmit === 'string' && /^(free|basic|pro|agency|founding_workflow)$/i.test(body.planAtSubmit)
         ? body.planAtSubmit.toLowerCase()
         : null
 

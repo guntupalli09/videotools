@@ -21,6 +21,7 @@ import { generateMultiLanguageSubtitles } from '../services/multiLanguage'
 import { BatchJob, getBatchById, saveBatch } from '../models/BatchJob'
 import { getUser, saveUser, PlanType } from '../models/User'
 import { getPlanLimits, getJobPriority, getMaxJobRuntimeMinutes } from '../utils/limits'
+import { resetUserUsageIfNeeded } from '../utils/usageReset'
 import { calculateTranslationMinutes, secondsToMinutes } from '../utils/metering'
 import { saveDuplicateResult } from '../services/duplicate'
 import { createRedisClient } from '../utils/redis'
@@ -147,18 +148,7 @@ async function getOrCreateUserForJob(userId: string, plan: PlanType) {
       existing.updatedAt = now
       await saveUser(existing)
     }
-    if (now > existing.usageThisMonth.resetDate) {
-      const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-      existing.usageThisMonth = {
-        totalMinutes: 0,
-        videoCount: 0,
-        batchCount: 0,
-        languageCount: 0,
-        translatedMinutes: 0,
-        resetDate,
-      }
-      existing.overagesThisMonth = { minutes: 0, languages: 0, batches: 0, totalCharge: 0 }
-      existing.updatedAt = now
+    if (resetUserUsageIfNeeded(existing, now)) {
       await saveUser(existing)
     }
     return existing
@@ -181,6 +171,7 @@ async function getOrCreateUserForJob(userId: string, plan: PlanType) {
       batchCount: 0,
       languageCount: 0,
       translatedMinutes: 0,
+      importCount: 0,
       resetDate,
     },
     limits,
@@ -620,8 +611,12 @@ async function processJob(job: import('bull').Job<JobData>) {
           const minutes = secondsToMinutes(processedSeconds)
           if (userId) {
             const user = await getOrCreateUserForJob(userId, plan)
-            user.usageThisMonth.totalMinutes += minutes
-            user.usageThisMonth.videoCount += 1
+            if (user.plan === 'free') {
+              user.usageThisMonth.importCount = (user.usageThisMonth.importCount ?? 0) + 1
+            } else {
+              user.usageThisMonth.totalMinutes += minutes
+              user.usageThisMonth.videoCount += 1
+            }
             user.updatedAt = new Date()
             await saveUser(user)
           }
@@ -764,10 +759,14 @@ async function processJob(job: import('bull').Job<JobData>) {
             const translatedMinutes = calculateTranslationMinutes(processedSeconds, additionalLangs.length)
             if (userId) {
               const user = await getOrCreateUserForJob(userId, plan)
-              user.usageThisMonth.totalMinutes += baseMinutes + translatedMinutes
-              user.usageThisMonth.translatedMinutes += translatedMinutes
-              user.usageThisMonth.languageCount += additionalLangs.length
-              user.usageThisMonth.videoCount += 1
+              if (user.plan === 'free') {
+                user.usageThisMonth.importCount = (user.usageThisMonth.importCount ?? 0) + 1
+              } else {
+                user.usageThisMonth.totalMinutes += baseMinutes + translatedMinutes
+                user.usageThisMonth.translatedMinutes += translatedMinutes
+                user.usageThisMonth.languageCount += additionalLangs.length
+                user.usageThisMonth.videoCount += 1
+              }
               user.updatedAt = new Date()
               await saveUser(user)
             }
@@ -835,12 +834,16 @@ async function processJob(job: import('bull').Job<JobData>) {
               await saveDuplicateResult(userId, data.videoHash, outputPath, 'video-to-subtitles', cacheOpts, outputFilename)
             }
 
-            // Metering (minutes)
+            // Metering (minutes or import count for free)
             const minutes = secondsToMinutes(processedSecondsSub)
             if (userId) {
               const user = await getOrCreateUserForJob(userId, plan)
-              user.usageThisMonth.totalMinutes += minutes
-              user.usageThisMonth.videoCount += 1
+              if (user.plan === 'free') {
+                user.usageThisMonth.importCount = (user.usageThisMonth.importCount ?? 0) + 1
+              } else {
+                user.usageThisMonth.totalMinutes += minutes
+                user.usageThisMonth.videoCount += 1
+              }
               user.updatedAt = new Date()
               await saveUser(user)
             }
@@ -904,15 +907,19 @@ async function processJob(job: import('bull').Job<JobData>) {
             batch.processedVideos += 1
             await saveBatch(batch)
 
-            // Metering: charge minutes for this batch video (same as single video-to-subtitles)
+            // Metering: minutes for paid, import count for free
             const userId = data.userId
             const plan = (data.plan || 'free') as PlanType
             const processedSeconds = trimmedDuration > 0 ? trimmedDuration : await getVideoDuration(videoPath)
             const minutes = secondsToMinutes(processedSeconds)
             if (userId) {
               const user = await getOrCreateUserForJob(userId, plan)
-              user.usageThisMonth.totalMinutes += minutes
-              user.usageThisMonth.videoCount += 1
+              if (user.plan === 'free') {
+                user.usageThisMonth.importCount = (user.usageThisMonth.importCount ?? 0) + 1
+              } else {
+                user.usageThisMonth.totalMinutes += minutes
+                user.usageThisMonth.videoCount += 1
+              }
               user.updatedAt = new Date()
               await saveUser(user)
             }
@@ -1074,7 +1081,7 @@ async function processJob(job: import('bull').Job<JobData>) {
             fileName: outputFilename,
           }
 
-          // Metering (minutes) - based on trimmed duration if provided, else probe duration via ffprobe validate
+          // Metering: minutes for paid, import count for free
           const durationCheck = await validateVideoDuration(videoPath, getPlanLimits(plan).maxVideoDuration)
           const processedSeconds =
             data.trimmedStart !== undefined && data.trimmedEnd !== undefined
@@ -1083,8 +1090,12 @@ async function processJob(job: import('bull').Job<JobData>) {
           const minutes = secondsToMinutes(processedSeconds)
           if (userId) {
             const user = await getOrCreateUserForJob(userId, plan)
-            user.usageThisMonth.totalMinutes += minutes
-            user.usageThisMonth.videoCount += 1
+            if (user.plan === 'free') {
+              user.usageThisMonth.importCount = (user.usageThisMonth.importCount ?? 0) + 1
+            } else {
+              user.usageThisMonth.totalMinutes += minutes
+              user.usageThisMonth.videoCount += 1
+            }
             user.updatedAt = new Date()
             await saveUser(user)
           }
@@ -1137,7 +1148,7 @@ async function processJob(job: import('bull').Job<JobData>) {
             fileName: outputFilename,
           }
 
-          // Metering (minutes)
+          // Metering: minutes for paid, import count for free
           const durationCheck = await validateVideoDuration(videoPath, getPlanLimits(plan).maxVideoDuration)
           const processedSeconds =
             data.trimmedStart !== undefined && data.trimmedEnd !== undefined
@@ -1146,8 +1157,12 @@ async function processJob(job: import('bull').Job<JobData>) {
           const minutes = secondsToMinutes(processedSeconds)
           if (userId) {
             const user = await getOrCreateUserForJob(userId, plan)
-            user.usageThisMonth.totalMinutes += minutes
-            user.usageThisMonth.videoCount += 1
+            if (user.plan === 'free') {
+              user.usageThisMonth.importCount = (user.usageThisMonth.importCount ?? 0) + 1
+            } else {
+              user.usageThisMonth.totalMinutes += minutes
+              user.usageThisMonth.videoCount += 1
+            }
             user.updatedAt = new Date()
             await saveUser(user)
           }

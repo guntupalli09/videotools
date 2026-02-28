@@ -1,5 +1,5 @@
 /**
- * Shows "Remaining this month: XX min / 60 min" for Free plan under upload zone.
+ * Shows remaining quota for Free plan under upload zone (imports or minutes).
  * Fetches once on mount; no refetch. Subtle, small muted text.
  */
 
@@ -9,7 +9,8 @@ import { getCurrentUsage } from '../lib/api'
 export default function UsageRemaining() {
   const [remaining, setRemaining] = useState<number | null>(null)
   const [plan, setPlan] = useState<string>('free')
-  const [total, setTotal] = useState<number>(60)
+  const [quotaType, setQuotaType] = useState<'imports' | 'minutes'>('imports')
+  const [limit, setLimit] = useState<number>(3)
 
   useEffect(() => {
     let cancelled = false
@@ -19,8 +20,15 @@ export default function UsageRemaining() {
         const p = (data.plan || 'free').toLowerCase()
         setPlan(p)
         if (p === 'free') {
-          setRemaining(data.usage?.remaining ?? 0)
-          setTotal(data.limits?.minutesPerMonth ?? 60)
+          const isImports = data.quotaType === 'imports'
+          setQuotaType(isImports ? 'imports' : 'minutes')
+          if (isImports) {
+            setRemaining(data.remaining ?? Math.max(0, 3 - (data.used ?? 0)))
+            setLimit(data.limit ?? 3)
+          } else {
+            setRemaining(data.usage?.remaining ?? 0)
+            setLimit(data.limits?.minutesPerMonth ?? 3)
+          }
         }
       })
       .catch(() => {
@@ -35,7 +43,11 @@ export default function UsageRemaining() {
 
   return (
     <p className="text-xs text-gray-500 dark:text-gray-400 mt-2" aria-live="polite">
-      Remaining this month: {remaining} min / {total} min
+      {quotaType === 'imports'
+        ? remaining === 0
+          ? "You've used all 3 imports. Upgrade to use the tool."
+          : `${remaining} of ${limit} imports remaining`
+        : `Remaining this month: ${remaining} min / ${limit} min`}
     </p>
   )
 }

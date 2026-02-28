@@ -8,6 +8,7 @@ import { validateFileSize, validateFileType } from '../utils/fileValidation'
 import { BatchJob, saveBatch, getBatchById } from '../models/BatchJob'
 import { getUser, saveUser, PlanType, User } from '../models/User'
 import { getPlanLimits, enforceBatchLimits, enforceUsageLimits, getJobPriority } from '../utils/limits'
+import { resetUserUsageIfNeeded } from '../utils/usageReset'
 import { addJobToQueue, getTotalQueueCount } from '../workers/videoProcessor'
 import { RequestWithId } from '../middleware/requestId'
 import { getAuthFromRequest, getEffectiveUserId } from '../utils/auth'
@@ -53,7 +54,7 @@ async function getOrCreateDemoUser(req: Request): Promise<User> {
   }
   let user = await getUser(userId)
   const derivedPlan: PlanType =
-    auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency')
+    auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency' || auth.plan === 'founding_workflow')
       ? auth.plan
       : user?.stripeCustomerId
         ? user.plan
@@ -79,6 +80,7 @@ async function getOrCreateDemoUser(req: Request): Promise<User> {
         batchCount: 0,
         languageCount: 0,
         translatedMinutes: 0,
+        importCount: 0,
         resetDate,
       },
       limits,
@@ -94,11 +96,14 @@ async function getOrCreateDemoUser(req: Request): Promise<User> {
 
     await saveUser(user)
   } else {
-    // Keep user plan/limits in sync (free, basic, pro, agency) so minute tracking is correct
     if (user.plan !== derivedPlan) {
       user.plan = derivedPlan
       user.limits = getPlanLimits(derivedPlan)
       user.updatedAt = new Date()
+      await saveUser(user)
+    }
+    const now = new Date()
+    if (resetUserUsageIfNeeded(user, now)) {
       await saveUser(user)
     }
   }
@@ -171,7 +176,7 @@ router.post(
         })
       }
 
-      const batchesToday = user.usageThisMonth.batchCount
+      const batchesToday = user.usageThisMonth.batchCount ?? 0
       const batchCheck = await enforceBatchLimits(
         user,
         videoMeta.map((v) => ({ duration: v.duration })),
@@ -185,16 +190,31 @@ router.post(
         return res.status(statusCode).json({ message: batchCheck.reason })
       }
 
-      // Server-side minute limit: reject batch if user would exceed plan
+      // Free plan: 3 imports per month (batch not available for free, but guard anyway)
+      if (user.plan === 'free') {
+        const importCount = user.usageThisMonth.importCount ?? 0
+        if (importCount >= 3) {
+          for (const v of videoMeta) fs.unlinkSync(v.path)
+          return res.status(403).json({ message: 'Free plan allows 3 imports per month.' })
+        }
+        if (importCount + videoMeta.length > 3) {
+          for (const v of videoMeta) fs.unlinkSync(v.path)
+          return res.status(403).json({ message: 'Free plan allows 3 imports per month.' })
+        }
+      }
+
+      // Server-side minute limit for paid plans only
       const totalDurationSeconds = videoMeta.reduce(
         (sum, v) => sum + v.duration,
         0
       )
       const requestedMinutes = Math.ceil(totalDurationSeconds / 60)
-      const limitCheck = await enforceUsageLimits(user, requestedMinutes)
-      if (!limitCheck.allowed) {
-        for (const v of videoMeta) fs.unlinkSync(v.path)
-        return res.status(403).json({ message: 'Monthly minute limit reached. Upgrade or wait for reset.' })
+      if (user.plan !== 'free') {
+        const limitCheck = await enforceUsageLimits(user, requestedMinutes)
+        if (!limitCheck.allowed) {
+          for (const v of videoMeta) fs.unlinkSync(v.path)
+          return res.status(403).json({ message: 'Monthly minute limit reached. Upgrade or wait for reset.' })
+        }
       }
 
       const estimatedDurationMinutes = Math.ceil(totalDurationSeconds / 60)
@@ -221,7 +241,7 @@ router.post(
       await saveBatch(batch)
 
       // Track batch usage count; minute charging happens per video jobs
-      user.usageThisMonth.batchCount += 1
+      user.usageThisMonth.batchCount = (user.usageThisMonth.batchCount ?? 0) + 1
       user.updatedAt = new Date()
       await saveUser(user)
 

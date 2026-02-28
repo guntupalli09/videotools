@@ -12,7 +12,6 @@ import { ProcessingInterface } from '../components/figma/ProcessingInterface'
 import { ProcessingProgress } from '../components/figma/ProcessingProgress'
 import { ResultSkeleton } from '../components/figma/ResultSkeleton'
 import { TranslateResult } from '../components/figma/TranslateResult'
-import { ToolSidebar } from '../components/figma/ToolSidebar'
 import { RadioGroup } from '../components/figma/FormControls'
 import { getFilePreview, formatDuration, type FilePreviewData } from '../lib/filePreview'
 import { incrementUsage } from '../lib/usage'
@@ -25,6 +24,7 @@ import { texJobStarted, texJobCompleted, texJobFailed } from '../tex'
 import toast from 'react-hot-toast'
 import { MessageSquare, Film, FileText } from 'lucide-react'
 import { formatFileSize } from '../lib/utils'
+import { dispatchJobCompletedForFeedback } from '../components/FeedbackPrompt'
 import { emitToolCompleted } from '../workflow/workflowStore'
 
 type CompressionLevel = 'light' | 'medium' | 'heavy'
@@ -147,11 +147,12 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
 
     try {
       const usageData = await getCurrentUsage()
-      const totalAvailable = usageData.limits.minutesPerMonth + usageData.overages.minutes
-      const used = usageData.usage.totalMinutes
+      const isImports = usageData.quotaType === 'imports'
+      const totalAvailable = isImports ? (usageData.limit ?? 3) : (usageData.limits.minutesPerMonth + usageData.overages.minutes)
+      const used = isImports ? (usageData.used ?? usageData.usage?.importCount ?? 0) : usageData.usage.totalMinutes
       setAvailableMinutes(totalAvailable)
       setUsedMinutes(used)
-      const atOrOverLimit = totalAvailable > 0 && used >= totalAvailable
+      const atOrOverLimit = isImports ? used >= (usageData.limit ?? 3) : (totalAvailable > 0 && used >= totalAvailable)
       if (atOrOverLimit) {
         setShowPaywall(true)
         return
@@ -195,6 +196,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
             setLastProcessingMs(processingMs)
             setStatus('completed')
             setResult(jobStatus.result ?? null)
+            dispatchJobCompletedForFeedback()
             emitToolCompleted({ toolId: 'compress-video', pathname: '/compress-video', processingMs })
             incrementUsage('compress-video')
             texJobCompleted(processingMs, 'compress-video')
@@ -245,13 +247,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
     subtitle: seoIntro ?? 'Reduce file size while keeping quality high',
     icon: <Minimize2 className="w-8 h-8 text-blue-600 dark:text-blue-400" />,
     tags: ['Compression', 'Reduce size', 'Quality', 'Optimize'],
-    sidebar: (
-      <ToolSidebar
-        refreshTrigger={status}
-        showWhatYouGet={status === 'idle'}
-        whatYouGetContent="Smaller video file with same quality. Download compressed MP4."
-      />
-    ),
+    sidebar: null,
   }
 
   return (
@@ -290,6 +286,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
             actionLoading={false}
             showVideoPlayer={!!(videoPreviewUrl || filePreview?.durationSeconds)}
             videoSrc={videoPreviewUrl ?? undefined}
+            durationSeconds={filePreview?.durationSeconds}
           >
             <div className="space-y-6">
               <RadioGroup

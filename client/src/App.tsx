@@ -5,6 +5,7 @@ import { Toaster, toast } from 'react-hot-toast'
 import Navigation from './components/Navigation'
 import Breadcrumb from './components/Breadcrumb'
 import { getSessionDetails, setupPassword } from './lib/billing'
+import { invalidateUsageCache } from './lib/api'
 import Footer from './components/Footer'
 import Seo from './components/Seo'
 import { ROUTE_SEO, ROUTE_BREADCRUMB, getOrganizationJsonLd, getWebApplicationJsonLd, getFaqJsonLd, getFaqJsonLdFromItems, getBreadcrumbJsonLd } from './lib/seoMeta'
@@ -15,6 +16,7 @@ import { WorkflowProvider } from './contexts/WorkflowContext'
 import { WorkflowTracker } from './components/workflow/WorkflowTracker'
 import { TexAgent } from './components/TexAgent'
 import TexErrorBoundary from './components/TexAgent/TexErrorBoundary'
+import FeedbackPrompt from './components/FeedbackPrompt'
 
 // Lazy-load pages for fast initial load on any device; each route loads only when visited.
 const Home = lazy(() => import('./pages/Home'))
@@ -51,7 +53,7 @@ function RouteFallback() {
 function RouteTransitionLayout() {
   const { pathname } = useLocation()
   return (
-    <div key={pathname} className="route-transition-enter">
+    <div key={pathname} className="route-transition-enter w-full min-w-0">
       <Outlet />
     </div>
   )
@@ -126,7 +128,6 @@ function PostCheckoutHandler() {
         if (data.email) localStorage.setItem('userEmail', data.email)
         if (data.token) localStorage.setItem('authToken', data.token)
         try {
-          const { invalidateUsageCache } = await import('./lib/api')
           invalidateUsageCache()
         } catch {
           // non-blocking
@@ -265,7 +266,7 @@ function App() {
       <div className="min-h-screen flex flex-col overflow-x-hidden">
         <Navigation />
         <OfflineBanner />
-        <main id="main" className="flex-grow" role="main">
+        <main id="main" className="flex-grow w-full min-w-0" role="main">
           <Breadcrumb />
           <SessionErrorBoundary>
             <Suspense fallback={<RouteFallback />}>
@@ -304,6 +305,7 @@ function App() {
         <TexErrorBoundary>
           <TexAgent />
         </TexErrorBoundary>
+        <FeedbackPrompt />
         <Toaster position="top-right" />
       </div>
       </WorkflowProvider>

@@ -2,9 +2,21 @@ import { Link, useLocation } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import { ROUTE_BREADCRUMB } from '../lib/seoMeta'
 
+/** Paths that use ToolLayout and render their own breadcrumb — hide global bar to avoid duplicate. */
+const TOOL_LAYOUT_PATHS = [
+  '/video-to-transcript',
+  '/video-to-subtitles',
+  '/batch-process',
+  '/translate-subtitles',
+  '/fix-subtitles',
+  '/burn-subtitles',
+  '/compress-video',
+]
+
 /** Lightweight breadcrumb nav for SEO and UX. Renders only when path has breadcrumb data. */
 export default function Breadcrumb() {
   const { pathname } = useLocation()
+  if (TOOL_LAYOUT_PATHS.includes(pathname)) return null
   const items = ROUTE_BREADCRUMB[pathname]
   if (!items || items.length <= 1) return null
 

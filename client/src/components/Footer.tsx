@@ -78,7 +78,13 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <span className="text-gray-400">Contact: use in-app support</span>
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent('videotext:open-feedback'))}
+                  className="text-left hover:text-white transition-colors"
+                >
+                  Feedback
+                </button>
               </li>
             </ul>
           </div>

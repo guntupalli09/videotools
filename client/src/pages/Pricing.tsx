@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { createCheckoutSession, createBillingPortalSession } from '../lib/billing'
 import { trackEvent } from '../lib/analytics'
@@ -20,6 +20,7 @@ function CheckIcon({ className = '' }: { className?: string }) {
 
 export default function Pricing() {
   const [currentPlan, setCurrentPlan] = useState<string | null>(null)
+  const [usageResetDate, setUsageResetDate] = useState<string | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
   const [checkoutEmail, setCheckoutEmail] = useState('')
   const [emailPrompt, setEmailPrompt] = useState<{ plan: BillingPlan; annual: boolean } | null>(null)
@@ -30,13 +31,31 @@ export default function Pricing() {
   const [otpLoading, setOtpLoading] = useState(false)
   const [otpError, setOtpError] = useState<string | null>(null)
 
-  useEffect(() => {
-    getCurrentUsage()
-      .then((data) => setCurrentPlan((data.plan || 'free').toLowerCase()))
-      .catch(() => setCurrentPlan((localStorage.getItem('plan') || 'free').toLowerCase()))
+  const refreshCurrentPlan = useCallback(() => {
+    getCurrentUsage({ skipCache: true })
+      .then((data) => {
+        setCurrentPlan((data.plan || 'free').toLowerCase())
+        setUsageResetDate(data.resetDate ?? data.billingPeriodEnd ?? null)
+      })
+      .catch(() => {
+        setCurrentPlan((localStorage.getItem('plan') || 'free').toLowerCase())
+        setUsageResetDate(null)
+      })
   }, [])
 
+  useEffect(() => {
+    refreshCurrentPlan()
+  }, [refreshCurrentPlan])
+
+  useEffect(() => {
+    const onPlanUpdated = () => refreshCurrentPlan()
+    window.addEventListener('videotext:plan-updated', onPlanUpdated)
+    return () => window.removeEventListener('videotext:plan-updated', onPlanUpdated)
+  }, [refreshCurrentPlan])
+
   const isPaidPlan = currentPlan === 'basic' || currentPlan === 'pro' || currentPlan === 'agency' || currentPlan === 'founding_workflow'
+
+  const isCurrentPlan = (plan: string) => (currentPlan || 'free').toLowerCase() === plan.toLowerCase()
 
   async function handleManageSubscription() {
     if (!isPaidPlan) return
@@ -136,7 +155,12 @@ export default function Pricing() {
             Features and outcomes first. Upgrade when you need more.
           </p>
           {isPaidPlan && (
-            <div className="mt-6">
+            <div className="mt-6 flex flex-col items-center gap-2">
+              {usageResetDate && (
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Your plan resets on {new Date(usageResetDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
+              )}
               <button
                 type="button"
                 onClick={handleManageSubscription}
@@ -151,9 +175,9 @@ export default function Pricing() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 lg:gap-8 items-stretch">
           {/* FOUNDING WORKFLOW — $10/month (UI only; not wired to Stripe yet) */}
-          <div className="flex flex-col bg-white dark:bg-gray-800 rounded-2xl border border-purple-300/80 dark:border-purple-500/50 shadow-card shadow-purple-500/10 p-6 sm:p-8 min-h-[420px] hover:shadow-card-elevated hover:shadow-purple-500/15 transition-motion relative">
+          <div className={`flex flex-col bg-white dark:bg-gray-800 rounded-2xl border shadow-card p-6 sm:p-8 min-h-[420px] hover:shadow-card-elevated transition-motion relative ${isCurrentPlan('founding_workflow') ? 'border-purple-500 dark:border-purple-400 ring-2 ring-purple-500/30 shadow-purple-500/10' : 'border-purple-300/80 dark:border-purple-500/50 shadow-purple-500/10 hover:shadow-purple-500/15'}`}>
             <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-purple-600 text-white text-[10px] font-semibold px-2.5 py-1 rounded-full shadow-card whitespace-nowrap">
-              Founding
+              {isCurrentPlan('founding_workflow') ? 'Current Plan' : 'Founding'}
             </span>
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mt-1">Founding Workflow Plan</h3>
             <div className="mt-2 flex items-baseline gap-1">
@@ -179,28 +203,38 @@ export default function Pricing() {
           </div>
 
           {/* FREE — $0 */}
-          <div className="flex flex-col bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-600 shadow-card p-6 sm:p-8 min-h-[420px] hover:shadow-card-elevated transition-motion">
+          <div className={`relative flex flex-col bg-white dark:bg-gray-800 rounded-2xl border shadow-card p-6 sm:p-8 min-h-[420px] hover:shadow-card-elevated transition-motion ${isCurrentPlan('free') ? 'border-violet-400 dark:border-violet-500 ring-2 ring-violet-500/30' : 'border-gray-200/80 dark:border-gray-600'}`}>
+            {isCurrentPlan('free') && (
+              <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-violet-600 text-white text-[10px] font-semibold px-2.5 py-1 rounded-full shadow-card whitespace-nowrap">
+                Current Plan
+              </span>
+            )}
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300">Free</h3>
               <span className="text-2xl font-bold text-gray-800 dark:text-white">$0</span>
             </div>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Try it: 60 min/month</p>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Try it: 3 free imports (lifetime)</p>
             <ul className="mt-6 space-y-3 flex-1">
               <li className={bulletRow}><CheckIcon /><span>Video → Transcript & Subtitles</span></li>
               <li className={bulletRow}><CheckIcon /><span>1 language · Watermarked</span></li>
-              <li className={bulletRow}><CheckIcon /><span>Up to 15 min per video</span></li>
+              <li className={bulletRow}><CheckIcon /><span>Up to 30 min per video</span></li>
             </ul>
             <button
               disabled
               className="mt-6 w-full py-3 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 font-medium text-sm cursor-not-allowed"
             >
-              Current Plan
+              {isCurrentPlan('free') ? 'Current Plan' : 'Free tier'}
             </button>
           </div>
 
           {/* BASIC — $19 */}
-          <div className="flex flex-col bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-600 shadow-card p-6 sm:p-8 min-h-[420px] hover:shadow-card-elevated hover:border-gray-300 dark:hover:border-gray-500 transition-motion">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Basic</h3>
+          <div className={`relative flex flex-col bg-white dark:bg-gray-800 rounded-2xl border shadow-card p-6 sm:p-8 min-h-[420px] hover:shadow-card-elevated transition-motion ${isCurrentPlan('basic') ? 'border-violet-400 dark:border-violet-500 ring-2 ring-violet-500/30 hover:border-violet-400' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}`}>
+            {isCurrentPlan('basic') && (
+              <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-violet-600 text-white text-[10px] font-semibold px-2.5 py-1 rounded-full shadow-card whitespace-nowrap">
+                Current Plan
+              </span>
+            )}
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mt-1">Basic</h3>
             <div className="mt-2 flex items-baseline gap-1">
               <span className="text-2xl font-bold text-gray-900 dark:text-white">$19</span>
               <span className="text-sm text-gray-500 dark:text-gray-400">/ month</span>
@@ -213,10 +247,11 @@ export default function Pricing() {
             </ul>
             <div className="mt-6 space-y-1">
               <button
-                onClick={() => handleSubscribe('basic', false)}
-                className="w-full py-3 rounded-xl bg-primary hover:bg-primary-hover text-white font-medium text-sm transition-colors"
+                onClick={() => isCurrentPlan('basic') ? handleManageSubscription() : handleSubscribe('basic', false)}
+                disabled={isCurrentPlan('basic') && portalLoading}
+                className="w-full py-3 rounded-xl bg-primary hover:bg-primary-hover text-white font-medium text-sm transition-colors disabled:opacity-60"
               >
-                Choose Basic
+                {isCurrentPlan('basic') ? (portalLoading ? 'Opening…' : 'Manage subscription') : 'Choose Basic'}
               </button>
               <button
                 onClick={() => handleSubscribe('basic', true)}
@@ -228,9 +263,9 @@ export default function Pricing() {
           </div>
 
           {/* PRO — $49 — primary CTA */}
-          <div className="relative flex flex-col bg-white dark:bg-gray-800 rounded-2xl border-2 border-violet-500 dark:border-violet-400 shadow-card-elevated shadow-violet-500/20 p-6 sm:p-8 min-h-[420px] lg:scale-[1.03] z-10 hover:shadow-card-elevated hover:shadow-violet-500/25 transition-motion">
+          <div className={`relative flex flex-col bg-white dark:bg-gray-800 rounded-2xl border-2 shadow-card-elevated p-6 sm:p-8 min-h-[420px] lg:scale-[1.03] z-10 transition-motion ${isCurrentPlan('pro') ? 'border-violet-500 dark:border-violet-400 ring-2 ring-violet-500/30 shadow-violet-500/20 hover:shadow-violet-500/25' : 'border-violet-500 dark:border-violet-400 shadow-violet-500/20 hover:shadow-card-elevated hover:shadow-violet-500/25'}`}>
             <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-violet-600 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-card whitespace-nowrap">
-              Most Popular
+              {isCurrentPlan('pro') ? 'Current Plan' : 'Most Popular'}
             </span>
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mt-1">Pro</h3>
             <div className="mt-2 flex items-baseline gap-1">
@@ -245,10 +280,11 @@ export default function Pricing() {
             </ul>
             <div className="mt-6 space-y-1">
               <button
-                onClick={() => handleSubscribe('pro', false)}
-                className="w-full py-3.5 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold text-sm shadow-card-elevated shadow-primary/25 transition-motion"
+                onClick={() => isCurrentPlan('pro') ? handleManageSubscription() : handleSubscribe('pro', false)}
+                disabled={isCurrentPlan('pro') && portalLoading}
+                className="w-full py-3.5 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold text-sm shadow-card-elevated shadow-primary/25 transition-motion disabled:opacity-60"
               >
-                Choose Pro
+                {isCurrentPlan('pro') ? (portalLoading ? 'Opening…' : 'Manage subscription') : 'Choose Pro'}
               </button>
               <button
                 onClick={() => handleSubscribe('pro', true)}
@@ -260,8 +296,13 @@ export default function Pricing() {
           </div>
 
           {/* AGENCY — $129 */}
-          <div className="flex flex-col bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-600 shadow-card p-6 sm:p-8 min-h-[420px] hover:shadow-card-elevated hover:border-gray-300 dark:hover:border-gray-500 transition-motion">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Agency</h3>
+          <div className={`relative flex flex-col bg-white dark:bg-gray-800 rounded-2xl border shadow-card p-6 sm:p-8 min-h-[420px] hover:shadow-card-elevated transition-motion ${isCurrentPlan('agency') ? 'border-violet-400 dark:border-violet-500 ring-2 ring-violet-500/30 hover:border-violet-400' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}`}>
+            {isCurrentPlan('agency') && (
+              <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-violet-600 text-white text-[10px] font-semibold px-2.5 py-1 rounded-full shadow-card whitespace-nowrap">
+                Current Plan
+              </span>
+            )}
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mt-1">Agency</h3>
             <div className="mt-2 flex items-baseline gap-1">
               <span className="text-2xl font-bold text-gray-900 dark:text-white">$129</span>
               <span className="text-sm text-gray-500 dark:text-gray-400">/ month</span>
@@ -274,10 +315,11 @@ export default function Pricing() {
             </ul>
             <div className="mt-6 space-y-1">
               <button
-                onClick={() => handleSubscribe('agency', false)}
-                className="w-full py-3.5 rounded-xl bg-primary-hover hover:bg-violet-800 dark:hover:bg-violet-700 text-white font-semibold text-sm border-2 border-primary/50 transition-colors"
+                onClick={() => isCurrentPlan('agency') ? handleManageSubscription() : handleSubscribe('agency', false)}
+                disabled={isCurrentPlan('agency') && portalLoading}
+                className="w-full py-3.5 rounded-xl bg-primary-hover hover:bg-violet-800 dark:hover:bg-violet-700 text-white font-semibold text-sm border-2 border-primary/50 transition-colors disabled:opacity-60"
               >
-                Choose Agency
+                {isCurrentPlan('agency') ? (portalLoading ? 'Opening…' : 'Manage subscription') : 'Choose Agency'}
               </button>
               <button
                 onClick={() => handleSubscribe('agency', true)}

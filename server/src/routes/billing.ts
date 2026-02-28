@@ -241,6 +241,7 @@ router.get('/session-details', async (req: Request, res: Response) => {
           batchCount: 0,
           languageCount: 0,
           translatedMinutes: 0,
+          importCount: 0,
           resetDate: now,
         },
         limits,
@@ -249,6 +250,10 @@ router.get('/session-details', async (req: Request, res: Response) => {
         updatedAt: now,
       }
       await saveUser(user)
+    }
+
+    if (!user) {
+      return res.status(500).json({ message: 'User not found' })
     }
 
     // If user has no password yet, issue or reuse a one-time setup token so the client can show "Set password" after checkout.

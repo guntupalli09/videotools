@@ -12,7 +12,6 @@ import { ProcessingInterface } from '../components/figma/ProcessingInterface'
 import { ProcessingProgress } from '../components/figma/ProcessingProgress'
 import { ResultSkeleton } from '../components/figma/ResultSkeleton'
 import { SubtitleResult } from '../components/figma/SubtitleResult'
-import { ToolSidebar } from '../components/figma/ToolSidebar'
 import { RadioGroup, Select } from '../components/figma/FormControls'
 import type { SubtitleRow } from '../components/SubtitleEditor'
 const SubtitleEditor = lazy(() => import('../components/SubtitleEditor'))
@@ -30,6 +29,7 @@ import { trackEvent } from '../lib/analytics'
 import { texJobStarted, texJobCompleted, texJobFailed } from '../tex'
 import toast from 'react-hot-toast'
 import { useWorkflow } from '../contexts/WorkflowContext'
+import { dispatchJobCompletedForFeedback } from '../components/FeedbackPrompt'
 import { emitToolCompleted } from '../workflow/workflowStore'
 
 /** Optional SEO overrides for alternate entry points (e.g. /mp4-to-srt, /subtitle-generator). Do NOT duplicate logic. */
@@ -168,6 +168,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           setPartialSegments([])
           setStatus('completed')
           setResult(jobStatus.result ?? null)
+          dispatchJobCompletedForFeedback()
           emitToolCompleted({ toolId: 'video-to-subtitles', pathname: '/video-to-subtitles' })
           setUploadPhase('processing')
           setUploadProgress(100)
@@ -223,6 +224,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               rehydratePollRef.current = null
               setStatus('completed')
               setResult(s.result ?? null)
+              dispatchJobCompletedForFeedback()
               emitToolCompleted({ toolId: 'video-to-subtitles', pathname: '/video-to-subtitles' })
               if (s.result?.downloadUrl) {
                 try {
@@ -420,11 +422,12 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
     let usageData: Awaited<ReturnType<typeof getCurrentUsage>> | null = null
     try {
       usageData = await getCurrentUsage()
-      const totalAvailable = usageData.limits.minutesPerMonth + usageData.overages.minutes
-      const used = usageData.usage.totalMinutes
+      const isImports = usageData.quotaType === 'imports'
+      const totalAvailable = isImports ? (usageData.limit ?? 3) : (usageData.limits.minutesPerMonth + usageData.overages.minutes)
+      const used = isImports ? (usageData.used ?? usageData.usage?.importCount ?? 0) : usageData.usage.totalMinutes
       setAvailableMinutes(totalAvailable)
       setUsedMinutes(used)
-      const atOrOverLimit = totalAvailable > 0 && used >= totalAvailable
+      const atOrOverLimit = isImports ? used >= (usageData.limit ?? 3) : (totalAvailable > 0 && used >= totalAvailable)
       if (atOrOverLimit) {
         setShowPaywall(true)
         trackEvent('paywall_shown', { tool: 'video-to-subtitles' })
@@ -526,6 +529,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           jobStartedTrackedRef.current = null
           setStatus('completed')
           setResult(jobStatus.result ?? null)
+          dispatchJobCompletedForFeedback()
           const started = processingStartedAtRef.current ?? Date.now()
           const processingMs = Date.now() - started
           emitToolCompleted({ toolId: 'video-to-subtitles', pathname: '/video-to-subtitles', processingMs })
@@ -576,7 +580,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             fileSizeBytes: selectedFile?.size,
             mimeType: selectedFile?.type,
             remainingMinutes: availableMinutes ?? undefined,
-            planQuotaMinutes: 60,
+            planQuotaMinutes: availableMinutes ?? undefined,
             durationMinutes: filePreview?.durationSeconds != null ? filePreview.durationSeconds / 60 : undefined,
           })
           setFailedMessage(msg)
@@ -729,13 +733,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
     subtitle: seoIntro ?? 'Generate SRT and VTT subtitle files instantly',
     icon: <MessageSquare className="w-8 h-8 text-blue-600 dark:text-blue-400" />,
     tags: ['SRT', 'VTT', 'Subtitles', 'Captions', 'Timestamps', 'Multi-format'],
-    sidebar: (
-      <ToolSidebar
-        refreshTrigger={status}
-        showWhatYouGet={status === 'idle'}
-        whatYouGetContent="SRT, VTT, or other subtitle formats. Optional multi-language. Same timestamps, no re-upload."
-      />
-    ),
+    sidebar: null,
   }
 
   return (
@@ -772,6 +770,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             actionLoading={false}
             showVideoPlayer={!!(videoPreviewUrl || filePreview?.durationSeconds)}
             videoSrc={videoPreviewUrl ?? undefined}
+            durationSeconds={filePreview?.durationSeconds}
           >
             <div className="space-y-6">
               <RadioGroup

@@ -356,14 +356,14 @@ export function Hero() {
             transition={{ delay: 0.7, duration: 0.5 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-3.5 mb-3"
           >
-            <Link to="/video-to-transcript">
+            <Link to="/login">
               <motion.span
                 whileHover={{ y: -2 }}
                 whileTap={{ scale: 0.97 }}
                 className="group relative inline-flex bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-8 py-3.5 rounded-xl font-medium shadow-lg shadow-purple-500/20 dark:shadow-purple-600/20 hover:shadow-purple-500/40 dark:hover:shadow-purple-600/40 transition-all overflow-hidden"
               >
                 <span className="relative flex items-center gap-2 text-[15px]">
-                  Start transcribing — it's free
+                  Sign up to try free
                   <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                 </span>
               </motion.span>
@@ -383,7 +383,7 @@ export function Hero() {
             transition={{ delay: 0.9, duration: 0.6 }}
             className="text-center text-[10px] text-gray-400 dark:text-white/15 tracking-wider uppercase transition-colors duration-500"
           >
-            No signup · No data stored · Cancel anytime
+            3 free imports · No credit card · We don’t store your data
           </motion.p>
 
           <SocialProof />

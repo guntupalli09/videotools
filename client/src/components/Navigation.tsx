@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import UserMenu from './UserMenu'
 import { prefetchRoute } from '../lib/prefetch'
+import { isLoggedIn } from '../lib/auth'
 
 const tools = [
   { name: 'Video → Transcript', path: '/video-to-transcript' },
@@ -16,15 +17,30 @@ const tools = [
 
 export default function Navigation() {
   const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false)
+  const [showTryFree, setShowTryFree] = useState(true)
+
+  useEffect(() => {
+    setShowTryFree(!isLoggedIn())
+  }, [])
+
+  useEffect(() => {
+    const onLoginOrLogout = () => setShowTryFree(!isLoggedIn())
+    window.addEventListener('videotext:plan-updated', onLoginOrLogout)
+    window.addEventListener('videotext:logout', onLoginOrLogout)
+    return () => {
+      window.removeEventListener('videotext:plan-updated', onLoginOrLogout)
+      window.removeEventListener('videotext:logout', onLoginOrLogout)
+    }
+  }, [])
 
   return (
     <nav className="sticky top-0 z-[60] bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-b border-gray-100 dark:border-gray-700 shadow-nav">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
+      <div className="w-full px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16 w-full">
+          {/* Brand: top left */}
           <Link
             to="/"
-            className="flex items-center space-x-2"
+            className="flex items-center gap-2 shrink-0"
             onMouseEnter={() => prefetchRoute('/')}
             onFocus={() => prefetchRoute('/')}
           >
@@ -32,8 +48,8 @@ export default function Navigation() {
             <span className="text-xl font-display font-semibold text-gray-800 dark:text-white">VideoText</span>
           </Link>
 
-          {/* Desktop: Tools dropdown, Pricing, User menu (hamburger), Try Free */}
-          <div className="hidden md:flex items-center space-x-6">
+          {/* Top right: Tools, Pricing, menu, Try Free */}
+          <div className="hidden md:flex items-center justify-end gap-6 lg:gap-8 shrink-0">
             <div
               className="relative"
               onMouseEnter={() => setToolsDropdownOpen(true)}
@@ -82,14 +98,16 @@ export default function Navigation() {
 
             <UserMenu />
 
-            <Link
-              to="/pricing"
-              className="btn-primary px-4 py-2 text-sm"
-              onMouseEnter={() => prefetchRoute('/pricing')}
-              onFocus={() => prefetchRoute('/pricing')}
-            >
-              Try Free →
-            </Link>
+            {showTryFree && (
+              <Link
+                to="/pricing"
+                className="btn-primary px-4 py-2 text-sm"
+                onMouseEnter={() => prefetchRoute('/pricing')}
+                onFocus={() => prefetchRoute('/pricing')}
+              >
+                Try Free →
+              </Link>
+            )}
           </div>
 
           {/* Mobile: only hamburger (UserMenu) */}

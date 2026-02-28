@@ -63,6 +63,7 @@ async function ensureUserForStripeCustomer(
       batchCount: 0,
       languageCount: 0,
       translatedMinutes: 0,
+      importCount: 0,
       resetDate: now,
     },
     limits,
@@ -112,6 +113,7 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event): Promise<void
         user.billingPeriodEnd = endDate
         user.usageThisMonth = {
           ...user.usageThisMonth,
+          importCount: user.usageThisMonth.importCount ?? 0,
           resetDate: endDate,
         }
       }
@@ -198,13 +200,15 @@ async function handleInvoicePaymentSucceeded(event: Stripe.Event): Promise<void>
   user.billingPeriodStart = startDate
   user.billingPeriodEnd = endDate
 
-  // Reset usage strictly using Stripe billing period
+  // Reset usage strictly using Stripe billing period (preserve importCount for model shape)
   user.usageThisMonth = {
+    ...user.usageThisMonth,
     totalMinutes: 0,
     videoCount: 0,
     batchCount: 0,
     languageCount: 0,
     translatedMinutes: 0,
+    importCount: user.usageThisMonth.importCount ?? 0,
     resetDate: endDate,
   }
 

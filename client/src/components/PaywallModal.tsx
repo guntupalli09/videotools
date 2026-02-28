@@ -22,18 +22,26 @@ export default function PaywallModal({
 }: PaywallModalProps) {
   const [usage, setUsage] = useState<{ used: number; available: number } | null>(null)
 
+  const [quotaType, setQuotaType] = useState<'imports' | 'minutes'>('minutes')
   useEffect(() => {
     if (!isOpen) return
     let cancelled = false
     getCurrentUsage()
       .then((data) => {
         if (cancelled) return
-        const available =
-          data.limits.minutesPerMonth + data.overages.minutes
-        setUsage({
-          used: data.usage.totalMinutes,
-          available,
-        })
+        const isImports = data.quotaType === 'imports'
+        setQuotaType(isImports ? 'imports' : 'minutes')
+        if (isImports) {
+          const used = data.used ?? data.usage?.importCount ?? 0
+          const limit = data.limit ?? 3
+          setUsage({ used, available: limit })
+        } else {
+          const available = data.limits.minutesPerMonth + data.overages.minutes
+          setUsage({
+            used: data.usage.totalMinutes,
+            available,
+          })
+        }
       })
       .catch(() => {
         if (cancelled) return
@@ -51,6 +59,8 @@ export default function PaywallModal({
   const availableMinutes = usage?.available ?? propAvailable ?? 0
 
   if (!isOpen) return null
+
+  const isImportsQuota = quotaType === 'imports'
 
   return (
     <AnimatePresence>
@@ -78,13 +88,15 @@ export default function PaywallModal({
 
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Upgrade to continue</h2>
           <p className="text-gray-600 mb-6">
-            You&apos;ve used {usedMinutes} of {availableMinutes} minutes this billing cycle.
+            {isImportsQuota
+              ? "You've used all 3 free imports. Upgrade to use the tool."
+              : `You've used ${usedMinutes} of ${availableMinutes} minutes this billing cycle.`}
           </p>
 
           <div className="grid grid-cols-2 gap-4 mb-6">
             <button
               onClick={onBuyOverage}
-              disabled={!onBuyOverage}
+              disabled={!onBuyOverage || isImportsQuota}
               className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 text-left hover:border-violet-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <div className="font-semibold text-gray-800 mb-1">Buy 100 more minutes</div>
@@ -102,7 +114,9 @@ export default function PaywallModal({
           </div>
 
           <p className="text-xs text-gray-400 text-center">
-            Or wait until the next billing cycle when your minutes reset.
+            {isImportsQuota
+              ? 'Free plan includes 3 lifetime imports. Upgrade for unlimited usage.'
+              : 'Or wait until the next billing cycle when your minutes reset.'}
           </p>
         </motion.div>
       </div>

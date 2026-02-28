@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express'
 import { getUser, saveUser, User, PlanType } from '../models/User'
 import { getPlanLimits, getJobPriority } from '../utils/limits'
 import { getAuthFromRequest, getEffectiveUserId } from '../utils/auth'
+import { resetUserUsageIfNeeded } from '../utils/usageReset'
 import {
   getPlanAndEmailForStripeCustomer,
   getSubscriptionPeriodEnd,
@@ -9,8 +10,7 @@ import {
 
 const router = express.Router()
 
-// For Phase 1.5 we derive a demo user from a simple header or fall back to free.
-// When user is missing but x-user-id looks like a Stripe customer (cus_*), we restore from Stripe so paid plan survives API restarts.
+/** Get or create user for usage/display. Returns null when not authenticated (no JWT/API key). */
 async function getOrCreateDemoUser(req: Request): Promise<User | null> {
   const auth = getAuthFromRequest(req)
   const userId = getEffectiveUserId(req)
@@ -23,9 +23,19 @@ async function getOrCreateDemoUser(req: Request): Promise<User | null> {
   if (!user && userId.startsWith('cus_')) {
     const stripeData = await getPlanAndEmailForStripeCustomer(userId)
     if (stripeData) {
+      let billingPeriodStart: Date | undefined
+      let billingPeriodEnd: Date | undefined
       const resetDate = stripeData.currentPeriodEnd
         ? new Date(stripeData.currentPeriodEnd * 1000)
         : now
+      if (stripeData.subscriptionId) {
+        const period = await getSubscriptionPeriodEnd(stripeData.subscriptionId)
+        if (period) {
+          billingPeriodStart = period.currentPeriodStart
+          billingPeriodEnd = period.currentPeriodEnd
+        }
+      }
+      if (!billingPeriodEnd) billingPeriodEnd = resetDate
       user = {
         id: userId,
         email: stripeData.email,
@@ -34,13 +44,16 @@ async function getOrCreateDemoUser(req: Request): Promise<User | null> {
         stripeCustomerId: userId,
         subscriptionId: stripeData.subscriptionId,
         paymentMethodId: undefined,
+        billingPeriodStart,
+        billingPeriodEnd,
         usageThisMonth: {
           totalMinutes: 0,
           videoCount: 0,
           batchCount: 0,
           languageCount: 0,
           translatedMinutes: 0,
-          resetDate,
+          importCount: 0,
+          resetDate: billingPeriodEnd ?? resetDate,
         },
         limits: getPlanLimits(stripeData.plan),
         overagesThisMonth: { minutes: 0, languages: 0, batches: 0, totalCharge: 0 },
@@ -78,6 +91,7 @@ async function getOrCreateDemoUser(req: Request): Promise<User | null> {
         batchCount: 0,
         languageCount: 0,
         translatedMinutes: 0,
+        importCount: 0,
         resetDate,
       },
       limits,
@@ -107,7 +121,7 @@ async function getOrCreateDemoUser(req: Request): Promise<User | null> {
         if (!user.billingPeriodEnd || Math.abs(currentResetTime - resetTime) > 60_000) {
           user.billingPeriodEnd = period.currentPeriodEnd
           user.billingPeriodStart = period.currentPeriodStart
-          user.usageThisMonth = { ...user.usageThisMonth, resetDate: period.currentPeriodEnd }
+          user.usageThisMonth = { ...user.usageThisMonth, importCount: user.usageThisMonth.importCount ?? 0, resetDate: period.currentPeriodEnd }
           user.updatedAt = now
           await saveUser(user)
         }
@@ -118,31 +132,21 @@ async function getOrCreateDemoUser(req: Request): Promise<User | null> {
     if (user.billingPeriodEnd && user.billingPeriodEnd < now && !user.subscriptionId) {
       user.plan = 'free'
       user.limits = getPlanLimits('free')
-      const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+      // Preserve importCount: free plan 3 imports are lifetime, don't give more on downgrade
+      const priorImportCount = user.usageThisMonth.importCount ?? 0
       user.usageThisMonth = {
         totalMinutes: 0,
         videoCount: 0,
         batchCount: 0,
         languageCount: 0,
         translatedMinutes: 0,
-        resetDate,
+        importCount: priorImportCount,
+        resetDate: new Date(now.getFullYear(), now.getMonth() + 1, 1),
       }
       user.overagesThisMonth = { minutes: 0, languages: 0, batches: 0, totalCharge: 0 }
       user.updatedAt = now
       await saveUser(user)
-    } else if (now > user.usageThisMonth.resetDate) {
-      // Fallback monthly reset for free/demo users
-      const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-      user.usageThisMonth = {
-        totalMinutes: 0,
-        videoCount: 0,
-        batchCount: 0,
-        languageCount: 0,
-        translatedMinutes: 0,
-        resetDate,
-      }
-      user.overagesThisMonth = { minutes: 0, languages: 0, batches: 0, totalCharge: 0 }
-      user.updatedAt = now
+    } else if (resetUserUsageIfNeeded(user, now)) {
       await saveUser(user)
     }
   }
@@ -160,16 +164,51 @@ router.get('/current', async (req: Request, res: Response) => {
     batchCount: 0,
     languageCount: 0,
     translatedMinutes: 0,
+    importCount: 0,
     resetDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1),
   }
   const overages = user?.overagesThisMonth ?? { minutes: 0, languages: 0, batches: 0, totalCharge: 0 }
-  const availableMinutes = limits.minutesPerMonth + overages.minutes
-  const remaining = Math.max(0, availableMinutes - usage.totalMinutes)
-
   const displayEmail =
     user?.email && !user.email.endsWith('@example.com') && !user.email.endsWith('@checkout.example.com')
       ? user.email
       : undefined
+
+  if (plan === 'free') {
+    const importCount = usage.importCount ?? 0
+    const limit = 3
+    res.json({
+      plan: 'free',
+      quotaType: 'imports',
+      used: importCount,
+      limit,
+      remaining: Math.max(0, limit - importCount),
+      resetDate: usage.resetDate.toISOString(),
+      email: displayEmail,
+      limits: {
+        minutesPerMonth: limits.minutesPerMonth,
+        maxLanguages: limits.maxLanguages,
+        batchEnabled: limits.batchEnabled,
+        maxFileSize: limits.maxFileSize,
+        maxVideoDuration: limits.maxVideoDuration,
+      },
+      usage: {
+        totalMinutes: usage.totalMinutes,
+        remaining: 0,
+        videoCount: usage.videoCount,
+        batchCount: usage.batchCount,
+        importCount,
+      },
+      overages: { minutes: 0, charge: 0 },
+      queuePriority: getJobPriority(plan),
+    })
+    return
+  }
+
+  const availableMinutes = limits.minutesPerMonth + overages.minutes
+  const remaining = Math.max(0, availableMinutes - usage.totalMinutes)
+  // Per-user billing period (when they subscribed); never use a shared default
+  const billingPeriodEnd = user!.billingPeriodEnd
+  const resetDate = billingPeriodEnd ?? user!.usageThisMonth.resetDate
   res.json({
     plan,
     email: displayEmail,
@@ -190,7 +229,8 @@ router.get('/current', async (req: Request, res: Response) => {
       minutes: overages.minutes,
       charge: overages.totalCharge,
     },
-    resetDate: usage.resetDate.toISOString(),
+    resetDate: resetDate.toISOString(),
+    billingPeriodEnd: billingPeriodEnd?.toISOString() ?? null,
     queuePriority: getJobPriority(plan),
   })
 })

@@ -6,8 +6,8 @@ export function getPlanLimits(plan: PlanType): PlanLimits {
   switch (plan) {
     case 'free':
       return {
-        minutesPerMonth: 60,
-        maxVideoDuration: 15,
+        minutesPerMonth: 60, // kept for compatibility; free plan uses importCount (3 imports/month), not minutes
+        maxVideoDuration: 30,
         maxFileSize: 2 * 1024 * 1024 * 1024, // 2 GB — typical iPhone short clips
         maxConcurrentJobs: 1,
         maxLanguages: 1,
@@ -100,7 +100,7 @@ export async function enforceUsageLimits(
   overage: boolean
   overageMinutes?: number
 }> {
-  const projected = user.usageThisMonth.totalMinutes + requestedMinutes
+  const projected = (user.usageThisMonth.totalMinutes ?? 0) + requestedMinutes
 
   if (projected > user.limits.minutesPerMonth) {
     // Overage allowed only for paid users (Stripe customer); do not allow overage to replace upgrading
@@ -162,7 +162,7 @@ export function enforceTranslatedMinutesCap(
   const cap = getPlanTranslatedMinutesCap(user.plan)
   if (!cap) return { allowed: true }
 
-  const projected = user.usageThisMonth.translatedMinutes + additionalMinutes
+  const projected = (user.usageThisMonth.translatedMinutes ?? 0) + additionalMinutes
   if (projected > cap) {
     return { allowed: false, reason: 'TRANSLATED_MINUTES_CAP_REACHED' }
   }

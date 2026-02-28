@@ -102,22 +102,22 @@ export function UploadZone({
   if (selectedFile && immediateSelect && !multiple) {
     return (
       <div className="w-full">
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative overflow-hidden rounded-3xl border-2 border-dashed border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 p-6"
-        >
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4 flex-1 min-w-0">
-              <div className="relative w-20 h-20 bg-gradient-to-br from-purple-500 to-blue-500 rounded-2xl flex items-center justify-center shadow-xl shrink-0">
-                <Check className="w-10 h-10 text-white" />
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative overflow-hidden rounded-xl sm:rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 p-4 sm:p-5"
+      >
+        <div className="flex items-center justify-between gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+            <div className="relative w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg shrink-0">
+              <Check className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
               </div>
               <div className="min-w-0">
                 {fromWorkflowLabel && (
                   <span className="text-xs font-medium text-purple-600 dark:text-purple-400 block mb-1">{fromWorkflowLabel}</span>
                 )}
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white truncate">{selectedFile.name}</h3>
-                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                <h3 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white truncate">{selectedFile.name}</h3>
+                <p className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">
                   {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • Ready to configure
                 </p>
               </div>
@@ -147,43 +147,43 @@ export function UploadZone({
           scale: isDragging ? 1.02 : 1,
           borderColor: isDragging ? 'rgb(168, 85, 247)' : undefined
         }}
-        className={`relative overflow-hidden rounded-3xl border-2 border-dashed transition-all duration-300 ${
+        className={`relative overflow-hidden rounded-xl sm:rounded-2xl border-2 border-dashed transition-all duration-300 ${
           isDragging
             ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/20'
             : 'border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50'
         }`}
       >
-        <div className="relative p-12 md:p-16 text-center">
+        <div className="relative p-4 sm:p-6 md:p-8 text-center min-w-0">
           {uploadStatus === 'idle' && (
             <>
               <motion.div
                 animate={{ y: isDragging ? -10 : [0, -10, 0] }}
                 transition={{ duration: isDragging ? 0.3 : 2, repeat: isDragging ? 0 : Infinity, ease: 'easeInOut' }}
-                className="mb-6 flex justify-center"
+                className="mb-2 sm:mb-4 flex justify-center"
               >
-                <div className="relative w-20 h-20 bg-gradient-to-br from-purple-500 to-blue-500 rounded-2xl flex items-center justify-center shadow-xl">
-                  <Upload className="w-10 h-10 text-white" />
+                <div className="relative w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg">
+                  <Upload className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                 </div>
               </motion.div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+              <h3 className="text-base sm:text-xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2">
                 Drag and drop your file
               </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
+              <p className="text-gray-600 dark:text-gray-400 mb-2 sm:mb-3 text-xs sm:text-sm">
                 or{' '}
                 <label className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 font-semibold cursor-pointer">
                   click to browse
                   <input type="file" className="hidden" onChange={handleFileInput} accept={acceptAttribute} {...(multiple ? { multiple: true } : {})} />
                 </label>
               </p>
-              <div className="flex items-center justify-center gap-6 text-sm text-gray-500 dark:text-gray-400">
-                <div className="flex items-center gap-2">
-                  <File className="w-4 h-4" />
-                  <span>Max file size: {maxSize}</span>
+              <div className="flex items-center justify-center gap-4 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                <div className="flex items-center gap-1.5">
+                  <File className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span>Max: {maxSize}</span>
                 </div>
               </div>
-              <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+              <div className="mt-3 sm:mt-4 flex flex-wrap items-center justify-center gap-1.5">
                 {acceptedFormats.map((format) => (
-                  <span key={format} className="px-3 py-1 bg-gray-200 dark:bg-gray-800 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300">
+                  <span key={format} className="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-gray-200 dark:bg-gray-800 rounded text-xs font-medium text-gray-700 dark:text-gray-300">
                     {format}
                   </span>
                 ))}
@@ -191,16 +191,16 @@ export function UploadZone({
             </>
           )}
           {uploadStatus === 'uploading' && (
-            <div className="space-y-6">
+            <div className="space-y-3">
               <div className="flex justify-center">
-                <div className="relative w-20 h-20 bg-gradient-to-br from-purple-500 to-blue-500 rounded-2xl flex items-center justify-center shadow-xl">
-                  <Loader2 className="w-10 h-10 text-white animate-spin" />
+                <div className="relative w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-500 to-blue-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 text-white animate-spin" />
                 </div>
               </div>
-              <div className="space-y-3">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">Uploading {fileName}</h3>
-                <div className="max-w-md mx-auto">
-                  <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div className="space-y-2">
+                <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">Uploading {fileName}</h3>
+                <div className="max-w-xs mx-auto">
+                  <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                     <motion.div
                       className="h-full bg-gradient-to-r from-purple-600 to-blue-600"
                       initial={{ width: 0 }}
@@ -208,21 +208,21 @@ export function UploadZone({
                       transition={{ duration: 0.3 }}
                     />
                   </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">{progress}% complete</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{progress}% complete</p>
                 </div>
               </div>
             </div>
           )}
           {uploadStatus === 'success' && (
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', damping: 15, stiffness: 300 }} className="space-y-6">
+            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', damping: 15, stiffness: 300 }} className="space-y-3">
               <div className="flex justify-center">
-                <div className="relative w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center shadow-xl">
-                  <Check className="w-10 h-10 text-white" />
+                <div className="relative w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <Check className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
                 </div>
               </div>
-              <div className="space-y-3">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">Upload complete!</h3>
-                <p className="text-gray-600 dark:text-gray-400">Processing {fileName}...</p>
+              <div className="space-y-1">
+                <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">Upload complete!</h3>
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Processing {fileName}...</p>
               </div>
             </motion.div>
           )}

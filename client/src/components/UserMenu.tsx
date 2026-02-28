@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { Menu, X, Sun, Moon, Clock, CreditCard, Mail, Gift } from 'lucide-react'
+import { Menu, X, Sun, Moon, Clock, CreditCard, Mail, Gift, MessageCircle } from 'lucide-react'
 import { prefetchRoute } from '../lib/prefetch'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getCurrentUsage } from '../lib/api'
@@ -28,6 +28,7 @@ export default function UserMenu() {
     totalPlanMinutes: number
     resetDate: string
     email?: string
+    quotaType?: 'imports' | 'minutes'
   } | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
   const { theme, toggleTheme } = useTheme()
@@ -35,13 +36,18 @@ export default function UserMenu() {
   const refreshUsage = useCallback(() => {
     getCurrentUsage({ skipCache: true })
       .then((data) => {
-        const total = data.limits.minutesPerMonth + data.overages.minutes
+        const isImports = data.quotaType === 'imports'
+        const remaining = isImports
+          ? (data.remaining ?? Math.max(0, (data.limit ?? 3) - (data.used ?? 0)))
+          : data.usage.remaining
+        const total = isImports ? (data.limit ?? 3) : (data.limits.minutesPerMonth + data.overages.minutes)
         setUsage({
           plan: (data.plan || 'free').toLowerCase(),
-          remaining: data.usage.remaining,
+          remaining,
           totalPlanMinutes: total,
           resetDate: data.resetDate,
           email: data.email || (typeof localStorage !== 'undefined' ? localStorage.getItem('userEmail') || undefined : undefined),
+          quotaType: isImports ? 'imports' : 'minutes',
         })
       })
       .catch(() => {
@@ -132,25 +138,22 @@ export default function UserMenu() {
                   </div>
                 )}
 
-                {/* Minutes left — always show a block so content is visible */}
+                {/* Quota left — imports for free, minutes for paid */}
                 {usage ? (
                   <div className="rounded-xl bg-violet-100 dark:bg-violet-900/40 border border-violet-200 dark:border-violet-800 p-4">
                     <div className="flex items-center gap-2 text-violet-800 dark:text-violet-200 text-sm font-medium">
                       <Clock className="w-4 h-4 shrink-0" />
-                      Minutes left
+                      {usage.quotaType === 'imports' ? 'Imports left' : 'Minutes left'}
                     </div>
                     <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-                      {usage.remaining} <span className="text-base font-normal text-gray-600 dark:text-gray-300">min remaining</span>
+                      {usage.quotaType === 'imports' && usage.remaining === 0
+                        ? <span className="text-base font-normal">You&apos;ve used all 3 imports. Upgrade to use the tool.</span>
+                        : <>{usage.remaining} <span className="text-base font-normal text-gray-600 dark:text-gray-300">{usage.quotaType === 'imports' ? 'of 3 imports remaining' : 'min remaining'}</span></>}
                     </p>
-                    {usage.plan !== 'free' && (
-                      <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
-                        {usage.plan} plan · Resets {new Date(usage.resetDate).toLocaleDateString()}
-                      </p>
-                    )}
                   </div>
                 ) : (
                   <div className="rounded-xl bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 p-4">
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Minutes left</p>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Quota</p>
                     <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">Loading…</p>
                   </div>
                 )}
@@ -171,7 +174,7 @@ export default function UserMenu() {
                 </div>
 
                 {/* Log in / Log out */}
-                {isLoggedIn() || (typeof localStorage !== 'undefined' && localStorage.getItem('userId') && localStorage.getItem('userId') !== 'demo-user') ? (
+                {isLoggedIn() ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -194,6 +197,19 @@ export default function UserMenu() {
                     <span>Log in</span>
                   </Link>
                 )}
+
+                {/* Share feedback */}
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  onClick={() => {
+                    setOpen(false)
+                    window.dispatchEvent(new CustomEvent('videotext:open-feedback'))
+                  }}
+                >
+                  <MessageCircle className="w-5 h-5 shrink-0 text-gray-600 dark:text-gray-300" />
+                  <span>Share feedback</span>
+                </button>
 
                 {/* Email support */}
                 <a
@@ -257,15 +273,17 @@ export default function UserMenu() {
                   >
                     Pricing
                   </Link>
-                  <Link
-                    to="/pricing"
-                    className="mt-2 block rounded-xl bg-violet-600 hover:bg-violet-700 text-white px-4 py-3 text-center font-medium transition-colors"
-                    onClick={() => setOpen(false)}
-                    onMouseEnter={() => prefetchRoute('/pricing')}
-                    onFocus={() => prefetchRoute('/pricing')}
-                  >
-                    Try Free →
-                  </Link>
+                  {!isLoggedIn() && (
+                    <Link
+                      to="/pricing"
+                      className="mt-2 block rounded-xl bg-violet-600 hover:bg-violet-700 text-white px-4 py-3 text-center font-medium transition-colors"
+                      onClick={() => setOpen(false)}
+                      onMouseEnter={() => prefetchRoute('/pricing')}
+                      onFocus={() => prefetchRoute('/pricing')}
+                    >
+                      Try Free →
+                    </Link>
+                  )}
                 </div>
                 </div>
               </aside>

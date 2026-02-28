@@ -53,7 +53,7 @@ export default function UsageDisplay({ refreshTrigger }: { refreshTrigger?: stri
   const plan = (data.plan || 'free').toLowerCase()
   const isFree = plan === 'free'
 
-  // Free plan: no separate block (PlanBadge + UsageCounter already show plan and minutes); no "Resets" for free.
+  // Free plan: no separate block (PlanBadge + UsageCounter show plan and imports); no "Resets" for free.
   if (isFree) return null
 
   const totalAvailableMinutes = data.limits.minutesPerMonth + data.overages.minutes
@@ -78,9 +78,6 @@ export default function UsageDisplay({ refreshTrigger }: { refreshTrigger?: stri
             style={{ width: `${usedPercent}%` }}
           />
         </div>
-        <span className="text-gray-500 dark:text-gray-400">
-          Resets {new Date(data.resetDate).toLocaleDateString()}
-        </span>
       </div>
       {showWarning && (
         <div className="rounded-md bg-amber-50 dark:bg-amber-900/30 px-3 py-1 text-[11px] text-amber-800 dark:text-amber-200">

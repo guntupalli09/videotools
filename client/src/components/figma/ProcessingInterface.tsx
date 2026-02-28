@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, FileVideo, Clock, Loader2 } from 'lucide-react';
+import { VideoFrameStrip } from './VideoFrameStrip';
 
 interface UploadedFile {
   name: string;
@@ -21,6 +22,8 @@ interface ProcessingInterfaceProps {
   actionLoading?: boolean;
   /** Optional video src (e.g. object URL) for trim preview. */
   videoSrc?: string | null;
+  /** Duration in seconds (for frame strip); pass from filePreview.durationSeconds. */
+  durationSeconds?: number;
   /** Trim range 0–100 (controlled). */
   trimStartPercent?: number;
   trimEndPercent?: number;
@@ -36,12 +39,21 @@ export function ProcessingInterface({
   showVideoPlayer = true,
   actionLoading = false,
   videoSrc,
+  durationSeconds,
   trimStartPercent = 0,
   trimEndPercent = 100,
   onTrimChange,
 }: ProcessingInterfaceProps) {
   const [internalStart, setInternalStart] = useState(trimStartPercent ?? 0);
   const [internalEnd, setInternalEnd] = useState(trimEndPercent ?? 100);
+  const videoPlayerRef = useRef<HTMLVideoElement | null>(null);
+  const [playbackTime, setPlaybackTime] = useState(0);
+  const [durationFromVideo, setDurationFromVideo] = useState<number | null>(null);
+  const effectiveDuration = durationSeconds ?? durationFromVideo;
+
+  useEffect(() => {
+    if (!videoSrc) setDurationFromVideo(null);
+  }, [videoSrc]);
   const start = trimStartPercent ?? internalStart;
   const end = trimEndPercent ?? internalEnd;
 
@@ -55,16 +67,16 @@ export function ProcessingInterface({
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm"
+        className="bg-white dark:bg-gray-900 rounded-xl sm:rounded-2xl p-4 sm:p-5 border border-gray-200 dark:border-gray-800 shadow-sm"
       >
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-4 flex-1">
-            <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-xl">
-              <FileVideo className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            <div className="p-2 sm:p-2.5 bg-purple-100 dark:bg-purple-900/30 rounded-lg shrink-0">
+              <FileVideo className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 dark:text-purple-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 truncate">{file.name}</h3>
-              <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-0.5 truncate">{file.name}</h3>
+              <div className="flex items-center gap-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                 <span>{file.size}</span>
                 {file.duration != null && (
                   <>
@@ -96,15 +108,43 @@ export function ProcessingInterface({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm"
+          className="bg-white dark:bg-gray-900 rounded-xl sm:rounded-2xl p-4 sm:p-5 border border-gray-200 dark:border-gray-800 shadow-sm"
         >
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Trim video before processing</h3>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 sm:mb-3">Trim video before processing</h3>
           {videoSrc && (
-            <div className="bg-black rounded-xl overflow-hidden mb-4 aspect-video flex items-center justify-center">
-              <video className="w-full h-full" controls src={videoSrc} />
-            </div>
+            <>
+              <div className="bg-black rounded-lg overflow-hidden mb-2 sm:mb-3 flex items-center justify-center w-full max-w-xl mx-auto max-h-[200px] aspect-video">
+                <video
+                  ref={(el) => { videoPlayerRef.current = el; }}
+                  className="w-full h-full object-contain"
+                  controls
+                  src={videoSrc}
+                  onLoadedMetadata={(e) => {
+                    const d = (e.target as HTMLVideoElement).duration;
+                    if (Number.isFinite(d) && d > 0) setDurationFromVideo(d);
+                  }}
+                  onTimeUpdate={() => setPlaybackTime(videoPlayerRef.current?.currentTime ?? 0)}
+                />
+              </div>
+              {effectiveDuration != null && effectiveDuration > 0 && (
+                <div className="mb-2 sm:mb-3">
+                  <VideoFrameStrip
+                    videoSrc={videoSrc}
+                    durationSeconds={effectiveDuration}
+                    currentTime={playbackTime}
+                    onSeek={(time) => {
+                      if (videoPlayerRef.current) {
+                        videoPlayerRef.current.currentTime = time;
+                        videoPlayerRef.current.play().catch(() => {});
+                        setPlaybackTime(time);
+                      }
+                    }}
+                  />
+                </div>
+              )}
+            </>
           )}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
               <span>Start: {start}%</span>
               <span>End: {end}%</span>

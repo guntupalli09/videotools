@@ -6,7 +6,6 @@ import { ToolLayout } from '../components/figma/ToolLayout'
 import { UploadZone } from '../components/figma/UploadZone'
 import { ProcessingProgress } from '../components/figma/ProcessingProgress'
 import { TranslateResult } from '../components/figma/TranslateResult'
-import { ToolSidebar } from '../components/figma/ToolSidebar'
 import { getBatchDownloadUrl, getBatchStatus, uploadBatch } from '../lib/api'
 import { JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { texJobStarted, texJobCompleted, texJobFailed } from '../tex'
@@ -102,13 +101,7 @@ export default function BatchProcess(props: BatchProcessSeoProps = {}) {
     subtitle: seoIntro ?? 'Upload multiple videos and process them together.',
     icon: <FolderPlus className="w-8 h-8 text-blue-600 dark:text-blue-400" />,
     tags: ['Bulk', 'Multiple files', 'Batch', 'Queue'],
-    sidebar: (
-      <ToolSidebar
-        refreshTrigger={status}
-        showWhatYouGet={status === 'idle'}
-        whatYouGetContent="Process multiple videos in one batch. Same tools (transcript, subtitles, etc.) applied to each."
-      />
-    ),
+    sidebar: null,
   }
 
   return (
@@ -124,21 +117,21 @@ export default function BatchProcess(props: BatchProcessSeoProps = {}) {
         )}
 
         {status === 'idle' && files.length > 0 && (
-          <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm">
-              <div className="flex items-center justify-between gap-4 mb-4">
-                <p className="font-semibold text-gray-900 dark:text-white">
+          <div className="space-y-3">
+            <div className="bg-white dark:bg-gray-900 rounded-xl sm:rounded-2xl p-4 sm:p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+              <div className="flex items-center justify-between gap-3 mb-2 sm:mb-3">
+                <p className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
                   {files.length} file{files.length !== 1 ? 's' : ''} selected
                 </p>
                 <button
                   type="button"
                   onClick={() => setFiles([])}
-                  className="text-sm text-red-600 hover:text-red-700 dark:text-red-400"
+                  className="text-xs sm:text-sm text-red-600 hover:text-red-700 dark:text-red-400"
                 >
                   Clear all
                 </button>
               </div>
-              <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 max-h-40 overflow-y-auto mb-4">
+              <ul className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 space-y-0.5 max-h-28 sm:max-h-32 overflow-y-auto mb-3">
                 {files.slice(0, 20).map((f, i) => (
                   <li key={i} className="truncate">{f.name}</li>
                 ))}
@@ -147,20 +140,20 @@ export default function BatchProcess(props: BatchProcessSeoProps = {}) {
               <button
                 type="button"
                 onClick={handleStartBatch}
-                className="w-full rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 py-4 text-white font-semibold hover:opacity-95 transition-opacity"
+                className="w-full rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 py-3 sm:py-3.5 text-white font-semibold hover:opacity-95 transition-opacity text-sm sm:text-base"
               >
                 Start Batch
               </button>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 text-center">
               Clear all to choose different files.
             </p>
           </div>
         )}
 
         {status === 'processing' && (
-          <div className="rounded-2xl bg-blue-50 dark:bg-blue-950/30 p-6 sm:p-8">
-            <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+          <div className="rounded-xl sm:rounded-2xl bg-blue-50 dark:bg-blue-950/30 p-4 sm:p-6">
+            <div className="mb-2 sm:mb-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
               {files.length} file{files.length !== 1 ? 's' : ''} in batch
             </div>
             <ProcessingProgress

@@ -125,7 +125,7 @@ export default function TexAgentPanel({ onClose, isOpen = true }: TexAgentPanelP
     planNudgeSentRef.current = true
     setMessages((prev) => [
       ...prev,
-      { type: 'tex', text: "You're on the free plan: 60 min/month. Ask me about upgrades.", contextual: true },
+      { type: 'tex', text: "You're on the free plan: 3 free imports (lifetime). Ask me about upgrades.", contextual: true },
     ])
   }, [plan, messages.length])
 

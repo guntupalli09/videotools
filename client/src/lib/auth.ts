@@ -25,6 +25,11 @@ export function logout(): void {
   } catch {
     // ignore
   }
+  try {
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('videotext:logout'))
+  } catch {
+    // ignore
+  }
 }
 
 /** Log in with email and password. Returns { token, userId, plan, email } on success. Caller should store these and then refresh/navigate. */

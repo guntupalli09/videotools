@@ -15,8 +15,6 @@ interface TranscriptResultProps {
   processingTime: string;
   fileSize?: string;
   transcript: string;
-  /** Minutes remaining this month (optional). */
-  minutesRemaining?: number | null;
   onDownload?: () => void;
   onProcessAnother?: () => void;
   onGenerateSubtitles?: () => void;
@@ -41,7 +39,6 @@ export function TranscriptResult({
   processingTime,
   fileSize,
   transcript,
-  minutesRemaining,
   onDownload,
   onProcessAnother,
   onGenerateSubtitles,
@@ -65,26 +62,32 @@ export function TranscriptResult({
   const tools = relatedTools.length > 0 ? relatedTools : defaultRelatedTools;
 
   return (
-    <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-8">
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-          className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 mb-4"
-        >
-          <Check className="w-8 h-8 text-green-600 dark:text-green-400" />
-        </motion.div>
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Your file is ready!</h2>
-        <p className="text-gray-600 dark:text-gray-400 mb-1">{fileName}</p>
-        <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">Processed in {processingTime} ⚡</p>
-        {(fileSize || minutesRemaining != null) && (
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {fileSize && <span>{fileSize}</span>}
-            {fileSize && minutesRemaining != null && <span className="mx-1">•</span>}
-            {minutesRemaining != null && <span>{minutesRemaining} min remaining this month</span>}
-          </p>
-        )}
+    <div className="space-y-4 sm:space-y-6 min-w-0 w-full">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-full py-5 sm:py-8 px-1 flex flex-col sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:text-left text-center rounded-2xl bg-white/80 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50 shadow-sm"
+      >
+        <div className="flex flex-col sm:flex-row items-center sm:items-center gap-3 sm:gap-4 min-w-0 flex-1">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+            className="shrink-0 inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-green-100 dark:bg-green-900/30"
+          >
+            <Check className="w-6 h-6 sm:w-8 sm:h-8 text-green-600 dark:text-green-400" />
+          </motion.div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-1">Your file is ready!</h2>
+            <p className="text-gray-600 dark:text-gray-400 truncate max-w-full" title={fileName}>{fileName}</p>
+            <p className="text-xs sm:text-sm text-purple-600 dark:text-purple-400 font-medium mt-1">Processed in {processingTime} ⚡</p>
+            {fileSize && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {fileSize}
+              </p>
+            )}
+          </div>
+        </div>
       </motion.div>
 
       {onDownload && (
@@ -95,9 +98,9 @@ export function TranscriptResult({
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.99 }}
           onClick={onDownload}
-          className="w-full py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+          className="w-full py-3 sm:py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 text-sm sm:text-base"
         >
-          <Download className="w-5 h-5" />
+          <Download className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
           Download
         </motion.button>
       )}
@@ -107,9 +110,9 @@ export function TranscriptResult({
           <button
             type="button"
             onClick={onGenerateSubtitles}
-            className="w-full py-3.5 bg-white dark:bg-gray-800 border-2 border-purple-500 dark:border-purple-500 text-purple-600 dark:text-purple-400 font-semibold rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all flex items-center justify-center gap-2"
+            className="w-full py-3 sm:py-3.5 bg-white dark:bg-gray-800 border-2 border-purple-500 dark:border-purple-500 text-purple-600 dark:text-purple-400 font-semibold rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all flex items-center justify-center gap-2 text-sm sm:text-base"
           >
-            <ChevronRight className="w-5 h-5" />
+            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
             Continue Workflow
           </button>
           <p className="text-center text-xs text-gray-500 dark:text-gray-400">Generate subtitles — same video pre-filled, no re-upload</p>
@@ -129,9 +132,9 @@ export function TranscriptResult({
       )}
 
       {onGenerateSubtitles != null && (
-        <div className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-2xl p-6 border border-purple-200 dark:border-purple-800">
-          <p className="text-xs text-gray-600 dark:text-gray-400 mb-4">Same timestamps, no re-upload. Or continue workflow above.</p>
-          <div className="flex gap-3">
+        <div className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-purple-200 dark:border-purple-800">
+          <p className="text-xs text-gray-600 dark:text-gray-400 mb-3 sm:mb-4">Same timestamps, no re-upload. Or continue workflow above.</p>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
             {onExportSrt && (
               <button
                 type="button"
@@ -157,12 +160,12 @@ export function TranscriptResult({
       )}
 
       {showTranscriptCard && (
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-          <div className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Transcript</h3>
-            <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="bg-white dark:bg-gray-900 rounded-xl sm:rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden min-w-0">
+          <div className="p-4 sm:p-6">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">Transcript</h3>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
               {onSearchQueryChange && (
-                <div className="flex-1 min-w-[200px] relative">
+                <div className="flex-1 min-w-0 w-full sm:min-w-[200px] relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
                     type="text"

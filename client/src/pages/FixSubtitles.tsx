@@ -8,7 +8,6 @@ import { UploadZone } from '../components/figma/UploadZone'
 import { ProcessingInterface } from '../components/figma/ProcessingInterface'
 import { ProcessingProgress } from '../components/figma/ProcessingProgress'
 import { TranslateResult } from '../components/figma/TranslateResult'
-import { ToolSidebar } from '../components/figma/ToolSidebar'
 import { Checkbox } from '../components/figma/FormControls'
 import type { SubtitleRow } from '../components/SubtitleEditor'
 const SubtitleEditor = lazy(() => import('../components/SubtitleEditor'))
@@ -22,6 +21,7 @@ import { trackEvent } from '../lib/analytics'
 import { texJobStarted, texJobCompleted, texJobFailed } from '../tex'
 import toast from 'react-hot-toast'
 import { Film, Languages, MessageSquare } from 'lucide-react'
+import { dispatchJobCompletedForFeedback } from '../components/FeedbackPrompt'
 import { emitToolCompleted } from '../workflow/workflowStore'
 
 /** Optional SEO overrides for alternate entry points. Do NOT duplicate logic. */
@@ -207,6 +207,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
             setLastProcessingMs(processingMs)
             setStatus('completed')
             setResult(jobStatus.result ?? null)
+            dispatchJobCompletedForFeedback()
             emitToolCompleted({ toolId: 'fix-subtitles', pathname: '/fix-subtitles', processingMs })
             setWarnings(jobStatus.result?.warnings ?? [])
             incrementUsage('fix-subtitles')
@@ -282,13 +283,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
     subtitle: seoIntro ?? 'Auto-correct timing issues and formatting errors',
     icon: <Wrench className="w-8 h-8 text-blue-600 dark:text-blue-400" />,
     tags: ['Timing', 'Sync', 'Format', 'Clean', 'Repair', 'Auto-fix'],
-    sidebar: (
-      <ToolSidebar
-        refreshTrigger={status}
-        showWhatYouGet={status === 'idle'}
-        whatYouGetContent="Corrected timing and formatting. Fixed SRT/VTT download, same timestamps."
-      />
-    ),
+    sidebar: null,
   }
 
   return (
