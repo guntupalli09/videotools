@@ -10,6 +10,7 @@ import { getUser, saveUser, PlanType, User } from '../models/User'
 import { getPlanLimits, enforceBatchLimits, enforceUsageLimits, getJobPriority } from '../utils/limits'
 import { resetUserUsageIfNeeded } from '../utils/usageReset'
 import { addJobToQueue, getTotalQueueCount } from '../workers/videoProcessor'
+import { insertJobRecord } from '../lib/jobAnalytics'
 import { RequestWithId } from '../middleware/requestId'
 import { getAuthFromRequest, getEffectiveUserId } from '../utils/auth'
 import { sanitizeFilename } from '../utils/sanitizeFilename'
@@ -252,11 +253,12 @@ router.post(
       
       for (let i = 0; i < videoMeta.length; i++) {
         const video = videoMeta[i]
-        await addJobToQueue(user.plan, {
+        const fileSize = fs.statSync(video.path).size
+        const job = await addJobToQueue(user.plan, {
           toolType: 'batch-video-to-subtitles',
           filePath: video.path,
           originalName: video.originalName,
-          fileSize: fs.statSync(video.path).size,
+          fileSize,
           userId: user.id,
           plan: user.plan,
           batchId,
@@ -269,6 +271,17 @@ router.post(
           },
           requestId: (req as RequestWithId).requestId,
         })
+        try {
+          await insertJobRecord({
+            id: String(job.id),
+            userId: user.id,
+            toolType: 'batch-video-to-subtitles',
+            planAtRun: user.plan,
+            fileSizeBytes: fileSize,
+          })
+        } catch {
+          // non-blocking
+        }
       }
 
       // Update batch status to processing

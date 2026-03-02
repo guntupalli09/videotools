@@ -17,14 +17,13 @@ const tools = [
 
 export default function Navigation() {
   const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false)
-  const [showTryFree, setShowTryFree] = useState(true)
-
+  // Re-render when login state changes so Login/Signup show on all pages when not logged in
+  const [showAuthLinks, setShowAuthLinks] = useState(() => !isLoggedIn())
   useEffect(() => {
-    setShowTryFree(!isLoggedIn())
+    setShowAuthLinks(!isLoggedIn())
   }, [])
-
   useEffect(() => {
-    const onLoginOrLogout = () => setShowTryFree(!isLoggedIn())
+    const onLoginOrLogout = () => setShowAuthLinks(!isLoggedIn())
     window.addEventListener('videotext:plan-updated', onLoginOrLogout)
     window.addEventListener('videotext:logout', onLoginOrLogout)
     return () => {
@@ -48,8 +47,29 @@ export default function Navigation() {
             <span className="text-xl font-display font-semibold text-gray-800 dark:text-white">VideoText</span>
           </Link>
 
-          {/* Top right: Tools, Pricing, menu, Try Free */}
+          {/* Top right: Login, Signup (when not logged in), Tools, Pricing, menu */}
           <div className="hidden md:flex items-center justify-end gap-6 lg:gap-8 shrink-0">
+            {showAuthLinks && (
+              <>
+                <Link
+                  to="/login"
+                  className="text-gray-700 dark:text-gray-200 hover:text-violet-600 dark:hover:text-violet-400 transition-motion text-sm font-medium"
+                  onMouseEnter={() => prefetchRoute('/login')}
+                  onFocus={() => prefetchRoute('/login')}
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/signup"
+                  className="text-gray-700 dark:text-gray-200 hover:text-violet-600 dark:hover:text-violet-400 transition-motion text-sm font-medium"
+                  onMouseEnter={() => prefetchRoute('/signup')}
+                  onFocus={() => prefetchRoute('/signup')}
+                >
+                  Signup
+                </Link>
+              </>
+            )}
+
             <div
               className="relative"
               onMouseEnter={() => setToolsDropdownOpen(true)}
@@ -97,17 +117,6 @@ export default function Navigation() {
             </Link>
 
             <UserMenu />
-
-            {showTryFree && (
-              <Link
-                to="/pricing"
-                className="btn-primary px-4 py-2 text-sm"
-                onMouseEnter={() => prefetchRoute('/pricing')}
-                onFocus={() => prefetchRoute('/pricing')}
-              >
-                Try Free →
-              </Link>
-            )}
           </div>
 
           {/* Mobile: only hamburger (UserMenu) */}

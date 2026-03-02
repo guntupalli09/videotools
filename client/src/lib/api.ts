@@ -1395,6 +1395,34 @@ export async function verifyOtp(email: string, code: string): Promise<{ token: s
   return response.json()
 }
 
+/** Complete signup after OTP verification. Returns same shape as login. */
+export async function completeSignup(verificationToken: string, password: string): Promise<{
+  token: string
+  userId: string
+  plan: string
+  email: string
+}> {
+  const response = await api('/api/auth/complete-signup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ verificationToken, password }),
+  })
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: 'Signup failed' }))
+    throw new Error(err.message || 'Signup failed')
+  }
+  const data = await response.json()
+  if (!data.token || !data.userId || data.plan == null) {
+    throw new Error('Invalid signup response')
+  }
+  return {
+    token: data.token,
+    userId: data.userId,
+    plan: data.plan,
+    email: data.email || data.userId,
+  }
+}
+
 // Usage APIs
 export interface UsageData {
   plan: string

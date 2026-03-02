@@ -38,6 +38,11 @@ import {
   trackProcessingFinished,
   trackProcessingFailed,
 } from '../utils/analytics'
+import {
+  updateJobStarted,
+  updateJobCompleted,
+  updateJobFailed,
+} from '../lib/jobAnalytics'
 import { withJobContext, getLogger } from '../lib/logger'
 import { initSentry, captureJobError } from '../lib/sentry'
 
@@ -265,6 +270,7 @@ async function processJob(job: import('bull').Job<JobData>) {
 
   const run = async (): Promise<any> => {
     log.info({ msg: 'job_started', toolType: data.toolType })
+    updateJobStarted(String(jobId)).catch(() => {})
     const { toolType, options } = data
 
     const redis = (job as any).queue?.client as import('ioredis').Redis | undefined
@@ -1222,6 +1228,18 @@ async function processJob(job: import('bull').Job<JobData>) {
     } catch {
       // non-blocking
     }
+    try {
+      await updateJobCompleted(String(jobId), totalJobMs)
+      if (data.userId) {
+        const user = await getUser(data.userId)
+        if (user) {
+          user.lastActiveAt = new Date()
+          await saveUser(user)
+        }
+      }
+    } catch {
+      // non-blocking
+    }
     // Success: return value is persisted by Bull as job.returnvalue; job state becomes "completed"
     log.info({ msg: 'job_completed' })
     return result
@@ -1234,6 +1252,11 @@ async function processJob(job: import('bull').Job<JobData>) {
         tool_type: data.toolType,
         error_message: err?.message,
       })
+    } catch {
+      // non-blocking
+    }
+    try {
+      await updateJobFailed(String(jobId), err?.message)
     } catch {
       // non-blocking
     }

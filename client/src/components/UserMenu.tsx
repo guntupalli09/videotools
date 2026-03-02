@@ -34,6 +34,10 @@ export default function UserMenu() {
   const { theme, toggleTheme } = useTheme()
 
   const refreshUsage = useCallback(() => {
+    if (!isLoggedIn()) {
+      setUsage(null)
+      return
+    }
     getCurrentUsage({ skipCache: true })
       .then((data) => {
         const isImports = data.quotaType === 'imports'
@@ -51,6 +55,10 @@ export default function UserMenu() {
         })
       })
       .catch(() => {
+        if (!isLoggedIn()) {
+          setUsage(null)
+          return
+        }
         const plan = typeof localStorage !== 'undefined' ? localStorage.getItem('plan') || 'free' : 'free'
         const email = typeof localStorage !== 'undefined' ? localStorage.getItem('userEmail') || undefined : undefined
         setUsage(plan ? { plan, remaining: 0, totalPlanMinutes: 0, resetDate: new Date().toISOString(), email } : null)
@@ -63,8 +71,13 @@ export default function UserMenu() {
 
   useEffect(() => {
     const onPlanUpdated = () => refreshUsage()
+    const onLogout = () => setUsage(null)
     window.addEventListener('videotext:plan-updated', onPlanUpdated)
-    return () => window.removeEventListener('videotext:plan-updated', onPlanUpdated)
+    window.addEventListener('videotext:logout', onLogout)
+    return () => {
+      window.removeEventListener('videotext:plan-updated', onPlanUpdated)
+      window.removeEventListener('videotext:logout', onLogout)
+    }
   }, [refreshUsage])
 
   const isPaidPlan = usage?.plan === 'basic' || usage?.plan === 'pro' || usage?.plan === 'agency' || usage?.plan === 'founding_workflow'
@@ -129,8 +142,8 @@ export default function UserMenu() {
                 </div>
 
                 <div data-user-menu-body className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-6">
-                {/* Account email (paid plans) */}
-                {usage?.email && (
+                {/* Account email (paid plans) — only when logged in */}
+                {isLoggedIn() && usage?.email && (
                   <div className="rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 p-3">
                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Account</p>
                     <p className="mt-1 text-sm text-gray-900 dark:text-white break-all">{usage.email}</p>
@@ -138,8 +151,8 @@ export default function UserMenu() {
                   </div>
                 )}
 
-                {/* Quota left — imports for free, minutes for paid */}
-                {usage ? (
+                {/* Quota left — only when logged in; imports for free, minutes for paid */}
+                {!isLoggedIn() ? null : usage ? (
                   <div className="rounded-xl bg-violet-100 dark:bg-violet-900/40 border border-violet-200 dark:border-violet-800 p-4">
                     <div className="flex items-center gap-2 text-violet-800 dark:text-violet-200 text-sm font-medium">
                       <Clock className="w-4 h-4 shrink-0" />
@@ -274,15 +287,26 @@ export default function UserMenu() {
                     Pricing
                   </Link>
                   {!isLoggedIn() && (
-                    <Link
-                      to="/pricing"
-                      className="mt-2 block rounded-xl bg-violet-600 hover:bg-violet-700 text-white px-4 py-3 text-center font-medium transition-colors"
-                      onClick={() => setOpen(false)}
-                      onMouseEnter={() => prefetchRoute('/pricing')}
-                      onFocus={() => prefetchRoute('/pricing')}
-                    >
-                      Try Free →
-                    </Link>
+                    <>
+                      <Link
+                        to="/login"
+                        className="mt-3 block rounded-xl px-4 py-3 text-center font-medium text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-900/30 border border-violet-300 dark:border-violet-700"
+                        onClick={() => setOpen(false)}
+                        onMouseEnter={() => prefetchRoute('/login')}
+                        onFocus={() => prefetchRoute('/login')}
+                      >
+                        Login
+                      </Link>
+                      <Link
+                        to="/signup"
+                        className="mt-2 block rounded-xl bg-violet-600 hover:bg-violet-700 text-white px-4 py-3 text-center font-medium transition-colors"
+                        onClick={() => setOpen(false)}
+                        onMouseEnter={() => prefetchRoute('/signup')}
+                        onFocus={() => prefetchRoute('/signup')}
+                      >
+                        Signup
+                      </Link>
+                    </>
                   )}
                 </div>
                 </div>

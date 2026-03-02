@@ -1,4 +1,4 @@
-import { api, getAuthToken, invalidateUsageCache } from './api'
+import { api, getAuthToken, invalidateUsageCache, completeSignup as completeSignupApi } from './api'
 import { clearAllPersistedJobs } from './jobSession'
 
 const AUTH_TOKEN_KEY = 'authToken'
@@ -30,6 +30,11 @@ export function logout(): void {
   } catch {
     // ignore
   }
+}
+
+/** Complete signup after email OTP verification. Call after verifyOtp; returns same shape as login. */
+export async function completeSignup(verificationToken: string, password: string): Promise<{ token: string; userId: string; plan: string; email: string }> {
+  return completeSignupApi(verificationToken, password)
 }
 
 /** Log in with email and password. Returns { token, userId, plan, email } on success. Caller should store these and then refresh/navigate. */

@@ -81,11 +81,10 @@ export default function Login() {
           </button>
         </form>
         <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-300">
-          Don’t have an account? After you subscribe on the{' '}
-          <Link to="/pricing" className="text-violet-600 dark:text-violet-400 hover:underline">
-            Pricing
-          </Link>{' '}
-          page, you can set a password to log in anytime.
+          Don’t have an account?{' '}
+          <Link to="/signup" className="text-violet-600 dark:text-violet-400 hover:underline font-medium">
+            Sign up to try free
+          </Link>
         </p>
         <p className="mt-4 text-center">
           <Link to="/" className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">

@@ -52,7 +52,7 @@ const TOOL_GUIDES: ToolGuide[] = [
     title: 'Video → Transcript',
     shortDesc: 'Extract spoken text from any video. Get a full transcript, then explore summary, chapters, speakers, and more.',
     howTo: [
-      'Upload a video file (MP4, MOV, AVI, WebM) or paste a video URL.',
+      'Upload a video file (MP4, MOV, AVI, WebM).',
       'Optionally trim the video to transcribe only a portion (saves time and usage).',
       'Click Start. We transcribe the audio with AI and show progress.',
       'When done, use the tabs: Transcript, Speakers, Summary, Chapters, Highlights, Keywords, Clean, and Exports.',
@@ -60,8 +60,8 @@ const TOOL_GUIDES: ToolGuide[] = [
       'Copy text or download (TXT, SRT, VTT; full exports like JSON/DOCX/PDF may require a paid plan).',
     ],
     expected: [
-      { label: 'Input', detail: 'Video file (MP4, MOV, AVI, WebM) or a valid video URL.' },
-      { label: 'Duration limits', detail: 'Free: 15 min max; Basic: 45 min; Pro: 2 h; Agency: 4 h. Longer videos may be rejected at upload.' },
+      { label: 'Input', detail: 'Video file (MP4, MOV, AVI, WebM).' },
+      { label: 'Duration limits', detail: 'Free: 30 min max per video (3 imports total); Basic: 45 min; Pro: 2 h; Agency: 4 h. Longer videos may be rejected at upload.' },
       { label: 'File size', detail: 'Free: 2 GB; Basic: 5 GB; Pro: 10 GB; Agency: 20 GB.' },
     ],
     features: [
@@ -78,7 +78,7 @@ const TOOL_GUIDES: ToolGuide[] = [
     title: 'Video → Subtitles',
     shortDesc: 'Generate SRT or VTT subtitle files from video. Single or multi-language; ideal for YouTube and web.',
     howTo: [
-      'Upload a video or paste a video URL.',
+      'Upload a video file.',
       'Choose output format: SRT or VTT.',
       'Select primary language. On Basic+ you can add more languages (we return a ZIP with one file per language).',
       'Click Start. When finished, download the subtitle file(s).',
@@ -86,7 +86,7 @@ const TOOL_GUIDES: ToolGuide[] = [
       'Use "Convert format" to turn the result into another format (SRT ↔ VTT ↔ TXT) without re-uploading the video.',
     ],
     expected: [
-      { label: 'Input', detail: 'Video file or URL. Same duration and size limits as Video → Transcript.' },
+      { label: 'Input', detail: 'Video file. Same duration and size limits as Video → Transcript.' },
       { label: 'Languages', detail: 'Free: 1; Basic: 2; Pro: 5; Agency: 10. Additional languages are generated in one job and returned as a ZIP.' },
     ],
     features: [
@@ -100,15 +100,15 @@ const TOOL_GUIDES: ToolGuide[] = [
     key: 'Translate Subtitles',
     path: '/translate-subtitles',
     title: 'Translate Subtitles',
-    shortDesc: 'Translate existing SRT or VTT files to another language. Upload or paste; get a new subtitle file with same timestamps.',
+    shortDesc: 'Translate existing SRT or VTT files to another language. Upload a file and get a new subtitle file with same timestamps.',
     howTo: [
-      'Upload an SRT or VTT file, or paste subtitle content.',
+      'Upload an SRT or VTT file.',
       'Select the source language (or leave as auto-detect) and the target language.',
       'Click Start. We translate the cue text and return a new SRT/VTT with the same timing.',
       'Download the translated file.',
     ],
     expected: [
-      { label: 'Input', detail: 'SRT or VTT file, or pasted subtitle text. Format must be valid (numbered cues, timestamps).' },
+      { label: 'Input', detail: 'SRT or VTT file. Format must be valid (numbered cues, timestamps).' },
       { label: 'Output', detail: 'Translated SRT or VTT with original timestamps; language and style may vary by plan.' },
     ],
     features: [
@@ -165,12 +165,12 @@ const TOOL_GUIDES: ToolGuide[] = [
     title: 'Compress Video',
     shortDesc: 'Reduce video file size with presets for web, mobile, or archive.',
     howTo: [
-      'Upload a video or paste a URL.',
+      'Upload a video file.',
       'Choose compression profile: Web (smaller, good for sharing), Mobile, or Archive (higher quality, larger).',
       'Click Start. When done, download the compressed file.',
     ],
     expected: [
-      { label: 'Input', detail: 'Video file or URL. Same duration and size limits as Video → Transcript.' },
+      { label: 'Input', detail: 'Video file. Same duration and size limits as Video → Transcript.' },
       { label: 'Output', detail: 'Compressed MP4; size and quality depend on the profile and source.' },
     ],
     features: [
@@ -204,7 +204,7 @@ const TOOL_GUIDES: ToolGuide[] = [
 
 /** Plan limits at a glance (authoritative summary; exact values in server/utils/limits.ts). */
 const PLAN_LIMITS = [
-  { plan: 'Free', minutes: '60/month', maxDuration: '15 min', maxSize: '2 GB', languages: '1', batch: '-' },
+  { plan: 'Free', minutes: '3 imports (lifetime)', maxDuration: '30 min', maxSize: '2 GB', languages: '1', batch: '-' },
   { plan: 'Basic', minutes: '450/month', maxDuration: '45 min', maxSize: '5 GB', languages: '2', batch: '-' },
   { plan: 'Pro', minutes: '1,200/month', maxDuration: '2 h', maxSize: '10 GB', languages: '5', batch: '20 videos, 60 min total' },
   { plan: 'Agency', minutes: '3,000/month', maxDuration: '4 h', maxSize: '20 GB', languages: '10', batch: '100 videos, 300 min total' },
@@ -229,10 +229,11 @@ export default function Guide() {
         </div>
 
         <p className="text-gray-700 mb-10">
-          This guide is here so you can get the most out of VideoText. We explain step-by-step how each tool works,
-          what inputs we expect, and what outputs and features you can rely on. For billing and privacy, see our{' '}
+          This guide is the full &quot;How it works&quot; reference for VideoText. Step-by-step: how each tool works,
+          what inputs we expect, and what you get. All tools use <strong>upload only</strong> (no URL pasting). For billing and limits, see{' '}
+          <Link to="/pricing" className="text-violet-600 hover:text-violet-700 font-medium">Pricing</Link>; for privacy, see our{' '}
           <Link to="/faq" className="text-violet-600 hover:text-violet-700 font-medium">FAQ</Link> and{' '}
-          <Link to="/privacy" className="text-violet-600 hover:text-violet-700 font-medium">Privacy Policy</Link>.
+          <Link to="/privacy" className="text-violet-600 hover:text-violet-700 font-medium">Privacy Policy</Link>. Ask Tex (bottom-right) for quick answers about any tool or plan.
         </p>
 
         {/* Suggested workflows for creators */}
@@ -370,7 +371,7 @@ export default function Guide() {
           <div className="p-4 sm:p-6 border-b border-gray-100">
             <h2 className="text-lg font-bold text-gray-900">Plan limits at a glance</h2>
             <p className="text-sm text-gray-600 mt-1">
-              Max video duration, file size, and languages depend on your plan. Exact limits are enforced at upload.
+              Free: 3 lifetime imports, 30 min per video. Paid: minutes per month. Max duration, file size, and languages depend on your plan. Exact limits are enforced at upload.
             </p>
           </div>
           <div className="overflow-x-auto">
@@ -378,7 +379,7 @@ export default function Guide() {
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
                   <th className="px-4 py-3 font-semibold text-gray-900">Plan</th>
-                  <th className="px-4 py-3 font-semibold text-gray-900">Minutes/month</th>
+                  <th className="px-4 py-3 font-semibold text-gray-900">Quota</th>
                   <th className="px-4 py-3 font-semibold text-gray-900">Max duration</th>
                   <th className="px-4 py-3 font-semibold text-gray-900">Max file size</th>
                   <th className="px-4 py-3 font-semibold text-gray-900">Languages</th>

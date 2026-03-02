@@ -1,23 +1,24 @@
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { Upload, Zap, Download } from 'lucide-react';
 
 const steps = [
   {
     icon: Upload,
-    title: 'Upload file',
-    description: 'Drop your video or paste a URL',
+    title: 'Upload',
+    description: 'Upload your video or subtitle file (MP4, MOV, SRT, VTT)',
     color: 'from-purple-500 to-purple-600',
   },
   {
     icon: Zap,
     title: 'We process',
-    description: 'Our AI handles the rest in seconds',
+    description: 'AI transcribes, translates, or processes in seconds',
     color: 'from-blue-500 to-blue-600',
   },
   {
     icon: Download,
     title: 'Download',
-    description: 'Get your file and go',
+    description: 'Get transcript, SRT/VTT, or processed video and go',
     color: 'from-pink-500 to-pink-600',
   },
 ];
@@ -87,9 +88,15 @@ export function HowItWorks() {
           <h3 className="text-lg font-semibold text-purple-600 dark:text-purple-400 mb-2">
             What you get
           </h3>
-          <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base max-w-2xl mx-auto">
-            Transcript, Speakers, Summary, Chapters, Highlights, Keywords, Clean, Exports: all after one upload.
+          <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base max-w-2xl mx-auto mb-4">
+            Transcript, Speakers, Summary, Chapters, Highlights, Keywords, Clean, Exports: all after one upload. Plus Video → Subtitles, Translate, Fix, Burn, Compress, and Batch.
           </p>
+          <Link
+            to="/guide"
+            className="inline-block text-sm font-medium text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 underline underline-offset-2"
+          >
+            Full tool guide & how to use each tool →
+          </Link>
         </motion.div>
 
         <motion.div

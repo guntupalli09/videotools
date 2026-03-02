@@ -1,7 +1,9 @@
+import crypto from 'crypto'
 import express, { Request, Response } from 'express'
 import bcrypt from 'bcryptjs'
 import { getUserByEmail, getUserByPasswordToken, getUserByPasswordResetToken, saveUser } from '../models/User'
-import { signAuthToken, signEmailVerificationToken, generatePasswordResetToken } from '../utils/auth'
+import type { User } from '../models/User'
+import { signAuthToken, signEmailVerificationToken, verifyEmailVerificationToken, generatePasswordResetToken } from '../utils/auth'
 import { getPlanAndEmailForStripeCustomer } from '../services/stripe'
 import { getPlanLimits } from '../utils/limits'
 
@@ -185,6 +187,87 @@ router.post('/setup-password', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('setup-password error:', error)
     return res.status(500).json({ message: error.message || 'Failed to set password' })
+  }
+})
+
+interface SignupBody {
+  email: string
+  password: string
+}
+
+/** Complete signup after OTP verification. Body: { verificationToken, password }. */
+interface CompleteSignupBody {
+  verificationToken: string
+  password: string
+}
+
+router.post('/complete-signup', async (req: Request, res: Response) => {
+  try {
+    const { verificationToken, password } = req.body as CompleteSignupBody
+    if (!verificationToken || !password) {
+      return res.status(400).json({ message: 'Verification token and password are required.' })
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters.' })
+    }
+
+    const payload = verifyEmailVerificationToken(verificationToken)
+    if (!payload?.email) {
+      return res.status(400).json({ message: 'Invalid or expired verification. Please request a new code.' })
+    }
+
+    const normalized = payload.email.toLowerCase().trim()
+    const existing = await getUserByEmail(normalized)
+    if (existing) {
+      return res.status(409).json({ message: 'An account with this email already exists. Log in instead.' })
+    }
+
+    const now = new Date()
+    const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    const salt = await bcrypt.genSalt(10)
+    const passwordHash = await bcrypt.hash(password, salt)
+
+    const user: User = {
+      id: crypto.randomUUID(),
+      email: normalized,
+      passwordHash,
+      plan: 'free',
+      stripeCustomerId: undefined,
+      subscriptionId: undefined,
+      paymentMethodId: undefined,
+      billingPeriodStart: undefined,
+      billingPeriodEnd: undefined,
+      passwordSetupToken: undefined,
+      passwordSetupExpiresAt: undefined,
+      passwordSetupUsed: false,
+      passwordResetToken: undefined,
+      passwordResetExpiresAt: undefined,
+      usageThisMonth: {
+        totalMinutes: 0,
+        videoCount: 0,
+        batchCount: 0,
+        languageCount: 0,
+        translatedMinutes: 0,
+        importCount: 0,
+        resetDate,
+      },
+      limits: getPlanLimits('free'),
+      overagesThisMonth: { minutes: 0, languages: 0, batches: 0, totalCharge: 0 },
+      createdAt: now,
+      updatedAt: now,
+    }
+
+    await saveUser(user)
+    const jwt = signAuthToken(user)
+    return res.status(201).json({
+      token: jwt,
+      userId: user.id,
+      plan: user.plan,
+      email: user.email,
+    })
+  } catch (error: unknown) {
+    console.error('complete-signup error:', error)
+    return res.status(500).json({ message: error instanceof Error ? error.message : 'Signup failed' })
   }
 })
 

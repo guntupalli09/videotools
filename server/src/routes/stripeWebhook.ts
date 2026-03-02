@@ -9,7 +9,9 @@ import {
   User,
   PlanType,
 } from '../models/User'
+import { prisma } from '../db'
 import { getPlanLimits } from '../utils/limits'
+import { computeNormalizedMonthlyCentsFromInvoice } from '../utils/stripeMrr'
 import { generatePasswordSetupToken } from '../utils/auth'
 import { hasProcessedStripeEvent, markStripeEventProcessed } from '../models/StripeEventLog'
 
@@ -218,6 +220,29 @@ async function handleInvoicePaymentSucceeded(event: Stripe.Event): Promise<void>
 
   user.updatedAt = new Date()
   saveUser(user)
+
+  try {
+    const plan = activePlan ?? user.plan
+    const mrr = computeNormalizedMonthlyCentsFromInvoice(invoice)
+    const currency = (invoice.currency ?? 'usd').toLowerCase()
+    await prisma.subscriptionSnapshot.create({
+      data: {
+        userId: user.id,
+        plan,
+        priceMonthly: mrr.normalizedMonthlyCents,
+        currency,
+        periodStart: startDate,
+        periodEnd: endDate,
+        status: 'active',
+        stripeSubscriptionId: mrr.stripeSubscriptionId,
+        stripePriceId: mrr.stripePriceId,
+        billingInterval: mrr.billingInterval,
+        intervalCount: mrr.intervalCount,
+      },
+    })
+  } catch (err) {
+    console.warn('SubscriptionSnapshot insert failed (invoice.payment_succeeded):', err)
+  }
 }
 
 async function handleCustomerSubscriptionDeleted(event: Stripe.Event): Promise<void> {
@@ -243,11 +268,33 @@ async function handleCustomerSubscriptionDeleted(event: Stripe.Event): Promise<v
   const endDate = new Date(periodEnd)
 
   // Keep access until period_end, but mark subscription as gone
+  const periodStart = user.billingPeriodStart ?? new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000)
+  const deletedSubscriptionId = subscription.id
   user.subscriptionId = undefined
   user.billingPeriodEnd = endDate
   user.usageThisMonth.resetDate = endDate
   user.updatedAt = new Date()
   await saveUser(user)
+
+  try {
+    await prisma.subscriptionSnapshot.create({
+      data: {
+        userId: user.id,
+        plan: user.plan,
+        priceMonthly: 0,
+        currency: 'usd',
+        periodStart,
+        periodEnd: endDate,
+        status: 'canceled',
+        stripeSubscriptionId: deletedSubscriptionId,
+        stripePriceId: null,
+        billingInterval: null,
+        intervalCount: null,
+      },
+    })
+  } catch (err) {
+    console.warn('SubscriptionSnapshot insert failed (customer.subscription.deleted):', err)
+  }
 }
 
 export async function stripeWebhookHandler(req: Request, res: Response) {

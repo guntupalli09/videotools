@@ -26,8 +26,107 @@ model User {
   usageThisMonth           Json     // { totalMinutes, videoCount, ... resetDate (ISO string) }
   limits                   Json     // PlanLimits
   overagesThisMonth        Json     // { minutes, languages, batches, totalCharge }
+  role                     String   @default("user")  // founder | admin | user
+  utmSource                String?
+  utmMedium                String?
+  utmCampaign              String?
+  firstReferrer            String?
+  firstSeenAt              DateTime?
+  lastActiveAt             DateTime?
   createdAt                DateTime
   updatedAt                DateTime
+
+  @@index([createdAt])
+}
+
+model Job {
+  id               String   @id
+  userId           String
+  toolType         String   // transcript, subtitles, translation, etc.
+  status           String   // queued | processing | completed | failed
+
+  fileSizeBytes    BigInt?
+  videoDurationSec Int?
+
+  startedAt        DateTime?
+  completedAt      DateTime?
+  processingMs     Int?
+
+  failureReason    String?
+  planAtRun        String?
+
+  createdAt        DateTime @default(now())
+
+  @@index([userId])
+  @@index([toolType, createdAt])
+  @@index([status])
+  @@index([createdAt])
+  @@index([completedAt])
+}
+
+model SubscriptionSnapshot {
+  id                    String   @id @default(cuid())
+  userId                String
+
+  plan                  String
+  priceMonthly          Int      // stored in cents (MRR-normalized); sum only within same currency
+  currency              String   // from invoice; MRR queries assume single currency (e.g. USD) or convert
+
+  periodStart           DateTime
+  periodEnd             DateTime
+
+  status                String   // active | canceled | past_due | historical
+
+  stripeSubscriptionId  String?
+  stripePriceId         String?
+  billingInterval       String?  // month | year
+  intervalCount         Int?
+
+  createdAt             DateTime @default(now())
+
+  @@index([userId])
+  @@index([periodStart])
+  @@index([periodStart, periodEnd])
+  @@index([stripeSubscriptionId, periodStart])
+}
+
+model DailyMetrics {
+  date                DateTime @id // truncated to midnight UTC
+
+  totalUsers          Int
+  newUsers            Int
+  activeUsers         Int
+
+  jobsCreated         Int
+  jobsCompleted       Int
+  jobsFailed          Int
+
+  avgProcessingMs     Int?
+  p95ProcessingMs     Int?
+
+  mrrCents            Int
+  churnedUsers        Int
+  newPaidUsers        Int
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model MonthlyMetrics {
+  monthStart          DateTime @id // first day of month UTC
+
+  totalUsers          Int
+  newUsers            Int
+  activeUsers         Int
+
+  mrrCents            Int
+  newMrrCents         Int
+  churnedMrrCents     Int
+
+  churnRatePercent    Float?
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 // Batch job state shared by API and worker (persisted so separate containers see same state).

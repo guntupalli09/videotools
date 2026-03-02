@@ -25,23 +25,23 @@ export const TEX_ENTRIES: TexEntry[] = [
     keywords: ['what is', 'what is videotext', 'overview', 'intro', 'hello', 'hi'],
     question: 'What is VideoText?',
     answer:
-      "VideoText turns video into text and subtitles. You get transcripts, SRT/VTT subtitles, translation, and more. No signup to try: just drop a file or paste a URL. We don't store your data.",
+      "VideoText turns video into text and subtitles. You get transcripts, SRT/VTT subtitles, translation, fix, burn, compress, and batch. Upload your file; we don't store your data.",
     link: { path: '/', label: 'Go to home' },
   },
   {
     id: 'how-it-works',
-    keywords: ['how it works', 'how does it work', 'process', 'workflow', 'steps'],
+    keywords: ['how it works', 'how does it work', 'process', 'workflow', 'steps', 'guide', 'user guide'],
     question: 'How does it work?',
     answer:
-      'Upload your video (or paste a URL), we process it with AI, and you download the result. For transcripts you can get summary, chapters, and speaker labels. For subtitles you pick language and format (SRT or VTT).',
-    link: { path: '/#how-it-works', label: 'See how it works' },
+      'Upload your video or subtitle file; we process it with AI and you download the result. For transcripts you get summary, chapters, and speaker labels. For subtitles you pick language and format (SRT or VTT). Full step-by-step for every tool is in our Guide.',
+    link: { path: '/guide', label: 'Full tool guide' },
   },
   {
     id: 'no-signup',
-    keywords: ['signup', 'sign up', 'account', 'register', 'no signup', 'free trial'],
+    keywords: ['signup', 'sign up', 'account', 'register', 'no signup', 'free trial', 'try free'],
     question: 'Do I need to sign up?',
     answer:
-      "No. You can use the free tools without creating an account. When you're ready for more minutes or features (like batch or no watermark), you'll use your email to subscribe.",
+      "Sign up to try free (3 imports, no credit card). When you're ready for more minutes or features (batch, multi-language, no watermark), subscribe from Pricing.",
     link: { path: '/pricing', label: 'See plans' },
   },
   // —— Tools ——
@@ -50,7 +50,7 @@ export const TEX_ENTRIES: TexEntry[] = [
     keywords: ['transcript', 'transcription', 'video to text', 'speech to text', 'mp4 to text'],
     question: 'How does Video → Transcript work?',
     answer:
-      'Upload a video and we extract the spoken words into text. You get a transcript and can add an AI summary, chapters, and speaker labels. Export as TXT, JSON, DOCX, or PDF. Supports trimming and optional glossary for better accuracy.',
+      'Upload a video and we extract the spoken words into text. You get a transcript plus AI summary, chapters, and speaker labels. Export as TXT, SRT, VTT; paid plans unlock JSON, DOCX, PDF. Supports trimming to save usage.',
     link: { path: '/video-to-transcript', label: 'Try Video → Transcript' },
   },
   {
@@ -66,7 +66,7 @@ export const TEX_ENTRIES: TexEntry[] = [
     keywords: ['translate', 'translation', 'arabic', 'hindi', 'translate subtitles', 'srt translator'],
     question: 'How does Translate Subtitles work?',
     answer:
-      'Upload an SRT or VTT file (or paste text) and choose a target language. We translate the text while keeping timestamps intact. Supports Arabic, Hindi, and more. Great for making content accessible in multiple languages.',
+      'Upload an SRT or VTT file and choose a target language. We translate the text while keeping timestamps intact. Supports 50+ languages including Arabic, Hindi, Spanish. Great for making content accessible in multiple languages.',
     link: { path: '/translate-subtitles', label: 'Try Translate Subtitles' },
   },
   {
@@ -104,10 +104,10 @@ export const TEX_ENTRIES: TexEntry[] = [
   // —— Pricing & plans ——
   {
     id: 'plan-free',
-    keywords: ['free', 'free plan', 'free tier', '60 min', 'free limit'],
+    keywords: ['free', 'free plan', 'free tier', '3 imports', 'free limit', 'imports'],
     question: 'What’s included in the free plan?',
     answer:
-      'Free: 60 minutes per month, up to 15 min per video. Video → Transcript and Video → Subtitles, one language, watermark on subtitle exports. No batch. No signup required to start.',
+      'Free: 3 lifetime imports (sign up to try), up to 30 min per video. Video → Transcript and Video → Subtitles, one language. No batch. Upgrade for more minutes and features.',
     link: { path: '/pricing', label: 'See pricing' },
   },
   {
@@ -165,21 +165,22 @@ export const TEX_ENTRIES: TexEntry[] = [
     keywords: ['format', 'formats', 'file type', 'mp4', 'srt', 'vtt', 'supported'],
     question: 'What file formats are supported?',
     answer:
-      'Videos: MP4, MOV, AVI, WebM, MKV. Subtitles: SRT and VTT. You can also paste a video URL on supported tools. Output is usually transcript (TXT, JSON, DOCX, PDF) or SRT/VTT.',
+      'Videos: MP4, MOV, AVI, WebM, MKV. Subtitles: SRT and VTT. All tools use upload only (no URL pasting). Output is transcript (TXT, SRT, VTT, or DOCX/PDF on paid) or SRT/VTT subtitle files.',
   },
   {
     id: 'support',
     keywords: ['help', 'support', 'contact', 'email', 'problem', 'issue'],
     question: 'How do I get help?',
     answer:
-      'Use “Email support” in the menu (top-right) to reach us. For how each tool works and what to expect, check the Guide and FAQ.',
-    link: { path: '/faq', label: 'FAQ' },
+      'Use “Email support” in the menu (top-right) to reach us. For how each tool works and what to expect, see the Guide (full step-by-step) and FAQ.',
+    link: { path: '/guide', label: 'Tool guide' },
   },
 ]
 
 /** Suggested questions shown in the agent panel (map to entry ids) */
 export const TEX_SUGGESTIONS: TexSuggestion[] = [
   { label: 'What is VideoText?', entryId: 'what-is-videotext' },
+  { label: 'How does it work?', entryId: 'how-it-works' },
   { label: 'How does transcription work?', entryId: 'tool-transcript' },
   { label: 'What’s in the free plan?', entryId: 'plan-free' },
   { label: 'Pro vs Basic: what’s the difference?', entryId: 'plan-pro' },

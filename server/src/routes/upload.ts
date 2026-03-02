@@ -16,6 +16,7 @@ import { assertPathWithinDir } from '../utils/assertPathWithinDir'
 import { isQueueAtHardLimit, isQueueAtSoftLimit } from '../utils/queueConfig'
 import { checkAndRecordUpload } from '../utils/uploadRateLimit'
 import { trackJobCreated } from '../utils/analytics'
+import { insertJobRecord } from '../lib/jobAnalytics'
 import { getVideoDuration } from '../services/ffmpeg'
 import { STREAM_UPLOAD_ASSEMBLY } from '../utils/featureFlags'
 import { getLogger } from '../lib/logger'
@@ -321,6 +322,16 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
             },
             requestId: (req as RequestWithId).requestId,
           })
+          try {
+            await insertJobRecord({
+              id: String(cachedJob.id),
+              userId,
+              toolType: 'cached-result',
+              planAtRun: plan,
+            })
+          } catch {
+            // non-blocking
+          }
 
           return res.status(202).json({
             jobId: cachedJob.id,
@@ -356,6 +367,17 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
         tool_type: toolType,
         file_size_bytes: file.size,
         plan,
+      })
+    } catch {
+      // non-blocking
+    }
+    try {
+      await insertJobRecord({
+        id: String(job.id),
+        userId,
+        toolType,
+        planAtRun: plan,
+        fileSizeBytes: file.size,
       })
     } catch {
       // non-blocking
@@ -549,6 +571,18 @@ router.post('/dual', upload.fields([
           : undefined,
       requestId: (req as RequestWithId).requestId,
     })
+
+    try {
+      await insertJobRecord({
+        id: String(job.id),
+        userId,
+        toolType: 'burn-subtitles',
+        planAtRun: plan,
+        fileSizeBytes: videoFile.size,
+      })
+    } catch {
+      // non-blocking
+    }
 
     res.status(202).json({
       jobId: job.id,
@@ -847,6 +881,17 @@ router.post('/complete', async (req: Request, res: Response) => {
         inputType: isChunkedAudioOnly ? 'audio' : undefined,
         requestId: (req as RequestWithId).requestId,
       })
+      try {
+        await insertJobRecord({
+          id: String(job.id),
+          userId: meta.userId!,
+          toolType: meta.toolType,
+          planAtRun: meta.plan,
+          fileSizeBytes: fileSize,
+        })
+      } catch {
+        // non-blocking
+      }
       return { job, fileSize }
     }
 

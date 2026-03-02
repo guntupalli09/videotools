@@ -50,6 +50,13 @@ export interface User {
   usageThisMonth: UsageThisMonth
   limits: PlanLimits
   overagesThisMonth: OveragesThisMonth
+  role?: string
+  utmSource?: string | null
+  utmMedium?: string | null
+  utmCampaign?: string | null
+  firstReferrer?: string | null
+  firstSeenAt?: Date | null
+  lastActiveAt?: Date | null
   createdAt: Date
   updatedAt: Date
 }
@@ -84,6 +91,13 @@ function rowToUser(row: DbUser): User {
     },
     limits: limits as PlanLimits,
     overagesThisMonth: (overages ?? { minutes: 0, languages: 0, batches: 0, totalCharge: 0 }) as OveragesThisMonth,
+    role: (row as { role?: string }).role ?? 'user',
+    utmSource: (row as { utmSource?: string | null }).utmSource ?? undefined,
+    utmMedium: (row as { utmMedium?: string | null }).utmMedium ?? undefined,
+    utmCampaign: (row as { utmCampaign?: string | null }).utmCampaign ?? undefined,
+    firstReferrer: (row as { firstReferrer?: string | null }).firstReferrer ?? undefined,
+    firstSeenAt: (row as { firstSeenAt?: Date | null }).firstSeenAt ?? undefined,
+    lastActiveAt: (row as { lastActiveAt?: Date | null }).lastActiveAt ?? undefined,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   }
@@ -113,6 +127,13 @@ function userToDb(user: User) {
     },
     limits: user.limits as unknown as Record<string, unknown>,
     overagesThisMonth: user.overagesThisMonth as unknown as Record<string, unknown>,
+    role: user.role ?? 'user',
+    utmSource: user.utmSource ?? null,
+    utmMedium: user.utmMedium ?? null,
+    utmCampaign: user.utmCampaign ?? null,
+    firstReferrer: user.firstReferrer ?? null,
+    firstSeenAt: user.firstSeenAt ?? null,
+    lastActiveAt: user.lastActiveAt ?? null,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   }

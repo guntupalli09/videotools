@@ -356,7 +356,7 @@ export function Hero() {
             transition={{ delay: 0.7, duration: 0.5 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-3.5 mb-3"
           >
-            <Link to="/login">
+            <Link to="/signup">
               <motion.span
                 whileHover={{ y: -2 }}
                 whileTap={{ scale: 0.97 }}

@@ -10,12 +10,12 @@ const STATIC_ROUTE_SEO: Record<string, { title: string; description: string }> =
   '/': {
     title: 'Video to Text & Subtitles — Free Online Tools',
     description:
-      'VideoText: AI-powered video to text and subtitle tools. Transcribe video to transcript, view in 6 languages (English, Hindi, Telugu, Spanish, Chinese, Russian), generate SRT/VTT, translate subtitles, fix timing, burn captions, compress video. Paste URL or upload. No signup. Free tier.',
+      'VideoText: AI-powered video to text and subtitle tools. Transcribe video to transcript, view in 6 languages (English, Hindi, Telugu, Spanish, Chinese, Russian), generate SRT/VTT, translate subtitles, fix timing, burn captions, compress video. Upload your file. Sign up to try free.',
   },
   '/pricing': {
     title: 'Pricing — Free, Basic, Pro & Agency Plans',
     description:
-      "VideoText pricing: Free 60 min/month, Basic $19 (450 min), Pro $49 (1,200 min), Agency $129 (3,000 min). Multi-language, batch on Pro+. We don't store your data. Upgrade when you need more.",
+      "VideoText pricing: Free 3 imports to try, Basic $19 (450 min), Pro $49 (1,200 min), Agency $129 (3,000 min). Multi-language, batch on Pro+. We don't store your data. Upgrade when you need more.",
   },
   '/privacy': {
     title: 'Privacy Policy — We Don\'t Store Your Data | VideoText',
@@ -40,17 +40,17 @@ const STATIC_ROUTE_SEO: Record<string, { title: string; description: string }> =
   '/video-to-transcript': {
     title: 'Video to Transcript — Free AI Transcription & Translation',
     description:
-      'Convert video to text with AI. View transcript in English, Hindi, Telugu, Spanish, Chinese, or Russian with one click. Paste URL or upload, get plain-text transcript. Summary, chapters, speakers. Download or copy. No signup. Free tier.',
+      'Convert video to text with AI. View transcript in English, Hindi, Telugu, Spanish, Chinese, or Russian with one click. Upload video, get plain-text transcript. Summary, chapters, speakers. Download or copy. No signup. Free tier.',
   },
   '/video-to-subtitles': {
     title: 'Video to Subtitles — SRT & VTT Generator',
     description:
-      'Generate SRT and VTT subtitle files from any video with AI. Paste URL or upload. Ideal for YouTube and web. Single or multi-language. No signup. Free tier.',
+      'Generate SRT and VTT subtitle files from any video with AI. Upload video. Ideal for YouTube and web. Single or multi-language. Sign up to try free.',
   },
   '/translate-subtitles': {
     title: 'Translate Subtitles — SRT/VTT to Any Language',
     description:
-      'Translate SRT or VTT subtitle files to Arabic, Hindi, Spanish, and 50+ languages with AI. Upload or paste subtitles, pick target language, download. Free tier available.',
+      'Translate SRT or VTT subtitle files to Arabic, Hindi, Spanish, and 50+ languages with AI. Upload subtitles, pick target language, download. Free tier available.',
   },
   '/fix-subtitles': {
     title: 'Fix Subtitles — Auto-Correct Timing & Format',
@@ -65,7 +65,7 @@ const STATIC_ROUTE_SEO: Record<string, { title: string; description: string }> =
   '/compress-video': {
     title: 'Compress Video — Reduce File Size Online',
     description:
-      'Compress video online: light, medium, or heavy compression. Paste URL or upload. Reduce file size for sharing and uploads. Free. No signup required.',
+      'Compress video online: light, medium, or heavy compression. Upload video. Reduce file size for sharing and uploads. Sign up to try free.',
   },
   '/batch-process': {
     title: 'Batch Video to Subtitles — Multiple Videos at Once',
@@ -130,7 +130,7 @@ export function getOrganizationJsonLd() {
     name: SITE_NAME,
     url: SITE_URL,
     description:
-      'VideoText: AI-powered video to text and subtitle tools. Transcribe, view transcript in 6 languages (English, Hindi, Telugu, Spanish, Chinese, Russian), generate SRT/VTT, translate subtitles, fix, burn, compress video. Paste URL or upload. Free tier.',
+      'VideoText: AI-powered video to text and subtitle tools. Transcribe, view transcript in 6 languages (English, Hindi, Telugu, Spanish, Chinese, Russian), generate SRT/VTT, translate subtitles, fix, burn, compress video. Upload your file. Free tier.',
     sameAs: [],
   }
 }
