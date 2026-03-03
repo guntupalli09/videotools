@@ -1,11 +1,16 @@
 /**
  * Lightweight founder status via GET /api/admin/me.
- * Caches result in sessionStorage for session lifetime. No dashboard probe.
+ * Reactive to auth changes; only caches true founder state. No permanent false cache.
  */
 
 import { useState, useEffect } from 'react'
-import { isLoggedIn } from '../lib/auth'
-import { fetchFounderMe, getCachedFounderStatus, setCachedFounderStatus, clearCachedFounderStatus } from '../lib/founderDashboard'
+import { getAuthToken } from '../lib/api'
+import {
+  fetchFounderMe,
+  getCachedFounderStatus,
+  setCachedFounderStatus,
+  clearCachedFounderStatus,
+} from '../lib/founderDashboard'
 
 export function invalidateFounderCache(): void {
   clearCachedFounderStatus()
@@ -13,45 +18,69 @@ export function invalidateFounderCache(): void {
 
 export function useFounderStatus(): { isFounder: boolean; loading: boolean } {
   const [state, setState] = useState<{ isFounder: boolean; loading: boolean }>(() => {
-    if (!isLoggedIn()) return { isFounder: false, loading: false }
+    const token = getAuthToken()
+    if (!token) return { isFounder: false, loading: false }
     const cached = getCachedFounderStatus()
-    if (cached !== null) return { isFounder: cached, loading: false }
+    if (cached === true) return { isFounder: true, loading: false }
     return { isFounder: false, loading: true }
   })
 
   useEffect(() => {
-    if (!isLoggedIn()) {
-      clearCachedFounderStatus()
-      setState({ isFounder: false, loading: false })
-      return
-    }
+    let generation = 0
 
-    const cached = getCachedFounderStatus()
-    if (cached !== null) {
-      setState({ isFounder: cached, loading: false })
-      return
-    }
-
-    setState((s) => ({ ...s, loading: true }))
-    fetchFounderMe()
-      .then((result) => {
-        const isFounder = result !== null
-        setCachedFounderStatus(isFounder)
-        setState({ isFounder, loading: false })
-      })
-      .catch(() => {
-        setCachedFounderStatus(false)
+    const check = async (): Promise<void> => {
+      const token = getAuthToken()
+      if (!token) {
+        clearCachedFounderStatus()
         setState({ isFounder: false, loading: false })
-      })
-  }, [])
+        return
+      }
 
-  useEffect(() => {
-    const onLogout = () => {
+      if (getCachedFounderStatus() === true) {
+        setState({ isFounder: true, loading: false })
+        return
+      }
+
+      const gen = ++generation
+      setState((prev) => ({ ...prev, loading: true }))
+
+      try {
+        const result = await fetchFounderMe()
+        if (gen !== generation) return
+
+        if (result?.isFounder) {
+          setCachedFounderStatus(true)
+          setState({ isFounder: true, loading: false })
+        } else {
+          clearCachedFounderStatus()
+          setState({ isFounder: false, loading: false })
+        }
+      } catch {
+        if (gen !== generation) return
+        setState({ isFounder: false, loading: false })
+      }
+    }
+
+    check()
+
+    const handlePlanUpdated = (): void => {
+      check()
+    }
+
+    const handleLogout = (): void => {
       clearCachedFounderStatus()
+      generation += 1
       setState({ isFounder: false, loading: false })
     }
-    window.addEventListener('videotext:logout', onLogout)
-    return () => window.removeEventListener('videotext:logout', onLogout)
+
+    window.addEventListener('videotext:plan-updated', handlePlanUpdated)
+    window.addEventListener('videotext:logout', handleLogout)
+
+    return () => {
+      generation += 1
+      window.removeEventListener('videotext:plan-updated', handlePlanUpdated)
+      window.removeEventListener('videotext:logout', handleLogout)
+    }
   }, [])
 
   return state
