@@ -24,6 +24,7 @@ import { requestIdMiddleware } from './middleware/requestId'
 import { getLogger } from './lib/logger'
 import healthRoutes from './routes/health'
 import feedbackRoutes from './routes/feedback'
+import adminDashboardRoutes from './routes/adminDashboard'
 
 const log = getLogger('api')
 const app = express()
@@ -183,6 +184,7 @@ app.use('/api/billing', billingRoutes)
 app.use('/api/auth', authRoutes)
 app.use('/api/translate-transcript', translateTranscriptRoutes)
 app.use('/api/feedback', feedbackRoutes)
+app.use('/api/admin', adminDashboardRoutes)
 
 // Health and ops (no /api prefix)
 app.use(healthRoutes)

@@ -7,6 +7,7 @@ import { getCurrentUsage } from '../lib/api'
 import { createBillingPortalSession } from '../lib/billing'
 import { useTheme } from '../lib/theme'
 import { isLoggedIn, logout } from '../lib/auth'
+import { useFounderStatus } from '../hooks/useFounderStatus'
 
 const tools = [
   { name: 'Video → Transcript', path: '/video-to-transcript' },
@@ -32,6 +33,7 @@ export default function UserMenu() {
   } | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
   const { theme, toggleTheme } = useTheme()
+  const { isFounder, loading } = useFounderStatus()
 
   const refreshUsage = useCallback(() => {
     if (!isLoggedIn()) {
@@ -185,6 +187,18 @@ export default function UserMenu() {
                     </span>
                   </button>
                 </div>
+
+                {!loading && isFounder && (
+                  <Link
+                    to="/founder"
+                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    onClick={() => setOpen(false)}
+                    onMouseEnter={() => prefetchRoute('/founder')}
+                    onFocus={() => prefetchRoute('/founder')}
+                  >
+                    <span>Founder</span>
+                  </Link>
+                )}
 
                 {/* Log in / Log out */}
                 {isLoggedIn() ? (

@@ -1,5 +1,6 @@
 import { api, getAuthToken, invalidateUsageCache, completeSignup as completeSignupApi } from './api'
 import { clearAllPersistedJobs } from './jobSession'
+import { clearCachedFounderStatus } from './founderDashboard'
 
 const AUTH_TOKEN_KEY = 'authToken'
 const USER_ID_KEY = 'userId'
@@ -20,6 +21,7 @@ export function logout(): void {
   localStorage.removeItem(USER_EMAIL_KEY)
   invalidateUsageCache()
   clearAllPersistedJobs()
+  clearCachedFounderStatus()
   try {
     if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(WORKFLOW_STORAGE_KEY)
   } catch {

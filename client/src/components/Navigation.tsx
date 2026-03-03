@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import UserMenu from './UserMenu'
 import { prefetchRoute } from '../lib/prefetch'
 import { isLoggedIn } from '../lib/auth'
+import { useFounderStatus } from '../hooks/useFounderStatus'
 
 const tools = [
   { name: 'Video → Transcript', path: '/video-to-transcript' },
@@ -16,6 +17,7 @@ const tools = [
 ]
 
 export default function Navigation() {
+  const { isFounder, loading } = useFounderStatus()
   const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false)
   // Re-render when login state changes so Login/Signup show on all pages when not logged in
   const [showAuthLinks, setShowAuthLinks] = useState(() => !isLoggedIn())
@@ -115,6 +117,17 @@ export default function Navigation() {
             >
               Pricing
             </Link>
+
+            {!loading && isFounder && (
+              <Link
+                to="/founder"
+                className="text-gray-700 dark:text-gray-200 hover:text-violet-600 dark:hover:text-violet-400 transition-motion text-sm font-medium"
+                onMouseEnter={() => prefetchRoute('/founder')}
+                onFocus={() => prefetchRoute('/founder')}
+              >
+                Founder
+              </Link>
+            )}
 
             <UserMenu />
           </div>
