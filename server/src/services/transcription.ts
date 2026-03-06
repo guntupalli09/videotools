@@ -231,6 +231,7 @@ async function transcribeVideoParallel(
   let firstPartialMs: number | undefined
   let fullExtractionMs: number | undefined
   let killBackgroundExtraction: (() => void) | undefined
+  let remainingChunksPromiseForCleanup: Promise<string[]> | undefined
   let chunkOutputDir: string | undefined
   try {
     const phaseStart = Date.now()
@@ -261,6 +262,7 @@ async function transcribeVideoParallel(
         opts?.signal
       )
       killBackgroundExtraction = extractionResult.killBackground
+      remainingChunksPromiseForCleanup = extractionResult.remainingChunksPromise
       extractionFirstChunkMs = Date.now() - phaseStart
       chunkPaths = [extractionResult.firstChunkPath]
       metrics?.onFirstChunkTranscriptionStart?.()
@@ -408,6 +410,7 @@ async function transcribeVideoParallel(
   } finally {
     if (killBackgroundExtraction) {
       killBackgroundExtraction()
+      remainingChunksPromiseForCleanup?.catch(() => {})
       if (chunkOutputDir && chunkPaths.length <= 1) {
         try {
           for (const f of fs.readdirSync(chunkOutputDir)) {
