@@ -98,19 +98,34 @@ export default function DailyTrendCharts({ daily }: { daily: DashboardDailyPoint
   const jobsData = daily.map((d) => ({ label: fmtLabel(d.date), value: d.jobsCreated }))
   const activeUsersData = daily.map((d) => ({ label: fmtLabel(d.date), value: d.activeUsers }))
   const mrrData = daily.map((d) => ({ label: fmtLabel(d.date), value: d.mrrCents / 100 }))
+  const totalUsersData = daily.map((d) => ({ label: fmtLabel(d.date), value: d.totalUsers ?? 0 }))
+  const successRateData = daily.map((d) => {
+    const total = d.jobsCreated
+    const rate = total > 0 ? Math.round(((total - d.jobsFailed) / total) * 100) : 100
+    return { label: fmtLabel(d.date), value: rate }
+  })
 
   const totalNewUsers = daily.reduce((s, d) => s + d.newUsers, 0)
   const totalJobs = daily.reduce((s, d) => s + d.jobsCreated, 0)
   const lastMrr = daily[daily.length - 1]?.mrrCents ?? 0
+  const lastTotalUsers = daily[daily.length - 1]?.totalUsers ?? 0
+  const lastSuccessRate = successRateData[successRateData.length - 1]?.value ?? 100
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
       <ChartCard
         title="New signups (30d)"
         value={totalNewUsers}
         sub="total new users"
         data={newUsersData}
         color="#7c3aed"
+      />
+      <ChartCard
+        title="Total users (growth)"
+        value={lastTotalUsers.toLocaleString()}
+        sub="cumulative"
+        data={totalUsersData}
+        color="#6366f1"
       />
       <ChartCard
         title="Jobs created (30d)"
@@ -132,6 +147,13 @@ export default function DailyTrendCharts({ daily }: { daily: DashboardDailyPoint
         sub="current month"
         data={mrrData}
         color="#d97706"
+      />
+      <ChartCard
+        title="Job success rate"
+        value={`${lastSuccessRate}%`}
+        sub="latest day"
+        data={successRateData}
+        color="#0891b2"
       />
     </div>
   )
