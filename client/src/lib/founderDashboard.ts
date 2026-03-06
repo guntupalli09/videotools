@@ -7,7 +7,6 @@ import { api } from './api'
 
 const FOUNDER_ME_KEY = 'videotext:founder'
 
-/** Fetch lightweight founder check. Returns { isFounder: true } on 200, null on 401/403. */
 export async function fetchFounderMe(): Promise<{ isFounder: true } | null> {
   const res = await api('/api/admin/me')
   if (!res.ok) return null
@@ -15,7 +14,6 @@ export async function fetchFounderMe(): Promise<{ isFounder: true } | null> {
   return data?.isFounder === true ? { isFounder: true } : null
 }
 
-/** Read cached founder status from sessionStorage. */
 export function getCachedFounderStatus(): boolean | null {
   if (typeof sessionStorage === 'undefined') return null
   const v = sessionStorage.getItem(FOUNDER_ME_KEY)
@@ -24,22 +22,12 @@ export function getCachedFounderStatus(): boolean | null {
   return null
 }
 
-/** Write founder status to sessionStorage (session lifetime). */
 export function setCachedFounderStatus(isFounder: boolean): void {
-  try {
-    sessionStorage?.setItem(FOUNDER_ME_KEY, String(isFounder))
-  } catch {
-    // ignore
-  }
+  try { sessionStorage?.setItem(FOUNDER_ME_KEY, String(isFounder)) } catch { /* ignore */ }
 }
 
-/** Clear cached founder status (e.g. on logout). */
 export function clearCachedFounderStatus(): void {
-  try {
-    sessionStorage?.removeItem(FOUNDER_ME_KEY)
-  } catch {
-    // ignore
-  }
+  try { sessionStorage?.removeItem(FOUNDER_ME_KEY) } catch { /* ignore */ }
 }
 
 export interface DashboardSnapshot {
@@ -47,7 +35,13 @@ export interface DashboardSnapshot {
   totalUsers?: number
   activeUsers?: number
   mrrCents?: number
+  arpuCents?: number
   jobsCompleted?: number
+  newUsers?: number
+  jobsCreated?: number
+  jobsFailed?: number
+  newPaidUsers?: number
+  churnedUsers?: number
   status?: 'no_metrics_data'
 }
 
@@ -83,6 +77,83 @@ export interface DashboardFeedback {
   createdAt: string
 }
 
+export interface DashboardUser {
+  id: string
+  email: string
+  plan: string
+  createdAt: string
+  lastActiveAt: string | null
+  utmSource: string | null
+  firstReferrer: string | null
+  totalJobs: number
+  jobCount30d: number
+}
+
+export interface DashboardDailyPoint {
+  date: string
+  newUsers: number
+  totalUsers: number
+  jobsCreated: number
+  jobsCompleted: number
+  jobsFailed: number
+  mrrCents: number
+  activeUsers: number
+  churnedUsers: number
+  newPaidUsers: number
+  avgProcessingMs: number | null
+}
+
+export interface DashboardPlanCount {
+  plan: string
+  count: number
+}
+
+export interface DashboardJob {
+  id: string
+  userId: string
+  email: string | null
+  toolType: string
+  status: string
+  processingMs: number | null
+  videoDurationSec: number | null
+  createdAt: string
+  failureReason: string | null
+  planAtRun: string | null
+}
+
+export interface DashboardUtmEntry {
+  source: string
+  count: number
+}
+
+export interface DashboardFailureReason {
+  reason: string
+  count: number
+}
+
+export interface DashboardFeedbackByTool {
+  toolId: string
+  avgStars: number
+  count: number
+}
+
+export interface DashboardStarDist {
+  stars: number
+  count: number
+}
+
+export interface DashboardServerHealth {
+  queueWaiting: number
+  queueActive: number
+  queueFailed: number
+  queueCompleted: number
+  queueDelayed: number
+  workerLastHeartbeatAgeMs: number | null
+  workerStatus: 'healthy' | 'stale' | 'unknown'
+  redisOk: boolean
+  dbOk: boolean
+}
+
 export interface DashboardData {
   snapshot: DashboardSnapshot
   revenue: DashboardRevenue
@@ -90,6 +161,14 @@ export interface DashboardData {
   performance: DashboardPerformance
   retention: DashboardRetention
   feedback: DashboardFeedback[]
+  users: DashboardUser[]
+  daily: DashboardDailyPoint[]
+  planDistribution: DashboardPlanCount[]
+  recentJobs: DashboardJob[]
+  utmBreakdown: DashboardUtmEntry[]
+  failureReasons: DashboardFailureReason[]
+  feedbackByTool: DashboardFeedbackByTool[]
+  starDistribution: DashboardStarDist[]
 }
 
 export type FetchDashboardResult =
@@ -98,7 +177,6 @@ export type FetchDashboardResult =
   | { ok: false; status: 403 }
   | { ok: false; status: 'error' }
 
-/** Fetch founder dashboard. Distinguishes 401 (redirect to login) vs 403 (unauthorized) vs success. */
 export async function fetchFounderDashboard(): Promise<FetchDashboardResult> {
   try {
     const res = await api('/api/admin/dashboard')
@@ -109,5 +187,15 @@ export async function fetchFounderDashboard(): Promise<FetchDashboardResult> {
     return { ok: true, data }
   } catch {
     return { ok: false, status: 'error' }
+  }
+}
+
+export async function fetchServerHealth(): Promise<DashboardServerHealth | null> {
+  try {
+    const res = await api('/api/admin/server-health')
+    if (!res.ok) return null
+    return res.json()
+  } catch {
+    return null
   }
 }
