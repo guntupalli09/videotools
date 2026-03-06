@@ -48,6 +48,9 @@ export interface DashboardSnapshot {
   activeUsers?: number
   mrrCents?: number
   jobsCompleted?: number
+  newUsers?: number
+  jobsCreated?: number
+  jobsFailed?: number
   status?: 'no_metrics_data'
 }
 
@@ -83,6 +86,46 @@ export interface DashboardFeedback {
   createdAt: string
 }
 
+export interface DashboardUser {
+  id: string
+  email: string
+  plan: string
+  createdAt: string
+  lastActiveAt: string | null
+  utmSource: string | null
+  firstReferrer: string | null
+  totalJobs: number
+  jobCount30d: number
+}
+
+export interface DashboardDailyPoint {
+  date: string
+  newUsers: number
+  jobsCreated: number
+  jobsCompleted: number
+  jobsFailed: number
+  mrrCents: number
+  activeUsers: number
+}
+
+export interface DashboardPlanCount {
+  plan: string
+  count: number
+}
+
+export interface DashboardJob {
+  id: string
+  userId: string
+  email: string | null
+  toolType: string
+  status: string
+  processingMs: number | null
+  videoDurationSec: number | null
+  createdAt: string
+  failureReason: string | null
+  planAtRun: string | null
+}
+
 export interface DashboardData {
   snapshot: DashboardSnapshot
   revenue: DashboardRevenue
@@ -90,6 +133,10 @@ export interface DashboardData {
   performance: DashboardPerformance
   retention: DashboardRetention
   feedback: DashboardFeedback[]
+  users: DashboardUser[]
+  daily: DashboardDailyPoint[]
+  planDistribution: DashboardPlanCount[]
+  recentJobs: DashboardJob[]
 }
 
 export type FetchDashboardResult =

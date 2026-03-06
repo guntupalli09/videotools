@@ -61,6 +61,7 @@ adminDashboardRouter.get('/dashboard', async (req: Request, res: Response): Prom
 
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const thirtyOneDaysAgo = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000)
 
     const [
       latestDaily,
@@ -73,6 +74,10 @@ adminDashboardRouter.get('/dashboard', async (req: Request, res: Response): Prom
       active30,
       feedbackRows,
       realtimeMrr,
+      allUsers,
+      dailyTrend,
+      planDist,
+      recentJobs,
     ] = await Promise.all([
       prisma.dailyMetrics.findFirst({ orderBy: { date: 'desc' } }),
       prisma.monthlyMetrics.findMany({ orderBy: { monthStart: 'desc' }, take: 12 }),
@@ -126,6 +131,44 @@ adminDashboardRouter.get('/dashboard', async (req: Request, res: Response): Prom
         FROM "SubscriptionSnapshot"
         WHERE status = 'active'
       `,
+      // All users with total and 30d job counts
+      prisma.$queryRaw<{
+        id: string; email: string; plan: string; createdAt: Date; lastActiveAt: Date | null;
+        utmSource: string | null; firstReferrer: string | null;
+        totalJobs: bigint; jobCount30d: bigint;
+      }[]>`
+        SELECT u.id, u.email, u.plan, u."createdAt", u."lastActiveAt", u."utmSource", u."firstReferrer",
+          COUNT(j.id)::bigint as "totalJobs",
+          COUNT(j.id) FILTER (WHERE j."createdAt" >= ${thirtyDaysAgo})::bigint as "jobCount30d"
+        FROM "User" u
+        LEFT JOIN "Job" j ON j."userId" = u.id
+        GROUP BY u.id, u.email, u.plan, u."createdAt", u."lastActiveAt", u."utmSource", u."firstReferrer"
+        ORDER BY u."createdAt" DESC
+        LIMIT 500
+      `,
+      // Daily metrics trend last 31 days
+      prisma.dailyMetrics.findMany({
+        orderBy: { date: 'asc' },
+        where: { date: { gte: thirtyOneDaysAgo } },
+        select: { date: true, newUsers: true, jobsCreated: true, jobsCompleted: true, jobsFailed: true, mrrCents: true, activeUsers: true },
+      }),
+      // Plan distribution
+      prisma.$queryRaw<{ plan: string; count: bigint }[]>`
+        SELECT plan, COUNT(*)::bigint as count FROM "User" GROUP BY plan ORDER BY count DESC
+      `,
+      // Recent jobs feed
+      prisma.$queryRaw<{
+        id: string; userId: string; email: string | null; toolType: string; status: string;
+        processingMs: number | null; videoDurationSec: number | null; createdAt: Date;
+        failureReason: string | null; planAtRun: string | null;
+      }[]>`
+        SELECT j.id, j."userId", u.email, j."toolType", j.status, j."processingMs",
+          j."videoDurationSec", j."createdAt", j."failureReason", j."planAtRun"
+        FROM "Job" j
+        LEFT JOIN "User" u ON u.id = j."userId"
+        ORDER BY j."createdAt" DESC
+        LIMIT 50
+      `,
     ])
 
     let snapshot: Record<string, unknown>
@@ -141,6 +184,9 @@ adminDashboardRouter.get('/dashboard', async (req: Request, res: Response): Prom
         activeUsers: latestDaily.activeUsers,
         mrrCents,
         jobsCompleted: latestDaily.jobsCompleted,
+        newUsers: latestDaily.newUsers,
+        jobsCreated: latestDaily.jobsCreated,
+        jobsFailed: latestDaily.jobsFailed,
       }
     } else {
       snapshot = { status: 'no_metrics_data' }
@@ -185,6 +231,46 @@ adminDashboardRouter.get('/dashboard', async (req: Request, res: Response): Prom
       createdAt: f.createdAt.toISOString(),
     }))
 
+    const users = (allUsers ?? []).map((u) => ({
+      id: u.id,
+      email: u.email,
+      plan: u.plan,
+      createdAt: u.createdAt.toISOString(),
+      lastActiveAt: u.lastActiveAt ? u.lastActiveAt.toISOString() : null,
+      utmSource: u.utmSource,
+      firstReferrer: u.firstReferrer,
+      totalJobs: Number(u.totalJobs),
+      jobCount30d: Number(u.jobCount30d),
+    }))
+
+    const daily = (dailyTrend ?? []).map((d) => ({
+      date: d.date.toISOString(),
+      newUsers: d.newUsers,
+      jobsCreated: d.jobsCreated,
+      jobsCompleted: d.jobsCompleted,
+      jobsFailed: d.jobsFailed,
+      mrrCents: d.mrrCents,
+      activeUsers: d.activeUsers,
+    }))
+
+    const planDistribution = (planDist ?? []).map((p) => ({
+      plan: p.plan,
+      count: Number(p.count),
+    }))
+
+    const recentJobsFeed = (recentJobs ?? []).map((j) => ({
+      id: j.id,
+      userId: j.userId,
+      email: j.email,
+      toolType: j.toolType,
+      status: j.status,
+      processingMs: j.processingMs,
+      videoDurationSec: j.videoDurationSec,
+      createdAt: j.createdAt.toISOString(),
+      failureReason: j.failureReason,
+      planAtRun: j.planAtRun,
+    }))
+
     const response = {
       snapshot,
       revenue,
@@ -192,6 +278,10 @@ adminDashboardRouter.get('/dashboard', async (req: Request, res: Response): Prom
       performance,
       retention,
       feedback,
+      users,
+      daily,
+      planDistribution,
+      recentJobs: recentJobsFeed,
     }
     cachedDashboard = response
     cacheTimestamp = Date.now()
