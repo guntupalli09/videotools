@@ -21,7 +21,7 @@ function NewChurnBars({ newMrr, churnedMrr }: NewChurnBarsProps) {
 
   return (
     <div className="space-y-2 mt-2">
-      {sorted.map((d, i) => {
+      {sorted.map((d) => {
         const churn = churnedMrr.find((c) =>
           new Date(c.monthStart).getMonth() === new Date(d.monthStart).getMonth() &&
           new Date(c.monthStart).getFullYear() === new Date(d.monthStart).getFullYear()
