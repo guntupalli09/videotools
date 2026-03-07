@@ -25,6 +25,7 @@ import { getLogger } from './lib/logger'
 import healthRoutes from './routes/health'
 import feedbackRoutes from './routes/feedback'
 import adminDashboardRoutes from './routes/adminDashboard'
+import adminSupportRoutes, { runAlertChecks, maybeSendDailyDigest } from './routes/adminSupport'
 
 const log = getLogger('api')
 const app = express()
@@ -185,6 +186,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/translate-transcript', translateTranscriptRoutes)
 app.use('/api/feedback', feedbackRoutes)
 app.use('/api/admin', adminDashboardRoutes)
+app.use('/api/admin', adminSupportRoutes)
 
 // Health and ops (no /api prefix)
 app.use(healthRoutes)
@@ -223,6 +225,11 @@ const server = app.listen(PORT, () => {
   // Start file cleanup cron
   startFileCleanup()
   log.info({ msg: 'File cleanup cron started' })
+
+  // Alert checks every 5 minutes
+  setInterval(() => { runAlertChecks().catch(() => {}) }, 5 * 60 * 1000)
+  // Daily digest check every minute (sends once per day at configured hour)
+  setInterval(() => { maybeSendDailyDigest().catch(() => {}) }, 60 * 1000)
 
   // Warm up Bull's Redis connections so first readyz/upload init doesn't timeout
   const warmupMs = 25_000

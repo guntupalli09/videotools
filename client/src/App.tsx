@@ -258,12 +258,32 @@ function PostCheckoutHandler() {
   return null
 }
 
+/** Handles ?impersonate=TOKEN from the founder support panel. Sets authToken and redirects to home. */
+function ImpersonationHandler() {
+  const { search } = useLocation()
+  const navigate = useNavigate()
+  const handled = useRef(false)
+  useEffect(() => {
+    if (handled.current) return
+    const params = new URLSearchParams(search)
+    const token = params.get('impersonate')
+    if (!token) return
+    handled.current = true
+    localStorage.setItem('authToken', token)
+    // Remove the param and go to home
+    navigate('/', { replace: true })
+    toast.success('Impersonating user — logged in as them.')
+  }, [search, navigate])
+  return null
+}
+
 function App() {
   return (
     <BrowserRouter>
       <WorkflowProvider>
       <AppSeo />
       <PostCheckoutHandler />
+      <ImpersonationHandler />
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-violet-600 focus:text-white focus:rounded-lg">
         Skip to main content
       </a>
