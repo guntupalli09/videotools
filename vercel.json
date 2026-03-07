@@ -6,7 +6,7 @@
       "source": "/(.*)",
       "has": [{ "type": "host", "value": "videotext.io" }],
       "destination": "https://www.videotext.io/$1",
-      "permanent": true
+      "statusCode": 301
     }
   ],
   "headers": [
