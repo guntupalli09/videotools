@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { isLoggedIn } from '../lib/auth';
 import { Hero } from '../components/figma/Hero';
 import { Features } from '../components/figma/Features';
 import { HowItWorks } from '../components/figma/HowItWorks';
@@ -25,9 +26,11 @@ export default function Home() {
             <h2 className="font-display text-3xl md:text-4xl font-bold text-white tracking-tight mb-2">
               Start free. Upgrade when you need more.
             </h2>
-            <p className="text-lg text-white/90">
-              Sign up to try free
-            </p>
+            {!isLoggedIn() && (
+              <p className="text-lg text-white/90">
+                Sign up to try free
+              </p>
+            )}
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 16 }}

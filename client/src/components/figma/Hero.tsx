@@ -1,4 +1,5 @@
 import { useRef, useMemo, useState, useEffect } from 'react';
+import { isLoggedIn } from '../../lib/auth';
 import { Link } from 'react-router-dom';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import {
@@ -356,14 +357,14 @@ export function Hero() {
             transition={{ delay: 0.7, duration: 0.5 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-3.5 mb-3"
           >
-            <Link to="/signup">
+            <Link to={isLoggedIn() ? '/video-to-transcript' : '/signup'}>
               <motion.span
                 whileHover={{ y: -2 }}
                 whileTap={{ scale: 0.97 }}
                 className="group relative inline-flex bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-8 py-3.5 rounded-xl font-medium shadow-lg shadow-purple-500/20 dark:shadow-purple-600/20 hover:shadow-purple-500/40 dark:hover:shadow-purple-600/40 transition-all overflow-hidden"
               >
                 <span className="relative flex items-center gap-2 text-[15px]">
-                  Sign up to try free
+                  {isLoggedIn() ? 'Start transcribing' : 'Sign up to try free'}
                   <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                 </span>
               </motion.span>
