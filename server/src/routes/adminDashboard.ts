@@ -10,6 +10,7 @@ import { getAuthFromRequest } from '../utils/auth'
 import { getUser } from '../models/User'
 import { prisma } from '../db'
 import { fileQueue, priorityQueue } from '../workers/videoProcessor'
+import { runRecompute } from '../services/recomputeMetrics'
 
 const adminDashboardRouter = express.Router()
 export default adminDashboardRouter
@@ -99,147 +100,28 @@ adminDashboardRouter.get('/server-health', async (req: Request, res: Response): 
   }
 })
 
-// ── Recompute helpers (mirrors scripts/recomputeMetrics.ts) ──────────────────
-
-function _toUtcMidnight(d: Date): Date {
-  const out = new Date(d); out.setUTCHours(0, 0, 0, 0); return out
-}
-function _addDays(d: Date, n: number): Date {
-  const out = new Date(d); out.setUTCDate(out.getUTCDate() + n); return out
-}
-function _firstDayOfMonth(d: Date): Date {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1, 0, 0, 0, 0))
-}
-function _addMonths(d: Date, n: number): Date {
-  const out = new Date(d); out.setUTCMonth(out.getUTCMonth() + n); return out
-}
-function _scalarInt(row: { count?: bigint | number; avg?: number | null; sum?: bigint | null; p95?: number | null } | null): number {
-  if (!row) return 0
-  const v = row.count ?? row.avg ?? row.sum ?? row.p95
-  if (v == null) return 0
-  return typeof v === 'bigint' ? Number(v) : Math.round(Number(v))
-}
-
-async function _recomputeDay(dateMidnight: Date): Promise<void> {
-  const dayStart = dateMidnight
-  const dayEnd = _addDays(dayStart, 1)
-  const endOfDay = new Date(dayEnd.getTime() - 1)
-
-  const [totalUsersRow, newUsersRow, activeUsersRow, jobsCreatedRow, jobsCompletedRow, jobsFailedRow] =
-    await Promise.all([
-      prisma.$queryRaw<[{ count: bigint }]>`SELECT COUNT(*)::bigint as count FROM "User" WHERE "createdAt" < ${dayEnd}`,
-      prisma.$queryRaw<[{ count: bigint }]>`SELECT COUNT(*)::bigint as count FROM "User" WHERE "createdAt" >= ${dayStart} AND "createdAt" < ${dayEnd}`,
-      prisma.$queryRaw<[{ count: bigint }]>`SELECT COUNT(DISTINCT "userId")::bigint as count FROM "Job" WHERE "createdAt" >= ${dayStart} AND "createdAt" < ${dayEnd}`,
-      prisma.$queryRaw<[{ count: bigint }]>`SELECT COUNT(*)::bigint as count FROM "Job" WHERE "createdAt" >= ${dayStart} AND "createdAt" < ${dayEnd}`,
-      prisma.$queryRaw<[{ count: bigint }]>`SELECT COUNT(*)::bigint as count FROM "Job" WHERE "status" = 'completed' AND "completedAt" >= ${dayStart} AND "completedAt" < ${dayEnd}`,
-      prisma.$queryRaw<[{ count: bigint }]>`SELECT COUNT(*)::bigint as count FROM "Job" WHERE "status" = 'failed' AND "createdAt" >= ${dayStart} AND "createdAt" < ${dayEnd}`,
-    ])
-
-  const totalUsers = _scalarInt(totalUsersRow?.[0] ?? null)
-  const newUsers = _scalarInt(newUsersRow?.[0] ?? null)
-  const activeUsers = _scalarInt(activeUsersRow?.[0] ?? null)
-  const jobsCreated = _scalarInt(jobsCreatedRow?.[0] ?? null)
-  const jobsCompleted = _scalarInt(jobsCompletedRow?.[0] ?? null)
-  const jobsFailed = _scalarInt(jobsFailedRow?.[0] ?? null)
-
-  const [avgRow, p95Row] = await Promise.all([
-    prisma.$queryRaw<[{ avg: number | null }]>`SELECT AVG("processingMs")::double precision as avg FROM "Job" WHERE "status" = 'completed' AND "completedAt" >= ${dayStart} AND "completedAt" < ${dayEnd} AND "processingMs" IS NOT NULL`,
-    prisma.$queryRaw<[{ p95: number | null }]>`SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY "processingMs")::double precision as p95 FROM "Job" WHERE "status" = 'completed' AND "completedAt" >= ${dayStart} AND "completedAt" < ${dayEnd} AND "processingMs" IS NOT NULL`,
-  ])
-
-  const avgProcessingMs = avgRow?.[0]?.avg != null ? Math.round(avgRow[0].avg) : null
-  const p95ProcessingMs = p95Row?.[0]?.p95 != null ? Math.round(p95Row[0].p95) : null
-
-  const [mrrRow, churnedRow, newPaidRow] = await Promise.all([
-    prisma.$queryRaw<[{ sum: bigint | null }]>`SELECT COALESCE(SUM("priceMonthly"), 0)::bigint as sum FROM "SubscriptionSnapshot" WHERE "status" = 'active' AND "periodStart" <= ${endOfDay} AND "periodEnd" >= ${endOfDay}`,
-    prisma.$queryRaw<[{ count: bigint }]>`SELECT COUNT(*)::bigint as count FROM "SubscriptionSnapshot" WHERE "status" = 'canceled' AND "periodEnd" >= ${dayStart} AND "periodEnd" < ${dayEnd}`,
-    prisma.$queryRaw<[{ count: bigint }]>`SELECT COUNT(*)::bigint as count FROM "SubscriptionSnapshot" WHERE "periodStart" >= ${dayStart} AND "periodStart" < ${dayEnd} AND "status" = 'active'`,
-  ])
-
-  const mrrCents = _scalarInt(mrrRow?.[0] ?? null)
-  const churnedUsers = _scalarInt(churnedRow?.[0] ?? null)
-  const newPaidUsers = _scalarInt(newPaidRow?.[0] ?? null)
-  const now = new Date()
-
-  await prisma.dailyMetrics.upsert({
-    where: { date: dayStart },
-    create: { date: dayStart, totalUsers, newUsers, activeUsers, jobsCreated, jobsCompleted, jobsFailed, avgProcessingMs, p95ProcessingMs, mrrCents, churnedUsers, newPaidUsers, updatedAt: now },
-    update: { totalUsers, newUsers, activeUsers, jobsCreated, jobsCompleted, jobsFailed, avgProcessingMs, p95ProcessingMs, mrrCents, churnedUsers, newPaidUsers, updatedAt: now },
-  })
-}
-
-async function _recomputeMonth(monthStart: Date): Promise<void> {
-  const monthEnd = _addMonths(monthStart, 1)
-  const endOfMonth = new Date(monthEnd.getTime() - 1)
-
-  const [totalUsersRow, newUsersRow, activeUsersRow] = await Promise.all([
-    prisma.$queryRaw<[{ count: bigint }]>`SELECT COUNT(*)::bigint as count FROM "User" WHERE "createdAt" < ${monthEnd}`,
-    prisma.$queryRaw<[{ count: bigint }]>`SELECT COUNT(*)::bigint as count FROM "User" WHERE "createdAt" >= ${monthStart} AND "createdAt" < ${monthEnd}`,
-    prisma.$queryRaw<[{ count: bigint }]>`SELECT COUNT(DISTINCT "userId")::bigint as count FROM "Job" WHERE "createdAt" >= ${monthStart} AND "createdAt" < ${monthEnd}`,
-  ])
-
-  const totalUsers = _scalarInt(totalUsersRow?.[0] ?? null)
-  const newUsers = _scalarInt(newUsersRow?.[0] ?? null)
-  const activeUsers = _scalarInt(activeUsersRow?.[0] ?? null)
-
-  const [mrrRow, newMrrRow, churnedMrrRow, activePaidStartRow, churnedCountRow] = await Promise.all([
-    prisma.$queryRaw<[{ sum: bigint | null }]>`SELECT COALESCE(SUM("priceMonthly"), 0)::bigint as sum FROM "SubscriptionSnapshot" WHERE "status" = 'active' AND "periodStart" <= ${endOfMonth} AND "periodEnd" >= ${endOfMonth}`,
-    prisma.$queryRaw<[{ sum: bigint | null }]>`SELECT COALESCE(SUM("priceMonthly"), 0)::bigint as sum FROM "SubscriptionSnapshot" WHERE "periodStart" >= ${monthStart} AND "periodStart" < ${monthEnd}`,
-    prisma.$queryRaw<[{ sum: bigint | null }]>`SELECT COALESCE(SUM("priceMonthly"), 0)::bigint as sum FROM "SubscriptionSnapshot" WHERE "status" = 'canceled' AND "periodEnd" >= ${monthStart} AND "periodEnd" < ${monthEnd}`,
-    prisma.$queryRaw<[{ count: bigint }]>`SELECT COUNT(DISTINCT "userId")::bigint as count FROM "SubscriptionSnapshot" WHERE "status" = 'active' AND "periodStart" <= ${monthStart} AND "periodEnd" >= ${monthStart}`,
-    prisma.$queryRaw<[{ count: bigint }]>`SELECT COUNT(*)::bigint as count FROM "SubscriptionSnapshot" WHERE "status" = 'canceled' AND "periodEnd" >= ${monthStart} AND "periodEnd" < ${monthEnd}`,
-  ])
-
-  const mrrCents = _scalarInt(mrrRow?.[0] ?? null)
-  const newMrrCents = _scalarInt(newMrrRow?.[0] ?? null)
-  const churnedMrrCents = _scalarInt(churnedMrrRow?.[0] ?? null)
-  const activePaidUsersAtMonthStart = _scalarInt(activePaidStartRow?.[0] ?? null)
-  const churnedUsersInMonth = _scalarInt(churnedCountRow?.[0] ?? null)
-  const churnRatePercent = activePaidUsersAtMonthStart > 0 ? (churnedUsersInMonth / activePaidUsersAtMonthStart) * 100 : null
-  const now = new Date()
-
-  await prisma.monthlyMetrics.upsert({
-    where: { monthStart },
-    create: { monthStart, totalUsers, newUsers, activeUsers, mrrCents, newMrrCents, churnedMrrCents, churnRatePercent, updatedAt: now },
-    update: { totalUsers, newUsers, activeUsers, mrrCents, newMrrCents, churnedMrrCents, churnRatePercent, updatedAt: now },
-  })
-}
-
 /**
  * POST /api/admin/recompute — Recompute DailyMetrics and MonthlyMetrics from source tables.
  * Idempotent. Query params: days (default 90), months (default 12).
  */
 adminDashboardRouter.post('/recompute', async (req: Request, res: Response): Promise<Response> => {
-  const userId = await requireFounder(req, res)
-  if (!userId) return res as Response
+  try {
+    const userId = await requireFounder(req, res)
+    if (!userId) return res as Response
 
-  const days = Math.max(1, Math.min(366, parseInt((req.query.days as string) ?? '90', 10)))
-  const months = Math.max(1, Math.min(60, parseInt((req.query.months as string) ?? '12', 10)))
+    const days = Math.max(1, Math.min(366, parseInt(String(req.query.days ?? '90'), 10) || 90))
+    const months = Math.max(1, Math.min(60, parseInt(String(req.query.months ?? '12'), 10) || 12))
 
-  const now = new Date()
-  const todayStart = _toUtcMidnight(now)
-  const daysStart = _addDays(todayStart, -days)
+    const result = await runRecompute(days, months)
 
-  let daysProcessed = 0, monthsProcessed = 0, dayErrors = 0, monthErrors = 0
+    cachedDashboard = null
+    cacheTimestamp = 0
 
-  for (let d = new Date(daysStart); d < todayStart; d = _addDays(d, 1)) {
-    try { await _recomputeDay(new Date(d)); daysProcessed++ }
-    catch (err) { dayErrors++; console.warn('[admin/recompute] day failed', d.toISOString().slice(0, 10), (err as Error).message) }
+    return res.json(result)
+  } catch (err) {
+    console.error('[admin/recompute]', err)
+    return res.status(500).json({ message: 'Internal server error' })
   }
-
-  const monthStartFirst = _firstDayOfMonth(_addMonths(now, -months))
-  const monthEndBound = _firstDayOfMonth(now)
-  for (let m = new Date(monthStartFirst); m < monthEndBound; m = _addMonths(m, 1)) {
-    try { await _recomputeMonth(new Date(m)); monthsProcessed++ }
-    catch (err) { monthErrors++; console.warn('[admin/recompute] month failed', m.toISOString().slice(0, 7), (err as Error).message) }
-  }
-
-  // Bust dashboard cache so next GET /dashboard reflects new data
-  cachedDashboard = null
-  cacheTimestamp = 0
-
-  console.info(`[admin/recompute] done — days: ${daysProcessed} (${dayErrors} errors), months: ${monthsProcessed} (${monthErrors} errors)`)
-  return res.json({ ok: true, daysProcessed, monthsProcessed, dayErrors, monthErrors })
 })
 
 const CACHE_TTL_MS = 30_000
