@@ -199,3 +199,159 @@ export async function fetchServerHealth(): Promise<DashboardServerHealth | null>
     return null
   }
 }
+
+// ── Alert / digest types ──────────────────────────────────────────────────────
+
+export interface AlertConfig {
+  enabled: { failureRate: boolean; workerStale: boolean; mrrDrop: boolean }
+  thresholds: { failureRatePct: number; workerStaleMinutes: number; mrrDropPct: number }
+  alertEmail: string
+  digestEnabled: boolean
+  digestHourUtc: number
+}
+
+export interface AlertLogEntry {
+  type: string
+  message: string
+  sentAt: string
+}
+
+export interface DigestPreview {
+  date: string
+  newUsers: number
+  newPaidUsers: number
+  churnedUsers: number
+  jobsCompleted: number
+  jobsFailed: number
+  mrrCents: number | null
+}
+
+// ── Support types ─────────────────────────────────────────────────────────────
+
+export interface SupportJob {
+  id: string
+  toolType: string
+  status: string
+  createdAt: string
+  processingMs: number | null
+  videoDurationSec: number | null
+  failureReason: string | null
+  planAtRun: string | null
+}
+
+export interface SupportUser {
+  id: string
+  email: string
+  plan: string
+  role: string
+  suspended: boolean
+  restrictionNote: string | null
+  createdAt: string
+  lastActiveAt: string | null
+  stripeCustomerId: string | null
+  billingPeriodEnd: string | null
+  usageThisMonth: { totalMinutes: number; importCount: number; resetDate: string; videoCount: number }
+  limits: { minutesPerMonth: number }
+  totalJobs: number
+  failedJobCount: number
+  jobs: SupportJob[]
+}
+
+// ── Alert API ─────────────────────────────────────────────────────────────────
+
+export async function fetchAlertConfig(): Promise<{ config: AlertConfig; log: AlertLogEntry[] } | null> {
+  try {
+    const res = await api('/api/admin/alerts')
+    if (!res.ok) return null
+    return res.json()
+  } catch {
+    return null
+  }
+}
+
+export async function saveAlertConfig(config: AlertConfig): Promise<void> {
+  const res = await api('/api/admin/alerts', { method: 'POST', body: JSON.stringify(config) })
+  if (!res.ok) throw new Error('Save failed')
+}
+
+export async function sendTestAlert(email: string): Promise<void> {
+  const res = await api('/api/admin/alerts/test', { method: 'POST', body: JSON.stringify({ email }) })
+  if (!res.ok) throw new Error('Test failed')
+}
+
+export async function fetchAlertLog(): Promise<AlertLogEntry[] | null> {
+  try {
+    const res = await api('/api/admin/alerts')
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.log ?? []
+  } catch {
+    return null
+  }
+}
+
+// ── Digest API ────────────────────────────────────────────────────────────────
+
+export async function fetchDigestPreview(): Promise<DigestPreview | null> {
+  try {
+    const res = await api('/api/admin/digest/preview')
+    if (!res.ok) return null
+    return res.json()
+  } catch {
+    return null
+  }
+}
+
+export async function sendDigestNow(): Promise<{ message: string } | null> {
+  try {
+    const res = await api('/api/admin/digest/send', { method: 'POST' })
+    if (!res.ok) return null
+    return res.json()
+  } catch {
+    return null
+  }
+}
+
+// ── Support API ───────────────────────────────────────────────────────────────
+
+export async function lookupSupportUser(email: string): Promise<SupportUser | null> {
+  try {
+    const res = await api(`/api/admin/support/user?email=${encodeURIComponent(email)}`)
+    if (res.status === 404) return null
+    if (!res.ok) throw new Error('Lookup failed')
+    return res.json()
+  } catch {
+    return null
+  }
+}
+
+export async function impersonateUser(userId: string): Promise<{ token: string }> {
+  const res = await api('/api/admin/support/impersonate', { method: 'POST', body: JSON.stringify({ userId }) })
+  if (!res.ok) throw new Error('Impersonate failed')
+  return res.json()
+}
+
+export async function creditUser(userId: string, minutes: number): Promise<void> {
+  const res = await api('/api/admin/support/credit', { method: 'POST', body: JSON.stringify({ userId, minutes }) })
+  if (!res.ok) throw new Error('Credit failed')
+}
+
+export async function extendBilling(userId: string, days: number): Promise<void> {
+  const res = await api('/api/admin/support/extend-billing', { method: 'POST', body: JSON.stringify({ userId, days }) })
+  if (!res.ok) throw new Error('Extend failed')
+}
+
+export async function setSupportPlan(userId: string, plan: string): Promise<void> {
+  const res = await api('/api/admin/support/set-plan', { method: 'POST', body: JSON.stringify({ userId, plan }) })
+  if (!res.ok) throw new Error('Set plan failed')
+}
+
+export async function restrictUser(userId: string, suspended: boolean, note?: string): Promise<void> {
+  const res = await api('/api/admin/support/restrict', { method: 'POST', body: JSON.stringify({ userId, suspended, note }) })
+  if (!res.ok) throw new Error('Restrict failed')
+}
+
+export async function revokeUserAccess(userId: string, note?: string): Promise<void> {
+  const res = await api('/api/admin/support/revoke', { method: 'POST', body: JSON.stringify({ userId, note }) })
+  if (!res.ok) throw new Error('Revoke failed')
+}

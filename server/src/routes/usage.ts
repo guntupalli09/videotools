@@ -132,15 +132,14 @@ async function getOrCreateDemoUser(req: Request): Promise<User | null> {
     if (user.billingPeriodEnd && user.billingPeriodEnd < now && !user.subscriptionId) {
       user.plan = 'free'
       user.limits = getPlanLimits('free')
-      // Preserve importCount: free plan 3 imports are lifetime, don't give more on downgrade
-      const priorImportCount = user.usageThisMonth.importCount ?? 0
+      // Downgrade to free: reset usage; importCount resets monthly on the 1st
       user.usageThisMonth = {
         totalMinutes: 0,
         videoCount: 0,
         batchCount: 0,
         languageCount: 0,
         translatedMinutes: 0,
-        importCount: priorImportCount,
+        importCount: 0,
         resetDate: new Date(now.getFullYear(), now.getMonth() + 1, 1),
       }
       user.overagesThisMonth = { minutes: 0, languages: 0, batches: 0, totalCharge: 0 }

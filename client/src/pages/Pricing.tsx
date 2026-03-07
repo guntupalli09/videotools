@@ -174,31 +174,31 @@ export default function Pricing() {
         </header>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 lg:gap-8 items-stretch">
-          {/* FOUNDING WORKFLOW — $10/month (UI only; not wired to Stripe yet) */}
+          {/* CREATOR PRO — $10/month early-adopter plan */}
           <div className={`flex flex-col bg-white dark:bg-gray-800 rounded-2xl border shadow-card p-6 sm:p-8 min-h-[420px] hover:shadow-card-elevated transition-motion relative ${isCurrentPlan('founding_workflow') ? 'border-purple-500 dark:border-purple-400 ring-2 ring-purple-500/30 shadow-purple-500/10' : 'border-purple-300/80 dark:border-purple-500/50 shadow-purple-500/10 hover:shadow-purple-500/15'}`}>
             <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-purple-600 text-white text-[10px] font-semibold px-2.5 py-1 rounded-full shadow-card whitespace-nowrap">
-              {isCurrentPlan('founding_workflow') ? 'Current Plan' : 'Founding'}
+              {isCurrentPlan('founding_workflow') ? 'Current Plan' : 'Early Access'}
             </span>
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mt-1">Founding Workflow Plan</h3>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mt-1">Creator Pro</h3>
             <div className="mt-2 flex items-baseline gap-1">
               <span className="text-2xl font-bold text-gray-900 dark:text-white">$10</span>
-              <span className="text-sm text-gray-500 dark:text-gray-400">/ month — forever</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">/ month — locked in forever</span>
             </div>
-            <p className="mt-2 text-sm text-amber-600 dark:text-amber-400 font-medium">Limited to first 20 users</p>
+            <p className="mt-2 text-sm text-amber-600 dark:text-amber-400 font-medium">First 20 users only — spots running out</p>
             <ul className="mt-6 space-y-3 flex-1">
               <li className={bulletRow}><CheckIcon /><span>600 minutes per month</span></li>
               <li className={bulletRow}><CheckIcon /><span>Batch processing enabled</span></li>
               <li className={bulletRow}><CheckIcon /><span>Up to 120 min per video</span></li>
               <li className={bulletRow}><CheckIcon /><span>3–5 languages</span></li>
               <li className={bulletRow}><CheckIcon /><span>Priority queue</span></li>
-              <li className={bulletRow}><CheckIcon /><span>Direct feature feedback access</span></li>
+              <li className={bulletRow}><CheckIcon /><span>Shape the roadmap directly</span></li>
             </ul>
             <button
               type="button"
               className="mt-6 w-full py-3 rounded-xl bg-primary hover:bg-primary-hover text-white font-medium text-sm transition-colors"
               onClick={() => handleSubscribe('founding_workflow', false)}
             >
-              Join Founding Plan
+              {isCurrentPlan('founding_workflow') ? 'Current Plan' : 'Join Creator Pro'}
             </button>
           </div>
 
@@ -213,7 +213,7 @@ export default function Pricing() {
               <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300">Free</h3>
               <span className="text-2xl font-bold text-gray-800 dark:text-white">$0</span>
             </div>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Try it: 3 free imports (lifetime)</p>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Try it: 3 free imports / month</p>
             <ul className="mt-6 space-y-3 flex-1">
               <li className={bulletRow}><CheckIcon /><span>Video → Transcript & Subtitles</span></li>
               <li className={bulletRow}><CheckIcon /><span>1 language · Watermarked</span></li>
@@ -331,11 +331,29 @@ export default function Pricing() {
           </div>
         </div>
 
-        {/* Overage footer */}
-        <div className="mt-14 pt-10 border-t border-gray-200 dark:border-gray-600 text-center">
+        {/* Overage footer + trust signals */}
+        <div className="mt-14 pt-10 border-t border-gray-200 dark:border-gray-600 text-center space-y-4">
           <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
             Overage: 100 minutes = $5
           </p>
+          <div className="flex flex-wrap justify-center gap-6 text-sm text-gray-500 dark:text-gray-400">
+            <span className="flex items-center gap-1.5">
+              <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+              7-day money-back guarantee
+            </span>
+            <span className="flex items-center gap-1.5">
+              <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+              Failed jobs don't use your minutes
+            </span>
+            <span className="flex items-center gap-1.5">
+              <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+              Cancel any time
+            </span>
+            <span className="flex items-center gap-1.5">
+              <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+              We don't store your files
+            </span>
+          </div>
         </div>
       </div>
 

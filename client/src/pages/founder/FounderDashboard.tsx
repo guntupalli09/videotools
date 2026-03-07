@@ -13,6 +13,9 @@ import AcquisitionBreakdown from './AcquisitionBreakdown'
 import FeedbackAnalytics from './FeedbackAnalytics'
 import ServerHealth from './ServerHealth'
 import FailureBreakdown from './FailureBreakdown'
+import AlertConfig from './AlertConfig'
+import SupportPanel from './SupportPanel'
+import DigestConfig from './DigestConfig'
 
 const PLAN_COLORS: Record<string, string> = {
   free: 'text-zinc-400',
@@ -234,6 +237,30 @@ export default function FounderDashboard() {
               starDistribution={data.starDistribution ?? []}
             />
             <FeedbackTable feedback={data.feedback ?? []} />
+          </div>
+        </section>
+
+        {/* Alerts */}
+        <section>
+          <SectionTitle id="alerts">Alerts</SectionTitle>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+            <AlertConfig />
+          </div>
+        </section>
+
+        {/* Daily digest */}
+        <section>
+          <SectionTitle id="digest">Daily digest</SectionTitle>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+            <DigestConfig />
+          </div>
+        </section>
+
+        {/* Support */}
+        <section>
+          <SectionTitle id="support">Support</SectionTitle>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+            <SupportPanel />
           </div>
         </section>
 

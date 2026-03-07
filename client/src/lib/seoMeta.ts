@@ -15,7 +15,7 @@ const STATIC_ROUTE_SEO: Record<string, { title: string; description: string }> =
   '/pricing': {
     title: 'Pricing — Free, Basic, Pro & Agency Plans',
     description:
-      "VideoText pricing: Free 3 imports to try, Basic $19 (450 min), Pro $49 (1,200 min), Agency $129 (3,000 min). Multi-language, batch on Pro+. We don't store your data. Upgrade when you need more.",
+      "VideoText pricing: Free 3 imports/month, Basic $19 (450 min), Pro $49 (1,200 min), Agency $129 (3,000 min). Multi-language, batch on Pro+. 7-day money-back guarantee. We don't store your data.",
   },
   '/privacy': {
     title: 'Privacy Policy — We Don\'t Store Your Data | VideoText',
@@ -76,6 +76,16 @@ const STATIC_ROUTE_SEO: Record<string, { title: string; description: string }> =
     title: 'Feedback — VideoText',
     description: 'View user feedback submitted from the Tex panel.',
   },
+  '/blog': {
+    title: 'Blog — Engineering, Privacy & Product | VideoText',
+    description:
+      'The VideoText blog: how the processing pipeline works, why we delete your files, batch subtitles for creators, and how we handle support.',
+  },
+  '/changelog': {
+    title: 'Changelog — What\'s New | VideoText',
+    description:
+      'VideoText changelog: new features, performance improvements, and bug fixes. Updated every release. See what has shipped.',
+  },
 }
 
 /** Static breadcrumb items (non-SEO-registry routes). */
@@ -85,6 +95,8 @@ const STATIC_ROUTE_BREADCRUMB: Record<string, { name: string; path: string }[]> 
   '/guide': [{ name: 'Home', path: '/' }, { name: 'Guide', path: '/guide' }],
   '/privacy': [{ name: 'Home', path: '/' }, { name: 'Privacy', path: '/privacy' }],
   '/terms': [{ name: 'Home', path: '/' }, { name: 'Terms', path: '/terms' }],
+  '/blog': [{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }],
+  '/changelog': [{ name: 'Home', path: '/' }, { name: 'Changelog', path: '/changelog' }],
   '/video-to-transcript': [{ name: 'Home', path: '/' }, { name: 'Video to Transcript', path: '/video-to-transcript' }],
   '/video-to-subtitles': [{ name: 'Home', path: '/' }, { name: 'Video to Subtitles', path: '/video-to-subtitles' }],
   '/translate-subtitles': [{ name: 'Home', path: '/' }, { name: 'Translate Subtitles', path: '/translate-subtitles' }],

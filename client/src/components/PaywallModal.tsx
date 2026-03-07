@@ -89,7 +89,7 @@ export default function PaywallModal({
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Upgrade to continue</h2>
           <p className="text-gray-600 mb-6">
             {isImportsQuota
-              ? "You've used all 3 free imports. Upgrade to use the tool."
+              ? "You've used all 3 free imports this month. They reset on the 1st — or upgrade now for unlimited access."
               : `You've used ${usedMinutes} of ${availableMinutes} minutes this billing cycle.`}
           </p>
 
@@ -115,7 +115,7 @@ export default function PaywallModal({
 
           <p className="text-xs text-gray-400 text-center">
             {isImportsQuota
-              ? 'Free plan includes 3 lifetime imports. Upgrade for unlimited usage.'
+              ? 'Free plan includes 3 imports per month, resetting on the 1st. Upgrade for unlimited usage.'
               : 'Or wait until the next billing cycle when your minutes reset.'}
           </p>
         </motion.div>

@@ -40,6 +40,8 @@ const CompressVideo = lazy(() => import('./pages/CompressVideo'))
 const SeoToolPage = lazy(() => import('./pages/SeoToolPage'))
 const FeedbackView = lazy(() => import('./pages/FeedbackView'))
 const FounderDashboard = lazy(() => import('./pages/founder/FounderDashboard'))
+const Changelog = lazy(() => import('./pages/Changelog'))
+const Blog = lazy(() => import('./pages/Blog'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
 /** Minimal loading fallback for route chunks — fast, accessible, no layout shift. */
@@ -256,12 +258,32 @@ function PostCheckoutHandler() {
   return null
 }
 
+/** Handles ?impersonate=TOKEN from the founder support panel. Sets authToken and redirects to home. */
+function ImpersonationHandler() {
+  const { search } = useLocation()
+  const navigate = useNavigate()
+  const handled = useRef(false)
+  useEffect(() => {
+    if (handled.current) return
+    const params = new URLSearchParams(search)
+    const token = params.get('impersonate')
+    if (!token) return
+    handled.current = true
+    localStorage.setItem('authToken', token)
+    // Remove the param and go to home
+    navigate('/', { replace: true })
+    toast.success('Impersonating user — logged in as them.')
+  }, [search, navigate])
+  return null
+}
+
 function App() {
   return (
     <BrowserRouter>
       <WorkflowProvider>
       <AppSeo />
       <PostCheckoutHandler />
+      <ImpersonationHandler />
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-violet-600 focus:text-white focus:rounded-lg">
         Skip to main content
       </a>
@@ -287,6 +309,8 @@ function App() {
             <Route path="/founder" element={<FounderDashboard />} />
             <Route path="/guide" element={<Guide />} />
             <Route path="/terms" element={<Terms />} />
+            <Route path="/changelog" element={<Changelog />} />
+            <Route path="/blog" element={<Blog />} />
             <Route path="/video-to-transcript" element={<VideoToTranscript />} />
             <Route path="/video-to-subtitles" element={<VideoToSubtitles />} />
             <Route path="/batch-process" element={<BatchProcess />} />

@@ -655,6 +655,10 @@ router.post('/init', async (req: Request, res: Response) => {
     const plan: PlanType =
       rawPlan === 'basic' || rawPlan === 'pro' || rawPlan === 'agency' || rawPlan === 'founding_workflow' ? rawPlan : 'free'
 
+    if (user?.suspended) {
+      return res.status(403).json({ message: 'Your account has been suspended. Please contact support.' })
+    }
+
     if (!checkAndRecordUpload(rateLimitKey)) {
       res.setHeader('Retry-After', '60')
       return res.status(429).json({ message: 'Too many uploads. Please wait a minute before trying again.' })
