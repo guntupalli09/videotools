@@ -6,7 +6,7 @@ export function getPlanLimits(plan: PlanType): PlanLimits {
   switch (plan) {
     case 'free':
       return {
-        minutesPerMonth: 60, // kept for compatibility; free plan uses importCount (3 imports/month), not minutes
+        minutesPerMonth: 60, // kept for compatibility; free plan gates on importCount (3/month, resets 1st of month)
         maxVideoDuration: 30,
         maxFileSize: 2 * 1024 * 1024 * 1024, // 2 GB — typical iPhone short clips
         maxConcurrentJobs: 1,

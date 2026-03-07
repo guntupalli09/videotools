@@ -40,6 +40,8 @@ const CompressVideo = lazy(() => import('./pages/CompressVideo'))
 const SeoToolPage = lazy(() => import('./pages/SeoToolPage'))
 const FeedbackView = lazy(() => import('./pages/FeedbackView'))
 const FounderDashboard = lazy(() => import('./pages/founder/FounderDashboard'))
+const Changelog = lazy(() => import('./pages/Changelog'))
+const Blog = lazy(() => import('./pages/Blog'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
 /** Minimal loading fallback for route chunks — fast, accessible, no layout shift. */
@@ -287,6 +289,8 @@ function App() {
             <Route path="/founder" element={<FounderDashboard />} />
             <Route path="/guide" element={<Guide />} />
             <Route path="/terms" element={<Terms />} />
+            <Route path="/changelog" element={<Changelog />} />
+            <Route path="/blog" element={<Blog />} />
             <Route path="/video-to-transcript" element={<VideoToTranscript />} />
             <Route path="/video-to-subtitles" element={<VideoToSubtitles />} />
             <Route path="/batch-process" element={<BatchProcess />} />

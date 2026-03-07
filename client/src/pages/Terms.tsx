@@ -33,7 +33,10 @@ export default function Terms() {
           <section>
             <h2 className="text-lg font-semibold text-gray-900 mb-2">Billing and subscriptions</h2>
             <p>
-              Paid plans are billed via Stripe. By subscribing, you agree to Stripe’s terms and our pricing. You can cancel or change your plan through the Stripe customer portal (Manage subscription on the Pricing page). Refunds are handled according to our refund policy and applicable law.
+              Paid plans are billed via Stripe. By subscribing, you agree to Stripe’s terms and our pricing. You can cancel or change your plan through the Stripe customer portal (Manage subscription on the Pricing page).
+            </p>
+            <p className="mt-3">
+              <strong>Refund policy:</strong> If you are not satisfied with your subscription, you may request a full refund within 7 days of your initial purchase by emailing support. After 7 days, refunds are at our discretion. If a processing job fails due to a server error, the minutes consumed by that job are returned to your account automatically. Overage charges ($5 per 100 minutes) are non-refundable once the processing has completed successfully.
             </p>
           </section>
 

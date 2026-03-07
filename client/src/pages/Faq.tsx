@@ -37,13 +37,19 @@ const FAQ_ITEMS = [
     category: 'Billing',
     icon: CreditCard,
     q: 'How does the free tier work?',
-    a: 'Free tier includes 60 minutes per month, single language, and a watermark on subtitle exports. No credit card required. Upgrade when you need more minutes, multiple languages, or batch processing.',
+    a: 'Free tier includes 3 imports per month (resets on the 1st of each month), single language, and a watermark on subtitle exports. No credit card required. Upgrade when you need more, multiple languages, or batch processing.',
   },
   {
     category: 'Billing',
     icon: CreditCard,
     q: 'How do I cancel or change my plan?',
     a: 'Paid users can open “Manage subscription” on the Pricing page to upgrade, downgrade, or cancel via the Stripe customer portal. Access continues until the end of your billing period.',
+  },
+  {
+    category: 'Billing',
+    icon: CreditCard,
+    q: 'Do you offer refunds?',
+    a: 'Yes. If you\'re not satisfied within the first 7 days of subscribing, email us for a full refund — no questions asked. If a processing job fails due to a server error, the minutes are automatically returned to your account.',
   },
   {
     category: 'Tools',

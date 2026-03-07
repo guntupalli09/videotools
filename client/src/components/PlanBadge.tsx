@@ -6,7 +6,7 @@ const PLAN_LABELS: Record<string, string> = {
   basic: 'Basic plan',
   pro: 'Pro plan',
   agency: 'Agency plan',
-  founding_workflow: 'Founding Workflow',
+  founding_workflow: 'Creator Pro',
 }
 
 const PLAN_STYLES: Record<string, string> = {

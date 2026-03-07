@@ -47,6 +47,16 @@ export default function Footer() {
                   How it works
                 </Link>
               </li>
+              <li>
+                <Link to="/blog" className="hover:text-white transition-colors">
+                  Blog
+                </Link>
+              </li>
+              <li>
+                <Link to="/changelog" className="hover:text-white transition-colors">
+                  Changelog
+                </Link>
+              </li>
             </ul>
           </div>
           {/* Popular tools: from registry (core + selected SEO paths). */}
