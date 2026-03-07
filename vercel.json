@@ -1,6 +1,14 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "videotext.io" }],
+      "destination": "https://www.videotext.io/$1",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/index.html",
