@@ -105,6 +105,30 @@ export const SLUG_TO_PRIMARY: Record<string, string> = {
   'batch-video-processing': '/batch-process',
   'bulk-subtitle-export': '/batch-process',
   'bulk-transcript-export': '/batch-process',
+  // Transcription variants
+  'transcribe-video': '/video-to-transcript',
+  'video-transcription': '/video-to-transcript',
+  'free-transcription': '/video-to-transcript',
+  'online-transcription': '/video-to-transcript',
+  'ai-transcription': '/video-to-transcript',
+  'audio-to-text': '/video-to-transcript',
+  'podcast-transcript': '/video-to-transcript',
+  'zoom-recording-transcript': '/video-to-transcript',
+  'interview-transcription': '/video-to-transcript',
+  'lecture-transcription': '/video-to-transcript',
+  // Format-specific transcription
+  'mov-to-text': '/video-to-transcript',
+  'webm-to-text': '/video-to-transcript',
+  // Subtitle/caption variants
+  'automatic-subtitles': '/video-to-subtitles',
+  'caption-generator': '/video-to-subtitles',
+  'closed-caption-generator': '/video-to-subtitles',
+  'free-subtitle-generator': '/video-to-subtitles',
+  'video-to-srt': '/video-to-subtitles',
+  'srt-generator': '/video-to-subtitles',
+  // Translation variants
+  'translate-video': '/translate-subtitles',
+  'video-translation': '/translate-subtitles',
 }
 
 export function pathToSlug(routePath: string): string {

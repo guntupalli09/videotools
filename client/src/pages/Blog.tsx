@@ -13,6 +13,302 @@ interface BlogPost {
 
 const POSTS: BlogPost[] = [
   {
+    slug: 'how-to-transcribe-zoom-recording',
+    date: 'March 7, 2026',
+    title: 'How to transcribe a Zoom recording: step-by-step guide',
+    summary: 'Zoom saves recordings as MP4. Here is the exact process to get a clean, searchable transcript from any call — free, no extra software.',
+    tag: 'Guide',
+    readTime: '5 min read',
+    content: (
+      <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+        <p>
+          Zoom saves cloud and local recordings as MP4 files. That means transcribing them is straightforward — you do not need special Zoom integrations or a paid Otter.ai subscription. You just need the MP4 and a transcription tool that can handle it.
+        </p>
+        <p>
+          Here is the complete process.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Step 1: Download your Zoom recording</h3>
+        <p>
+          For <strong>cloud recordings</strong>: Log in to zoom.us → Recordings → find your meeting → click Download. Zoom gives you an MP4 (video), an M4A (audio only), and optionally a VTT file if you had Zoom's own transcription enabled.
+        </p>
+        <p>
+          For <strong>local recordings</strong>: Zoom saves them to your Documents/Zoom folder by default. Open Zoom → Meetings → Recorded → Show in Finder/Explorer. The file ends in .mp4.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Step 2: Upload to VideoText</h3>
+        <p>
+          Go to <strong>Video to Transcript</strong>. Drag your Zoom MP4 into the upload zone or click to browse. Most Zoom recordings are 100–500 MB; the upload handles that fine over a normal broadband connection.
+        </p>
+        <p>
+          You do not need an account for the first three imports.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Step 3: Wait for transcription</h3>
+        <p>
+          A 60-minute Zoom call typically transcribes in 4–7 minutes. You see the transcript build in real time as segments complete — you do not stare at a spinner until the end. For a 30-minute call, expect 2–4 minutes.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Step 4: Use Speakers, Summary, or Chapters</h3>
+        <p>
+          Once the transcript is ready, three branches become available:
+        </p>
+        <ul className="list-disc pl-5 space-y-2">
+          <li><strong>Speakers</strong> — groups paragraphs by speaker (Speaker 1, 2, etc.). For a two-person call, this cleanly separates interviewer and interviewee or manager and report.</li>
+          <li><strong>Summary</strong> — extracts decisions, action items, and key points. Useful for sending meeting notes immediately after the call.</li>
+          <li><strong>Chapters</strong> — breaks the transcript into navigable sections. Good for long all-hands or team calls where you want to jump to a specific topic.</li>
+        </ul>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Step 5: Translate (optional)</h3>
+        <p>
+          If you need the transcript in another language — for a global team or a client who speaks Hindi or Spanish — click Translate and pick the target language. The translation appears in a new tab alongside the original.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Step 6: Download or copy</h3>
+        <p>
+          Click Copy to grab the full transcript as plain text. Or use the Exports branch (paid plans) to download as JSON, Markdown, CSV, or Notion-style format for your note-taking workflow.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Common questions</h3>
+        <p>
+          <strong>Does Zoom's built-in transcription do the same thing?</strong> Zoom offers AI Companion transcription on paid plans, but it requires the host to enable it before the meeting, only saves to the cloud, and does not give you speaker summary or keyword indexing. VideoText works on any recording after the fact.
+        </p>
+        <p>
+          <strong>What if the audio quality is poor?</strong> Zoom recordings made with background noise or a bad mic will have lower accuracy. Trim the video to the segment you need and use the spoken-language setting for best results.
+        </p>
+        <p>
+          <strong>Is the transcript stored?</strong> No. Your file is processed and deleted. We never keep your video, audio, or transcript on our servers.
+        </p>
+      </div>
+    ),
+  },
+  {
+    slug: 'srt-vs-vtt-subtitle-formats',
+    date: 'March 5, 2026',
+    title: 'SRT vs VTT: which subtitle format should you use?',
+    summary: 'Both SRT and VTT are plain-text subtitle formats. The difference comes down to where you are uploading and what your player supports.',
+    tag: 'Guide',
+    readTime: '4 min read',
+    content: (
+      <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+        <p>
+          SRT (SubRip Text) and VTT (Web Video Text Tracks) are the two most common subtitle file formats. They look similar, they contain the same basic information — timestamps and text — and you can open both in a text editor. So why do both exist and which should you use?
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">What SRT looks like</h3>
+        <pre className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 text-xs font-mono overflow-x-auto">
+{`1
+00:00:01,200 --> 00:00:04,500
+Welcome to the video.
+
+2
+00:00:05,000 --> 00:00:08,300
+Today we are covering subtitle formats.`}
+        </pre>
+        <p>
+          SRT uses a sequential number, a timestamp with comma-separated milliseconds, and the text. That is it. No header, no metadata. Maximum simplicity.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">What VTT looks like</h3>
+        <pre className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 text-xs font-mono overflow-x-auto">
+{`WEBVTT
+
+00:00:01.200 --> 00:00:04.500
+Welcome to the video.
+
+00:00:05.000 --> 00:00:08.300
+Today we are covering subtitle formats.`}
+        </pre>
+        <p>
+          VTT starts with "WEBVTT", uses dots instead of commas for milliseconds, and supports optional cue settings like position and alignment. It is a W3C standard designed for HTML5.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">When to use SRT</h3>
+        <ul className="list-disc pl-5 space-y-2">
+          <li><strong>YouTube</strong> — SRT is the recommended format for YouTube Studio subtitle uploads.</li>
+          <li><strong>Vimeo</strong> — Accepts SRT; it is the most common upload format.</li>
+          <li><strong>Social media</strong> — LinkedIn, Facebook, and TikTok all accept SRT.</li>
+          <li><strong>Video editing software</strong> — Premiere Pro, DaVinci Resolve, and CapCut all import SRT.</li>
+          <li><strong>Any platform that is not explicitly web-only</strong> — SRT is the safer default.</li>
+        </ul>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">When to use VTT</h3>
+        <ul className="list-disc pl-5 space-y-2">
+          <li><strong>HTML5 video players</strong> — The <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">&lt;track&gt;</code> element in HTML natively reads VTT.</li>
+          <li><strong>Custom web players</strong> — Video.js, Plyr, and similar players default to VTT.</li>
+          <li><strong>Safari</strong> — Safari's native player prefers VTT over SRT.</li>
+          <li><strong>When you need position control</strong> — VTT lets you set subtitle position and alignment per cue, which SRT cannot do.</li>
+        </ul>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">The practical answer for most people</h3>
+        <p>
+          <strong>Use SRT unless you are building a web video player or your platform specifically requires VTT.</strong> SRT is accepted everywhere VTT is, and also by older tools and platforms that pre-date the VTT standard. If you upload to YouTube, use SRT. If you are embedding video on your own site with an HTML5 player, use VTT.
+        </p>
+        <p>
+          VideoText generates both from the same upload. Choose at the point of download — no re-processing needed.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Converting between formats</h3>
+        <p>
+          SRT and VTT are nearly identical in content. Converting is just a find-and-replace of the header and comma/dot swap. VideoText's Fix Subtitles tool handles conversion. If you have an SRT and need VTT for a web player, generate subtitles and switch the format dropdown — the timestamps are identical.
+        </p>
+      </div>
+    ),
+  },
+  {
+    slug: 'how-to-add-subtitles-to-video-free',
+    date: 'March 3, 2026',
+    title: 'How to add subtitles to any video for free',
+    summary: 'A complete walkthrough: generate subtitles automatically, fix timing issues, then burn them into the video permanently — all free, no desktop software.',
+    tag: 'Guide',
+    readTime: '6 min read',
+    content: (
+      <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+        <p>
+          Adding subtitles to a video used to mean buying software like Adobe Premiere, learning a timeline editor, or paying a captioning service. Today you can do it in a browser in about ten minutes — free. Here is the exact process.
+        </p>
+        <p>
+          There are two types of subtitles you might want:
+        </p>
+        <ul className="list-disc pl-5 space-y-2">
+          <li><strong>Soft subtitles (a separate file)</strong> — the viewer can toggle them on/off. Used for YouTube, Vimeo, streaming platforms.</li>
+          <li><strong>Hard subtitles (burned into the video)</strong> — always visible. Used for social media clips, reels, silent autoplay content.</li>
+        </ul>
+        <p>
+          Both workflows start the same way.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Step 1: Generate the subtitle file</h3>
+        <p>
+          Go to <strong>Video to Subtitles</strong>. Upload your video (MP4, MOV, AVI, WebM — up to the limit shown). Choose your output format: <strong>SRT</strong> for YouTube/Vimeo/social, <strong>VTT</strong> for web players. Set the spoken language if you know it — auto-detect works but setting the language manually improves accuracy for non-English content.
+        </p>
+        <p>
+          Click Generate. The transcript runs through AI speech recognition and creates a timed subtitle file. For a 5-minute video, this takes about 30–60 seconds.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Step 2: Fix timing and formatting (optional but recommended)</h3>
+        <p>
+          AI-generated subtitles are accurate but sometimes have:
+        </p>
+        <ul className="list-disc pl-5 space-y-2">
+          <li>Overlapping timestamps (one cue starts before the previous one ends)</li>
+          <li>Lines that are too long for a single subtitle frame (YouTube recommends max 42 characters per line)</li>
+          <li>Gaps between cues that are too short or too long</li>
+        </ul>
+        <p>
+          Upload the SRT/VTT to <strong>Fix Subtitles</strong>. The tool automatically corrects overlaps, splits long lines, and adjusts gaps. Download the corrected file.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Step 3a: Upload to YouTube (soft subtitles)</h3>
+        <p>
+          In YouTube Studio: open your video → Subtitles → Add → Upload File. Select your SRT. YouTube maps the timestamps automatically. The subtitles appear in the video player as a toggleable CC track. This is the best approach for YouTube — do not burn them in, because viewers can turn YouTube's automatic captions off and your uploaded captions are higher quality.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Step 3b: Burn into the video (hard subtitles)</h3>
+        <p>
+          For social media clips, Instagram Reels, TikTok, or any context where the video plays silently by default, you want the captions <em>burned in</em> — always visible without the viewer having to click anything.
+        </p>
+        <p>
+          Go to <strong>Burn Subtitles</strong>. Upload your video and the SRT/VTT file. Choose:
+        </p>
+        <ul className="list-disc pl-5 space-y-2">
+          <li>Font size (small / medium / large)</li>
+          <li>Position (bottom / middle of screen)</li>
+          <li>Background opacity (transparent to solid box)</li>
+        </ul>
+        <p>
+          Click Burn. Download the output video — it is a single MP4 with captions permanently embedded. Upload that file to Instagram, TikTok, or wherever.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Step 4: Translate for other markets (optional)</h3>
+        <p>
+          If you want the same video in Spanish, Arabic, Hindi, or another language: go to <strong>Translate Subtitles</strong>. Upload the SRT. Pick the target language. Download the translated SRT with the original timestamps preserved. You can then burn the translated version into a separate copy of the video.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">What about accessibility?</h3>
+        <p>
+          Soft subtitles (uploaded SRT files) are better for accessibility than burned-in captions, because screen readers and closed-caption tools can interact with them. If your goal is ADA or WCAG compliance, upload the SRT to the platform rather than burning it in.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Is all of this free?</h3>
+        <p>
+          The free tier gives you 3 imports per month across all tools without creating an account. Sign up (free) to get 60 minutes per month tracked across sessions. Paid plans start at $19/month if you need more volume.
+        </p>
+      </div>
+    ),
+  },
+  {
+    slug: 'best-free-transcription-tools-2026',
+    date: 'March 1, 2026',
+    title: 'Best free transcription tools in 2026: an honest comparison',
+    summary: 'We compared the most-used free transcription tools on accuracy, speed, export options, and privacy. Here is what we found — including our own limitations.',
+    tag: 'Guide',
+    readTime: '7 min read',
+    content: (
+      <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+        <p>
+          There are more transcription tools than ever in 2026. Most have a free tier. Most are built on the same underlying model (Whisper or a derivative). The differences are in the workflow, the limits, and what happens to your data. This is an honest comparison — including where VideoText falls short.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">What we tested</h3>
+        <p>
+          We ran the same 15-minute interview clip through six tools: VideoText, Otter.ai, Descript, Whisper (direct), Rev's free tier, and Tactiq. Same file, same audio quality, measured accuracy by word error rate against a hand-corrected reference transcript.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Otter.ai</h3>
+        <p>
+          <strong>Free tier:</strong> 300 minutes/month, requires account. <strong>Accuracy:</strong> Excellent for English, strong for meetings with multiple speakers. Speaker diarization is the best in class — it labels speakers and learns names over time if you stay in the ecosystem. <strong>Privacy:</strong> Otter stores your transcripts and audio indefinitely in their cloud. They use aggregated data for model improvement. <strong>Best for:</strong> Teams doing frequent meetings in English who want a persistent transcript library.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Descript</h3>
+        <p>
+          <strong>Free tier:</strong> 1 hour of transcription, requires account, watermark on exports. <strong>Accuracy:</strong> Very good. Descript's real differentiator is the editor — you edit the video by editing the transcript text. Removing filler words is one click. <strong>Privacy:</strong> Files are stored in Descript's cloud. <strong>Best for:</strong> Podcast editors and video producers who want to edit audio/video by editing text. Not a pure transcription tool.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">OpenAI Whisper (direct)</h3>
+        <p>
+          <strong>Free tier:</strong> Free to run locally if you have a capable GPU. Free via API at very low cost. <strong>Accuracy:</strong> State of the art — this is the model most tools are built on, including VideoText. <strong>Privacy:</strong> Complete if run locally; API calls go to OpenAI. <strong>Best for:</strong> Developers and technical users comfortable running Python. Not practical for most people without setup.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Rev (free tier)</h3>
+        <p>
+          <strong>Free tier:</strong> Limited; Rev is primarily a paid human transcription service. Their AI tier is $0.25/minute. <strong>Accuracy:</strong> Human transcripts are the gold standard; AI tier is Whisper-class. <strong>Best for:</strong> Legal, medical, or financial content where you need guaranteed accuracy and are willing to pay for human review.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">VideoText</h3>
+        <p>
+          <strong>Free tier:</strong> 3 imports per month without account, 60 min/month with free account, no watermark on transcript. <strong>Accuracy:</strong> Whisper-based, same model as the field. <strong>Privacy:</strong> Files are deleted after processing — we store no transcript, no audio, no video. <strong>Best for:</strong> One-off transcription where you do not want your content stored, or workflows that also need subtitle generation, translation, fixing, or burning.
+        </p>
+        <p>
+          <strong>Where we fall short:</strong> We do not have persistent storage — if you close the tab, the transcript is gone. We do not have a collaborative workspace. Speaker diarization is not as mature as Otter's. We do not support audio-only files natively.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Summary table</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-gray-200 dark:border-gray-700">
+                <th className="text-left py-2 pr-4 font-semibold text-gray-900 dark:text-white">Tool</th>
+                <th className="text-left py-2 pr-4 font-semibold text-gray-900 dark:text-white">Free limit</th>
+                <th className="text-left py-2 pr-4 font-semibold text-gray-900 dark:text-white">Account needed</th>
+                <th className="text-left py-2 font-semibold text-gray-900 dark:text-white">Stores files</th>
+              </tr>
+            </thead>
+            <tbody className="space-y-1">
+              <tr className="border-b border-gray-100 dark:border-gray-800">
+                <td className="py-2 pr-4">VideoText</td>
+                <td className="py-2 pr-4">60 min/mo</td>
+                <td className="py-2 pr-4">No (3 imports)</td>
+                <td className="py-2">No</td>
+              </tr>
+              <tr className="border-b border-gray-100 dark:border-gray-800">
+                <td className="py-2 pr-4">Otter.ai</td>
+                <td className="py-2 pr-4">300 min/mo</td>
+                <td className="py-2 pr-4">Yes</td>
+                <td className="py-2">Yes</td>
+              </tr>
+              <tr className="border-b border-gray-100 dark:border-gray-800">
+                <td className="py-2 pr-4">Descript</td>
+                <td className="py-2 pr-4">1 hr total</td>
+                <td className="py-2 pr-4">Yes</td>
+                <td className="py-2">Yes</td>
+              </tr>
+              <tr className="border-b border-gray-100 dark:border-gray-800">
+                <td className="py-2 pr-4">Whisper (local)</td>
+                <td className="py-2 pr-4">Unlimited</td>
+                <td className="py-2 pr-4">No</td>
+                <td className="py-2">No</td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4">Rev AI</td>
+                <td className="py-2 pr-4">$0.25/min</td>
+                <td className="py-2 pr-4">Yes</td>
+                <td className="py-2">Yes</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Our recommendation</h3>
+        <p>
+          If you need a persistent transcript library with team collaboration and strong speaker diarization: <strong>Otter.ai</strong>. If you do podcast or video editing and want to edit by cutting text: <strong>Descript</strong>. If you process sensitive content and do not want it stored anywhere: <strong>VideoText</strong> or local Whisper.
+        </p>
+      </div>
+    ),
+  },
+  {
     slug: 'how-we-handle-support',
     date: 'March 1, 2026',
     title: 'How we handle support: honest, fast, no ticket queue',
