@@ -62,10 +62,10 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'video-to-text',
     faq: [
-      { q: 'What video formats are supported?', a: 'We support MP4, MOV, AVI, WebM, and MKV. Upload your file and get a plain-text transcript in seconds.' },
-      { q: 'Is the transcript accurate?', a: 'Yes. We use AI speech recognition to transcribe speech accurately. You can trim the video before processing to focus on the part you need.' },
-      { q: 'Can I copy the transcript?', a: 'Yes. After processing, you can download the transcript file or copy the text to your clipboard from the preview.' },
-      { q: 'Can I view the transcript in another language?', a: 'Yes. Use the Translate button to view the transcript in English, Hindi, Telugu, Spanish, Chinese, or Russian. Translations are cached so you can switch instantly.' },
+      { q: 'What video formats are supported?', a: 'We support MP4, MOV, AVI, WebM, and MKV. Upload any of these formats and our AI extracts the speech track as plain text within seconds. If your file is in a different container, most video editors let you export to MP4 before uploading.' },
+      { q: 'Is the transcript accurate?', a: 'Yes. We use AI speech recognition trained on diverse audio to deliver high accuracy for clear speech. Accuracy is best when the audio is clear with minimal background noise. Setting the spoken language before processing improves results for non-English content.' },
+      { q: 'Can I copy or download the transcript?', a: 'Yes. After processing, click the Copy button to grab the full transcript as plain text, or use the download icon for a text file. Paid plans unlock additional export formats including JSON, CSV, Markdown, and Notion-style structured output.' },
+      { q: 'Can I view the transcript in another language?', a: 'Yes. Click Translate after transcribing and choose from English, Hindi, Telugu, Spanish, Chinese, or Russian. The translated view appears alongside the original. Translations are generated on demand and cached so you can switch between languages instantly without re-uploading.' },
     ],
   },
   {
@@ -82,10 +82,10 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'mp4-to-text',
     faq: [
-      { q: 'Can I convert MP4 to text?', a: 'Yes. Upload your MP4 file and we extract the spoken audio as text. MP4, MOV, AVI, WebM, and MKV are all supported.' },
-      { q: 'How long does it take?', a: 'Most videos are transcribed in 30–60 seconds. Queue position is shown while your job is processing.' },
-      { q: 'Is there a file size limit?', a: 'Large files are supported; check the upload zone for the current limit. You can also trim the video to a segment before transcribing.' },
-      { q: 'Can I translate the transcript?', a: 'Yes. After transcribing, click Translate and choose English, Hindi, Telugu, Spanish, Chinese, or Russian to view the transcript in that language.' },
+      { q: 'Can I convert MP4 to text?', a: 'Yes. Upload your MP4 file and our AI extracts the spoken audio as plain text. We also support MOV, AVI, WebM, and MKV. The entire process — upload, extraction, transcription — runs automatically in the background and results appear within seconds for short videos.' },
+      { q: 'How long does MP4 transcription take?', a: 'Most videos are fully transcribed in 30–90 seconds. You see the transcript building in real time as segments complete, so you do not wait for the entire job before reading results. A 60-minute video typically finishes in 5–8 minutes.' },
+      { q: 'Is there a file size limit for MP4 files?', a: 'Large MP4 files are supported — check the upload zone for the current limit. If your file exceeds it, trim the video to the segment you need before uploading. The tool processes the audio track, not the full video, so compression level does not affect speed.' },
+      { q: 'Can I translate the MP4 transcript to another language?', a: 'Yes. After transcribing, click Translate and choose English, Hindi, Telugu, Spanish, Chinese, or Russian to view the transcript in that language. The translated view appears alongside the original, and you can switch between languages without re-uploading your file.' },
     ],
   },
   {
@@ -102,9 +102,9 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'mp4-to-srt',
     faq: [
-      { q: 'How do I get SRT from MP4?', a: 'Upload your MP4 file, choose SRT as the format, and click Generate. You get a timed SRT file ready for YouTube or other platforms.' },
-      { q: 'Can I get VTT instead of SRT?', a: 'Yes. The tool supports both SRT (recommended for YouTube) and VTT (for web). Select your preferred format before processing.' },
-      { q: 'Does it support multiple languages?', a: 'Yes. You can set a spoken language or use auto-detect. Paid plans support multiple output languages in one go.' },
+      { q: 'How do I get SRT subtitles from an MP4 file?', a: 'Upload your MP4 file, choose SRT as the output format, and click Generate. Our AI transcribes the speech and aligns each word to its timestamp, producing a timed SRT file you can download and upload directly to YouTube, Vimeo, or any video platform.' },
+      { q: 'Can I get VTT instead of SRT from MP4?', a: 'Yes. The tool supports both SRT and VTT from the same upload. SRT is recommended for YouTube and most video platforms; VTT is the standard for HTML5 web players. Select your preferred format before processing — no re-upload needed to switch.' },
+      { q: 'Does MP4 to SRT support multiple languages?', a: 'Yes. Set the spoken language for best accuracy, or use auto-detect for English and many other languages. Paid plans let you generate subtitle files in multiple output languages from a single upload, which is useful for multilingual audiences.' },
     ],
   },
   {
@@ -121,9 +121,9 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'subtitle-generator',
     faq: [
-      { q: 'What is a subtitle generator?', a: 'It creates timed subtitle files (SRT or VTT) from video by transcribing speech and aligning text to timestamps. You upload a video and download captions.' },
-      { q: 'Which formats can I get?', a: 'SRT (best for YouTube and most apps) and VTT (for web players). Both are generated from the same upload.' },
-      { q: 'Do I need to sign up?', a: 'No. The free tier works without signup. Create an account or upgrade when you need more minutes or extra features like multi-language output.' },
+      { q: 'What is a subtitle generator?', a: 'A subtitle generator transcribes speech in a video and aligns each word to a timestamp, producing a timed subtitle file (SRT or VTT) that you can upload to YouTube, embed in a web player, or burn into the video. You upload the video and download ready-to-use captions in seconds.' },
+      { q: 'Which subtitle formats does the generator produce?', a: 'SRT and VTT, both generated from the same upload. SRT is the best choice for YouTube, Vimeo, LinkedIn, and most video platforms. VTT is the standard for HTML5 web players like Video.js and Plyr. You choose the format at the point of download.' },
+      { q: 'Do I need to sign up to generate subtitles?', a: 'No. The free tier works without creating an account — you get 3 imports per month immediately. Create a free account to track usage across sessions (60 minutes per month). Upgrade to a paid plan when you need more minutes or multi-language subtitle output in one batch.' },
     ],
   },
   {
@@ -140,9 +140,9 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'srt-translator',
     faq: [
-      { q: 'What is an SRT translator?', a: 'It translates the text in your SRT (or VTT) subtitle file to another language while keeping timestamps unchanged. Upload your file and pick the target language.' },
-      { q: 'Which languages are supported?', a: 'Arabic and Hindi are available; more languages may be added. The original timing is preserved so subtitles stay in sync.' },
-      { q: 'Can I edit the translated subtitles?', a: 'Yes. After translation you can preview and download. Paid plans allow in-app editing of the translated text before download.' },
+      { q: 'What is an SRT translator?', a: 'An SRT translator converts the text inside an SRT or VTT subtitle file into another language while keeping every timestamp exactly as it was. You upload the subtitle file, select the target language, and download a translated version where the captions stay perfectly in sync with the video.' },
+      { q: 'Which languages does the SRT translator support?', a: 'The translator supports 50+ languages including Arabic, Hindi, Spanish, French, German, Portuguese, Chinese, Japanese, Korean, and more. The original timing is always preserved — only the text content changes. Set the source and target language before processing for best accuracy.' },
+      { q: 'Can I edit the translated SRT subtitles?', a: 'Yes. After translation, preview the result and download. Paid plans unlock in-app editing so you can adjust translated text before downloading, which is useful for fixing AI translation nuances or adding context that direct translation misses.' },
     ],
   },
   {
@@ -159,10 +159,10 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'meeting-transcript',
     faq: [
-      { q: 'Is this free?', a: 'Yes. The free tier includes 60 minutes per month. No signup required to try.' },
-      { q: 'Does this work for meetings?', a: 'Yes. Upload any meeting recording (MP4, MOV, etc.) and get a transcript. Use the Speakers branch to see who said what.' },
-      { q: 'Do timestamps stay accurate?', a: 'Yes. The transcript preserves paragraph structure; the Chapters branch lets you jump by section.' },
-      { q: 'Can I get the transcript in another language?', a: 'Yes. Use the Translate button to view the transcript in English, Hindi, Telugu, Spanish, Chinese, or Russian.' },
+      { q: 'Is meeting transcription free?', a: 'Yes. The free tier includes 60 minutes per month — no signup required to try. Create a free account to track usage across browser sessions. Paid plans start at $19/month for 450 minutes, covering most teams that process a few hours of meetings per week.' },
+      { q: 'Does this work for Zoom, Teams, and Google Meet recordings?', a: 'Yes. Upload any meeting recording in MP4 or MOV format — Zoom cloud recordings, Teams downloads, and Google Meet exports all work. Use the Speakers branch after transcribing to see who said what, organized by speaker turn rather than continuous paragraphs.' },
+      { q: 'Do timestamps stay accurate in meeting transcripts?', a: 'Yes. The transcript preserves paragraph structure aligned to the original audio timing. The Chapters branch breaks the meeting into navigable sections so you can jump to specific topics. Keywords indexes repeated terms and links each to where it first appears in the transcript.' },
+      { q: 'Can I get the meeting transcript in another language?', a: 'Yes. Click Translate after transcribing and pick from English, Hindi, Telugu, Spanish, Chinese, or Russian. The translated view appears alongside the original. This is useful for global teams where meeting notes need to reach colleagues in different countries.' },
     ],
   },
   {
@@ -331,9 +331,9 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'subtitle-translator',
     faq: [
-      { q: 'What languages are supported?', a: '50+ languages including Arabic, Hindi, Spanish, French, German, Chinese, Japanese. Pick target language when translating.' },
-      { q: 'Do timestamps stay intact?', a: 'Yes. Only the text is translated; start and end times are unchanged.' },
-      { q: 'Is this free?', a: 'Yes. Free tier available. Paid plans unlock more output formats and higher limits.' },
+      { q: 'What languages does the subtitle translator support?', a: 'The subtitle translator supports 50+ languages including Arabic, Hindi, Spanish, French, German, Portuguese, Chinese, Japanese, Korean, Turkish, Italian, Dutch, and more. Pick your target language from the dropdown before processing. The source language is detected automatically or you can set it manually for better accuracy.' },
+      { q: 'Do timestamps stay intact when translating subtitles?', a: 'Yes. Only the text content is translated — every start time and end time in the original SRT or VTT file stays exactly as it was. Your translated subtitles remain perfectly synchronized with the video without any timing adjustments needed.' },
+      { q: 'Is the subtitle translator free?', a: 'Yes. Free tier is available with no signup required. Upload an SRT or VTT file and download the translated version at no cost within the monthly free limit. Paid plans unlock higher minute limits and multi-language output so you can translate a file to multiple languages in one session.' },
     ],
   },
   {
@@ -350,9 +350,9 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'multilingual-subtitles',
     faq: [
-      { q: 'Can I get multiple languages from one file?', a: 'Yes. Upload once and translate to different languages; each download is one target language. Paid plans support multiple languages in one flow.' },
-      { q: 'Is this free?', a: 'Yes. Free tier available. Upgrade for more minutes and multi-language features.' },
-      { q: 'Do timestamps stay accurate?', a: 'Yes. Translation only changes text; timestamps are preserved.' },
+      { q: 'Can I get subtitles in multiple languages from one file?', a: 'Yes. Upload your subtitle file once and translate it to different languages individually — each download is a separate file for one target language. Paid plans let you generate multiple language outputs in a single batch, which saves time for creators distributing content to international audiences.' },
+      { q: 'Is multilingual subtitle generation free?', a: 'Yes. Free tier is available with no signup required. Single-language translation is free within the monthly limit. Upgrade to Pro or Agency plans to unlock multi-language batch output, where you generate subtitles in three or more languages from a single upload session.' },
+      { q: 'Do timestamps stay accurate across all translated languages?', a: 'Yes. Subtitle translation only changes the text content — every timestamp is preserved exactly as it was in the original file. Your multilingual subtitles stay perfectly synchronized with the video in every language without any timing adjustments on your part.' },
     ],
   },
   {
@@ -369,9 +369,9 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'subtitle-language-checker',
     faq: [
-      { q: 'What does the checker do?', a: 'You upload SRT/VTT and choose a target language. The tool translates the captions to that language so you can check or use them.' },
-      { q: 'Is this free?', a: 'Yes. Free tier available. Paid plans unlock more output options.' },
-      { q: 'Can I keep the original file?', a: 'Yes. You download the translated version; your original file is not modified.' },
+      { q: 'What does the subtitle language checker do?', a: 'You upload an SRT or VTT subtitle file and choose a target language. The tool translates the captions so you can verify the content in the new language, check for translation quality, or use the file on a platform that requires a specific language. Your original file is unchanged.' },
+      { q: 'Is the subtitle language checker free?', a: 'Yes. Free tier is available with no signup required. Upload an SRT or VTT file, select the target language, and download the translated version at no cost within the monthly free limit. Paid plans unlock higher limits and multi-language output options.' },
+      { q: 'Does the checker modify my original subtitle file?', a: 'No. The translated version is a separate download — your original SRT or VTT file is never modified. You can keep both the original and translated versions and use each wherever needed, such as uploading the original to one platform and the translated version to another.' },
     ],
   },
   {
@@ -388,9 +388,9 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'subtitle-grammar-fixer',
     faq: [
-      { q: 'What does the grammar fixer do?', a: 'It corrects timing and formatting in SRT/VTT files. Enable grammar-fix when processing to improve caption text and structure.' },
-      { q: 'Is this free?', a: 'Yes. Upload SRT or VTT, get a corrected file. Free.' },
-      { q: 'Do timestamps change?', a: 'The tool can fix overlapping or invalid timestamps; otherwise they stay the same.' },
+      { q: 'What does the subtitle grammar fixer do?', a: 'The subtitle grammar fixer corrects timing, formatting, and structural issues in SRT and VTT files. It fixes overlapping timestamps, lines that are too long for the screen, and spacing errors. Enable the grammar-fix option when processing to also improve caption text capitalization and punctuation.' },
+      { q: 'Is the subtitle grammar fixer free?', a: 'Yes. Upload your SRT or VTT file and download a corrected version at no cost within the monthly free limit. No signup is required. The fixer handles timing and formatting automatically — you do not need to edit the file manually after downloading.' },
+      { q: 'Do timestamps change when fixing grammar?', a: 'The fixer can correct overlapping or invalid timestamps — for example, when a cue starts before the previous one ends. Otherwise, valid timestamps stay exactly as they were. The output file is ready to upload to YouTube, Vimeo, or any platform immediately after downloading.' },
     ],
   },
   {
@@ -407,9 +407,9 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'subtitle-line-break-fixer',
     faq: [
-      { q: 'What does the line break fixer do?', a: 'It fixes long lines and line breaks in SRT/VTT so captions fit platform limits and are easier to read.' },
-      { q: 'Is this free?', a: 'Yes. Upload your subtitle file, get a corrected file. Free.' },
-      { q: 'Can I edit after?', a: 'Yes. Paid plans unlock in-app editing; you can also download and edit the file elsewhere.' },
+      { q: 'What does the subtitle line break fixer do?', a: 'The subtitle line break fixer splits caption lines that are too long to display properly and removes awkward mid-sentence breaks. It ensures captions meet platform limits — YouTube recommends a maximum of 42 characters per line — so subtitles are comfortable to read and display correctly on all screen sizes.' },
+      { q: 'Is the line break fixer free?', a: 'Yes. Upload your SRT or VTT file and download a corrected version at no cost within the monthly free limit. No signup required. The fixer adjusts line lengths automatically, so you do not need to count characters manually or reformat each caption cue by hand.' },
+      { q: 'Can I edit the subtitle file after fixing line breaks?', a: 'Yes. Download the corrected file and open it in any text editor or subtitle editing software. Paid plans unlock in-app editing where you can adjust individual caption lines before downloading, which is useful for fine-tuning translation output or fixing specific cues.' },
     ],
   },
   {
@@ -426,9 +426,9 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'hardcoded-captions',
     faq: [
-      { q: 'What are hardcoded captions?', a: 'Captions burned into the video so they always show. Upload video + SRT/VTT and get one video with captions baked in.' },
-      { q: 'Is this free?', a: 'Yes. Free tier available. Upgrade for more minutes.' },
-      { q: 'Can I choose font size and position?', a: 'Yes. You can set font size (small/medium/large), position (bottom/middle), and background opacity before processing.' },
+      { q: 'What are hardcoded captions?', a: 'Hardcoded captions (also called burned-in or open captions) are subtitles permanently embedded into the video frame so they are always visible without the viewer toggling anything. Upload your video and an SRT or VTT file, and we produce a single MP4 with captions baked in — ready for Instagram, TikTok, or silent autoplay environments.' },
+      { q: 'Are hardcoded captions free to create?', a: 'Yes. The free tier is available with no signup required. Upload your video and subtitle file, choose your font size, position, and opacity, and download the output video at no cost within the monthly free limit. Upgrade to a paid plan for more minutes and larger video files.' },
+      { q: 'Can I choose font size and position for hardcoded captions?', a: 'Yes. Before processing, set font size (small, medium, or large), vertical position (bottom or middle of screen), and background opacity (transparent to solid black box). These options let you match the caption style to your brand without needing a video editing tool.' },
     ],
   },
   {
@@ -445,9 +445,9 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'video-with-subtitles',
     faq: [
-      { q: 'How do I add subtitles to video?', a: 'Upload your video and an SRT or VTT file. We burn the captions into the video and you download one file with subtitles visible.' },
-      { q: 'Is this free?', a: 'Yes. Free tier available. No signup required to try.' },
-      { q: 'What video formats are supported?', a: 'MP4, MOV, AVI, WebM, MKV. Output is typically MP4.' },
+      { q: 'How do I add subtitles to a video permanently?', a: 'Upload your video (MP4, MOV, AVI, WebM, or MKV) and your SRT or VTT subtitle file. Our tool burns the captions into the video frames so they are always visible, and you download a single MP4 with subtitles permanently embedded. No video editing software or timeline work required.' },
+      { q: 'Is adding subtitles to video free?', a: 'Yes. Free tier is available with no signup required. Upload your video and subtitle file and download the output with captions burned in at no cost within the monthly free limit. Paid plans start at $19/month for 450 minutes if you need to process more videos per month.' },
+      { q: 'What video formats are supported for adding subtitles?', a: 'MP4, MOV, AVI, WebM, and MKV are all accepted. The output file is an MP4, which is compatible with YouTube, Vimeo, Instagram, TikTok, and every major platform and device. If your original file is MOV or AVI, the output MP4 is ready for direct upload anywhere.' },
     ],
   },
   {
@@ -464,9 +464,9 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'video-compressor',
     faq: [
-      { q: 'Is this free?', a: 'Yes. Free tier available. No signup required.' },
-      { q: 'How much can I reduce file size?', a: 'Light (about 30% smaller), medium (about 50%), or heavy (about 70%). You choose the level before processing.' },
-      { q: 'Does quality drop?', a: 'Compression reduces file size; heavier compression may reduce quality. We keep it reasonable for web and sharing.' },
+      { q: 'Is the video compressor free?', a: 'Yes. Free tier is available with no signup required. Upload your video, choose a compression level, and download the smaller file at no cost within the monthly free limit. Paid plans unlock higher file size limits and priority processing so compressed videos are ready faster.' },
+      { q: 'How much can I reduce video file size?', a: 'Light compression reduces file size by approximately 30%, medium by about 50%, and heavy by about 70%. You choose the compression level before processing. Heavier compression means a smaller file at a slightly lower bitrate, which is usually acceptable for web sharing and social media.' },
+      { q: 'Does compression reduce video quality?', a: 'Compression reduces file size by lowering the bitrate, which can reduce visual quality at higher compression levels. Light compression is nearly lossless for most content. Heavy compression is suitable for social sharing where fast loading matters more than maximum resolution. Output remains reasonable for web use.' },
     ],
   },
   {
@@ -483,9 +483,9 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'reduce-video-size',
     faq: [
-      { q: 'Is this free?', a: 'Yes. Free tier available.' },
-      { q: 'What compression levels are there?', a: 'Light, medium, and heavy. Heavier compression gives smaller files; we keep quality suitable for web and sharing.' },
-      { q: 'What formats are supported?', a: 'MP4, MOV, AVI, WebM, MKV. Output is typically MP4.' },
+      { q: 'Is reducing video file size free?', a: 'Yes. Free tier is available with no signup required. Upload your video, select a compression level, and download the reduced file at no cost. Paid plans support larger input files and priority processing, which is useful for high-resolution footage or large batches of content.' },
+      { q: 'What compression levels are available to reduce video size?', a: 'Light, medium, and heavy compression levels. Light reduces file size by around 30% with minimal quality loss — good for keeping originals sharp. Medium (about 50% smaller) suits web use. Heavy (about 70% smaller) is ideal for social media sharing where fast upload and load times matter most.' },
+      { q: 'What video formats are supported for reducing file size?', a: 'MP4, MOV, AVI, WebM, and MKV are all accepted. The output file is always an MP4, which is universally compatible with YouTube, Vimeo, Instagram, TikTok, and every major platform. If your original is a MOV or AVI, the smaller output MP4 is ready for direct upload.' },
     ],
   },
   {
@@ -502,9 +502,9 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'batch-video-processing',
     faq: [
-      { q: 'Is batch processing free?', a: 'Batch is available on Pro and Agency plans. Free and Basic plans use single-file tools.' },
-      { q: 'What do I get?', a: 'Upload multiple videos; you receive one ZIP of subtitle files (SRT).' },
-      { q: 'Can I choose language?', a: 'Yes. You set the language when starting the batch; multi-language is available on higher plans.' },
+      { q: 'Is batch video processing free?', a: 'Batch processing is available on Pro and Agency plans. Free and Basic plans use single-file tools. Pro supports up to 20 videos per batch with a 60-minute total duration. Agency supports up to 100 videos with a 300-minute total, which covers full content calendars and client workflows.' },
+      { q: 'What do I get from batch video processing?', a: 'Upload multiple videos in one session and receive a single ZIP file containing one SRT subtitle file per video, named to match your original filenames. Videos are processed in parallel workers — not sequentially — so a batch of 10 videos typically completes faster than processing them one by one.' },
+      { q: 'Can I choose the language for batch processing?', a: 'Yes. Set the spoken language when starting the batch for best accuracy. Multi-language output — where each video gets subtitle files in two or more languages simultaneously — is available on Agency plans, which is useful for content localization workflows serving international audiences.' },
     ],
   },
   {
@@ -580,10 +580,10 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'transcribe-video',
     faq: [
-      { q: 'Is transcribing video free?', a: 'Yes. The free tier includes 60 minutes per month with no signup required. Sign up to track usage across sessions or subscribe for more minutes.' },
-      { q: 'What video formats can I transcribe?', a: 'MP4, MOV, AVI, WebM, and MKV are all supported. Upload your file and we extract the speech as text.' },
-      { q: 'How accurate is the transcription?', a: 'We use AI speech recognition trained on diverse audio. Accuracy is high for clear speech; you can trim the video to focus on the segment you need.' },
-      { q: 'Can I get the transcript in another language?', a: 'Yes. After transcribing, click Translate to view the transcript in English, Hindi, Telugu, Spanish, Chinese, or Russian.' },
+      { q: 'Is it free to transcribe a video online?', a: 'Yes. The free tier includes 60 minutes of transcription per month with no signup required — just upload and go. Create a free account to track usage across browser sessions. Paid plans start at $19/month for 450 minutes, which covers most creators and small teams processing regular content.' },
+      { q: 'What video formats can I transcribe?', a: 'MP4, MOV, AVI, WebM, and MKV are all supported. Upload your file and our AI extracts the speech track and converts it to plain text. If your file is in another format, export it to MP4 first using any video editor — most cameras and screen recorders produce MP4 or MOV natively.' },
+      { q: 'How accurate is online video transcription?', a: 'Accuracy is high for clear audio with minimal background noise. We use AI speech recognition trained on diverse speakers, accents, and subjects. For best results, set the spoken language manually rather than relying on auto-detect, and trim the video to remove long silent sections before uploading.' },
+      { q: 'Can I get the video transcript in another language?', a: 'Yes. After transcribing, click Translate and choose from English, Hindi, Telugu, Spanish, Chinese, or Russian. The translated view appears alongside the original transcript. You can switch between all six languages instantly without re-uploading, which is useful for creating meeting notes in multiple languages.' },
     ],
   },
   {
@@ -600,10 +600,10 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'video-transcription',
     faq: [
-      { q: 'What is video transcription?', a: 'Video transcription converts spoken words in a video into written text. You upload a video, and our AI extracts the speech as a readable transcript.' },
-      { q: 'Is video transcription free?', a: 'Yes. The free tier gives you 60 minutes per month, no signup required.' },
-      { q: 'How long does transcription take?', a: 'Most videos are processed in 30–60 seconds. You see a progress indicator while your job runs.' },
-      { q: 'Can I download the transcript?', a: 'Yes. Download as plain text, or copy to clipboard from the preview. Paid plans unlock JSON, CSV, Markdown, and Notion-style exports.' },
+      { q: 'What is video transcription?', a: 'Video transcription is the process of converting spoken words in a video into written text using AI speech recognition. You upload a video file, and the transcription engine extracts the audio track, detects speech, and produces a readable plain-text transcript aligned to the timing of the original recording.' },
+      { q: 'Is online video transcription free?', a: 'Yes. The free tier gives you 60 minutes of video transcription per month with no signup required. Create a free account to track usage across sessions. Paid plans start at $19/month for 450 minutes and include multi-language output, speaker diarization, and export in additional formats.' },
+      { q: 'How long does video transcription take?', a: 'Most videos are fully transcribed in 30–90 seconds. You see the transcript building in real time as each segment completes — you do not wait for the entire job before reading results. A 60-minute video typically finishes in 5–8 minutes, depending on queue load.' },
+      { q: 'Can I download the video transcript?', a: 'Yes. Click Download after transcribing to save the transcript as a plain text file, or click Copy to grab the full text to clipboard. Paid plans unlock additional export formats: JSON, CSV, Markdown, and Notion-style structured output with sections for summary, speakers, chapters, and keywords.' },
     ],
   },
   {
@@ -680,10 +680,10 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'audio-to-text',
     faq: [
-      { q: 'Can I transcribe audio files?', a: 'Upload your audio packaged as a video file (MP4, MOV, AVI, WebM). Most recordings and podcasts are shared in video containers. If you have an audio-only file, most tools let you export it as MP4.' },
-      { q: 'What audio formats are supported?', a: 'We accept audio packaged in video files: MP4, MOV, AVI, WebM, MKV. These cover most podcast, interview, and recording formats.' },
-      { q: 'Is audio transcription free?', a: 'Yes. Free tier includes 60 minutes per month, no signup required.' },
-      { q: 'Can I translate the transcribed audio?', a: 'Yes. After transcribing, click Translate to view the text in English, Hindi, Telugu, Spanish, Chinese, or Russian.' },
+      { q: 'Can I transcribe audio files to text?', a: 'Yes. Upload your audio packaged as a video file — MP4, MOV, AVI, or WebM. Most recordings, podcasts, and interviews are shared in video containers that hold an audio track. If you have an audio-only file (MP3, WAV), export it to MP4 using any free converter before uploading.' },
+      { q: 'What audio formats are supported for transcription?', a: 'We accept audio packaged in video containers: MP4, MOV, AVI, WebM, and MKV. These formats cover the vast majority of podcast recordings, interview files, Zoom exports, and screen recordings. The tool extracts the audio track and transcribes it — video resolution and bitrate do not affect speed or accuracy.' },
+      { q: 'Is audio-to-text transcription free?', a: 'Yes. Free tier includes 60 minutes per month with no signup required. Just upload your file and get a transcript immediately. Paid plans start at $19/month for 450 minutes and add multi-language output, speaker labels, summary, and export formats including JSON, CSV, and Markdown.' },
+      { q: 'Can I translate transcribed audio to another language?', a: 'Yes. After transcribing, click Translate and choose from English, Hindi, Telugu, Spanish, Chinese, or Russian. The translated transcript appears alongside the original. This is useful for meetings, interviews, or podcast content that needs to reach audiences in multiple languages without re-recording.' },
     ],
   },
   {
@@ -700,10 +700,10 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'podcast-transcript',
     faq: [
-      { q: 'Can I transcribe a podcast episode?', a: 'Yes. Export your podcast as an MP4, MOV, or WebM, upload it, and get a full transcript in seconds.' },
-      { q: 'Do I get speaker labels for my podcast?', a: 'Yes. After transcribing, open the Speakers branch to see paragraphs grouped by speaker (Speaker 1, 2, etc.).' },
-      { q: 'Is podcast transcription free?', a: 'Yes. Free tier includes 60 minutes per month with no signup required.' },
-      { q: 'Can I use the transcript for SEO?', a: 'Absolutely. Copy or download the transcript and add it to your show notes or website to improve discoverability in search engines.' },
+      { q: 'Can I transcribe a podcast episode to text?', a: 'Yes. Export your podcast episode as an MP4, MOV, or WebM video file, upload it here, and get a full text transcript in seconds. Most podcast recording tools (Riverside, Squadcast, Zoom, Descript) export to MP4 or MOV. The AI extracts the speech and produces a clean, readable transcript.' },
+      { q: 'Do I get speaker labels in a podcast transcript?', a: 'Yes. After transcribing, open the Speakers branch to see the transcript organized by speaker (Speaker 1, Speaker 2, etc.). For a two-host podcast, this cleanly separates each host\'s contributions. For interview formats, it labels the interviewer and guest without any manual tagging.' },
+      { q: 'Is podcast transcription free?', a: 'Yes. Free tier includes 60 minutes per month with no signup required. Most podcast episodes fit within this limit. Paid plans start at $19/month for 450 minutes, which is suitable for weekly podcasters who want to transcribe every episode and add show notes automatically.' },
+      { q: 'Can I use the podcast transcript for SEO?', a: 'Absolutely. Add the transcript to your episode show notes or embed it on your website. Search engines index text, not audio, so a full transcript dramatically improves how discoverable each episode is for topic-specific searches. Include the transcript text in the page body — not a PDF — for best indexing results.' },
     ],
   },
   {
@@ -720,10 +720,10 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'zoom-recording-transcript',
     faq: [
-      { q: 'How do I transcribe a Zoom recording?', a: 'Download your Zoom meeting as MP4 (from cloud recordings or local recording folder), then upload it here to get a full transcript.' },
-      { q: 'Does it label speakers in Zoom calls?', a: 'Yes. After transcribing, open the Speakers branch to see speech grouped by speaker. Works well for multi-participant Zoom recordings.' },
-      { q: 'Can I get a summary of the Zoom meeting?', a: 'Yes. The Summary branch extracts decisions, action items, and key points from the transcript automatically.' },
-      { q: 'Is this free?', a: 'Yes. Free tier includes 60 minutes per month, no signup required.' },
+      { q: 'How do I transcribe a Zoom recording to text?', a: 'Download your Zoom meeting as an MP4 file — from Zoom\'s cloud recording page or the local Zoom recordings folder on your computer. Upload the MP4 here and our AI produces a full text transcript. Most 60-minute Zoom calls transcribe in 5–8 minutes. No Zoom account connection or integration is required.' },
+      { q: 'Does it label speakers from a Zoom call?', a: 'Yes. After transcribing, open the Speakers branch to see the transcript organized by speaker turn (Speaker 1, Speaker 2, etc.). This works well for Zoom calls with two to six participants. For the clearest speaker separation, use a Zoom recording where each participant has a separate audio track if available.' },
+      { q: 'Can I get a summary of the Zoom meeting transcript?', a: 'Yes. The Summary branch automatically extracts decisions, action items, and key points from the transcript. This is useful for generating meeting notes immediately after a call — copy the summary and send it to attendees without reading through the full transcript manually.' },
+      { q: 'Is Zoom recording transcription free?', a: 'Yes. Free tier includes 60 minutes per month with no signup required. A typical 30–60 minute Zoom call fits within this limit. Paid plans start at $19/month for 450 minutes, which is appropriate for teams running multiple meetings per week that all need transcripts.' },
     ],
   },
   {
@@ -822,10 +822,10 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'automatic-subtitles',
     faq: [
-      { q: 'Are automatic subtitles accurate?', a: 'Yes. Our AI generates highly accurate subtitles with correct timestamps. For best results, use clear audio and set the spoken language before processing.' },
-      { q: 'Which format should I choose — SRT or VTT?', a: 'SRT is best for YouTube and most video platforms. VTT is ideal for HTML5 web players. Both are generated from the same upload.' },
-      { q: 'Is this free?', a: 'Yes. Free tier available, no signup required. Paid plans unlock multi-language output and higher minute limits.' },
-      { q: 'Can I auto-generate subtitles for YouTube?', a: 'Yes. Download the SRT file and upload it to YouTube Studio as a subtitle track for your video.' },
+      { q: 'How accurate are automatic subtitles?', a: 'Automatic subtitles generated by our AI are highly accurate for clear audio. We use state-of-the-art speech recognition trained on diverse speakers, accents, and topics. For best accuracy, set the spoken language manually rather than relying on auto-detect, and ensure the audio has minimal background noise or music.' },
+      { q: 'Should I choose SRT or VTT for automatic subtitles?', a: 'Choose SRT for YouTube, Vimeo, LinkedIn, Facebook Video, and most video platforms — SRT is the most widely supported subtitle format. Choose VTT if you are embedding video on a website using an HTML5 player like Video.js or Plyr. Both formats are generated from the same upload at no extra cost.' },
+      { q: 'Are automatic subtitles free to generate?', a: 'Yes. The free tier is available with no signup required — upload a video and download SRT or VTT subtitles at no cost within the monthly free limit. Paid plans unlock multi-language subtitle output in a single batch and higher minute limits for creators with large video libraries.' },
+      { q: 'Can I auto-generate subtitles for YouTube?', a: 'Yes. Generate SRT subtitles from your video here, then go to YouTube Studio → your video → Subtitles → Add → Upload File and select the SRT. YouTube maps the timestamps automatically, and your subtitles appear as a professional CC track — higher accuracy than YouTube\'s own auto-captions for most content.' },
     ],
   },
   {
@@ -842,10 +842,10 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'caption-generator',
     faq: [
-      { q: 'What is a caption generator?', a: 'A caption generator transcribes speech in a video and creates timed caption files (SRT or VTT) automatically using AI. You upload a video and download ready-to-use captions.' },
-      { q: 'Is it free to generate captions?', a: 'Yes. Free tier is available with no signup required. Create an account for more minutes and features.' },
-      { q: 'What formats does the caption generator output?', a: 'SRT and VTT. SRT is supported by YouTube, Vimeo, and most platforms. VTT works with HTML5 web players.' },
-      { q: 'Can I burn the generated captions into the video?', a: 'Yes. After generating captions, use our Burn Subtitles tool to hardcode them permanently into the video.' },
+      { q: 'What is a caption generator and how does it work?', a: 'A caption generator uses AI speech recognition to transcribe speech in a video and align each word to its timestamp, producing timed caption files in SRT or VTT format. You upload a video file, wait 30–90 seconds, and download captions ready to upload to YouTube, Vimeo, or any platform.' },
+      { q: 'Is the caption generator free?', a: 'Yes. Free tier is available with no signup required. You get 3 imports immediately without creating an account, or 60 minutes per month with a free account. Paid plans start at $19/month for 450 minutes, which covers most creators and social media managers processing weekly content.' },
+      { q: 'What caption formats does the generator output?', a: 'SRT and VTT, both generated from the same upload at no extra cost. SRT is the best choice for YouTube, Vimeo, LinkedIn, Facebook Video, and most video platforms. VTT is the standard for HTML5 web video players. You choose the format at the point of download — no re-processing needed.' },
+      { q: 'Can I burn the generated captions into the video?', a: 'Yes. After generating captions and downloading the SRT or VTT file, upload both the video and the caption file to our Burn Subtitles tool. It hardcodes the captions permanently into the video frames — no software installation required. The output is an MP4 ready for Instagram, TikTok, or any platform.' },
     ],
   },
   {
@@ -862,10 +862,10 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'closed-caption-generator',
     faq: [
-      { q: 'What are closed captions?', a: 'Closed captions are text overlays that viewers can turn on or off. They include speech, speaker labels, and non-speech audio cues, making video accessible to deaf and hard-of-hearing viewers.' },
-      { q: 'How do I create closed captions?', a: 'Upload your video here and download an SRT or VTT file. Upload the file to YouTube Studio or your video platform to add closed captions.' },
-      { q: 'Is the closed caption generator free?', a: 'Yes. Free tier is available with no signup required. Paid plans unlock more minutes and multi-language support.' },
-      { q: 'Which platforms accept closed caption files?', a: 'YouTube, Vimeo, Zoom, Facebook Video, Twitter, and most web players support SRT or VTT closed caption files.' },
+      { q: 'What are closed captions and how are they different from subtitles?', a: 'Closed captions are text overlays that viewers can toggle on or off. Unlike subtitles (which only transcribe speech), closed captions include non-speech audio cues like [music], [applause], and speaker identification, making video content accessible to deaf and hard-of-hearing viewers. The "closed" in closed captions means they can be turned off.' },
+      { q: 'How do I create closed captions for my video?', a: 'Upload your video to the caption generator here and download an SRT or VTT file in seconds. Then go to your video platform — YouTube Studio, Vimeo, Zoom, or your web player — and upload the caption file. The platform maps the timestamps automatically, adding a CC track viewers can toggle on or off.' },
+      { q: 'Is the closed caption generator free?', a: 'Yes. Free tier is available with no signup required. Upload a video and download an SRT or VTT closed caption file at no cost within the monthly free limit. Paid plans unlock higher minute limits and multi-language closed caption output for content that needs to be accessible in multiple languages.' },
+      { q: 'Which platforms accept closed caption files?', a: 'YouTube, Vimeo, Zoom, Facebook Video, LinkedIn, Twitter/X, and most web players with HTML5 video support SRT or VTT closed caption files. For web players like Video.js and Plyr, use VTT. For all other platforms including YouTube, SRT is the recommended and most widely compatible format.' },
     ],
   },
   {
@@ -902,10 +902,10 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'video-to-srt',
     faq: [
-      { q: 'What is an SRT file?', a: 'SRT (SubRip Text) is a standard subtitle format containing text lines with start and end timestamps. It is supported by YouTube, Vimeo, VLC, and most video platforms.' },
-      { q: 'How do I create an SRT file from video?', a: 'Upload your video here, choose SRT format, and click Generate. You get a timed SRT file to download and use on any platform.' },
-      { q: 'Is this free?', a: 'Yes. Free tier available. No signup required.' },
-      { q: 'Can I also get VTT instead of SRT?', a: 'Yes. Choose SRT or VTT format before processing. Both are generated from the same upload.' },
+      { q: 'What is an SRT file?', a: 'An SRT (SubRip Text) file is a plain-text subtitle format that contains numbered caption blocks, each with a start time, end time, and the spoken text. It is the most widely supported subtitle format, accepted by YouTube, Vimeo, VLC, LinkedIn, Facebook Video, and virtually every video platform and editing tool.' },
+      { q: 'How do I create an SRT file from a video?', a: 'Upload your video to this tool, select SRT as the output format, and click Generate. Our AI transcribes the speech and creates a timed SRT file with accurate timestamps in seconds. Download the file and upload it directly to YouTube Studio, Vimeo, or any platform that accepts SRT subtitles.' },
+      { q: 'Is creating a video-to-SRT file free?', a: 'Yes. Free tier is available with no signup required. Upload your video and download an SRT subtitle file at no cost within the monthly free limit. Paid plans unlock multi-language SRT output in a single batch, higher minute limits, and priority processing for faster turnaround on longer videos.' },
+      { q: 'Can I get VTT instead of SRT from my video?', a: 'Yes. Choose SRT or VTT format before processing — both are generated from the same upload at no extra cost. SRT is recommended for YouTube and most platforms. VTT is the standard for HTML5 web players. Switch between formats at the point of download without re-uploading your video.' },
     ],
   },
   {
@@ -943,10 +943,10 @@ const REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'translate-video',
     faq: [
-      { q: 'How do I translate a video to another language?', a: 'Upload your video, transcribe it, then click Translate to view the transcript in another language. Or generate subtitles and use our Translate Subtitles tool for a translated SRT/VTT file.' },
-      { q: 'Which languages can I translate video to?', a: 'Transcript translation: English, Hindi, Telugu, Spanish, Chinese, Russian. Subtitle translation: Arabic, Hindi, Spanish, French, German, Chinese, Japanese, and 50+ more.' },
-      { q: 'Is video translation free?', a: 'Yes. Free tier is available, no signup required. Paid plans unlock more minutes and multi-language subtitle output.' },
-      { q: 'Does video translation burn subtitles into the video?', a: 'It creates translated subtitle files (SRT/VTT). Use our Burn Subtitles tool to burn them into the video permanently.' },
+      { q: 'How do I translate a video to another language?', a: 'Upload your video and transcribe it using the Video to Transcript tool. Click Translate to view the full transcript in English, Hindi, Telugu, Spanish, Chinese, or Russian. To translate subtitle files (SRT/VTT), generate subtitles first, then use Translate Subtitles to convert the caption file to any of 50+ languages.' },
+      { q: 'Which languages can I translate my video to?', a: 'Transcript translation supports 6 languages: English, Hindi, Telugu, Spanish, Chinese, and Russian — switch between them instantly after transcribing. Subtitle file translation supports 50+ languages including Arabic, French, German, Portuguese, Japanese, Korean, Turkish, and more. Each translation preserves the original timestamps.' },
+      { q: 'Is video translation free?', a: 'Yes. Free tier is available with no signup required for both transcript translation and subtitle file translation. Paid plans unlock multi-language subtitle output in a single batch — generate translated SRT files in three or more languages from one upload — and higher minute limits for larger video libraries.' },
+      { q: 'Does video translation automatically burn subtitles into the video?', a: 'No — translation produces a translated SRT or VTT subtitle file, which you can upload to YouTube or any platform as a caption track. To burn translated captions permanently into the video (for Instagram, TikTok, or silent autoplay), use our Burn Subtitles tool with the translated SRT file.' },
     ],
   },
   {
