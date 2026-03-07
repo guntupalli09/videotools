@@ -51,6 +51,8 @@ export interface User {
   limits: PlanLimits
   overagesThisMonth: OveragesThisMonth
   role?: string
+  suspended?: boolean
+  restrictionNote?: string
   utmSource?: string | null
   utmMedium?: string | null
   utmCampaign?: string | null
@@ -92,6 +94,8 @@ function rowToUser(row: DbUser): User {
     limits: limits as PlanLimits,
     overagesThisMonth: (overages ?? { minutes: 0, languages: 0, batches: 0, totalCharge: 0 }) as OveragesThisMonth,
     role: (row as { role?: string }).role ?? 'user',
+    suspended: !!(usage?.suspended as boolean | undefined),
+    restrictionNote: (usage?.restrictionNote as string | undefined) ?? undefined,
     utmSource: (row as { utmSource?: string | null }).utmSource ?? undefined,
     utmMedium: (row as { utmMedium?: string | null }).utmMedium ?? undefined,
     utmCampaign: (row as { utmCampaign?: string | null }).utmCampaign ?? undefined,
@@ -124,6 +128,8 @@ function userToDb(user: User) {
       resetDate: user.usageThisMonth.resetDate instanceof Date
         ? user.usageThisMonth.resetDate.toISOString()
         : user.usageThisMonth.resetDate,
+      suspended: user.suspended ?? false,
+      restrictionNote: user.restrictionNote ?? null,
     },
     limits: user.limits as unknown as Record<string, unknown>,
     overagesThisMonth: user.overagesThisMonth as unknown as Record<string, unknown>,

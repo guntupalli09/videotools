@@ -228,15 +228,33 @@ export interface DigestPreview {
 
 // ── Support types ─────────────────────────────────────────────────────────────
 
+export interface SupportJob {
+  id: string
+  toolType: string
+  status: string
+  createdAt: string
+  processingMs: number | null
+  videoDurationSec: number | null
+  failureReason: string | null
+  planAtRun: string | null
+}
+
 export interface SupportUser {
   id: string
   email: string
   plan: string
+  role: string
+  suspended: boolean
+  restrictionNote: string | null
   createdAt: string
-  usedMinutes: number
-  minuteLimit: number
+  lastActiveAt: string | null
+  stripeCustomerId: string | null
   billingPeriodEnd: string | null
-  recentJobs: { id: string; toolType: string; status: string; createdAt: string }[]
+  usageThisMonth: { totalMinutes: number; importCount: number; resetDate: string; videoCount: number }
+  limits: { minutesPerMonth: number }
+  totalJobs: number
+  failedJobCount: number
+  jobs: SupportJob[]
 }
 
 // ── Alert API ─────────────────────────────────────────────────────────────────
@@ -326,4 +344,14 @@ export async function extendBilling(userId: string, days: number): Promise<void>
 export async function setSupportPlan(userId: string, plan: string): Promise<void> {
   const res = await api('/api/admin/support/set-plan', { method: 'POST', body: JSON.stringify({ userId, plan }) })
   if (!res.ok) throw new Error('Set plan failed')
+}
+
+export async function restrictUser(userId: string, suspended: boolean, note?: string): Promise<void> {
+  const res = await api('/api/admin/support/restrict', { method: 'POST', body: JSON.stringify({ userId, suspended, note }) })
+  if (!res.ok) throw new Error('Restrict failed')
+}
+
+export async function revokeUserAccess(userId: string, note?: string): Promise<void> {
+  const res = await api('/api/admin/support/revoke', { method: 'POST', body: JSON.stringify({ userId, note }) })
+  if (!res.ok) throw new Error('Revoke failed')
 }

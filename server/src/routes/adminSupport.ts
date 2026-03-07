@@ -336,6 +336,8 @@ router.post('/digest/send', async (req: Request, res: Response): Promise<Respons
 
 // ── Routes: user support ──────────────────────────────────────────────────────
 
+type SupportJobRow = { id: string; toolType: string; status: string; createdAt: Date; processingMs: number | null; videoDurationSec: number | null; failureReason: string | null; planAtRun: string | null }
+
 router.get('/support/user', async (req: Request, res: Response): Promise<Response> => {
   try {
     if (!await requireFounder(req, res)) return res as Response
@@ -345,20 +347,24 @@ router.get('/support/user', async (req: Request, res: Response): Promise<Respons
     const user = await getUserByEmail(email.trim().toLowerCase())
     if (!user) return res.status(404).json({ message: 'User not found' })
 
-    const [jobCountRow, recentJobs] = await Promise.all([
+    const [jobCountRow, allJobs] = await Promise.all([
       prisma.$queryRaw<[{ count: bigint }]>`SELECT COUNT(*)::bigint as count FROM "Job" WHERE "userId" = ${user.id}`,
-      prisma.$queryRaw<{ id: string; toolType: string; status: string; createdAt: Date; processingMs: number | null }[]>`
-        SELECT id, "toolType", status, "createdAt", "processingMs"
+      prisma.$queryRaw<SupportJobRow[]>`
+        SELECT id, "toolType", status, "createdAt", "processingMs", "videoDurationSec", "failureReason", "planAtRun"
         FROM "Job" WHERE "userId" = ${user.id}
-        ORDER BY "createdAt" DESC LIMIT 10
+        ORDER BY "createdAt" DESC LIMIT 100
       `,
     ])
+
+    const failedCount = (allJobs ?? []).filter((j: SupportJobRow) => j.status === 'failed').length
 
     return res.json({
       id: user.id,
       email: user.email,
       plan: user.plan,
       role: user.role ?? 'user',
+      suspended: user.suspended ?? false,
+      restrictionNote: user.restrictionNote ?? null,
       stripeCustomerId: user.stripeCustomerId ?? null,
       billingPeriodEnd: user.billingPeriodEnd ?? null,
       createdAt: user.createdAt,
@@ -367,12 +373,16 @@ router.get('/support/user', async (req: Request, res: Response): Promise<Respons
       limits: user.limits,
       overagesThisMonth: user.overagesThisMonth,
       totalJobs: Number(jobCountRow?.[0]?.count ?? 0),
-      recentJobs: (recentJobs ?? []).map((j: { id: string; toolType: string; status: string; createdAt: Date; processingMs: number | null }) => ({
+      failedJobCount: failedCount,
+      jobs: (allJobs ?? []).map((j: SupportJobRow) => ({
         id: j.id,
         toolType: j.toolType,
         status: j.status,
         createdAt: j.createdAt.toISOString(),
         processingMs: j.processingMs,
+        videoDurationSec: j.videoDurationSec,
+        failureReason: j.failureReason,
+        planAtRun: j.planAtRun,
       })),
     })
   } catch (err) {
@@ -470,6 +480,59 @@ router.post('/support/set-plan', async (req: Request, res: Response): Promise<Re
     return res.json({ ok: true, plan })
   } catch (err) {
     console.error('[admin/support/set-plan]', err)
+    return res.status(500).json({ message: 'Internal server error' })
+  }
+})
+
+// Suspend or unsuspend a user. Suspended users cannot upload or process jobs.
+router.post('/support/restrict', async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const founderId = await requireFounder(req, res)
+    if (!founderId) return res as Response
+    const { userId, suspended, note } = req.body as { userId: string; suspended: boolean; note?: string }
+    if (!userId || typeof suspended !== 'boolean') {
+      return res.status(400).json({ message: 'userId and suspended (boolean) required' })
+    }
+    const user = await getUser(userId)
+    if (!user) return res.status(404).json({ message: 'User not found' })
+
+    user.suspended = suspended
+    user.restrictionNote = note ?? user.restrictionNote
+    user.updatedAt = new Date()
+    await saveUser(user)
+    const action = suspended ? 'SUSPEND' : 'UNSUSPEND'
+    console.log(`[${action}] ${founderId} → ${user.email}${note ? ` (${note})` : ''}`)
+    return res.json({ ok: true, suspended, email: user.email })
+  } catch (err) {
+    console.error('[admin/support/restrict]', err)
+    return res.status(500).json({ message: 'Internal server error' })
+  }
+})
+
+// Revoke access: suspend + downgrade to free + clear subscription fields.
+router.post('/support/revoke', async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const founderId = await requireFounder(req, res)
+    if (!founderId) return res as Response
+    const { userId, note } = req.body as { userId: string; note?: string }
+    if (!userId) return res.status(400).json({ message: 'userId required' })
+
+    const user = await getUser(userId)
+    if (!user) return res.status(404).json({ message: 'User not found' })
+
+    user.suspended = true
+    user.restrictionNote = note ?? 'Access revoked by admin'
+    user.plan = 'free'
+    user.limits = getPlanLimits('free')
+    // Clear subscription but keep Stripe customer ID for audit trail
+    user.subscriptionId = undefined
+    user.billingPeriodEnd = undefined
+    user.updatedAt = new Date()
+    await saveUser(user)
+    console.log(`[REVOKE] ${founderId} → ${user.email}${note ? ` (${note})` : ''}`)
+    return res.json({ ok: true, email: user.email })
+  } catch (err) {
+    console.error('[admin/support/revoke]', err)
     return res.status(500).json({ message: 'Internal server error' })
   }
 })
