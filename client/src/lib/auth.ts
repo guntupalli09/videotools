@@ -70,6 +70,7 @@ export function storeLoginResult(result: { token: string; userId: string; plan: 
   localStorage.setItem(PLAN_KEY, result.plan.toLowerCase())
   localStorage.setItem(USER_EMAIL_KEY, result.email)
   invalidateUsageCache()
+  window.dispatchEvent(new CustomEvent('videotext:plan-updated'))
 }
 
 /** Request a password reset email. Does not reveal whether the email exists. */
