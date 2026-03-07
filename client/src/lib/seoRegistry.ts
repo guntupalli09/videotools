@@ -547,20 +547,426 @@ const REGISTRY: SeoRegistryEntry[] = [
   },
   {
     path: '/subtitles-vs-closed-captions',
-    title: 'subtitles vs closed captions | VideoText',
+    title: 'Subtitles vs Closed Captions — What\'s the Difference? | VideoText',
     description:
-      'Use VideoText for subtitles vs closed captions. Free online tools for video to text, subtitles, and more.',
-    h1: 'subtitles vs closed captions',
+      'Subtitles vs closed captions: subtitles transcribe speech for language access; closed captions include all audio cues for deaf/HOH viewers. Generate either free with VideoText — no signup.',
+    h1: 'Subtitles vs Closed Captions — What\'s the Difference?',
     intro:
-      'Use VideoText for subtitles vs closed captions. Free online tools for video to text, subtitles, and more.',
-    breadcrumbLabel: 'Subtitles Vs Closed Captions',
-    toolKey: 'burn-subtitles',
-    relatedSlugs: ['/video-to-transcript', '/video-to-subtitles'],
+      'Subtitles and closed captions look similar but serve different purposes. Subtitles transcribe or translate speech for viewers who can hear but don\'t understand the language. Closed captions include all audio cues — speech, speaker labels, and sound effects — for deaf and hard-of-hearing viewers. VideoText generates both: upload a video and download SRT or VTT caption files in seconds. Free, no signup.',
+    breadcrumbLabel: 'Subtitles vs Closed Captions',
+    toolKey: 'video-to-subtitles',
+    relatedSlugs: ['/subtitle-generator', '/closed-caption-generator', '/caption-generator'],
     indexable: true,
     intentKey: 'subtitles-vs-closed-captions',
     faq: [
-      { q: 'What is subtitles vs closed captions?', a: 'VideoText helps with subtitles vs closed captions. Use our free tools to get started.' },
-      { q: 'Is this free?', a: 'Yes. Free tier available. No signup required to try.' },
+      { q: 'What is the difference between subtitles and closed captions?', a: 'Subtitles transcribe or translate speech for viewers who can hear but don\'t speak the language. Closed captions add non-speech audio descriptions (e.g., [music], [applause]) for deaf and hard-of-hearing viewers.' },
+      { q: 'Which should I use — subtitles or closed captions?', a: 'Use closed captions for accessibility compliance and to reach deaf/HOH viewers. Use subtitles for foreign language audiences or viewers watching without sound.' },
+      { q: 'How do I generate subtitles or closed captions?', a: 'Upload your video to VideoText. Our AI generates a timed SRT or VTT file in seconds — upload it to YouTube, Vimeo, or any platform as subtitles or closed captions.' },
+      { q: 'Do subtitles and closed captions use the same file format?', a: 'Yes. Both use SRT or VTT files. The difference is in the content and labeling, not the file format. SRT is most widely supported.' },
+    ],
+  },
+  // ── Transcription variants ──────────────────────────────────────────────────
+  {
+    path: '/transcribe-video',
+    title: 'Transcribe Video Online – Free & Accurate | VideoText',
+    description:
+      'Transcribe video to text online, free. Upload MP4, MOV, WebM, or AVI and get an accurate transcript in seconds. View in English, Hindi, Spanish, Chinese, Russian, or Telugu. No signup for free tier.',
+    h1: 'Transcribe Video Online',
+    intro:
+      'Transcribe any video to text in seconds. Upload your video file — MP4, MOV, AVI, or WebM — and get an accurate, readable transcript powered by AI. View the transcript in English, Hindi, Telugu, Spanish, Chinese, or Russian. Use Speakers for who-said-what, Summary for key points, and Chapters to jump by section. No signup required for the free tier.',
+    breadcrumbLabel: 'Transcribe Video',
+    toolKey: 'video-to-transcript',
+    relatedSlugs: ['/video-to-text', '/mp4-to-text', '/meeting-transcript'],
+    indexable: true,
+    intentKey: 'transcribe-video',
+    faq: [
+      { q: 'Is transcribing video free?', a: 'Yes. The free tier includes 60 minutes per month with no signup required. Sign up to track usage across sessions or subscribe for more minutes.' },
+      { q: 'What video formats can I transcribe?', a: 'MP4, MOV, AVI, WebM, and MKV are all supported. Upload your file and we extract the speech as text.' },
+      { q: 'How accurate is the transcription?', a: 'We use AI speech recognition trained on diverse audio. Accuracy is high for clear speech; you can trim the video to focus on the segment you need.' },
+      { q: 'Can I get the transcript in another language?', a: 'Yes. After transcribing, click Translate to view the transcript in English, Hindi, Telugu, Spanish, Chinese, or Russian.' },
+    ],
+  },
+  {
+    path: '/video-transcription',
+    title: 'Video Transcription Online – Accurate & Fast | VideoText',
+    description:
+      'Free video transcription online. Upload any video and get a text transcript in seconds. Supports MP4, MOV, AVI, WebM. View in 6 languages. Summary, speakers, chapters included. No signup for free tier.',
+    h1: 'Video Transcription Online',
+    intro:
+      'Get accurate video transcription online — free. Upload any video and receive a plain-text transcript in seconds. After transcribing, use the Speakers branch for speaker labels, Summary for key points, or Chapters to jump by section. Translate to English, Hindi, Telugu, Spanish, Chinese, or Russian in one click. No signup required for the free tier.',
+    breadcrumbLabel: 'Video Transcription',
+    toolKey: 'video-to-transcript',
+    relatedSlugs: ['/transcribe-video', '/video-to-text', '/meeting-transcript'],
+    indexable: true,
+    intentKey: 'video-transcription',
+    faq: [
+      { q: 'What is video transcription?', a: 'Video transcription converts spoken words in a video into written text. You upload a video, and our AI extracts the speech as a readable transcript.' },
+      { q: 'Is video transcription free?', a: 'Yes. The free tier gives you 60 minutes per month, no signup required.' },
+      { q: 'How long does transcription take?', a: 'Most videos are processed in 30–60 seconds. You see a progress indicator while your job runs.' },
+      { q: 'Can I download the transcript?', a: 'Yes. Download as plain text, or copy to clipboard from the preview. Paid plans unlock JSON, CSV, Markdown, and Notion-style exports.' },
+    ],
+  },
+  {
+    path: '/free-transcription',
+    title: 'Free Transcription Online – No Signup Required | VideoText',
+    description:
+      'Free video transcription with no signup needed. Upload video and get a text transcript in seconds. 60 minutes/month free tier. AI-powered. MP4, MOV, AVI, WebM supported.',
+    h1: 'Free Transcription Online',
+    intro:
+      'Get a free transcript from any video — no account needed. Upload an MP4, MOV, AVI, or WebM, and our AI transcribes the speech into text in seconds. The free tier gives you 60 minutes per month with no credit card required. Sign up when you need more minutes or multi-language output.',
+    breadcrumbLabel: 'Free Transcription',
+    toolKey: 'video-to-transcript',
+    relatedSlugs: ['/transcribe-video', '/video-to-text', '/ai-transcription'],
+    indexable: true,
+    intentKey: 'free-transcription',
+    faq: [
+      { q: 'Is transcription really free?', a: 'Yes. You get 60 minutes per month with no account. No credit card needed to try.' },
+      { q: 'What formats are supported for free?', a: 'MP4, MOV, AVI, WebM, and MKV. All formats are available on the free tier.' },
+      { q: 'What is the free tier limit?', a: '60 minutes of video per month, single language output. Sign up for a plan to unlock more minutes and multi-language support.' },
+      { q: 'Do I need to install anything?', a: 'No. The tool runs in your browser. Upload your file and get a transcript — no installation required.' },
+    ],
+  },
+  {
+    path: '/online-transcription',
+    title: 'Online Transcription – Free Video to Text | VideoText',
+    description:
+      'Online transcription for video files. Upload MP4, MOV, or WebM and get a text transcript in seconds. AI-powered, free tier, no signup. Works for meetings, lectures, interviews.',
+    h1: 'Online Transcription – Free Video to Text',
+    intro:
+      'Transcribe video to text online — free. Upload any video file and get a transcript in seconds. Works for meetings, lectures, interviews, podcasts, and more. View in 6 languages and use built-in Speakers, Summary, and Chapters for structured output. No software to install, no account needed.',
+    breadcrumbLabel: 'Online Transcription',
+    toolKey: 'video-to-transcript',
+    relatedSlugs: ['/free-transcription', '/transcribe-video', '/meeting-transcript'],
+    indexable: true,
+    intentKey: 'online-transcription',
+    faq: [
+      { q: 'Does this work in any browser?', a: 'Yes. The tool is browser-based. No download or plugin required. Works in Chrome, Firefox, Safari, and Edge.' },
+      { q: 'What is online transcription?', a: 'Online transcription converts speech in a video file into text using AI — directly in your browser, without installing software.' },
+      { q: 'Is there a file size limit?', a: 'Large files are supported. Check the upload zone for the current limit. You can also trim the video to focus on the segment you need.' },
+      { q: 'Can I translate the transcript online?', a: 'Yes. After transcribing, click Translate to switch between English, Hindi, Telugu, Spanish, Chinese, or Russian — no extra upload needed.' },
+    ],
+  },
+  {
+    path: '/ai-transcription',
+    title: 'AI Transcription – Fast, Accurate Video to Text | VideoText',
+    description:
+      'AI-powered video transcription. Upload your video and get a text transcript in seconds. Accurate speech recognition for interviews, meetings, lectures, and more. Free tier, no signup.',
+    h1: 'AI Transcription – Video to Text',
+    intro:
+      'VideoText uses AI speech recognition to transcribe your video in seconds. Upload any video, get a plain-text transcript, then use Speakers, Summary, Chapters, or Keywords for structured insight. Translate to 6 languages with a single click. Free tier, no signup required — no software to install.',
+    breadcrumbLabel: 'AI Transcription',
+    toolKey: 'video-to-transcript',
+    relatedSlugs: ['/transcribe-video', '/free-transcription', '/video-transcription'],
+    indexable: true,
+    intentKey: 'ai-transcription',
+    faq: [
+      { q: 'How does AI transcription work?', a: 'We run your video through AI speech recognition models that detect spoken words and produce text with high accuracy, even for technical content and accents.' },
+      { q: 'Is AI transcription more accurate than manual?', a: 'For clear audio, AI transcription is very accurate and far faster than manual. You can review and edit the result afterward.' },
+      { q: 'What languages does the AI support?', a: 'The AI supports many spoken languages. Set the spoken language for best results, or use auto-detect.' },
+      { q: 'Is this free?', a: 'Yes. Free tier includes 60 minutes per month with no signup required.' },
+    ],
+  },
+  {
+    path: '/audio-to-text',
+    title: 'Audio to Text – Transcribe Audio or Video Online | VideoText',
+    description:
+      'Convert audio to text online. Upload a video file (MP4, MOV, AVI, WebM) to transcribe the audio track to text. Free, AI-powered, no signup. Works for interviews, meetings, podcasts.',
+    h1: 'Audio to Text – Transcribe Audio Online',
+    intro:
+      'Turn audio into text online — free. Upload a video file containing your audio (MP4, MOV, AVI, or WebM) and get an accurate text transcript in seconds. Our AI extracts the speech and delivers a clean, readable transcript. View in 6 languages and download or copy the result. No signup for the free tier.',
+    breadcrumbLabel: 'Audio to Text',
+    toolKey: 'video-to-transcript',
+    relatedSlugs: ['/transcribe-video', '/free-transcription', '/podcast-transcript'],
+    indexable: true,
+    intentKey: 'audio-to-text',
+    faq: [
+      { q: 'Can I transcribe audio files?', a: 'Upload your audio packaged as a video file (MP4, MOV, AVI, WebM). Most recordings and podcasts are shared in video containers. If you have an audio-only file, most tools let you export it as MP4.' },
+      { q: 'What audio formats are supported?', a: 'We accept audio packaged in video files: MP4, MOV, AVI, WebM, MKV. These cover most podcast, interview, and recording formats.' },
+      { q: 'Is audio transcription free?', a: 'Yes. Free tier includes 60 minutes per month, no signup required.' },
+      { q: 'Can I translate the transcribed audio?', a: 'Yes. After transcribing, click Translate to view the text in English, Hindi, Telugu, Spanish, Chinese, or Russian.' },
+    ],
+  },
+  {
+    path: '/podcast-transcript',
+    title: 'Podcast Transcript – Transcribe Episodes Online | VideoText',
+    description:
+      'Get a transcript for any podcast episode. Upload your episode as a video file and get accurate text in seconds. Free, AI-powered. Speaker labels, key takeaways, no signup.',
+    h1: 'Podcast Transcript – Transcribe Episodes Online',
+    intro:
+      'Create a podcast transcript in seconds. Upload your episode as a video file (MP4, MOV, AVI, WebM) and get an accurate text transcript powered by AI. Use the Speakers branch to label who said what, Summary for key takeaways, and Translate to share across 6 languages. Free tier, no signup required.',
+    breadcrumbLabel: 'Podcast Transcript',
+    toolKey: 'video-to-transcript',
+    relatedSlugs: ['/audio-to-text', '/transcribe-video', '/interview-transcription'],
+    indexable: true,
+    intentKey: 'podcast-transcript',
+    faq: [
+      { q: 'Can I transcribe a podcast episode?', a: 'Yes. Export your podcast as an MP4, MOV, or WebM, upload it, and get a full transcript in seconds.' },
+      { q: 'Do I get speaker labels for my podcast?', a: 'Yes. After transcribing, open the Speakers branch to see paragraphs grouped by speaker (Speaker 1, 2, etc.).' },
+      { q: 'Is podcast transcription free?', a: 'Yes. Free tier includes 60 minutes per month with no signup required.' },
+      { q: 'Can I use the transcript for SEO?', a: 'Absolutely. Copy or download the transcript and add it to your show notes or website to improve discoverability in search engines.' },
+    ],
+  },
+  {
+    path: '/zoom-recording-transcript',
+    title: 'Zoom Recording Transcript – Convert Calls to Text | VideoText',
+    description:
+      'Transcribe Zoom recordings to text. Upload your Zoom MP4 and get a transcript with speaker labels in seconds. Free, no signup. Use Summary for action items and decisions.',
+    h1: 'Zoom Recording Transcript — Convert Calls to Text',
+    intro:
+      'Transcribe any Zoom recording to text in seconds. Download your meeting as MP4 from Zoom, upload it here, and get a full transcript. Use the Speakers branch for who-said-what, Summary for action items and decisions, and Chapters to jump by section. Free tier, no signup required.',
+    breadcrumbLabel: 'Zoom Recording Transcript',
+    toolKey: 'video-to-transcript',
+    relatedSlugs: ['/meeting-transcript', '/speaker-diarization', '/video-summary-generator'],
+    indexable: true,
+    intentKey: 'zoom-recording-transcript',
+    faq: [
+      { q: 'How do I transcribe a Zoom recording?', a: 'Download your Zoom meeting as MP4 (from cloud recordings or local recording folder), then upload it here to get a full transcript.' },
+      { q: 'Does it label speakers in Zoom calls?', a: 'Yes. After transcribing, open the Speakers branch to see speech grouped by speaker. Works well for multi-participant Zoom recordings.' },
+      { q: 'Can I get a summary of the Zoom meeting?', a: 'Yes. The Summary branch extracts decisions, action items, and key points from the transcript automatically.' },
+      { q: 'Is this free?', a: 'Yes. Free tier includes 60 minutes per month, no signup required.' },
+    ],
+  },
+  {
+    path: '/interview-transcription',
+    title: 'Interview Transcription – Convert Interviews to Text | VideoText',
+    description:
+      'Transcribe interview recordings to text online. Upload video of your interview and get an accurate transcript with speaker labels. Free tier, no signup required.',
+    h1: 'Interview Transcription – Convert Interviews to Text',
+    intro:
+      'Transcribe interviews to text online — free and accurate. Upload your interview video (MP4, MOV, AVI, or WebM) and get a clean transcript in seconds. Use the Speakers branch to separate interviewer and interviewee, and Translate to share in 6 languages. Perfect for journalists, researchers, and HR teams. No signup for the free tier.',
+    breadcrumbLabel: 'Interview Transcription',
+    toolKey: 'video-to-transcript',
+    relatedSlugs: ['/speaker-diarization', '/podcast-transcript', '/transcribe-video'],
+    indexable: true,
+    intentKey: 'interview-transcription',
+    faq: [
+      { q: 'Can I transcribe an interview with two speakers?', a: 'Yes. After transcribing, open the Speakers branch. Speech is grouped by speaker (Speaker 1, Speaker 2, etc.) so you can see who said what.' },
+      { q: 'What video formats are supported for interviews?', a: 'MP4, MOV, AVI, WebM, and MKV. Most camera and screen-recording formats used in interviews are covered.' },
+      { q: 'Is interview transcription free?', a: 'Yes. Free tier includes 60 minutes per month with no signup required.' },
+      { q: 'Can I export the interview transcript?', a: 'Yes. Download as plain text, or use the Exports branch for JSON, CSV, Markdown, or Notion-style formats (paid plans for full export).' },
+    ],
+  },
+  {
+    path: '/lecture-transcription',
+    title: 'Lecture Transcription – Convert Lectures to Text | VideoText',
+    description:
+      'Transcribe lecture recordings to text online. Upload a lecture video and get an accurate transcript with chapters and keywords. Free, AI-powered, no signup.',
+    h1: 'Lecture Transcription – Convert Lectures to Text',
+    intro:
+      'Transcribe lecture recordings to text — fast and accurate. Upload your lecture video (MP4, MOV, AVI, or WebM) and get a full transcript powered by AI. Use Keywords to index topics, Chapters to navigate by section, and Translate to share in 6 languages. Free tier, no signup required — perfect for students, educators, and researchers.',
+    breadcrumbLabel: 'Lecture Transcription',
+    toolKey: 'video-to-transcript',
+    relatedSlugs: ['/keyword-indexed-transcript', '/video-chapters-generator', '/transcribe-video'],
+    indexable: true,
+    intentKey: 'lecture-transcription',
+    faq: [
+      { q: 'Can I transcribe a university lecture?', a: 'Yes. Upload the lecture recording (MP4, MOV, WebM) and get a text transcript. Works well for talks, presentations, and classroom recordings.' },
+      { q: 'Does it extract lecture topics automatically?', a: 'Yes. Open the Keywords branch after transcribing to see repeated terms indexed by section. The Chapters branch shows the lecture broken into navigable sections.' },
+      { q: 'Is this free for students?', a: 'Yes. Free tier includes 60 minutes per month, no signup required.' },
+      { q: 'Can I study from the transcript?', a: 'Absolutely. Copy or download the transcript for notes and study guides. The Chapters and Keywords branches help you find specific content quickly.' },
+    ],
+  },
+  // ── Format-specific transcription ───────────────────────────────────────────
+  {
+    path: '/mov-to-text',
+    title: 'MOV to Text – Transcribe MOV Video Online | VideoText',
+    description:
+      'Convert MOV video to text online. Upload your MOV file and get an accurate transcript in seconds. Free, AI-powered, no signup. View in English, Hindi, Spanish, and more.',
+    h1: 'MOV to Text – Transcribe MOV Videos Online',
+    intro:
+      'Convert MOV video to text online — free. Upload your MOV file from iPhone, Mac, or any camera and get an accurate transcript in seconds. View the transcript in English, Hindi, Telugu, Spanish, Chinese, or Russian. No signup for the free tier.',
+    breadcrumbLabel: 'MOV to Text',
+    toolKey: 'video-to-transcript',
+    relatedSlugs: ['/video-to-text', '/mp4-to-text', '/transcribe-video'],
+    indexable: true,
+    intentKey: 'mov-to-text',
+    faq: [
+      { q: 'Can I convert MOV to text?', a: 'Yes. Upload your MOV file and we transcribe the speech to text. MOV is the default format for iPhone and Mac recordings.' },
+      { q: 'Is there a file size limit for MOV files?', a: 'Large MOV files are supported; check the upload zone for the current limit. Trim the video to a segment if needed.' },
+      { q: 'Is this free?', a: 'Yes. Free tier includes 60 minutes per month, no signup required.' },
+      { q: 'Can I get subtitles from my MOV file?', a: 'Yes. Use the Video to Subtitles tool (also supports MOV) to generate SRT or VTT subtitle files from your MOV video.' },
+    ],
+  },
+  {
+    path: '/webm-to-text',
+    title: 'WebM to Text – Transcribe WebM Video Online | VideoText',
+    description:
+      'Convert WebM video to text online. Upload your WebM file and get an accurate transcript in seconds. Free, AI-powered, no signup required.',
+    h1: 'WebM to Text – Transcribe WebM Videos Online',
+    intro:
+      'Convert WebM video to text online — free. Upload your WebM file (from Chrome, screen recorders, or web exports) and get an accurate text transcript in seconds. Translate to 6 languages. No signup for the free tier.',
+    breadcrumbLabel: 'WebM to Text',
+    toolKey: 'video-to-transcript',
+    relatedSlugs: ['/video-to-text', '/mp4-to-text', '/transcribe-video'],
+    indexable: true,
+    intentKey: 'webm-to-text',
+    faq: [
+      { q: 'Can I transcribe a WebM file?', a: 'Yes. WebM is a supported format. Upload your file and get a text transcript in seconds.' },
+      { q: 'Where do WebM files come from?', a: 'WebM is common in screen recordings from Chrome, video editors, and web-based recording tools.' },
+      { q: 'Is this free?', a: 'Yes. Free tier includes 60 minutes per month, no signup required.' },
+      { q: 'Can I convert WebM to SRT subtitles?', a: 'Yes. Use the Video to Subtitles tool, upload your WebM file, and choose SRT or VTT format for a timed caption file.' },
+    ],
+  },
+  // ── Subtitle/Caption variants ────────────────────────────────────────────────
+  {
+    path: '/automatic-subtitles',
+    title: 'Automatic Subtitles – AI-Generated Captions Online | VideoText',
+    description:
+      'Generate automatic subtitles for any video. Upload and get AI-generated SRT or VTT captions in seconds. Free tier, no signup. Works for YouTube, web, and social media.',
+    h1: 'Automatic Subtitles – AI-Generated Captions',
+    intro:
+      'Generate automatic subtitles for any video in seconds. Upload your video and our AI creates accurate, timed SRT or VTT captions ready for YouTube, web players, or social media. Supports multiple languages. Free tier, no signup required.',
+    breadcrumbLabel: 'Automatic Subtitles',
+    toolKey: 'video-to-subtitles',
+    relatedSlugs: ['/subtitle-generator', '/caption-generator', '/video-to-srt'],
+    indexable: true,
+    intentKey: 'automatic-subtitles',
+    faq: [
+      { q: 'Are automatic subtitles accurate?', a: 'Yes. Our AI generates highly accurate subtitles with correct timestamps. For best results, use clear audio and set the spoken language before processing.' },
+      { q: 'Which format should I choose — SRT or VTT?', a: 'SRT is best for YouTube and most video platforms. VTT is ideal for HTML5 web players. Both are generated from the same upload.' },
+      { q: 'Is this free?', a: 'Yes. Free tier available, no signup required. Paid plans unlock multi-language output and higher minute limits.' },
+      { q: 'Can I auto-generate subtitles for YouTube?', a: 'Yes. Download the SRT file and upload it to YouTube Studio as a subtitle track for your video.' },
+    ],
+  },
+  {
+    path: '/caption-generator',
+    title: 'Caption Generator – Auto-Generate Video Captions | VideoText',
+    description:
+      'Generate captions for any video online. AI-powered caption generator creates SRT or VTT files in seconds. Free tier, no signup. Perfect for YouTube, social media, and accessibility.',
+    h1: 'Caption Generator – Auto-Generate Video Captions',
+    intro:
+      'Generate captions for your video automatically. Upload any video file, and our AI creates accurate, timed SRT or VTT captions in seconds. Perfect for YouTube, TikTok, Instagram, and accessibility compliance. Free tier, no signup required.',
+    breadcrumbLabel: 'Caption Generator',
+    toolKey: 'video-to-subtitles',
+    relatedSlugs: ['/automatic-subtitles', '/subtitle-generator', '/closed-caption-generator'],
+    indexable: true,
+    intentKey: 'caption-generator',
+    faq: [
+      { q: 'What is a caption generator?', a: 'A caption generator transcribes speech in a video and creates timed caption files (SRT or VTT) automatically using AI. You upload a video and download ready-to-use captions.' },
+      { q: 'Is it free to generate captions?', a: 'Yes. Free tier is available with no signup required. Create an account for more minutes and features.' },
+      { q: 'What formats does the caption generator output?', a: 'SRT and VTT. SRT is supported by YouTube, Vimeo, and most platforms. VTT works with HTML5 web players.' },
+      { q: 'Can I burn the generated captions into the video?', a: 'Yes. After generating captions, use our Burn Subtitles tool to hardcode them permanently into the video.' },
+    ],
+  },
+  {
+    path: '/closed-caption-generator',
+    title: 'Closed Caption Generator – Create CC for Video | VideoText',
+    description:
+      'Generate closed captions for any video. Upload and get timed SRT or VTT files in seconds. AI-powered, free tier, no signup. Accessible captions for YouTube and web.',
+    h1: 'Closed Caption Generator – Accessible Captions Online',
+    intro:
+      'Create closed captions for any video — free and fast. Upload your video and our AI generates accurate, timed SRT or VTT caption files in seconds. Download and add them to YouTube, Vimeo, or any web player to make your content accessible to deaf and hard-of-hearing viewers. Free tier, no signup required.',
+    breadcrumbLabel: 'Closed Caption Generator',
+    toolKey: 'video-to-subtitles',
+    relatedSlugs: ['/caption-generator', '/automatic-subtitles', '/subtitles-vs-closed-captions'],
+    indexable: true,
+    intentKey: 'closed-caption-generator',
+    faq: [
+      { q: 'What are closed captions?', a: 'Closed captions are text overlays that viewers can turn on or off. They include speech, speaker labels, and non-speech audio cues, making video accessible to deaf and hard-of-hearing viewers.' },
+      { q: 'How do I create closed captions?', a: 'Upload your video here and download an SRT or VTT file. Upload the file to YouTube Studio or your video platform to add closed captions.' },
+      { q: 'Is the closed caption generator free?', a: 'Yes. Free tier is available with no signup required. Paid plans unlock more minutes and multi-language support.' },
+      { q: 'Which platforms accept closed caption files?', a: 'YouTube, Vimeo, Zoom, Facebook Video, Twitter, and most web players support SRT or VTT closed caption files.' },
+    ],
+  },
+  {
+    path: '/free-subtitle-generator',
+    title: 'Free Subtitle Generator – No Account Needed | VideoText',
+    description:
+      'Generate subtitles free online. Upload video and get accurate SRT or VTT subtitles in seconds. No account needed. AI-powered, fast, and supports 50+ languages.',
+    h1: 'Free Subtitle Generator – No Account Needed',
+    intro:
+      'Generate subtitles for free — no account needed. Upload any video and get accurate, timed SRT or VTT subtitle files in seconds. Our AI supports 50+ languages and produces captions ready for YouTube, TikTok, Instagram, and any web player. No credit card, no signup.',
+    breadcrumbLabel: 'Free Subtitle Generator',
+    toolKey: 'video-to-subtitles',
+    relatedSlugs: ['/subtitle-generator', '/automatic-subtitles', '/caption-generator'],
+    indexable: true,
+    intentKey: 'free-subtitle-generator',
+    faq: [
+      { q: 'Is the subtitle generator really free?', a: 'Yes. You get 60 minutes per month with no account required. No credit card needed to try.' },
+      { q: 'Do I need to sign up?', a: 'No. The free tier works without creating an account. Sign up when you want to track usage or unlock more minutes.' },
+      { q: 'What subtitle formats can I download for free?', a: 'SRT and VTT on the free tier. Both are supported by YouTube, Vimeo, and most video platforms.' },
+      { q: 'How many languages does the free tier support?', a: 'Single language per job on the free tier. Paid plans unlock multi-language subtitle output in one batch.' },
+    ],
+  },
+  {
+    path: '/video-to-srt',
+    title: 'Video to SRT – Generate SRT Subtitle Files Online | VideoText',
+    description:
+      'Convert video to SRT subtitle file online. Upload any video and download a timed SRT file in seconds. Free, AI-powered, no signup. Perfect for YouTube and video platforms.',
+    h1: 'Video to SRT – Generate SRT Subtitle Files',
+    intro:
+      'Generate an SRT subtitle file from any video in seconds. Upload your video, our AI transcribes the speech and creates a timed SRT file ready to upload to YouTube or any video platform. Free tier, no signup required.',
+    breadcrumbLabel: 'Video to SRT',
+    toolKey: 'video-to-subtitles',
+    relatedSlugs: ['/mp4-to-srt', '/srt-generator', '/automatic-subtitles'],
+    indexable: true,
+    intentKey: 'video-to-srt',
+    faq: [
+      { q: 'What is an SRT file?', a: 'SRT (SubRip Text) is a standard subtitle format containing text lines with start and end timestamps. It is supported by YouTube, Vimeo, VLC, and most video platforms.' },
+      { q: 'How do I create an SRT file from video?', a: 'Upload your video here, choose SRT format, and click Generate. You get a timed SRT file to download and use on any platform.' },
+      { q: 'Is this free?', a: 'Yes. Free tier available. No signup required.' },
+      { q: 'Can I also get VTT instead of SRT?', a: 'Yes. Choose SRT or VTT format before processing. Both are generated from the same upload.' },
+    ],
+  },
+  {
+    path: '/srt-generator',
+    title: 'SRT Generator – Create SRT Subtitle Files from Video | VideoText',
+    description:
+      'Generate SRT subtitle files from any video. Upload your video and get a timed SRT file in seconds. Free, AI-powered, supports 50+ languages. No signup required.',
+    h1: 'SRT Generator – Create SRT Files from Video',
+    intro:
+      'Generate SRT subtitle files from any video with one click. Upload your video, our AI transcribes the speech with accurate timestamps, and you download an SRT file ready for YouTube, Vimeo, or any platform. Free tier, no signup required, 50+ languages supported.',
+    breadcrumbLabel: 'SRT Generator',
+    toolKey: 'video-to-subtitles',
+    relatedSlugs: ['/video-to-srt', '/mp4-to-srt', '/subtitle-generator'],
+    indexable: true,
+    intentKey: 'srt-generator',
+    faq: [
+      { q: 'What is an SRT generator?', a: 'An SRT generator transcribes speech in a video and creates a properly timed SRT subtitle file automatically. You upload video and download captions.' },
+      { q: 'Does it support multiple languages?', a: 'Yes. Set the spoken language before processing for best accuracy. Paid plans output multiple languages in one batch.' },
+      { q: 'Is the SRT generator free?', a: 'Yes. Free tier is available with no signup required.' },
+      { q: 'How is SRT different from a plain text transcript?', a: 'SRT files have timestamps that sync text to the video. A transcript is plain text without timing. Use SRT for video platforms; use the transcript for notes or search.' },
+    ],
+  },
+  // ── Video translation variants ───────────────────────────────────────────────
+  {
+    path: '/translate-video',
+    title: 'Translate Video – Video Translation & Subtitles Online | VideoText',
+    description:
+      'Translate video to another language online. Transcribe and view translated transcript in Hindi, Spanish, Chinese, Russian, and more. Generate translated SRT/VTT subtitles. Free tier.',
+    h1: 'Translate Video Online',
+    intro:
+      'Translate your video to another language — free online. Upload a video, get a transcript, and translate it to English, Hindi, Telugu, Spanish, Chinese, or Russian with one click. Or generate SRT/VTT subtitles and translate the subtitle file to 50+ languages. No signup for the free tier.',
+    breadcrumbLabel: 'Translate Video',
+    toolKey: 'translate-subtitles',
+    relatedSlugs: ['/video-translation', '/subtitle-translator', '/multilingual-subtitles'],
+    indexable: true,
+    intentKey: 'translate-video',
+    faq: [
+      { q: 'How do I translate a video to another language?', a: 'Upload your video, transcribe it, then click Translate to view the transcript in another language. Or generate subtitles and use our Translate Subtitles tool for a translated SRT/VTT file.' },
+      { q: 'Which languages can I translate video to?', a: 'Transcript translation: English, Hindi, Telugu, Spanish, Chinese, Russian. Subtitle translation: Arabic, Hindi, Spanish, French, German, Chinese, Japanese, and 50+ more.' },
+      { q: 'Is video translation free?', a: 'Yes. Free tier is available, no signup required. Paid plans unlock more minutes and multi-language subtitle output.' },
+      { q: 'Does video translation burn subtitles into the video?', a: 'It creates translated subtitle files (SRT/VTT). Use our Burn Subtitles tool to burn them into the video permanently.' },
+    ],
+  },
+  {
+    path: '/video-translation',
+    title: 'Video Translation – Translate Video Content Online | VideoText',
+    description:
+      'Translate video content to 50+ languages. Transcribe video and view translated transcript in Hindi, Spanish, Chinese, Russian, or English. Export translated SRT/VTT subtitles. Free tier.',
+    h1: 'Video Translation Online',
+    intro:
+      'Translate video content to any language online. Upload your video, get an accurate transcript, then translate it to English, Hindi, Telugu, Spanish, Chinese, or Russian. For subtitle translation, generate SRT or VTT and translate to 50+ languages. Export and burn into the video for multilingual content. Free tier, no signup.',
+    breadcrumbLabel: 'Video Translation',
+    toolKey: 'translate-subtitles',
+    relatedSlugs: ['/translate-video', '/subtitle-translator', '/multilingual-subtitles'],
+    indexable: true,
+    intentKey: 'video-translation',
+    faq: [
+      { q: 'What is video translation?', a: 'Video translation converts your video content into another language as text (transcript) or timed captions (SRT/VTT) that can be burned into the video or uploaded to a platform.' },
+      { q: 'What languages are supported for video translation?', a: 'Transcript view: 6 languages (English, Hindi, Telugu, Spanish, Chinese, Russian). Subtitle file translation: 50+ languages via Translate Subtitles.' },
+      { q: 'Is video translation free?', a: 'Yes. Free tier is available with no signup required.' },
+      { q: 'How do I get translated captions on my video?', a: 'Generate subtitles, translate the SRT/VTT file, then use Burn Subtitles to hardcode the translated captions into the video.' },
     ],
   },
 ]
