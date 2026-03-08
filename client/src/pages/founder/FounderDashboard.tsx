@@ -16,6 +16,8 @@ import FailureBreakdown from './FailureBreakdown'
 import AlertConfig from './AlertConfig'
 import SupportPanel from './SupportPanel'
 import DigestConfig from './DigestConfig'
+import LogViewer from './LogViewer'
+import PerToolMetrics from './PerToolMetrics'
 
 const PLAN_COLORS: Record<string, string> = {
   free: 'text-zinc-400',
@@ -189,6 +191,15 @@ export default function FounderDashboard() {
               <JobsByTool data={data.usage?.jobsByToolType ?? []} />
             </div>
           </div>
+          <div className="mt-4">
+            <PerToolMetrics toolPerf={data.toolPerf ?? []} />
+          </div>
+        </section>
+
+        {/* Logs */}
+        <section>
+          <SectionTitle id="logs">Logs</SectionTitle>
+          <LogViewer />
         </section>
 
         {/* Revenue */}

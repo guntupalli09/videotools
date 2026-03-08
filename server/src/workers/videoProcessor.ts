@@ -45,6 +45,7 @@ import {
 } from '../lib/jobAnalytics'
 import { withJobContext, getLogger } from '../lib/logger'
 import { initSentry, captureJobError } from '../lib/sentry'
+import { pushLogEntry } from '../lib/logRing'
 
 const workerLog = getLogger('worker')
 
@@ -1224,6 +1225,7 @@ async function processJob(job: import('bull').Job<JobData>) {
     }
     // Success: return value is persisted by Bull as job.returnvalue; job state becomes "completed"
     log.info({ msg: 'job_completed' })
+    pushLogEntry({ ts: new Date().toISOString(), level: 'info', service: 'worker', msg: `job completed: ${data.toolType} in ${(totalJobMs / 1000).toFixed(1)}s`, jobId: String(jobId) })
     return result
   } catch (err: any) {
     clearInterval(interval)
@@ -1244,6 +1246,7 @@ async function processJob(job: import('bull').Job<JobData>) {
     }
     // Failure: rethrow so Bull marks job as "failed" and stores error; no job can exit without terminal state
     log.error({ err, msg: 'job_failed', error_message: err?.message ?? String(err) })
+    pushLogEntry({ ts: new Date().toISOString(), level: 'error', service: 'worker', msg: `job failed: ${data.toolType} — ${err?.message ?? String(err)}`, jobId: String(jobId), extra: err?.stack?.slice(0, 200) })
     throw err
   }
 }

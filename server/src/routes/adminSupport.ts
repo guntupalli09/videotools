@@ -9,6 +9,7 @@ import { getUser, getUserByEmail, saveUser } from '../models/User'
 import { getPlanLimits } from '../utils/limits'
 import { prisma } from '../db'
 import { fileQueue } from '../workers/videoProcessor'
+import { pushLogEntry } from '../lib/logRing'
 import type { PlanType } from '../models/User'
 
 const router = express.Router()
@@ -34,8 +35,8 @@ const ALERT_COOLDOWN_MS = 60 * 60 * 1000 // 1 hour between same-type alerts
 const DIGEST_LAST_SENT_KEY = 'videotext:digest:lastSent'
 
 interface AlertConfig {
-  enabled: { failureRate: boolean; workerStale: boolean; mrrDrop: boolean }
-  thresholds: { failureRatePct: number; workerStaleMinutes: number; mrrDropPct: number }
+  enabled: { failureRate: boolean; workerStale: boolean; mrrDrop: boolean; redisDown: boolean; dbDown: boolean; queueBacklog: boolean; stuckJobs: boolean }
+  thresholds: { failureRatePct: number; workerStaleMinutes: number; mrrDropPct: number; queueBacklogCount: number; stuckJobMinutes: number }
   alertEmail: string
   digestEnabled: boolean
   digestHourUtc: number // 0-23
@@ -49,8 +50,8 @@ interface AlertLogEntry {
 }
 
 const DEFAULT_CONFIG: AlertConfig = {
-  enabled: { failureRate: true, workerStale: true, mrrDrop: true },
-  thresholds: { failureRatePct: 5, workerStaleMinutes: 5, mrrDropPct: 10 },
+  enabled: { failureRate: true, workerStale: true, mrrDrop: true, redisDown: true, dbDown: true, queueBacklog: true, stuckJobs: true },
+  thresholds: { failureRatePct: 5, workerStaleMinutes: 5, mrrDropPct: 10, queueBacklogCount: 100, stuckJobMinutes: 10 },
   alertEmail: process.env.FOUNDER_ALERT_EMAIL || '',
   digestEnabled: true,
   digestHourUtc: 8,
@@ -79,6 +80,8 @@ async function appendAlertLog(entry: AlertLogEntry): Promise<void> {
   const log = await getAlertLog()
   log.unshift(entry)
   await fileQueue.client.set(ALERTS_LOG_KEY, JSON.stringify(log.slice(0, 30)))
+  // Mirror to the log ring so the Command Centre log viewer shows alerts too
+  pushLogEntry({ ts: entry.triggeredAt, level: 'warn', service: 'api', msg: `[ALERT:${entry.type}] ${entry.message}`, extra: entry.value })
 }
 
 async function isCoolingDown(type: string): Promise<boolean> {
@@ -107,6 +110,99 @@ async function sendEmail(to: string, subject: string, html: string): Promise<voi
   if (!res.ok) console.error('[alert-email] Resend error', res.status, await res.text())
 }
 
+// ── Fix-instruction snippets per alert type ───────────────────────────────────
+
+function fixInstructions(type: string, extra?: string): string {
+  const base = `<div style="margin-top:16px;background:#1a1a2e;border-radius:6px;padding:14px;font-family:monospace;font-size:12px;color:#a0aec0">`
+  const end = `</div>`
+  const cmd = (s: string) => `<div style="color:#68d391;margin:3px 0">${s}</div>`
+  const note = (s: string) => `<div style="color:#718096;margin:3px 0">${s}</div>`
+
+  if (type === 'redisDown') return `${base}
+    ${note('# SSH into your server, then:')}
+    ${cmd('docker compose ps')}
+    ${cmd('docker compose restart redis')}
+    ${note('# Wait 10s, then verify:')}
+    ${cmd('docker compose exec redis redis-cli ping')}
+    ${note('# If still failing, check logs:')}
+    ${cmd('docker compose logs --tail=50 redis')}
+  ${end}`
+
+  if (type === 'dbDown') return `${base}
+    ${note('# SSH into your server, then:')}
+    ${cmd('docker compose ps')}
+    ${cmd('docker compose restart postgres')}
+    ${note('# Wait 15s, then verify:')}
+    ${cmd('docker compose exec postgres pg_isready -U videotools -d videotext')}
+    ${note('# Check disk space (a common cause):')}
+    ${cmd('df -h')}
+    ${note('# Check logs if still failing:')}
+    ${cmd('docker compose logs --tail=50 postgres')}
+  ${end}`
+
+  if (type === 'workerStale') return `${base}
+    ${note('# Worker container likely crashed. Restart it:')}
+    ${cmd('docker compose restart worker')}
+    ${note('# Verify it is running:')}
+    ${cmd('docker compose ps worker')}
+    ${note('# Watch live logs for errors:')}
+    ${cmd('docker compose logs -f --tail=30 worker')}
+    ${extra ? `${note('# Stale duration: ' + extra)}` : ''}
+  ${end}`
+
+  if (type === 'failureRate') return `${base}
+    ${note('# Check recent failure reasons in Command Centre → Server Health.')}
+    ${note('# View failing job logs:')}
+    ${cmd('docker compose logs -f --tail=100 worker | grep -i "error\\|failed"')}
+    ${note('# Common causes: OpenAI API key expired, disk full, ffmpeg crash.')}
+    ${note('# Check disk space:')}
+    ${cmd('df -h && du -sh /tmp/*')}
+    ${extra ? `${note('# Current rate: ' + extra)}` : ''}
+  ${end}`
+
+  if (type === 'queueBacklog') return `${base}
+    ${note('# Queue is backed up. Options:')}
+    ${note('# 1. Scale up workers (add another worker container):')}
+    ${cmd('docker compose up -d --scale worker=2')}
+    ${note('# 2. Restart worker if it appears stuck:')}
+    ${cmd('docker compose restart worker')}
+    ${note('# 3. Clear failed jobs from Bull queue (removes failed only):')}
+    ${cmd('docker compose exec api node -e "require(\'./dist/workers/videoProcessor\').fileQueue.clean(0, \'failed\')"')}
+    ${extra ? `${note('# Queue depth: ' + extra)}` : ''}
+  ${end}`
+
+  if (type === 'stuckJobs') return `${base}
+    ${note('# Jobs in "queued" state not being picked up. Worker may be stuck.')}
+    ${cmd('docker compose restart worker')}
+    ${note('# Check if worker is connected to Redis:')}
+    ${cmd('docker compose logs --tail=30 worker')}
+    ${note('# If Redis restarted, worker loses connection — restart fixes it.')}
+    ${extra ? `${note('# ' + extra)}` : ''}
+  ${end}`
+
+  if (type === 'mrrDrop') return `${base}
+    ${note('# Check Stripe dashboard for recent cancellations or failed payments.')}
+    ${note('# View plan distribution in Command Centre → Revenue.')}
+    ${note('# Verify Stripe webhook is receiving events:')}
+    ${cmd('curl https://videotext.io/readyz')}
+    ${extra ? `${note('# Drop: ' + extra)}` : ''}
+  ${end}`
+
+  return ''
+}
+
+function alertHtml(emoji: string, title: string, body: string, fixHtml: string): string {
+  return `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#111;background:#fff">
+      <h2 style="margin:0 0 8px;font-size:18px">${emoji} ${title}</h2>
+      <p style="margin:0 0 12px;color:#555;font-size:14px">${body}</p>
+      <p style="margin:0 0 4px;font-size:13px;font-weight:600;color:#111">How to fix it:</p>
+      ${fixHtml}
+      <p style="margin:20px 0 0;font-size:12px"><a href="https://videotext.io/founder" style="color:#7c3aed;text-decoration:none">Open Command Centre →</a></p>
+    </div>
+  `
+}
+
 // ── Alert checker (exported for scheduling in index.ts) ────────────────────────
 
 export async function runAlertChecks(): Promise<void> {
@@ -114,7 +210,92 @@ export async function runAlertChecks(): Promise<void> {
     const config = await getAlertConfig()
     if (!config.alertEmail) return
 
-    // 1. Failure rate
+    // 1. Redis down
+    if (config.enabled.redisDown && !(await isCoolingDown('redisDown'))) {
+      let redisOk = true
+      try { await fileQueue.client.ping() } catch { redisOk = false }
+      if (!redisOk) {
+        await sendEmail(
+          config.alertEmail,
+          '🔴 VideoText: Redis is DOWN',
+          alertHtml('🔴', 'Redis is unreachable', 'The Redis server is not responding. All job processing is stopped and users cannot submit new jobs.', fixInstructions('redisDown')),
+        )
+        await setCooldown('redisDown')
+        await appendAlertLog({ type: 'redisDown', triggeredAt: new Date().toISOString(), value: 'unreachable', message: 'Redis did not respond to ping' })
+      }
+    }
+
+    // 2. Database down
+    if (config.enabled.dbDown && !(await isCoolingDown('dbDown'))) {
+      let dbOk = true
+      try { await prisma.$queryRaw`SELECT 1` } catch { dbOk = false }
+      if (!dbOk) {
+        await sendEmail(
+          config.alertEmail,
+          '🔴 VideoText: Database is DOWN',
+          alertHtml('🔴', 'PostgreSQL is unreachable', 'The database server is not responding. Users cannot sign in, create jobs, or see results.', fixInstructions('dbDown')),
+        )
+        await setCooldown('dbDown')
+        await appendAlertLog({ type: 'dbDown', triggeredAt: new Date().toISOString(), value: 'unreachable', message: 'Prisma SELECT 1 failed' })
+      }
+    }
+
+    // 3. Worker stale
+    if (config.enabled.workerStale && !(await isCoolingDown('workerStale'))) {
+      try {
+        const ts = await fileQueue.client.get('videotext:worker:heartbeat')
+        if (ts) {
+          const ageMs = Date.now() - parseInt(ts, 10)
+          if (ageMs > config.thresholds.workerStaleMinutes * 60 * 1000) {
+            const ageMins = (ageMs / 60000).toFixed(1)
+            await sendEmail(
+              config.alertEmail,
+              `🔴 VideoText: Worker offline (${ageMins} min)`,
+              alertHtml('🔴', `Worker has not heartbeated in ${ageMins} minutes`, `Threshold is ${config.thresholds.workerStaleMinutes} minutes. Jobs are stuck in the queue and not being processed.`, fixInstructions('workerStale', `${ageMins} minutes since last heartbeat`)),
+            )
+            await setCooldown('workerStale')
+            await appendAlertLog({ type: 'workerStale', triggeredAt: new Date().toISOString(), value: `${ageMins}min stale`, message: `Worker stale for ${ageMins} minutes` })
+          }
+        }
+      } catch { /* Redis may be down — already handled above */ }
+    }
+
+    // 4. Queue backlog
+    if (config.enabled.queueBacklog && !(await isCoolingDown('queueBacklog'))) {
+      try {
+        const [nc, pc] = await Promise.all([fileQueue.getJobCounts(), priorityQueue.getJobCounts()])
+        const waiting = (nc.waiting ?? 0) + (pc.waiting ?? 0)
+        if (waiting >= (config.thresholds.queueBacklogCount ?? 100)) {
+          await sendEmail(
+            config.alertEmail,
+            `⚠️ VideoText: Queue backlog (${waiting} jobs waiting)`,
+            alertHtml('⚠️', `${waiting} jobs are waiting in the queue`, `The queue threshold is ${config.thresholds.queueBacklogCount}. The worker may be stuck or underpowered for current load.`, fixInstructions('queueBacklog', `${waiting} jobs waiting`)),
+          )
+          await setCooldown('queueBacklog')
+          await appendAlertLog({ type: 'queueBacklog', triggeredAt: new Date().toISOString(), value: `${waiting} waiting`, message: `Queue backlog: ${waiting} jobs waiting` })
+        }
+      } catch { /* ignore queue errors */ }
+    }
+
+    // 5. Stuck jobs (queued >N minutes, never started)
+    if (config.enabled.stuckJobs && !(await isCoolingDown('stuckJobs'))) {
+      const stuckThresholdMs = (config.thresholds.stuckJobMinutes ?? 10) * 60 * 1000
+      const stuckSince = new Date(Date.now() - stuckThresholdMs)
+      const stuckCount = await prisma.job.count({
+        where: { status: 'queued', createdAt: { lt: stuckSince }, startedAt: null },
+      })
+      if (stuckCount > 0) {
+        await sendEmail(
+          config.alertEmail,
+          `⚠️ VideoText: ${stuckCount} stuck job(s)`,
+          alertHtml('⚠️', `${stuckCount} job(s) have been queued for over ${config.thresholds.stuckJobMinutes} minutes without starting`, 'These jobs are in the queue but the worker has not picked them up. The worker container may have crashed or lost its Redis connection.', fixInstructions('stuckJobs', `${stuckCount} jobs queued >${config.thresholds.stuckJobMinutes} min`)),
+        )
+        await setCooldown('stuckJobs')
+        await appendAlertLog({ type: 'stuckJobs', triggeredAt: new Date().toISOString(), value: `${stuckCount} stuck`, message: `${stuckCount} jobs stuck in queue for >${config.thresholds.stuckJobMinutes} min` })
+      }
+    }
+
+    // 6. Failure rate (30d)
     if (config.enabled.failureRate && !(await isCoolingDown('failureRate'))) {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
       const rows = await prisma.$queryRaw<[{ failureRate: number }]>`
@@ -129,32 +310,14 @@ export async function runAlertChecks(): Promise<void> {
         await sendEmail(
           config.alertEmail,
           `⚠️ VideoText: Failure rate ${pct}%`,
-          `<p>Job failure rate is <strong>${pct}%</strong> (threshold: ${config.thresholds.failureRatePct}%). Check the <a href="https://videotext.io/founder">Command Centre</a>.</p>`,
+          alertHtml('⚠️', `Job failure rate is ${pct}%`, `Threshold is ${config.thresholds.failureRatePct}%. Check the failure reasons panel in the Command Centre to identify the root cause.`, fixInstructions('failureRate', `${pct}% failure rate (30d)`)),
         )
         await setCooldown('failureRate')
         await appendAlertLog({ type: 'failureRate', triggeredAt: new Date().toISOString(), value: `${pct}%`, message: `Failure rate exceeded ${config.thresholds.failureRatePct}%` })
       }
     }
 
-    // 2. Worker stale
-    if (config.enabled.workerStale && !(await isCoolingDown('workerStale'))) {
-      const ts = await fileQueue.client.get('videotext:worker:heartbeat')
-      if (ts) {
-        const ageMs = Date.now() - parseInt(ts, 10)
-        if (ageMs > config.thresholds.workerStaleMinutes * 60 * 1000) {
-          const ageMins = (ageMs / 60000).toFixed(1)
-          await sendEmail(
-            config.alertEmail,
-            `🔴 VideoText: Worker stale (${ageMins} min)`,
-            `<p>Processing worker has not heartbeated in <strong>${ageMins} minutes</strong> (threshold: ${config.thresholds.workerStaleMinutes} min). <a href="https://videotext.io/founder">Check infra.</a></p>`,
-          )
-          await setCooldown('workerStale')
-          await appendAlertLog({ type: 'workerStale', triggeredAt: new Date().toISOString(), value: `${ageMins}min stale`, message: `Worker stale for ${ageMins} minutes` })
-        }
-      }
-    }
-
-    // 3. MRR drop vs 7-day average
+    // 7. MRR drop vs 7-day average
     if (config.enabled.mrrDrop && !(await isCoolingDown('mrrDrop'))) {
       const rows = await prisma.$queryRaw<{ mrrCents: number }[]>`
         SELECT "mrrCents" FROM "DailyMetrics" ORDER BY date DESC LIMIT 8
@@ -168,7 +331,7 @@ export async function runAlertChecks(): Promise<void> {
             await sendEmail(
               config.alertEmail,
               `📉 VideoText: MRR dropped ${dropPct.toFixed(1)}%`,
-              `<p>MRR dropped from <strong>$${(prev / 100).toFixed(0)}</strong> to <strong>$${(today / 100).toFixed(0)}</strong> (${dropPct.toFixed(1)}% drop). <a href="https://videotext.io/founder">View revenue.</a></p>`,
+              alertHtml('📉', `MRR dropped ${dropPct.toFixed(1)}%`, `MRR went from <strong>$${(prev / 100).toFixed(0)}</strong> to <strong>$${(today / 100).toFixed(0)}</strong>. Check for recent cancellations or failed renewal payments.`, fixInstructions('mrrDrop', `-${dropPct.toFixed(1)}% vs 7 days ago`)),
             )
             await setCooldown('mrrDrop')
             await appendAlertLog({ type: 'mrrDrop', triggeredAt: new Date().toISOString(), value: `-${dropPct.toFixed(1)}%`, message: `MRR dropped ${dropPct.toFixed(1)}% vs 7 days ago` })
