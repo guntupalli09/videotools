@@ -8,7 +8,7 @@ import { getAuthFromRequest, signAuthToken } from '../utils/auth'
 import { getUser, getUserByEmail, saveUser } from '../models/User'
 import { getPlanLimits } from '../utils/limits'
 import { prisma } from '../db'
-import { fileQueue } from '../workers/videoProcessor'
+import { fileQueue, priorityQueue } from '../workers/videoProcessor'
 import { pushLogEntry } from '../lib/logRing'
 import type { PlanType } from '../models/User'
 
