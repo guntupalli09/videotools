@@ -1,6 +1,7 @@
 import crypto from 'crypto'
 import express, { Request, Response } from 'express'
 import bcrypt from 'bcryptjs'
+import Redis from 'ioredis'
 import { getUserByEmail, getUserByPasswordToken, getUserByPasswordResetToken, saveUser } from '../models/User'
 import type { User } from '../models/User'
 import { signAuthToken, signEmailVerificationToken, verifyEmailVerificationToken, generatePasswordResetToken } from '../utils/auth'
@@ -9,10 +10,34 @@ import { getPlanLimits } from '../utils/limits'
 
 const router = express.Router()
 
-// OTP store: email (lowercase) -> { code, expiresAt }
-const otpStore = new Map<string, { code: string; expiresAt: Date }>()
-const OTP_EXPIRY_MS = 10 * 60 * 1000 // 10 minutes
+// OTP store: Redis-backed so OTPs survive server restarts and work across multiple instances
+const OTP_EXPIRY_SECONDS = 10 * 60 // 10 minutes
 const OTP_LENGTH = 6
+
+const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379'
+const otpRedis = new Redis(redisUrl, {
+  ...(redisUrl.startsWith('rediss://') ? { tls: {} } : {}),
+  enableReadyCheck: false,
+  maxRetriesPerRequest: 3,
+  connectTimeout: 5000,
+  commandTimeout: 5000,
+  lazyConnect: true,
+})
+otpRedis.on('error', (err) => console.error('[OTP Redis] connection error:', err.message))
+
+function otpKey(email: string): string { return `otp:${email}` }
+
+async function storeOTP(email: string, code: string): Promise<void> {
+  await otpRedis.set(otpKey(email), code, 'EX', OTP_EXPIRY_SECONDS)
+}
+
+async function getOTP(email: string): Promise<string | null> {
+  return otpRedis.get(otpKey(email))
+}
+
+async function deleteOTP(email: string): Promise<void> {
+  await otpRedis.del(otpKey(email))
+}
 
 function generateOTP(): string {
   let code = ''
@@ -42,6 +67,7 @@ async function sendOTPEmail(email: string, code: string): Promise<void> {
         subject: 'Your VideoText verification code',
         text: `Your verification code is: ${code}. It expires in 10 minutes.`,
       }),
+      signal: AbortSignal.timeout(8000),
     })
     const body = await res.text()
     if (!res.ok) {
@@ -76,6 +102,7 @@ async function sendPasswordResetEmail(email: string, resetLink: string): Promise
         subject: 'Reset your VideoText password',
         text: `You requested a password reset. Click the link below to set a new password (valid for 1 hour):\n\n${resetLink}\n\nIf you didn't request this, you can ignore this email.`,
       }),
+      signal: AbortSignal.timeout(8000),
     })
     const body = await res.text()
     if (!res.ok) {
@@ -105,7 +132,7 @@ router.post('/send-otp', async (req: Request, res: Response) => {
     console.log('[OTP] send-otp called for', normalized, '| RESEND_API_KEY set:', hasResendKey)
 
     const code = generateOTP()
-    otpStore.set(normalized, { code, expiresAt: new Date(Date.now() + OTP_EXPIRY_MS) })
+    await storeOTP(normalized, code)
     await sendOTPEmail(normalized, code)
     res.json({ ok: true, message: 'Verification code sent.' })
   } catch (error: any) {
@@ -123,18 +150,14 @@ router.post('/verify-otp', async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Email and verification code are required.' })
     }
 
-    const stored = otpStore.get(normalized)
-    if (!stored) {
+    const storedCode = await getOTP(normalized)
+    if (!storedCode) {
       return res.status(400).json({ message: 'Invalid or expired code. Request a new one.' })
     }
-    if (stored.expiresAt < new Date()) {
-      otpStore.delete(normalized)
-      return res.status(400).json({ message: 'Code expired. Request a new one.' })
-    }
-    if (stored.code !== enteredCode) {
+    if (storedCode !== enteredCode) {
       return res.status(400).json({ message: 'Invalid code.' })
     }
-    otpStore.delete(normalized)
+    await deleteOTP(normalized)
     const token = signEmailVerificationToken(normalized)
     res.json({ ok: true, token, email: normalized })
   } catch (error: any) {
@@ -180,7 +203,7 @@ router.post('/setup-password', async (req: Request, res: Response) => {
     user.passwordSetupToken = undefined
     user.passwordSetupExpiresAt = undefined
     user.updatedAt = new Date()
-    saveUser(user)
+    await saveUser(user)
 
     const jwt = signAuthToken(user)
     return res.json({ token: jwt })

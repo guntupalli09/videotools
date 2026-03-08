@@ -1,32 +1,27 @@
-export interface StripeEventLogEntry {
-  id: string
-  type: string
-  created: number
-  processedAt: Date
+/**
+ * Stripe webhook idempotency — persisted to Postgres so duplicate events are
+ * safely rejected even across server restarts and horizontal scaling.
+ */
+import { prisma } from '../db'
+
+export async function hasProcessedStripeEvent(eventId: string): Promise<boolean> {
+  const row = await prisma.stripeEventLog.findUnique({ where: { eventId } })
+  return row !== null
 }
 
-const processedEvents = new Map<string, StripeEventLogEntry>()
-
-export function hasProcessedStripeEvent(eventId: string): boolean {
-  return processedEvents.has(eventId)
-}
-
-export function markStripeEventProcessed(event: {
+export async function markStripeEventProcessed(event: {
   id: string
   type: string
-  created: number
-}): void {
-  if (processedEvents.has(event.id)) return
-
-  processedEvents.set(event.id, {
-    id: event.id,
-    type: event.type,
-    created: event.created,
-    processedAt: new Date(),
+}): Promise<void> {
+  await prisma.stripeEventLog.upsert({
+    where: { eventId: event.id },
+    create: { eventId: event.id, eventType: event.type },
+    update: {},
   })
 }
 
-export function getProcessedStripeEvents(): StripeEventLogEntry[] {
-  return Array.from(processedEvents.values())
+/** Purge event log entries older than 30 days (called from nightly maintenance). */
+export async function purgeOldStripeEvents(): Promise<void> {
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+  await prisma.stripeEventLog.deleteMany({ where: { processedAt: { lt: cutoff } } })
 }
-

@@ -4,15 +4,27 @@ import path from 'path'
 const tempDir =
   process.env.TEMP_FILE_PATH ||
   (process.platform === 'win32' ? path.join(process.cwd(), 'temp') : '/tmp')
-const CLEANUP_INTERVAL = 60 * 60 * 1000 // 1 hour
-const FILE_MAX_AGE = 60 * 60 * 1000 // 1 hour
+
+const CLEANUP_INTERVAL = 15 * 60 * 1000  // 15 minutes
+const FILE_MAX_AGE = 60 * 60 * 1000       // 1 hour (normal)
+const EMERGENCY_AGE_MS = 15 * 60 * 1000   // 15 minutes (disk pressure)
+const DISK_EMERGENCY_THRESHOLD = 0.80     // 80% full triggers emergency mode
 
 export function startFileCleanup() {
-  // Run cleanup immediately
   cleanupFiles()
-
-  // Then run every hour
   setInterval(cleanupFiles, CLEANUP_INTERVAL)
+}
+
+function getDiskUsageRatio(): number {
+  try {
+    const stat = fs.statfsSync(tempDir)
+    const total = stat.blocks * stat.bsize
+    if (total === 0) return 0
+    const used = (stat.blocks - stat.bfree) * stat.bsize
+    return used / total
+  } catch {
+    return 0
+  }
 }
 
 function cleanupFiles() {
@@ -20,33 +32,37 @@ function cleanupFiles() {
     return
   }
 
+  const diskRatio = getDiskUsageRatio()
+  const emergency = diskRatio >= DISK_EMERGENCY_THRESHOLD
+  const maxAge = emergency ? EMERGENCY_AGE_MS : FILE_MAX_AGE
+
+  if (emergency) {
+    console.warn(`[FileCleanup] Disk usage at ${Math.round(diskRatio * 100)}% — emergency mode, deleting files older than ${maxAge / 60000} min`)
+  }
+
   const files = fs.readdirSync(tempDir)
   const now = Date.now()
   let deletedCount = 0
+  let deletedBytes = 0
 
   files.forEach((file) => {
     const filePath = path.join(tempDir, file)
     try {
       const stats = fs.lstatSync(filePath)
-      if (stats.isSymbolicLink()) {
-        return
-      }
-      if (!stats.isFile()) {
-        return
-      }
+      if (stats.isSymbolicLink() || !stats.isFile()) return
       const age = now - stats.mtimeMs
-
-      if (age > FILE_MAX_AGE) {
+      if (age > maxAge) {
         fs.unlinkSync(filePath)
         deletedCount++
-        console.log(`Deleted old file: ${file}`)
+        deletedBytes += stats.size
       }
     } catch (error) {
-      console.error(`Error cleaning up file ${file}:`, error)
+      console.error(`[FileCleanup] Error cleaning up file ${file}:`, error)
     }
   })
 
   if (deletedCount > 0) {
-    console.log(`File cleanup: Deleted ${deletedCount} file(s)`)
+    const mb = (deletedBytes / 1024 / 1024).toFixed(1)
+    console.log(`[FileCleanup] Deleted ${deletedCount} file(s), freed ${mb} MB`)
   }
 }

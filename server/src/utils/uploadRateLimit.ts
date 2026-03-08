@@ -1,8 +1,12 @@
 /**
- * Phase 2.5: Max N uploads per minute per user (includes retries + URL imports).
- * Call checkAndRecordUpload(userId) at start of upload/batch/URL-import; returns false if over limit.
- * In dev, UPLOAD_RATE_LIMIT_PER_MIN can increase the limit (e.g. 10) so retries don't block.
+ * Per-user upload rate limit — Redis-backed so the limit survives server
+ * restarts and works correctly across multiple server instances.
+ *
+ * Uses a Redis sorted-set per userId. Each upload is recorded as a member
+ * with score = epoch-ms. Old members outside the window are pruned atomically.
  */
+import Redis from 'ioredis'
+
 const WINDOW_MS = 60 * 1000
 const MAX_UPLOADS_PER_WINDOW =
   typeof process.env.UPLOAD_RATE_LIMIT_PER_MIN !== 'undefined'
@@ -11,22 +15,42 @@ const MAX_UPLOADS_PER_WINDOW =
       ? 3
       : 10
 
-const timestampsByUser = new Map<string, number[]>()
+const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379'
+const rlRedis = new Redis(redisUrl, {
+  ...(redisUrl.startsWith('rediss://') ? { tls: {} } : {}),
+  enableReadyCheck: false,
+  maxRetriesPerRequest: 2,
+  connectTimeout: 5000,
+  commandTimeout: 3000,
+  lazyConnect: true,
+})
+rlRedis.on('error', (err) => console.error('[RateLimit Redis] connection error:', err.message))
 
-function prune(userId: string): void {
+function rlKey(userId: string): string { return `upload_rl:${userId}` }
+
+/**
+ * Returns true if upload is allowed and records the attempt.
+ * Returns false if the user has exceeded MAX_UPLOADS_PER_WINDOW in the last minute.
+ * Fails open if Redis is unavailable so an outage doesn't block all uploads.
+ */
+export async function checkAndRecordUpload(userId: string): Promise<boolean> {
   const now = Date.now()
-  const list = timestampsByUser.get(userId) || []
-  const kept = list.filter((t) => now - t < WINDOW_MS)
-  if (kept.length === 0) timestampsByUser.delete(userId)
-  else timestampsByUser.set(userId, kept)
-}
+  const windowStart = now - WINDOW_MS
+  const key = rlKey(userId)
 
-/** Returns true if upload is allowed and records the attempt. Returns false if over limit (caller should return 429). */
-export function checkAndRecordUpload(userId: string): boolean {
-  prune(userId)
-  const list = timestampsByUser.get(userId) || []
-  if (list.length >= MAX_UPLOADS_PER_WINDOW) return false
-  list.push(Date.now())
-  timestampsByUser.set(userId, list)
-  return true
+  try {
+    const pipeline = rlRedis.pipeline()
+    pipeline.zremrangebyscore(key, '-inf', windowStart) // prune old entries
+    pipeline.zcard(key)                                  // count remaining
+    pipeline.zadd(key, now, `${now}-${Math.random()}`)  // record this attempt
+    pipeline.pexpire(key, WINDOW_MS * 2)                // auto-expire key
+
+    const results = await pipeline.exec()
+    const countBeforeAdd = (results?.[1]?.[1] as number) ?? 0
+    return countBeforeAdd < MAX_UPLOADS_PER_WINDOW
+  } catch (err) {
+    // Redis unavailable — fail-open to avoid blocking all uploads
+    console.warn('[RateLimit] Redis error, failing open:', (err as Error).message)
+    return true
+  }
 }

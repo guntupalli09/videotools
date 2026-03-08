@@ -219,7 +219,7 @@ async function handleInvoicePaymentSucceeded(event: Stripe.Event): Promise<void>
   user.overagesThisMonth.totalCharge = 0
 
   user.updatedAt = new Date()
-  saveUser(user)
+  await saveUser(user)
 
   try {
     const plan = activePlan ?? user.plan
@@ -315,8 +315,8 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
     return res.status(400).send(`Webhook Error: ${err.message}`)
   }
 
-  // Idempotency: skip if already processed
-  if (hasProcessedStripeEvent(event.id)) {
+  // Idempotency: skip if already processed (Postgres-backed, survives restarts)
+  if (await hasProcessedStripeEvent(event.id)) {
     return res.json({ received: true, duplicate: true })
   }
 
@@ -336,7 +336,7 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
         break
     }
 
-    markStripeEventProcessed(event)
+    await markStripeEventProcessed(event)
     return res.json({ received: true })
   } catch (error: any) {
     console.error('Error handling Stripe webhook event:', event.type, error)

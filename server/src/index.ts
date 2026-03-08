@@ -16,7 +16,7 @@ import billingRoutes from './routes/billing'
 import authRoutes from './routes/auth'
 import translateTranscriptRoutes from './routes/translateTranscript'
 import { stripeWebhookHandler } from './routes/stripeWebhook'
-import { startWorker, getTotalQueueCount } from './workers/videoProcessor'
+import { startWorker, getTotalQueueCount, fileQueue, priorityQueue } from './workers/videoProcessor'
 import { startFileCleanup } from './utils/fileCleanup'
 import { apiKeyAuth } from './utils/apiKey'
 import { flushAnalytics } from './utils/analytics'
@@ -29,6 +29,30 @@ import adminSupportRoutes, { runAlertChecks, maybeSendDailyDigest } from './rout
 import { runRecompute } from './services/recomputeMetrics'
 
 const log = getLogger('api')
+
+// ── Startup validation ──────────────────────────────────────────────────────
+// Catch missing critical env vars before serving any traffic.
+if (process.env.NODE_ENV === 'production') {
+  const required = ['STRIPE_WEBHOOK_SECRET', 'STRIPE_SECRET_KEY', 'DATABASE_URL', 'REDIS_URL', 'JWT_SECRET']
+  const missing = required.filter((k) => !process.env[k]?.trim())
+  if (missing.length > 0) {
+    console.error(`[startup] Missing required environment variables: ${missing.join(', ')}`)
+    process.exit(1)
+  }
+}
+
+// ── Global error safety nets ─────────────────────────────────────────────────
+process.on('unhandledRejection', (reason) => {
+  log.error({ msg: 'unhandledRejection — uncaught promise error', reason: String(reason) })
+  // Do not exit: let the process continue serving requests
+})
+
+process.on('uncaughtException', (err) => {
+  log.error({ msg: 'uncaughtException — unhandled synchronous throw', error: err.message, stack: err.stack })
+  // Exit: uncaught sync exceptions leave the process in an undefined state
+  process.exit(1)
+})
+
 const app = express()
 app.disable('etag')
 const PORT = process.env.PORT || 3001
@@ -278,21 +302,32 @@ server.on('error', (error: NodeJS.ErrnoException) => {
   }
 })
 
-// Handle process termination gracefully
-function shutdown() {
+// Handle process termination gracefully — close Bull queues before exiting so
+// in-progress jobs are not hard-killed without cleanup.
+async function shutdown() {
   flushAnalytics()
+  log.info({ msg: 'Shutdown: closing Bull queues…' })
+  await Promise.allSettled([
+    fileQueue?.close(),
+    priorityQueue?.close(),
+  ])
   server.close(() => {
     log.info({ msg: 'Server closed' })
     process.exit(0)
   })
+  // Force-exit after 15 s if connections don't drain
+  setTimeout(() => {
+    log.warn({ msg: 'Shutdown timeout — forcing exit' })
+    process.exit(1)
+  }, 15_000).unref()
 }
 
 process.on('SIGTERM', () => {
   log.info({ msg: 'SIGTERM received, shutting down gracefully' })
-  shutdown()
+  shutdown().catch((e) => { log.error({ msg: 'Shutdown error', error: String(e) }); process.exit(1) })
 })
 
 process.on('SIGINT', () => {
   log.info({ msg: 'SIGINT received, shutting down gracefully' })
-  shutdown()
+  shutdown().catch((e) => { log.error({ msg: 'Shutdown error', error: String(e) }); process.exit(1) })
 })
