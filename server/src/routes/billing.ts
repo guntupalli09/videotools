@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express'
 import { stripe, getStripePriceConfig, BillingPlan, findStripeCustomerIdByEmail } from '../services/stripe'
-import { getUser, getUserByStripeCustomerId, saveUser } from '../models/User'
+import { getUser, getUserByStripeCustomerId, getUserByEmail, saveUser } from '../models/User'
 import type { User, PlanType } from '../models/User'
 import { getPlanLimits } from '../utils/limits'
 import { getAuthFromRequest, getEffectiveUserId, verifyEmailVerificationToken, generatePasswordSetupToken, signAuthToken } from '../utils/auth'
@@ -241,7 +241,27 @@ router.get('/session-details', async (req: Request, res: Response) => {
 
     let user = await getUserByStripeCustomerId(customerId)
     if (!user) {
-      // Webhook may not have run yet (or server restarted with in-memory store). Create user from session so redirect works.
+      // Webhook may not have run yet. Try to find the existing account by email before creating a new one.
+      // This prevents showing "Set password" to users who already signed up with email+password.
+      const sessionEmail = session.customer_details?.email
+      if (sessionEmail) {
+        const existingByEmail = await getUserByEmail(sessionEmail)
+        if (existingByEmail) {
+          existingByEmail.stripeCustomerId = customerId
+          // Apply the purchased plan so the user's account reflects the upgrade
+          const planFromMeta = session.metadata?.plan as PlanType | undefined
+          if (planFromMeta === 'basic' || planFromMeta === 'pro' || planFromMeta === 'agency' || planFromMeta === 'founding_workflow') {
+            existingByEmail.plan = planFromMeta
+            existingByEmail.limits = getPlanLimits(planFromMeta)
+          }
+          existingByEmail.updatedAt = new Date()
+          await saveUser(existingByEmail)
+          user = existingByEmail
+        }
+      }
+    }
+    if (!user) {
+      // Still not found — create a placeholder so the redirect works (webhook will fill in the rest).
       const email = session.customer_details?.email || `${customerId}@checkout.example.com`
       const planFromMeta = session.metadata?.plan as PlanType | undefined
       const plan: PlanType =
