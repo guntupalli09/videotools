@@ -13,7 +13,7 @@ import { ResultSkeleton } from '../components/figma/ResultSkeleton'
 import { TranscriptResult } from '../components/figma/TranscriptResult'
 import { Checkbox } from '../components/figma/FormControls'
 import { incrementUsage } from '../lib/usage'
-import { uploadFileWithProgress, getJobStatus, subscribeJobStatus, getCurrentUsage, invalidateUsageCache, getConnectionProbeIfNeeded, BACKEND_TOOL_TYPES, SessionExpiredError, getUserFacingMessage, isNetworkError, POLL_STOP_AFTER_CONSECUTIVE_NETWORK_ERRORS } from '../lib/api'
+import { uploadFileWithProgress, getJobStatus, subscribeJobStatus, getCurrentUsage, invalidateUsageCache, getConnectionProbeIfNeeded, BACKEND_TOOL_TYPES, SessionExpiredError, getUserFacingMessage, isNetworkError, POLL_STOP_AFTER_CONSECUTIVE_NETWORK_ERRORS, getAuthToken } from '../lib/api'
 import { getFailureMessage } from '../lib/failureMessage'
 import { checkVideoPreflight } from '../lib/uploadPreflight'
 import { getFilePreview, formatDuration, type FilePreviewData } from '../lib/filePreview'
@@ -1037,7 +1037,10 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
       return
     }
     const srt = segmentsToSrt(segmentsForExport)
-    const blob = new Blob([srt], { type: 'text/plain;charset=utf-8' })
+    const watermarkedSrt = !isPaidPlan
+      ? `0\n00:00:00,500 --> 00:00:03,000\nSubtitles by VideoText.io (Free Plan) · videotext.io\n\n${srt}`
+      : srt
+    const blob = new Blob([watermarkedSrt], { type: 'text/plain;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -1053,7 +1056,10 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
       return
     }
     const vtt = segmentsToVtt(segmentsForExport)
-    const blob = new Blob([vtt], { type: 'text/plain;charset=utf-8' })
+    const watermarkedVtt = !isPaidPlan
+      ? vtt.replace('WEBVTT', 'WEBVTT\n\n00:00:00.500 --> 00:00:03.000\nSubtitles by VideoText.io (Free Plan) · videotext.io\n')
+      : vtt
+    const blob = new Blob([watermarkedVtt], { type: 'text/plain;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -1175,13 +1181,22 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
               processingTime={lastProcessingMs != null ? `${(lastProcessingMs / 1000).toFixed(1)}s` : '—'}
               fileSize={result.fileName ? undefined : undefined}
               transcript={displayTranscript || fullTranscript || transcriptPreview || ''}
-              onDownload={() => {
+              onDownload={async () => {
                 const url = getDownloadUrl()
-                if (url) {
+                if (!url) return
+                try {
+                  const token = getAuthToken()
+                  const res = await fetch(url + '?wm=1', {
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                  })
+                  const blob = await res.blob()
                   const a = document.createElement('a')
-                  a.href = url
+                  a.href = URL.createObjectURL(blob)
                   a.download = result?.fileName ?? 'transcript.txt'
                   a.click()
+                  URL.revokeObjectURL(a.href)
+                } catch {
+                  toast.error('Download failed')
                 }
               }}
               onProcessAnother={handleProcessAnother}
@@ -1504,7 +1519,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                             }
                             const content = buildContent()
                             const preview = content.slice(0, 400) + (content.length > 400 ? '…' : '')
-                            const FREE_EXPORT_WATERMARK = '\n\n---\nExported from VideoText (Free) - videotext.io\n'
+                            const FREE_EXPORT_WATERMARK = '\n\n---\nExported from VideoText (Free Plan) · videotext.io\n'
                             const freeCanDownload = !isPaidPlan && freeExportsUsed < 2
                             const freeUsedAll = !isPaidPlan && freeExportsUsed >= 2
                             const mimeType = format === 'json' ? 'application/json' : 'text/plain'

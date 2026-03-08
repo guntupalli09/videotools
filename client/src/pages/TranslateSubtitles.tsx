@@ -14,10 +14,9 @@ import { Select } from '../components/figma/FormControls'
 import type { SubtitleRow } from '../components/SubtitleEditor'
 const SubtitleEditor = lazy(() => import('../components/SubtitleEditor'))
 import { incrementUsage } from '../lib/usage'
-import { uploadFileWithProgress, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError } from '../lib/api'
+import { uploadFileWithProgress, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError, getAuthToken } from '../lib/api'
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
-import { FREE_EXPORT_WATERMARK } from '../lib/watermark'
 import { persistJobId, clearPersistedJobId } from '../lib/jobSession'
 import { trackEvent } from '../lib/analytics'
 import { texJobStarted, texJobCompleted, texJobFailed } from '../tex'
@@ -312,10 +311,11 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                         return
                       }
                       try {
-                        const res = await fetch(getDownloadUrl())
-                        const text = await res.text()
-                        const watermarked = text + FREE_EXPORT_WATERMARK
-                        const blob = new Blob([watermarked], { type: res.headers.get('content-type') || 'text/plain' })
+                        const token = getAuthToken()
+                        const res = await fetch(getDownloadUrl() + '?wm=1', {
+                          headers: token ? { Authorization: `Bearer ${token}` } : {},
+                        })
+                        const blob = await res.blob()
                         const a = document.createElement('a')
                         a.href = URL.createObjectURL(blob)
                         a.download = result?.fileName || 'translated.srt'
@@ -327,11 +327,21 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                         toast.error('Download failed')
                       }
                     }
-                  : () => {
-                      const a = document.createElement('a')
-                      a.href = getDownloadUrl()
-                      a.download = result?.fileName || 'translated.srt'
-                      a.click()
+                  : async () => {
+                      try {
+                        const token = getAuthToken()
+                        const res = await fetch(getDownloadUrl() + '?wm=1', {
+                          headers: token ? { Authorization: `Bearer ${token}` } : {},
+                        })
+                        const blob = await res.blob()
+                        const a = document.createElement('a')
+                        a.href = URL.createObjectURL(blob)
+                        a.download = result?.fileName || 'translated.srt'
+                        a.click()
+                        URL.revokeObjectURL(a.href)
+                      } catch {
+                        toast.error('Download failed')
+                      }
                     }
               }
               onProcessAnother={handleProcessAnother}
