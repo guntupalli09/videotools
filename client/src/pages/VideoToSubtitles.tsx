@@ -16,13 +16,12 @@ import { RadioGroup, Select } from '../components/figma/FormControls'
 import type { SubtitleRow } from '../components/SubtitleEditor'
 const SubtitleEditor = lazy(() => import('../components/SubtitleEditor'))
 import { incrementUsage } from '../lib/usage'
-import { uploadFile, uploadFileWithProgress, getJobStatus, subscribeJobStatus, getCurrentUsage, getConnectionProbeIfNeeded, BACKEND_TOOL_TYPES, SessionExpiredError, getUserFacingMessage, isNetworkError, POLL_STOP_AFTER_CONSECUTIVE_NETWORK_ERRORS } from '../lib/api'
+import { uploadFile, uploadFileWithProgress, getJobStatus, subscribeJobStatus, getCurrentUsage, getConnectionProbeIfNeeded, BACKEND_TOOL_TYPES, SessionExpiredError, getUserFacingMessage, isNetworkError, POLL_STOP_AFTER_CONSECUTIVE_NETWORK_ERRORS, getAuthToken } from '../lib/api'
 import { getFailureMessage } from '../lib/failureMessage'
 import { checkVideoPreflight } from '../lib/uploadPreflight'
 import { getFilePreview, formatDuration, type FilePreviewData } from '../lib/filePreview'
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
-import { FREE_EXPORT_WATERMARK } from '../lib/watermark'
 import { persistJobId, getPersistedJobId, getPersistedJobToken, clearPersistedJobId } from '../lib/jobSession'
 import { createCheckoutSession } from '../lib/billing'
 import { trackEvent } from '../lib/analytics'
@@ -875,10 +874,11 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                         return
                       }
                       try {
-                        const res = await fetch(getDownloadUrl())
-                        const text = await res.text()
-                        const watermarked = text + FREE_EXPORT_WATERMARK
-                        const blob = new Blob([watermarked], { type: res.headers.get('content-type') || 'text/plain' })
+                        const token = getAuthToken()
+                        const res = await fetch(getDownloadUrl() + '?wm=1', {
+                          headers: token ? { Authorization: `Bearer ${token}` } : {},
+                        })
+                        const blob = await res.blob()
                         const a = document.createElement('a')
                         a.href = URL.createObjectURL(blob)
                         a.download = result?.fileName || 'subtitles.srt'
@@ -890,11 +890,21 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                         toast.error('Download failed')
                       }
                     }
-                  : () => {
-                      const a = document.createElement('a')
-                      a.href = getDownloadUrl()
-                      a.download = result?.fileName || 'subtitles.srt'
-                      a.click()
+                  : async () => {
+                      try {
+                        const token = getAuthToken()
+                        const res = await fetch(getDownloadUrl() + '?wm=1', {
+                          headers: token ? { Authorization: `Bearer ${token}` } : {},
+                        })
+                        const blob = await res.blob()
+                        const a = document.createElement('a')
+                        a.href = URL.createObjectURL(blob)
+                        a.download = result?.fileName || 'subtitles.srt'
+                        a.click()
+                        URL.revokeObjectURL(a.href)
+                      } catch {
+                        toast.error('Download failed')
+                      }
                     }
               }
               onProcessAnother={handleProcessAnother}
@@ -1004,11 +1014,12 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                   onClick={async () => {
                     if (!convertDownloadUrl || freeExportsUsed >= 2) return
                     try {
-                      const res = await fetch(convertDownloadUrl)
-                      const text = await res.text()
-                      const watermarked = text + FREE_EXPORT_WATERMARK
-                      const ext = plan === 'free' ? 'srt' : (convertTargetFormat === 'srt' ? 'srt' : convertTargetFormat === 'vtt' ? 'vtt' : 'txt')
-                      const blob = new Blob([watermarked], { type: 'text/plain' })
+                      const token = getAuthToken()
+                      const res = await fetch(convertDownloadUrl + '?wm=1', {
+                        headers: token ? { Authorization: `Bearer ${token}` } : {},
+                      })
+                      const ext = convertTargetFormat === 'srt' ? 'srt' : convertTargetFormat === 'vtt' ? 'vtt' : 'txt'
+                      const blob = await res.blob()
                       const a = document.createElement('a')
                       a.href = URL.createObjectURL(blob)
                       a.download = `subtitles.${ext}`

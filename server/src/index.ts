@@ -24,8 +24,9 @@ import { requestIdMiddleware } from './middleware/requestId'
 import { getLogger } from './lib/logger'
 import healthRoutes from './routes/health'
 import feedbackRoutes from './routes/feedback'
-import adminDashboardRoutes from './routes/adminDashboard'
+import adminDashboardRoutes, { clearDashboardCache } from './routes/adminDashboard'
 import adminSupportRoutes, { runAlertChecks, maybeSendDailyDigest } from './routes/adminSupport'
+import { runRecompute } from './services/recomputeMetrics'
 
 const log = getLogger('api')
 const app = express()
@@ -230,6 +231,27 @@ const server = app.listen(PORT, () => {
   setInterval(() => { runAlertChecks().catch(() => {}) }, 5 * 60 * 1000)
   // Daily digest check every minute (sends once per day at configured hour)
   setInterval(() => { maybeSendDailyDigest().catch(() => {}) }, 60 * 1000)
+
+  // Auto-recompute metrics so the command centre is always up-to-date:
+  // 1. Hourly light recompute: last 2 days + current month (keeps today's charts fresh)
+  setInterval(() => {
+    runRecompute(2, 1)
+      .then(() => { clearDashboardCache(); log.info({ msg: 'Hourly metrics recompute done' }) })
+      .catch((err) => log.warn({ msg: 'Hourly metrics recompute failed', error: (err as Error)?.message }))
+  }, 60 * 60 * 1000)
+
+  // 2. Nightly full recompute: 90 days + 12 months at 2 AM UTC (keeps historical charts accurate)
+  let lastFullRecomputeDate = ''
+  setInterval(() => {
+    const now = new Date()
+    if (now.getUTCHours() !== 2) return
+    const todayKey = now.toISOString().slice(0, 10)
+    if (lastFullRecomputeDate === todayKey) return
+    lastFullRecomputeDate = todayKey
+    runRecompute(90, 12)
+      .then(() => { clearDashboardCache(); log.info({ msg: 'Nightly full metrics recompute done' }) })
+      .catch((err) => log.warn({ msg: 'Nightly metrics recompute failed', error: (err as Error)?.message }))
+  }, 60 * 1000)
 
   // Warm up Bull's Redis connections so first readyz/upload init doesn't timeout
   const warmupMs = 25_000
