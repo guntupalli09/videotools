@@ -18,6 +18,17 @@ const CACHE_TTL_MS = Math.max(
 
 const cache = new Map<string, CachedResult>()
 
+// Background eviction — prevent unbounded cache growth on long-running servers
+if (CACHE_TTL_MS > 0) {
+  const EVICTION_INTERVAL = Math.min(CACHE_TTL_MS, 6 * 60 * 60 * 1000) // every 6h or TTL, whichever shorter
+  setInterval(() => {
+    const cutoff = Date.now() - CACHE_TTL_MS
+    for (const [k, v] of cache.entries()) {
+      if (v.createdAt.getTime() < cutoff) cache.delete(k)
+    }
+  }, EVICTION_INTERVAL).unref()
+}
+
 export async function hashFile(filePath: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const hash = crypto.createHash('sha256')

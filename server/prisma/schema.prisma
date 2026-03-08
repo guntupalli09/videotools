@@ -146,6 +146,15 @@ model BatchJobRecord {
   expiresAt        DateTime
 }
 
+// Processed Stripe webhook event IDs — prevents double-processing on server restarts or retries.
+model StripeEventLog {
+  eventId     String   @id          // Stripe event ID (evt_xxx)
+  eventType   String                // e.g. invoice.payment_succeeded
+  processedAt DateTime @default(now())
+
+  @@index([processedAt])
+}
+
 // User feedback from Tex panel (post-job completion). No auth required to submit.
 model Feedback {
   id              String   @id @default(cuid())
