@@ -87,6 +87,13 @@ export default function FounderDashboard() {
 
   useEffect(() => { load() }, [load])
 
+  // Auto-refresh every 30s so recent jobs, new signups, and feedback appear without manual refresh.
+  // 30s matches the server-side cache TTL so each poll fetches genuinely fresh data.
+  useEffect(() => {
+    const id = setInterval(load, 30_000)
+    return () => clearInterval(id)
+  }, [load])
+
   if (!isLoggedIn()) return <Navigate to="/login" replace />
   if (statusLoading) return <Spinner />
   if (!isFounder) return <Denied />
