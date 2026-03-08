@@ -19,7 +19,7 @@ import { validateFileType, validateFileSize } from '../utils/fileValidation'
 import { trimVideoSegment } from '../services/trimming'
 import { generateMultiLanguageSubtitles } from '../services/multiLanguage'
 import { BatchJob, getBatchById, saveBatch } from '../models/BatchJob'
-import { getUser, saveUser, PlanType } from '../models/User'
+import { getUser, saveUser, incrementUserUsage, PlanType } from '../models/User'
 import { getPlanLimits, getJobPriority, getMaxJobRuntimeMinutes } from '../utils/limits'
 import { resetUserUsageIfNeeded } from '../utils/usageReset'
 import { calculateTranslationMinutes, secondsToMinutes } from '../utils/metering'
@@ -616,15 +616,11 @@ async function processJob(job: import('bull').Job<JobData>) {
 
           const minutes = secondsToMinutes(processedSeconds)
           if (userId) {
-            const user = await getOrCreateUserForJob(userId, plan)
-            if (user.plan === 'free') {
-              user.usageThisMonth.importCount = (user.usageThisMonth.importCount ?? 0) + 1
+            if (plan === 'free') {
+              await incrementUserUsage(userId, { importCount: 1 })
             } else {
-              user.usageThisMonth.totalMinutes += minutes
-              user.usageThisMonth.videoCount += 1
+              await incrementUserUsage(userId, { totalMinutes: minutes, videoCount: 1 })
             }
-            user.updatedAt = new Date()
-            await saveUser(user)
           }
 
           if (firstPartialEmittedAt && totalVideoDurationSec != null) {
@@ -764,17 +760,16 @@ async function processJob(job: import('bull').Job<JobData>) {
             const baseMinutes = secondsToMinutes(processedSeconds)
             const translatedMinutes = calculateTranslationMinutes(processedSeconds, additionalLangs.length)
             if (userId) {
-              const user = await getOrCreateUserForJob(userId, plan)
-              if (user.plan === 'free') {
-                user.usageThisMonth.importCount = (user.usageThisMonth.importCount ?? 0) + 1
+              if (plan === 'free') {
+                await incrementUserUsage(userId, { importCount: 1 })
               } else {
-                user.usageThisMonth.totalMinutes += baseMinutes + translatedMinutes
-                user.usageThisMonth.translatedMinutes += translatedMinutes
-                user.usageThisMonth.languageCount += additionalLangs.length
-                user.usageThisMonth.videoCount += 1
+                await incrementUserUsage(userId, {
+                  totalMinutes: baseMinutes + translatedMinutes,
+                  translatedMinutes,
+                  languageCount: additionalLangs.length,
+                  videoCount: 1,
+                })
               }
-              user.updatedAt = new Date()
-              await saveUser(user)
             }
           } else {
             // Single language: use verbose path for partial streaming, then convert to SRT/VTT
@@ -843,15 +838,11 @@ async function processJob(job: import('bull').Job<JobData>) {
             // Metering (minutes or import count for free)
             const minutes = secondsToMinutes(processedSecondsSub)
             if (userId) {
-              const user = await getOrCreateUserForJob(userId, plan)
-              if (user.plan === 'free') {
-                user.usageThisMonth.importCount = (user.usageThisMonth.importCount ?? 0) + 1
+              if (plan === 'free') {
+                await incrementUserUsage(userId, { importCount: 1 })
               } else {
-                user.usageThisMonth.totalMinutes += minutes
-                user.usageThisMonth.videoCount += 1
+                await incrementUserUsage(userId, { totalMinutes: minutes, videoCount: 1 })
               }
-              user.updatedAt = new Date()
-              await saveUser(user)
             }
 
             if (partialWriter && redis) {
@@ -919,15 +910,11 @@ async function processJob(job: import('bull').Job<JobData>) {
             const processedSeconds = trimmedDuration > 0 ? trimmedDuration : await getVideoDuration(videoPath)
             const minutes = secondsToMinutes(processedSeconds)
             if (userId) {
-              const user = await getOrCreateUserForJob(userId, plan)
-              if (user.plan === 'free') {
-                user.usageThisMonth.importCount = (user.usageThisMonth.importCount ?? 0) + 1
+              if (plan === 'free') {
+                await incrementUserUsage(userId, { importCount: 1 })
               } else {
-                user.usageThisMonth.totalMinutes += minutes
-                user.usageThisMonth.videoCount += 1
+                await incrementUserUsage(userId, { totalMinutes: minutes, videoCount: 1 })
               }
-              user.updatedAt = new Date()
-              await saveUser(user)
             }
 
             // Check if batch is complete
@@ -1095,15 +1082,11 @@ async function processJob(job: import('bull').Job<JobData>) {
               : durationCheck.duration || 0
           const minutes = secondsToMinutes(processedSeconds)
           if (userId) {
-            const user = await getOrCreateUserForJob(userId, plan)
-            if (user.plan === 'free') {
-              user.usageThisMonth.importCount = (user.usageThisMonth.importCount ?? 0) + 1
+            if (plan === 'free') {
+              await incrementUserUsage(userId, { importCount: 1 })
             } else {
-              user.usageThisMonth.totalMinutes += minutes
-              user.usageThisMonth.videoCount += 1
+              await incrementUserUsage(userId, { totalMinutes: minutes, videoCount: 1 })
             }
-            user.updatedAt = new Date()
-            await saveUser(user)
           }
           break
         }
@@ -1162,15 +1145,11 @@ async function processJob(job: import('bull').Job<JobData>) {
               : durationCheck.duration || 0
           const minutes = secondsToMinutes(processedSeconds)
           if (userId) {
-            const user = await getOrCreateUserForJob(userId, plan)
-            if (user.plan === 'free') {
-              user.usageThisMonth.importCount = (user.usageThisMonth.importCount ?? 0) + 1
+            if (plan === 'free') {
+              await incrementUserUsage(userId, { importCount: 1 })
             } else {
-              user.usageThisMonth.totalMinutes += minutes
-              user.usageThisMonth.videoCount += 1
+              await incrementUserUsage(userId, { totalMinutes: minutes, videoCount: 1 })
             }
-            user.updatedAt = new Date()
-            await saveUser(user)
           }
           break
         }

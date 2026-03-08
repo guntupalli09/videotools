@@ -12,6 +12,9 @@ import { getLogger } from '../lib/logger'
 const transcriptionLog = getLogger('worker')
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
+  // Prevent a slow OpenAI response from hanging a worker forever.
+  // Whisper typically responds in <60s; 120s gives headroom for large chunks.
+  timeout: 120_000,
 })
 
 if (!process.env.OPENAI_API_KEY) {
