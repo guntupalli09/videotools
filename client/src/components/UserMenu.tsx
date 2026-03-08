@@ -173,19 +173,30 @@ export default function UserMenu() {
                   </div>
                 )}
 
-                {/* Manage subscription */}
+                {/* Subscription management / upgrade */}
                 <div>
-                  <button
-                    type="button"
-                    onClick={handleManageSubscription}
-                    disabled={!isPaidPlan || portalLoading}
-                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <CreditCard className="w-5 h-5 shrink-0 text-gray-600 dark:text-gray-300" />
-                    <span>
-                      {portalLoading ? 'Opening…' : isPaidPlan ? 'Manage subscription' : 'Manage subscription (upgrade first)'}
-                    </span>
-                  </button>
+                  {isPaidPlan ? (
+                    <button
+                      type="button"
+                      onClick={handleManageSubscription}
+                      disabled={portalLoading}
+                      className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <CreditCard className="w-5 h-5 shrink-0 text-gray-600 dark:text-gray-300" />
+                      <span>{portalLoading ? 'Opening…' : 'Manage subscription'}</span>
+                    </button>
+                  ) : isLoggedIn() ? (
+                    <Link
+                      to="/pricing"
+                      onClick={() => setOpen(false)}
+                      onMouseEnter={() => prefetchRoute('/pricing')}
+                      onFocus={() => prefetchRoute('/pricing')}
+                      className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left font-medium text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-900/30 transition-colors"
+                    >
+                      <CreditCard className="w-5 h-5 shrink-0" />
+                      <span>Upgrade plan</span>
+                    </Link>
+                  ) : null}
                 </div>
 
                 {!loading && isFounder && (

@@ -4,6 +4,7 @@ import { createCheckoutSession, createBillingPortalSession } from '../lib/billin
 import { trackEvent } from '../lib/analytics'
 import type { BillingPlan } from '../lib/billing'
 import { getCurrentUsage, sendOtp, verifyOtp } from '../lib/api'
+import { isLoggedIn } from '../lib/auth'
 
 // Must match server auth validation: /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 function isValidEmail(email: string): boolean {
@@ -22,6 +23,7 @@ export default function Pricing() {
   const [currentPlan, setCurrentPlan] = useState<string | null>(null)
   const [usageResetDate, setUsageResetDate] = useState<string | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
+  const [directCheckoutLoading, setDirectCheckoutLoading] = useState(false)
   const [checkoutEmail, setCheckoutEmail] = useState('')
   const [emailPrompt, setEmailPrompt] = useState<{ plan: BillingPlan; annual: boolean } | null>(null)
   const [emailInput, setEmailInput] = useState('')
@@ -70,12 +72,34 @@ export default function Pricing() {
     }
   }
 
-  function handleSubscribe(plan: BillingPlan, annual = false) {
+  async function handleSubscribe(plan: BillingPlan, annual = false) {
     try {
       trackEvent('plan_clicked', { plan, annual })
     } catch {
       // non-blocking
     }
+
+    // Logged-in users already have a verified account — go straight to Stripe checkout
+    if (isLoggedIn()) {
+      setDirectCheckoutLoading(true)
+      try {
+        const { url } = await createCheckoutSession({
+          mode: 'subscription',
+          plan,
+          annual,
+          returnToPath: '/pricing',
+          frontendOrigin: window.location.origin,
+        })
+        trackEvent('payment_completed', { type: 'subscription_checkout_started', plan, annual })
+        window.location.href = url
+      } catch (e: any) {
+        alert(e.message || 'Failed to start checkout. Please try again.')
+      } finally {
+        setDirectCheckoutLoading(false)
+      }
+      return
+    }
+
     setEmailPrompt({ plan, annual })
     setEmailInput(checkoutEmail)
   }
@@ -195,10 +219,11 @@ export default function Pricing() {
             </ul>
             <button
               type="button"
-              className="mt-6 w-full py-3 rounded-xl bg-primary hover:bg-primary-hover text-white font-medium text-sm transition-colors"
+              className="mt-6 w-full py-3 rounded-xl bg-primary hover:bg-primary-hover text-white font-medium text-sm transition-colors disabled:opacity-60"
               onClick={() => handleSubscribe('founding_workflow', false)}
+              disabled={directCheckoutLoading}
             >
-              {isCurrentPlan('founding_workflow') ? 'Current Plan' : 'Join Creator Pro'}
+              {directCheckoutLoading ? 'Redirecting…' : isCurrentPlan('founding_workflow') ? 'Current Plan' : 'Join Creator Pro'}
             </button>
           </div>
 
@@ -248,14 +273,15 @@ export default function Pricing() {
             <div className="mt-6 space-y-1">
               <button
                 onClick={() => isCurrentPlan('basic') ? handleManageSubscription() : handleSubscribe('basic', false)}
-                disabled={isCurrentPlan('basic') && portalLoading}
+                disabled={(isCurrentPlan('basic') && portalLoading) || directCheckoutLoading}
                 className="w-full py-3 rounded-xl bg-primary hover:bg-primary-hover text-white font-medium text-sm transition-colors disabled:opacity-60"
               >
-                {isCurrentPlan('basic') ? (portalLoading ? 'Opening…' : 'Manage subscription') : 'Choose Basic'}
+                {isCurrentPlan('basic') ? (portalLoading ? 'Opening…' : 'Manage subscription') : directCheckoutLoading ? 'Redirecting…' : 'Choose Basic'}
               </button>
               <button
                 onClick={() => handleSubscribe('basic', true)}
-                className="w-full py-1 text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium"
+                disabled={directCheckoutLoading}
+                className="w-full py-1 text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium disabled:opacity-60"
               >
                 Save 20% with annual
               </button>
@@ -281,14 +307,15 @@ export default function Pricing() {
             <div className="mt-6 space-y-1">
               <button
                 onClick={() => isCurrentPlan('pro') ? handleManageSubscription() : handleSubscribe('pro', false)}
-                disabled={isCurrentPlan('pro') && portalLoading}
+                disabled={(isCurrentPlan('pro') && portalLoading) || directCheckoutLoading}
                 className="w-full py-3.5 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold text-sm shadow-card-elevated shadow-primary/25 transition-motion disabled:opacity-60"
               >
-                {isCurrentPlan('pro') ? (portalLoading ? 'Opening…' : 'Manage subscription') : 'Choose Pro'}
+                {isCurrentPlan('pro') ? (portalLoading ? 'Opening…' : 'Manage subscription') : directCheckoutLoading ? 'Redirecting…' : 'Choose Pro'}
               </button>
               <button
                 onClick={() => handleSubscribe('pro', true)}
-                className="w-full py-1 text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium"
+                disabled={directCheckoutLoading}
+                className="w-full py-1 text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium disabled:opacity-60"
               >
                 Save 20% with annual
               </button>
@@ -316,14 +343,15 @@ export default function Pricing() {
             <div className="mt-6 space-y-1">
               <button
                 onClick={() => isCurrentPlan('agency') ? handleManageSubscription() : handleSubscribe('agency', false)}
-                disabled={isCurrentPlan('agency') && portalLoading}
+                disabled={(isCurrentPlan('agency') && portalLoading) || directCheckoutLoading}
                 className="w-full py-3.5 rounded-xl bg-primary-hover hover:bg-violet-800 dark:hover:bg-violet-700 text-white font-semibold text-sm border-2 border-primary/50 transition-colors disabled:opacity-60"
               >
-                {isCurrentPlan('agency') ? (portalLoading ? 'Opening…' : 'Manage subscription') : 'Choose Agency'}
+                {isCurrentPlan('agency') ? (portalLoading ? 'Opening…' : 'Manage subscription') : directCheckoutLoading ? 'Redirecting…' : 'Choose Agency'}
               </button>
               <button
                 onClick={() => handleSubscribe('agency', true)}
-                className="w-full py-1 text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium"
+                disabled={directCheckoutLoading}
+                className="w-full py-1 text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium disabled:opacity-60"
               >
                 Save 20% with annual
               </button>
