@@ -53,9 +53,17 @@ router.post('/checkout', async (req: Request, res: Response) => {
         return res.status(400).json({ message: 'plan is required for subscription mode' })
       }
 
-      // Paid plans require verified email (OTP); get email from verification token
-      const verified = emailVerificationToken ? verifyEmailVerificationToken(emailVerificationToken) : null
-      const checkoutEmail = verified?.email || (stripeCustomerId ? undefined : email)
+      // Logged-in users: use their verified account email — no OTP needed
+      // Anonymous users: require OTP-verified email token
+      const auth = getAuthFromRequest(req)
+      let checkoutEmail: string | undefined
+      if (auth?.userId) {
+        const loggedInUser = await getUser(auth.userId)
+        checkoutEmail = loggedInUser?.email
+      } else {
+        const verified = emailVerificationToken ? verifyEmailVerificationToken(emailVerificationToken) : null
+        checkoutEmail = verified?.email || (stripeCustomerId ? undefined : email)
+      }
       if (!checkoutEmail || !checkoutEmail.includes('@')) {
         return res.status(400).json({
           message: 'Please verify your email first (enter your email and the code we sent you) before subscribing.',
@@ -86,10 +94,15 @@ router.post('/checkout', async (req: Request, res: Response) => {
         return res.status(400).json({ message: 'Invalid or expired promo code. Check the code and try again.' })
       }
 
+      // Use existing Stripe customer if available (avoids duplicate customer records)
+      const resolvedStripeCustomerId = stripeCustomerId ||
+        (auth?.stripeCustomerId) ||
+        (auth?.userId && auth.userId.startsWith('cus_') ? auth.userId : undefined)
+
       const sessionParams: import('stripe').Stripe.Checkout.SessionCreateParams = {
         mode: 'subscription',
-        customer: stripeCustomerId || undefined,
-        customer_email: !stripeCustomerId ? checkoutEmail : undefined,
+        customer: resolvedStripeCustomerId || undefined,
+        customer_email: !resolvedStripeCustomerId ? checkoutEmail : undefined,
         line_items: [
           {
             price: priceId,
