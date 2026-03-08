@@ -57,14 +57,26 @@ router.post('/checkout', async (req: Request, res: Response) => {
       // Anonymous users: require OTP-verified email token
       const auth = getAuthFromRequest(req)
       let checkoutEmail: string | undefined
+      let isLoggedInUser = false
       if (auth?.userId) {
+        isLoggedInUser = true
         const loggedInUser = await getUser(auth.userId)
         checkoutEmail = loggedInUser?.email
+        // Fallback: legacy users whose JWT userId is a Stripe customer ID, or userId/stripeCustomerId mismatch
+        if (!checkoutEmail && auth.stripeCustomerId) {
+          const customerUser = await getUserByStripeCustomerId(auth.stripeCustomerId)
+          checkoutEmail = customerUser?.email
+        }
       } else {
         const verified = emailVerificationToken ? verifyEmailVerificationToken(emailVerificationToken) : null
         checkoutEmail = verified?.email || (stripeCustomerId ? undefined : email)
       }
       if (!checkoutEmail || !checkoutEmail.includes('@')) {
+        if (isLoggedInUser) {
+          return res.status(400).json({
+            message: 'Your account email could not be found. Please log out and sign back in, then try again.',
+          })
+        }
         return res.status(400).json({
           message: 'Please verify your email first (enter your email and the code we sent you) before subscribing.',
         })
