@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express'
 import { stripe, getStripePriceConfig, BillingPlan, findStripeCustomerIdByEmail } from '../services/stripe'
 import { getUser, getUserByStripeCustomerId, getUserByEmail, saveUser } from '../models/User'
+import { prisma } from '../db'
 import type { User, PlanType } from '../models/User'
 import { getPlanLimits } from '../utils/limits'
 import { getAuthFromRequest, getEffectiveUserId, verifyEmailVerificationToken, generatePasswordSetupToken, signAuthToken } from '../utils/auth'
@@ -310,19 +311,33 @@ router.get('/session-details', async (req: Request, res: Response) => {
       return res.status(500).json({ message: 'User not found' })
     }
 
-    // If user has no password yet, issue or reuse a one-time setup token so the client can show "Set password" after checkout.
+    // If user has no password yet, issue a one-time setup token so the client can show "Set password" after checkout.
+    // Use a conditional UPDATE (only write if no token exists yet) to avoid a race condition where two concurrent
+    // post-checkout requests each generate a different token and overwrite each other.
     let passwordSetupToken: string | undefined
     let passwordSetupExpiresAt: string | undefined
     if (!user.passwordHash && !user.passwordSetupUsed) {
       const expired = user.passwordSetupExpiresAt && user.passwordSetupExpiresAt < new Date()
       if (!user.passwordSetupToken || expired) {
         const { token, expiresAt } = generatePasswordSetupToken()
-        user.passwordSetupToken = token
-        user.passwordSetupExpiresAt = expiresAt
-        user.updatedAt = new Date()
-        await saveUser(user)
-      }
-      if (user.passwordSetupToken && user.passwordSetupExpiresAt) {
+        // Only write if no token has been set yet (race-safe: second writer is a no-op)
+        const updated = await prisma.user.updateMany({
+          where: { id: user.id, passwordSetupToken: null },
+          data: { passwordSetupToken: token, passwordSetupExpiresAt: expiresAt, updatedAt: new Date() },
+        })
+        if (updated.count > 0) {
+          // This request won the race — use its token
+          passwordSetupToken = token
+          passwordSetupExpiresAt = expiresAt.toISOString()
+        } else {
+          // Another request already set a token — read the one that won
+          const refreshed = await getUser(user.id)
+          if (refreshed?.passwordSetupToken && refreshed.passwordSetupExpiresAt) {
+            passwordSetupToken = refreshed.passwordSetupToken
+            passwordSetupExpiresAt = refreshed.passwordSetupExpiresAt.toISOString()
+          }
+        }
+      } else if (user.passwordSetupToken && user.passwordSetupExpiresAt) {
         passwordSetupToken = user.passwordSetupToken
         passwordSetupExpiresAt = user.passwordSetupExpiresAt.toISOString()
       }

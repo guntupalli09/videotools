@@ -16,6 +16,8 @@ import FailureBreakdown from './FailureBreakdown'
 import AlertConfig from './AlertConfig'
 import SupportPanel from './SupportPanel'
 import DigestConfig from './DigestConfig'
+import LogViewer from './LogViewer'
+import PerToolMetrics from './PerToolMetrics'
 
 const PLAN_COLORS: Record<string, string> = {
   free: 'text-zinc-400',
@@ -86,6 +88,13 @@ export default function FounderDashboard() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // Auto-refresh every 30s so recent jobs, new signups, and feedback appear without manual refresh.
+  // 30s matches the server-side cache TTL so each poll fetches genuinely fresh data.
+  useEffect(() => {
+    const id = setInterval(load, 30_000)
+    return () => clearInterval(id)
+  }, [load])
 
   if (!isLoggedIn()) return <Navigate to="/login" replace />
   if (statusLoading) return <Spinner />
@@ -182,6 +191,15 @@ export default function FounderDashboard() {
               <JobsByTool data={data.usage?.jobsByToolType ?? []} />
             </div>
           </div>
+          <div className="mt-4">
+            <PerToolMetrics toolPerf={data.toolPerf ?? []} />
+          </div>
+        </section>
+
+        {/* Logs */}
+        <section>
+          <SectionTitle id="logs">Logs</SectionTitle>
+          <LogViewer />
         </section>
 
         {/* Revenue */}

@@ -19,7 +19,7 @@ import { validateFileType, validateFileSize } from '../utils/fileValidation'
 import { trimVideoSegment } from '../services/trimming'
 import { generateMultiLanguageSubtitles } from '../services/multiLanguage'
 import { BatchJob, getBatchById, saveBatch } from '../models/BatchJob'
-import { getUser, saveUser, PlanType } from '../models/User'
+import { getUser, saveUser, incrementUserUsage, PlanType } from '../models/User'
 import { getPlanLimits, getJobPriority, getMaxJobRuntimeMinutes } from '../utils/limits'
 import { resetUserUsageIfNeeded } from '../utils/usageReset'
 import { calculateTranslationMinutes, secondsToMinutes } from '../utils/metering'
@@ -45,6 +45,7 @@ import {
 } from '../lib/jobAnalytics'
 import { withJobContext, getLogger } from '../lib/logger'
 import { initSentry, captureJobError } from '../lib/sentry'
+import { pushLogEntry } from '../lib/logRing'
 
 const workerLog = getLogger('worker')
 
@@ -74,13 +75,16 @@ export async function addJobToQueue(
   data: JobData,
   options?: { priority?: number }
 ) {
-  const jobData: JobData = { ...data, jobToken: data.jobToken ?? crypto.randomUUID() }
+  const jobToken = data.jobToken ?? crypto.randomUUID()
+  const jobData: JobData = { ...data, jobToken }
   const priority = options?.priority ?? getJobPriority(plan)
   const totalCount = await getTotalQueueCount()
   const usePriorityQueue =
     (plan === 'pro' || plan === 'agency') &&
     totalCount > PAID_TIER_RESERVATION_QUEUE_THRESHOLD
-  const jobOptions = { priority, attempts: 2 }
+  // Use the UUID jobToken as the Bull job ID so the DB record ID never conflicts
+  // with auto-incremented IDs from a previous Redis instance or queue flush.
+  const jobOptions = { priority, attempts: 2, jobId: jobToken }
   if (usePriorityQueue) {
     return priorityQueue.add(jobData, jobOptions)
   }
@@ -616,15 +620,11 @@ async function processJob(job: import('bull').Job<JobData>) {
 
           const minutes = secondsToMinutes(processedSeconds)
           if (userId) {
-            const user = await getOrCreateUserForJob(userId, plan)
-            if (user.plan === 'free') {
-              user.usageThisMonth.importCount = (user.usageThisMonth.importCount ?? 0) + 1
+            if (plan === 'free') {
+              await incrementUserUsage(userId, { importCount: 1 })
             } else {
-              user.usageThisMonth.totalMinutes += minutes
-              user.usageThisMonth.videoCount += 1
+              await incrementUserUsage(userId, { totalMinutes: minutes, videoCount: 1 })
             }
-            user.updatedAt = new Date()
-            await saveUser(user)
           }
 
           if (firstPartialEmittedAt && totalVideoDurationSec != null) {
@@ -764,17 +764,16 @@ async function processJob(job: import('bull').Job<JobData>) {
             const baseMinutes = secondsToMinutes(processedSeconds)
             const translatedMinutes = calculateTranslationMinutes(processedSeconds, additionalLangs.length)
             if (userId) {
-              const user = await getOrCreateUserForJob(userId, plan)
-              if (user.plan === 'free') {
-                user.usageThisMonth.importCount = (user.usageThisMonth.importCount ?? 0) + 1
+              if (plan === 'free') {
+                await incrementUserUsage(userId, { importCount: 1 })
               } else {
-                user.usageThisMonth.totalMinutes += baseMinutes + translatedMinutes
-                user.usageThisMonth.translatedMinutes += translatedMinutes
-                user.usageThisMonth.languageCount += additionalLangs.length
-                user.usageThisMonth.videoCount += 1
+                await incrementUserUsage(userId, {
+                  totalMinutes: baseMinutes + translatedMinutes,
+                  translatedMinutes,
+                  languageCount: additionalLangs.length,
+                  videoCount: 1,
+                })
               }
-              user.updatedAt = new Date()
-              await saveUser(user)
             }
           } else {
             // Single language: use verbose path for partial streaming, then convert to SRT/VTT
@@ -843,15 +842,11 @@ async function processJob(job: import('bull').Job<JobData>) {
             // Metering (minutes or import count for free)
             const minutes = secondsToMinutes(processedSecondsSub)
             if (userId) {
-              const user = await getOrCreateUserForJob(userId, plan)
-              if (user.plan === 'free') {
-                user.usageThisMonth.importCount = (user.usageThisMonth.importCount ?? 0) + 1
+              if (plan === 'free') {
+                await incrementUserUsage(userId, { importCount: 1 })
               } else {
-                user.usageThisMonth.totalMinutes += minutes
-                user.usageThisMonth.videoCount += 1
+                await incrementUserUsage(userId, { totalMinutes: minutes, videoCount: 1 })
               }
-              user.updatedAt = new Date()
-              await saveUser(user)
             }
 
             if (partialWriter && redis) {
@@ -919,15 +914,11 @@ async function processJob(job: import('bull').Job<JobData>) {
             const processedSeconds = trimmedDuration > 0 ? trimmedDuration : await getVideoDuration(videoPath)
             const minutes = secondsToMinutes(processedSeconds)
             if (userId) {
-              const user = await getOrCreateUserForJob(userId, plan)
-              if (user.plan === 'free') {
-                user.usageThisMonth.importCount = (user.usageThisMonth.importCount ?? 0) + 1
+              if (plan === 'free') {
+                await incrementUserUsage(userId, { importCount: 1 })
               } else {
-                user.usageThisMonth.totalMinutes += minutes
-                user.usageThisMonth.videoCount += 1
+                await incrementUserUsage(userId, { totalMinutes: minutes, videoCount: 1 })
               }
-              user.updatedAt = new Date()
-              await saveUser(user)
             }
 
             // Check if batch is complete
@@ -1095,15 +1086,11 @@ async function processJob(job: import('bull').Job<JobData>) {
               : durationCheck.duration || 0
           const minutes = secondsToMinutes(processedSeconds)
           if (userId) {
-            const user = await getOrCreateUserForJob(userId, plan)
-            if (user.plan === 'free') {
-              user.usageThisMonth.importCount = (user.usageThisMonth.importCount ?? 0) + 1
+            if (plan === 'free') {
+              await incrementUserUsage(userId, { importCount: 1 })
             } else {
-              user.usageThisMonth.totalMinutes += minutes
-              user.usageThisMonth.videoCount += 1
+              await incrementUserUsage(userId, { totalMinutes: minutes, videoCount: 1 })
             }
-            user.updatedAt = new Date()
-            await saveUser(user)
           }
           break
         }
@@ -1162,15 +1149,11 @@ async function processJob(job: import('bull').Job<JobData>) {
               : durationCheck.duration || 0
           const minutes = secondsToMinutes(processedSeconds)
           if (userId) {
-            const user = await getOrCreateUserForJob(userId, plan)
-            if (user.plan === 'free') {
-              user.usageThisMonth.importCount = (user.usageThisMonth.importCount ?? 0) + 1
+            if (plan === 'free') {
+              await incrementUserUsage(userId, { importCount: 1 })
             } else {
-              user.usageThisMonth.totalMinutes += minutes
-              user.usageThisMonth.videoCount += 1
+              await incrementUserUsage(userId, { totalMinutes: minutes, videoCount: 1 })
             }
-            user.updatedAt = new Date()
-            await saveUser(user)
           }
           break
         }
@@ -1242,6 +1225,7 @@ async function processJob(job: import('bull').Job<JobData>) {
     }
     // Success: return value is persisted by Bull as job.returnvalue; job state becomes "completed"
     log.info({ msg: 'job_completed' })
+    pushLogEntry({ ts: new Date().toISOString(), level: 'info', service: 'worker', msg: `job completed: ${data.toolType} in ${(totalJobMs / 1000).toFixed(1)}s`, jobId: String(jobId) })
     return result
   } catch (err: any) {
     clearInterval(interval)
@@ -1262,6 +1246,7 @@ async function processJob(job: import('bull').Job<JobData>) {
     }
     // Failure: rethrow so Bull marks job as "failed" and stores error; no job can exit without terminal state
     log.error({ err, msg: 'job_failed', error_message: err?.message ?? String(err) })
+    pushLogEntry({ ts: new Date().toISOString(), level: 'error', service: 'worker', msg: `job failed: ${data.toolType} — ${err?.message ?? String(err)}`, jobId: String(jobId), extra: err?.stack?.slice(0, 200) })
     throw err
   }
 }

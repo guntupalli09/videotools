@@ -5,6 +5,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: videotools-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
@@ -16,14 +17,15 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   postgres:
     image: postgres:16-alpine
     container_name: videotools-postgres
+    restart: unless-stopped
     ports:
       - "5433:5432"   # Host 5433 to avoid conflict with local Postgres on 5432
     environment:
@@ -34,14 +36,16 @@ services:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U videotools -d videotext"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 15s
 
   api:
     build: .
     image: videotools-api
     container_name: videotools-api
+    restart: unless-stopped
     env_file: .env
     environment:
       REDIS_URL: redis://redis:6379
@@ -59,10 +63,17 @@ services:
     ports:
       - "3001:3001"
     command: sh -c "npx prisma migrate deploy && node dist/index.js"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3001/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   worker:
     image: videotools-api
     container_name: videotools-worker
+    restart: unless-stopped
     env_file: .env
     environment:
       REDIS_URL: redis://redis:6379

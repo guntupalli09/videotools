@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
+import pg from 'pg'
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined }
 
@@ -11,7 +12,15 @@ if (!raw || raw.trim().length === 0) {
 }
 
 const connectionString = raw.trim()
-const adapter = new PrismaPg({ connectionString })
+// Cap the connection pool so Postgres isn't exhausted under concurrent load.
+// With 2 API replicas this allows up to 20 connections total (10 each).
+const pool = new pg.Pool({
+  connectionString,
+  max: 10,
+  idleTimeoutMillis: 30_000,
+  connectionTimeoutMillis: 5_000,
+})
+const adapter = new PrismaPg(pool)
 
 export const prisma =
   globalForPrisma.prisma ??

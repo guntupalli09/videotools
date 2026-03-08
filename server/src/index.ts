@@ -27,6 +27,7 @@ import feedbackRoutes from './routes/feedback'
 import adminDashboardRoutes, { clearDashboardCache } from './routes/adminDashboard'
 import adminSupportRoutes, { runAlertChecks, maybeSendDailyDigest } from './routes/adminSupport'
 import { runRecompute } from './services/recomputeMetrics'
+import { pushLogEntry } from './lib/logRing'
 
 const log = getLogger('api')
 
@@ -43,12 +44,16 @@ if (process.env.NODE_ENV === 'production') {
 
 // ── Global error safety nets ─────────────────────────────────────────────────
 process.on('unhandledRejection', (reason) => {
+  const msg = `unhandledRejection: ${String(reason)}`
   log.error({ msg: 'unhandledRejection — uncaught promise error', reason: String(reason) })
+  pushLogEntry({ ts: new Date().toISOString(), level: 'error', service: 'api', msg })
   // Do not exit: let the process continue serving requests
 })
 
 process.on('uncaughtException', (err) => {
+  const msg = `uncaughtException: ${err.message}`
   log.error({ msg: 'uncaughtException — unhandled synchronous throw', error: err.message, stack: err.stack })
+  pushLogEntry({ ts: new Date().toISOString(), level: 'error', service: 'api', msg, extra: err.stack?.slice(0, 300) })
   // Exit: uncaught sync exceptions leave the process in an undefined state
   process.exit(1)
 })
@@ -251,8 +256,9 @@ const server = app.listen(PORT, () => {
   startFileCleanup()
   log.info({ msg: 'File cleanup cron started' })
 
-  // Alert checks every 5 minutes
-  setInterval(() => { runAlertChecks().catch(() => {}) }, 5 * 60 * 1000)
+  // Alert checks: infra-critical checks (redis/db/worker/stuck) run every 60s;
+  // rate/MRR checks run every 5 min (they have 1h cooldowns so extra frequency is free).
+  setInterval(() => { runAlertChecks().catch(() => {}) }, 60 * 1000)
   // Daily digest check every minute (sends once per day at configured hour)
   setInterval(() => { maybeSendDailyDigest().catch(() => {}) }, 60 * 1000)
 

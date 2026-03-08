@@ -17,6 +17,8 @@ export interface InsertJobParams {
 }
 
 export async function insertJobRecord(params: InsertJobParams): Promise<void> {
+  // userId is NOT NULL in the Job table — skip anonymous jobs rather than failing silently
+  if (!params.userId) return
   try {
     await prisma.job.create({
       data: {

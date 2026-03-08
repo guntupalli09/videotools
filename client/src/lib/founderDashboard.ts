@@ -154,6 +154,16 @@ export interface DashboardServerHealth {
   dbOk: boolean
 }
 
+export interface DashboardToolPerf {
+  toolType: string
+  count: number
+  avgMs: number | null
+  p95Ms: number | null
+  avgFileSizeMb: number | null
+  avgDurationSec: number | null
+  totalMinutes: number | null
+}
+
 export interface DashboardData {
   snapshot: DashboardSnapshot
   revenue: DashboardRevenue
@@ -169,6 +179,7 @@ export interface DashboardData {
   failureReasons: DashboardFailureReason[]
   feedbackByTool: DashboardFeedbackByTool[]
   starDistribution: DashboardStarDist[]
+  toolPerf: DashboardToolPerf[]
 }
 
 export type FetchDashboardResult =

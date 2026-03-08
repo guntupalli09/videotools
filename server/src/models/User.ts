@@ -184,3 +184,41 @@ export async function getUserByPasswordResetToken(token: string): Promise<User |
   const row = await prisma.user.findFirst({ where: { passwordResetToken: token } })
   return row ? rowToUser(row) : undefined
 }
+
+/**
+ * Atomically increment usage counters for a user in a single SQL UPDATE.
+ * Avoids the read-modify-write race condition where two concurrent jobs
+ * for the same user overwrite each other's increments.
+ */
+export async function incrementUserUsage(
+  userId: string,
+  delta: {
+    totalMinutes?: number
+    videoCount?: number
+    translatedMinutes?: number
+    languageCount?: number
+    importCount?: number
+  }
+): Promise<void> {
+  const {
+    totalMinutes = 0,
+    videoCount = 0,
+    translatedMinutes = 0,
+    languageCount = 0,
+    importCount = 0,
+  } = delta
+
+  await prisma.$executeRaw`
+    UPDATE "User"
+    SET
+      "usageThisMonth" = "usageThisMonth" || jsonb_build_object(
+        'totalMinutes',      coalesce(("usageThisMonth"->>'totalMinutes')::numeric,      0) + ${totalMinutes},
+        'videoCount',        coalesce(("usageThisMonth"->>'videoCount')::int,            0) + ${videoCount},
+        'translatedMinutes', coalesce(("usageThisMonth"->>'translatedMinutes')::numeric, 0) + ${translatedMinutes},
+        'languageCount',     coalesce(("usageThisMonth"->>'languageCount')::int,         0) + ${languageCount},
+        'importCount',       coalesce(("usageThisMonth"->>'importCount')::int,           0) + ${importCount}
+      ),
+      "updatedAt" = NOW()
+    WHERE id = ${userId}
+  `
+}

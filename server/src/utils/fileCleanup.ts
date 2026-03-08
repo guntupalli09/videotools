@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import * as Sentry from '@sentry/node'
 
 const tempDir =
   process.env.TEMP_FILE_PATH ||
@@ -58,6 +59,7 @@ function cleanupFiles() {
       }
     } catch (error) {
       console.error(`[FileCleanup] Error cleaning up file ${file}:`, error)
+      Sentry.captureException(error, { tags: { service: 'file-cleanup', file } })
     }
   })
 

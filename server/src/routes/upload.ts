@@ -107,6 +107,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
 
     const queueCount = await getTotalQueueCount()
     if (isQueueAtHardLimit(queueCount)) {
+      res.setHeader('Retry-After', '30')
       return res.status(503).json({ message: 'High demand right now. Please retry shortly.' })
     }
 
@@ -434,6 +435,7 @@ router.post('/dual', upload.fields([
     }
     const queueCount = await getTotalQueueCount()
     if (isQueueAtHardLimit(queueCount)) {
+      res.setHeader('Retry-After', '30')
       return res.status(503).json({ message: 'High demand right now. Please retry shortly.' })
     }
 
@@ -672,12 +674,15 @@ router.post('/init', async (req: Request, res: Response) => {
       const isTimeout = msg.includes('timed out')
       if (isTimeout) {
         console.error('[upload/init] queue count timeout (Redis slow or unreachable)')
+        res.setHeader('Retry-After', '30')
         return res.status(503).json({ message: 'Queue temporarily unavailable. Please retry in a moment.' })
       }
       console.error('[upload/init] queue count failed', msg)
+      res.setHeader('Retry-After', '30')
       return res.status(503).json({ message: 'Queue unavailable. Please retry in a moment.' })
     }
     if (isQueueAtHardLimit(queueCount)) {
+      res.setHeader('Retry-After', '30')
       return res.status(503).json({ message: 'High demand right now. Please retry shortly.' })
     }
 

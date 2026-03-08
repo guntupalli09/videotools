@@ -146,9 +146,11 @@ router.post(
       }
       const queueCount = await getTotalQueueCount()
       if (isQueueAtHardLimit(queueCount)) {
+        res.setHeader('Retry-After', '30')
         return res.status(503).json({ message: 'High demand right now. Please retry shortly.' })
       }
       if (isQueueAtSoftLimit(queueCount)) {
+        res.setHeader('Retry-After', '30')
         return res.status(503).json({ message: 'High demand right now. Batch uploads are temporarily disabled. Please retry shortly.' })
       }
 

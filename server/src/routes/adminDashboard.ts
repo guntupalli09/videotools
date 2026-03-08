@@ -11,6 +11,7 @@ import { getUser } from '../models/User'
 import { prisma } from '../db'
 import { fileQueue, priorityQueue } from '../workers/videoProcessor'
 import { runRecompute } from '../services/recomputeMetrics'
+import { readLogRing } from '../lib/logRing'
 
 const adminDashboardRouter = express.Router()
 export default adminDashboardRouter
@@ -166,6 +167,7 @@ adminDashboardRouter.get('/dashboard', async (req: Request, res: Response): Prom
       failureReasons,
       feedbackByTool,
       starDistribution,
+      toolPerf,
     ] = await Promise.all([
       prisma.dailyMetrics.findFirst({ orderBy: { date: 'desc' } }),
       prisma.monthlyMetrics.findMany({ orderBy: { monthStart: 'desc' }, take: 12 }),
@@ -295,6 +297,31 @@ adminDashboardRouter.get('/dashboard', async (req: Request, res: Response): Prom
         WHERE stars IS NOT NULL
         GROUP BY stars
         ORDER BY stars DESC
+      `,
+      // Per-tool performance breakdown (30d completed jobs)
+      prisma.$queryRaw<{
+        toolType: string
+        count: bigint
+        avgMs: number | null
+        p95Ms: number | null
+        avgFileSizeBytes: number | null
+        avgDurationSec: number | null
+        totalMinutes: number | null
+      }[]>`
+        SELECT
+          "toolType",
+          COUNT(*)::bigint as count,
+          AVG("processingMs")::double precision as "avgMs",
+          percentile_cont(0.95) WITHIN GROUP (ORDER BY "processingMs")::double precision as "p95Ms",
+          AVG("fileSizeBytes"::double precision)::double precision as "avgFileSizeBytes",
+          AVG("videoDurationSec")::double precision as "avgDurationSec",
+          SUM("videoDurationSec"::double precision / 60.0)::double precision as "totalMinutes"
+        FROM "Job"
+        WHERE status = 'completed'
+          AND "completedAt" >= ${thirtyDaysAgo}
+          AND "processingMs" IS NOT NULL
+        GROUP BY "toolType"
+        ORDER BY count DESC
       `,
     ])
 
@@ -431,6 +458,15 @@ adminDashboardRouter.get('/dashboard', async (req: Request, res: Response): Prom
         stars: Number(s.stars),
         count: Number(s.count),
       })),
+      toolPerf: (toolPerf ?? []).map((t) => ({
+        toolType: t.toolType,
+        count: Number(t.count),
+        avgMs: t.avgMs != null ? Math.round(t.avgMs) : null,
+        p95Ms: t.p95Ms != null ? Math.round(t.p95Ms) : null,
+        avgFileSizeMb: t.avgFileSizeBytes != null ? Math.round(t.avgFileSizeBytes / 1024 / 1024 * 10) / 10 : null,
+        avgDurationSec: t.avgDurationSec != null ? Math.round(t.avgDurationSec) : null,
+        totalMinutes: t.totalMinutes != null ? Math.round(t.totalMinutes) : null,
+      })),
     }
     cachedDashboard = response
     cacheTimestamp = Date.now()
@@ -439,6 +475,29 @@ adminDashboardRouter.get('/dashboard', async (req: Request, res: Response): Prom
     return res.json(response)
   } catch (err) {
     console.error('[admin/dashboard]', err)
+    return res.status(500).json({ message: 'Internal server error' })
+  }
+})
+
+/**
+ * GET /api/admin/logs — Tail the Redis log ring buffer.
+ * Query params: limit (default 200, max 500), offset (default 0), level (error|warn|info)
+ */
+adminDashboardRouter.get('/logs', async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const userId = await requireFounder(req, res)
+    if (!userId) return res as Response
+
+    const limit = Math.max(1, Math.min(500, parseInt(String(req.query.limit ?? '200'), 10) || 200))
+    const offset = Math.max(0, parseInt(String(req.query.offset ?? '0'), 10) || 0)
+    const levelFilter = req.query.level as string | undefined
+
+    const entries = await readLogRing(limit, offset)
+    const filtered = levelFilter ? entries.filter((e) => e.level === levelFilter) : entries
+
+    return res.json({ entries: filtered, total: filtered.length })
+  } catch (err) {
+    console.error('[admin/logs]', err)
     return res.status(500).json({ message: 'Internal server error' })
   }
 })
