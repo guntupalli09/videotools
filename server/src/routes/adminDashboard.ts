@@ -128,6 +128,11 @@ const CACHE_TTL_MS = 30_000
 let cachedDashboard: Record<string, unknown> | null = null
 let cacheTimestamp = 0
 
+export function clearDashboardCache(): void {
+  cachedDashboard = null
+  cacheTimestamp = 0
+}
+
 adminDashboardRouter.get('/dashboard', async (req: Request, res: Response): Promise<Response> => {
   const startMs = Date.now()
   try {
