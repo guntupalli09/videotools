@@ -74,13 +74,16 @@ export async function addJobToQueue(
   data: JobData,
   options?: { priority?: number }
 ) {
-  const jobData: JobData = { ...data, jobToken: data.jobToken ?? crypto.randomUUID() }
+  const jobToken = data.jobToken ?? crypto.randomUUID()
+  const jobData: JobData = { ...data, jobToken }
   const priority = options?.priority ?? getJobPriority(plan)
   const totalCount = await getTotalQueueCount()
   const usePriorityQueue =
     (plan === 'pro' || plan === 'agency') &&
     totalCount > PAID_TIER_RESERVATION_QUEUE_THRESHOLD
-  const jobOptions = { priority, attempts: 2 }
+  // Use the UUID jobToken as the Bull job ID so the DB record ID never conflicts
+  // with auto-incremented IDs from a previous Redis instance or queue flush.
+  const jobOptions = { priority, attempts: 2, jobId: jobToken }
   if (usePriorityQueue) {
     return priorityQueue.add(jobData, jobOptions)
   }
