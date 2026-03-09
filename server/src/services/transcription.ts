@@ -18,7 +18,7 @@ const openai = new OpenAI({
 })
 
 if (!process.env.OPENAI_API_KEY) {
-  console.warn('Warning: OPENAI_API_KEY not set. Transcription will fail.')
+  transcriptionLog.warn({ msg: 'OPENAI_API_KEY not set. Transcription will fail.' })
 }
 
 /** Use parallel chunked transcription for videos this long or longer (seconds). Lower = more videos get TTFW. */
@@ -486,7 +486,9 @@ export async function transcribeVideo(
           try { fs.unlinkSync(audioPath) } catch { /* ignore */ }
           if (cleanupWav) try { fs.unlinkSync(cleanupWav) } catch { /* ignore */ }
         }
-        return transcription as any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- OpenAI SDK response_format union type
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- OpenAI SDK response_format union type
+      return transcription as any
       }
       const name = path.basename(audioPath) && path.extname(audioPath) ? path.basename(audioPath) : 'audio.mp3'
       const audioFile = await readAudioAsFile(audioPath, name)
@@ -497,6 +499,7 @@ export async function transcribeVideo(
         language: language || undefined,
         prompt: prompt?.trim().slice(0, 1500) || undefined,
       })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- OpenAI SDK response_format union type
       return transcription as any
     } catch (error) {
       if (!isAlreadyAudio) {

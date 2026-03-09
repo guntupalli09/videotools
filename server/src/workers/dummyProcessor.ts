@@ -1,6 +1,8 @@
 import Queue from 'bull'
 import path from 'path'
 import { createRedisClient } from '../utils/redis'
+import { getLogger } from '../lib/logger'
+const dummyLog = getLogger('worker')
 
 export const fileQueue = new Queue('file-processing', {
   createClient: createRedisClient,
@@ -36,16 +38,16 @@ export function startWorker() {
         fileName: originalName,
       }
     } catch (error: any) {
-      console.error('Processing error:', error)
+      dummyLog.error({ msg: 'Processing error', error: String(error) })
       throw error
     }
   })
 
   fileQueue.on('completed', (job) => {
-    console.log(`Job ${job.id} completed`)
+    dummyLog.info({ msg: 'Job completed', jobId: job.id })
   })
 
   fileQueue.on('failed', (job, err) => {
-    console.error(`Job ${job?.id} failed:`, err)
+    dummyLog.error({ msg: 'Job failed', jobId: job?.id, error: String(err) })
   })
 }

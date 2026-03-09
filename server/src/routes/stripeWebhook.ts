@@ -14,6 +14,9 @@ import { getPlanLimits } from '../utils/limits'
 import { computeNormalizedMonthlyCentsFromInvoice } from '../utils/stripeMrr'
 import { generatePasswordSetupToken } from '../utils/auth'
 import { hasProcessedStripeEvent, markStripeEventProcessed } from '../models/StripeEventLog'
+import { getLogger } from '../lib/logger'
+
+const log = getLogger('api')
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
 
@@ -120,7 +123,7 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event): Promise<void
         }
       }
     } catch (e) {
-      console.warn('[Stripe] Could not fetch subscription for billing period:', (e as Error).message)
+      log.warn({ msg: 'Stripe could not fetch subscription for billing period', error: (e as Error)?.message ?? String(e) })
     }
   }
 
@@ -241,7 +244,7 @@ async function handleInvoicePaymentSucceeded(event: Stripe.Event): Promise<void>
       },
     })
   } catch (err) {
-    console.warn('SubscriptionSnapshot insert failed (invoice.payment_succeeded):', err)
+    log.warn({ msg: 'SubscriptionSnapshot insert failed (invoice.payment_succeeded)', error: (err as Error)?.message ?? String(err) })
   }
 }
 
@@ -293,18 +296,18 @@ async function handleCustomerSubscriptionDeleted(event: Stripe.Event): Promise<v
       },
     })
   } catch (err) {
-    console.warn('SubscriptionSnapshot insert failed (customer.subscription.deleted):', err)
+    log.warn({ msg: 'SubscriptionSnapshot insert failed (customer.subscription.deleted)', error: (err as Error)?.message ?? String(err) })
   }
 }
 
 export async function stripeWebhookHandler(req: Request, res: Response) {
   if (!webhookSecret) {
-    console.error('STRIPE_WEBHOOK_SECRET is not configured.')
+    log.error({ msg: 'STRIPE_WEBHOOK_SECRET is not configured.' })
     return res.status(500).send('Webhook not configured')
   }
 
   const sig = req.headers['stripe-signature'] as string | undefined
-  const buf = (req as any).body as Buffer
+  const buf = req.body as Buffer
 
   let event: Stripe.Event
 
@@ -313,7 +316,7 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
     // rejecting any payload that wasn't sent by Stripe.
     event = stripe.webhooks.constructEvent(buf, sig || '', webhookSecret)
   } catch (err: any) {
-    console.error('Stripe webhook signature verification failed:', err.message)
+    log.error({ msg: 'Stripe webhook signature verification failed', error: (err as Error)?.message ?? String(err) })
     return res.status(400).send(`Webhook Error: ${err.message}`)
   }
 
@@ -341,7 +344,7 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
     await markStripeEventProcessed(event)
     return res.json({ received: true })
   } catch (error: any) {
-    console.error('Error handling Stripe webhook event:', event.type, error)
+    log.error({ msg: 'Error handling Stripe webhook event', eventType: event.type, error: (error as Error)?.message ?? String(error) })
     return res.status(500).send('Webhook handler error')
   }
 }

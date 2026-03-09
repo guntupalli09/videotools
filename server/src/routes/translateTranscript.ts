@@ -2,7 +2,9 @@ import express, { Request, Response } from 'express'
 import rateLimit from 'express-rate-limit'
 import { translateTranscriptText, TRANSCRIPT_TRANSLATION_LANGUAGES } from '../services/translation'
 import { getAuthFromRequest, getEffectiveUserId } from '../utils/auth'
+import { getLogger } from '../lib/logger'
 
+const log = getLogger('api')
 const router = express.Router()
 
 const ALLOWED_LANGUAGES = new Set(TRANSCRIPT_TRANSLATION_LANGUAGES)
@@ -19,7 +21,7 @@ const translateLimiter = rateLimit({
 router.post('/', translateLimiter, async (req: Request, res: Response) => {
   try {
     const auth = getAuthFromRequest(req)
-    const apiKeyUser = (req as any).apiKeyUser
+    const apiKeyUser = req.apiKeyUser
     if (!auth?.userId && !apiKeyUser?.userId) {
       return res.status(401).json({ message: 'Authentication required. Use Authorization: Bearer <token> or a valid API key.' })
     }
@@ -40,7 +42,7 @@ router.post('/', translateLimiter, async (req: Request, res: Response) => {
     const translated = await translateTranscriptText(text, lang)
     return res.json({ translatedText: translated })
   } catch (err) {
-    console.error('translate-transcript error:', err)
+    log.error({ msg: 'translate-transcript error', error: (err as Error)?.message ?? String(err) })
     return res.status(500).json({ message: 'Translation failed. Please try again.' })
   }
 })

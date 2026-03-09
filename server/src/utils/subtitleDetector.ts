@@ -1,4 +1,6 @@
 import fs from 'fs'
+import { getLogger } from '../lib/logger'
+const subtitleLog = getLogger('api')
 
 /** Bytes to read from the start of the file for format detection (no full file load). */
 const DETECT_HEAD_BYTES = 32 * 1024 // 32 KB
@@ -27,7 +29,7 @@ export function detectSubtitleFormatFromContent(filePath: string): SubtitleDetec
     fs.closeSync(fd)
     content = buffer.toString('utf-8')
   } catch (error) {
-    console.error('[subtitleDetector] read error', { filePath, error })
+    subtitleLog.error({ msg: '[subtitleDetector] read error', filePath, error: String(error) })
     return { detectedFormat: 'unknown', normalizedFormat: null }
   }
 

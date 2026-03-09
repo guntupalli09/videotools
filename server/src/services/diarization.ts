@@ -1,6 +1,9 @@
 import fs from 'fs'
 import path from 'path'
 import { extractAudio } from './ffmpeg'
+import { getLogger } from '../lib/logger'
+
+const log = getLogger('worker')
 
 /**
  * Optional speaker diarization via Replicate (thomasmol/whisper-diarization).
@@ -92,7 +95,7 @@ export async function transcribeWithDiarization(
     }
     return null
   } catch (err: any) {
-    console.warn('[diarization]', err?.message || err)
+    log.warn({ msg: 'diarization error', error: (err as Error)?.message ?? String(err) })
     if (!isAlreadyAudio) {
       try {
         if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath)

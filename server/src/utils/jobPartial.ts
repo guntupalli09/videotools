@@ -5,6 +5,8 @@
  */
 
 import type { Redis } from 'ioredis'
+import { getLogger } from '../lib/logger'
+const partialLog = getLogger('worker')
 
 export interface PartialSegment {
   start: number
@@ -42,7 +44,7 @@ export async function setJobPartial(
     const val = JSON.stringify(payload)
     await redis.set(k, val, 'EX', TTL_SEC)
   } catch (err: any) {
-    console.error('[jobPartial] set failed', { jobId, err: err?.message })
+    partialLog.error({ msg: '[jobPartial] set failed', jobId, error: err?.message })
   }
 }
 
@@ -62,7 +64,7 @@ export async function getJobPartial(
     }
     return payload
   } catch (err: any) {
-    console.error('[jobPartial] get failed', { jobId, err: err?.message })
+    partialLog.error({ msg: '[jobPartial] get failed', jobId, error: err?.message })
     return null
   }
 }
@@ -74,10 +76,10 @@ export async function getJobPartial(
 export function deleteJobPartial(redis: Redis, jobId: string | number): void {
   try {
     redis.del(key(jobId)).catch((err) => {
-      console.error('[jobPartial] del failed', { jobId, err: err?.message })
+      partialLog.error({ msg: '[jobPartial] del failed', jobId, error: err?.message })
     })
   } catch (err: any) {
-    console.error('[jobPartial] del failed', { jobId, err: err?.message })
+    partialLog.error({ msg: '[jobPartial] del failed', jobId, error: err?.message })
   }
 }
 

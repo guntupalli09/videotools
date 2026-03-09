@@ -279,11 +279,13 @@ async function processJob(job: import('bull').Job<JobData>) {
     updateJobStarted(String(jobId)).catch(() => {})
     const { toolType, options } = data
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- undocumented Bull internals
     const redis = (job as any).queue?.client as import('ioredis').Redis | undefined
     let partialWriter: ReturnType<typeof createPartialWriter> | null = null
 
     // Instrument progress so every update is logged; Bull persists progress for status endpoint
     const progressFn = job.progress.bind(job)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- undocumented Bull internals
     ;(job as any).progress = async (value?: number | object) => {
       const out = await progressFn(value)
       if (typeof value === 'number') log.debug({ msg: 'job_progress', progress: value })
@@ -699,7 +701,7 @@ async function processJob(job: import('bull').Job<JobData>) {
               isAlreadyAudio
             )
             const fileReceivedToTranscriptionFinishedMs = Date.now() - processingStartMs
-            console.log('[PROCESSING_TIMING]', {
+            workerLog.info({ msg: '[PROCESSING_TIMING]',
               job_id: String(jobId),
               tool_type: 'video-to-subtitles',
               file_received_to_transcription_finished_ms: fileReceivedToTranscriptionFinishedMs,

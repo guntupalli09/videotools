@@ -16,7 +16,9 @@ import { getAuthFromRequest, getEffectiveUserId } from '../utils/auth'
 import { sanitizeFilename } from '../utils/sanitizeFilename'
 import { isQueueAtHardLimit, isQueueAtSoftLimit } from '../utils/queueConfig'
 import { checkAndRecordUpload } from '../utils/uploadRateLimit'
+import { getLogger } from '../lib/logger'
 
+const log = getLogger('api')
 const router = express.Router()
 
 // Shared temp directory (same as upload.ts). On Railway/Fly/Render only /tmp is guaranteed.
@@ -304,7 +306,7 @@ router.post(
         status: 'queued',
       })
     } catch (error: any) {
-      console.error('Batch upload error:', error)
+      log.error({ msg: 'Batch upload error', error: (error as Error)?.message ?? String(error) })
       res.status(500).json({ message: error.message || 'Batch upload failed' })
     }
   }
@@ -363,7 +365,7 @@ router.get('/:batchId/download', async (req: Request, res: Response) => {
 
   const fileStream = fs.createReadStream(batch.zipPath)
   fileStream.on('error', (err) => {
-    console.error('[batch/download] stream error', err)
+    log.error({ msg: 'batch/download stream error', error: (err as Error)?.message ?? String(err) })
     if (!res.headersSent) res.status(500).json({ message: 'Download failed' })
   })
   fileStream.pipe(res)

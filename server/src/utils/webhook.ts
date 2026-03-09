@@ -1,3 +1,6 @@
+import { getLogger } from '../lib/logger'
+const webhookLog = getLogger('worker')
+
 /**
  * Fire webhook on job completion (optional). Non-blocking; failures are logged only.
  */
@@ -21,9 +24,9 @@ export async function fireWebhook(
       signal: AbortSignal.timeout(10000),
     })
     if (!res.ok) {
-      console.warn('[webhook]', url, 'returned', res.status)
+      webhookLog.warn({ msg: '[webhook] non-OK response', url, status: res.status })
     }
   } catch (err: any) {
-    console.warn('[webhook]', url, err?.message || err)
+    webhookLog.warn({ msg: '[webhook] request failed', url, error: err?.message || String(err) })
   }
 }

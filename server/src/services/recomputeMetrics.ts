@@ -5,6 +5,9 @@
  */
 
 import { prisma } from '../db'
+import { getLogger } from '../lib/logger'
+
+const log = getLogger('worker')
 
 function toUtcMidnight(d: Date): Date {
   const out = new Date(d)
@@ -265,7 +268,7 @@ export async function runRecompute(days: number, months: number): Promise<Recomp
       totalDaysProcessed++
     } catch (err) {
       dayErrors++
-      console.warn('[recompute] day failed', d.toISOString().slice(0, 10), (err as Error).message)
+      log.warn({ msg: 'recompute day failed', day: d.toISOString().slice(0, 10), error: (err as Error)?.message ?? String(err) })
     }
   }
 
@@ -278,7 +281,7 @@ export async function runRecompute(days: number, months: number): Promise<Recomp
       totalMonthsProcessed++
     } catch (err) {
       monthErrors++
-      console.warn('[recompute] month failed', m.toISOString().slice(0, 7), (err as Error).message)
+      log.warn({ msg: 'recompute month failed', month: m.toISOString().slice(0, 7), error: (err as Error)?.message ?? String(err) })
     }
   }
 

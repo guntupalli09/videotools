@@ -12,7 +12,9 @@ import { prisma } from '../db'
 import { fileQueue, priorityQueue } from '../workers/videoProcessor'
 import { runRecompute } from '../services/recomputeMetrics'
 import { readLogRing } from '../lib/logRing'
+import { getLogger } from '../lib/logger'
 
+const log = getLogger('api')
 const adminDashboardRouter = express.Router()
 export default adminDashboardRouter
 
@@ -36,7 +38,7 @@ adminDashboardRouter.get('/me', async (req: Request, res: Response): Promise<Res
     if (!userId) return res as Response
     return res.json({ isFounder: true })
   } catch (err) {
-    console.error('[admin/me]', err)
+    log.error({ msg: '[admin/me]', error: String(err) })
     return res.status(500).json({ message: 'Internal server error' })
   }
 })
@@ -96,7 +98,7 @@ adminDashboardRouter.get('/server-health', async (req: Request, res: Response): 
       dbOk,
     })
   } catch (err: any) {
-    console.error('[admin/server-health]', err)
+    log.error({ msg: '[admin/server-health]', error: String(err) })
     return res.status(500).json({ message: 'Internal server error', error: err?.message })
   }
 })
@@ -120,7 +122,7 @@ adminDashboardRouter.post('/recompute', async (req: Request, res: Response): Pro
 
     return res.json(result)
   } catch (err) {
-    console.error('[admin/recompute]', err)
+    log.error({ msg: '[admin/recompute]', error: String(err) })
     return res.status(500).json({ message: 'Internal server error' })
   }
 })
@@ -479,10 +481,10 @@ adminDashboardRouter.get('/dashboard', async (req: Request, res: Response): Prom
     cachedDashboard = response
     cacheTimestamp = Date.now()
 
-    console.info(`Founder dashboard computed in ${Date.now() - startMs} ms`)
+    log.info({ msg: 'Founder dashboard computed', ms: Date.now() - startMs })
     return res.json(response)
   } catch (err) {
-    console.error('[admin/dashboard]', err)
+    log.error({ msg: '[admin/dashboard]', error: String(err) })
     return res.status(500).json({ message: 'Internal server error' })
   }
 })
@@ -505,7 +507,7 @@ adminDashboardRouter.get('/logs', async (req: Request, res: Response): Promise<R
 
     return res.json({ entries: filtered, total: filtered.length })
   } catch (err) {
-    console.error('[admin/logs]', err)
+    log.error({ msg: '[admin/logs]', error: String(err) })
     return res.status(500).json({ message: 'Internal server error' })
   }
 })

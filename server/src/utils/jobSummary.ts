@@ -5,6 +5,8 @@
  */
 
 import type { Redis } from 'ioredis'
+import { getLogger } from '../lib/logger'
+const summaryLog = getLogger('worker')
 
 export interface JobSummaryPayload {
   summary?: { summary: string; bullets: string[]; actionItems?: string[] }
@@ -28,7 +30,7 @@ export async function setJobSummary(
     const val = JSON.stringify(payload)
     await redis.set(k, val, 'EX', TTL_SEC)
   } catch (err: any) {
-    console.error('[jobSummary] set failed', { jobId, err: err?.message })
+    summaryLog.error({ msg: '[jobSummary] set failed', jobId, error: err?.message })
   }
 }
 
@@ -42,7 +44,7 @@ export async function getJobSummary(
     const payload = JSON.parse(val) as JobSummaryPayload
     return payload
   } catch (err: any) {
-    console.error('[jobSummary] get failed', { jobId, err: err?.message })
+    summaryLog.error({ msg: '[jobSummary] get failed', jobId, error: err?.message })
     return null
   }
 }

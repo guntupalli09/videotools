@@ -30,7 +30,7 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
 function requireOpsAuth(req: Request, res: Response, next: NextFunction) {
   if (env !== 'production') return next()
   const auth = getAuthFromRequest(req)
-  const apiKeyUser = (req as any).apiKeyUser
+  const apiKeyUser = req.apiKeyUser
   if (auth?.userId || apiKeyUser?.userId) return next()
   res.status(401).json({ message: 'Authentication required for this endpoint.' })
 }
