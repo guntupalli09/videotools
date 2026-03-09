@@ -1584,7 +1584,7 @@ export async function submitYoutubeUrl(
 
 /** Fast client-side YouTube URL validation (mirrors server regex). */
 export function isYoutubeUrl(url: string): boolean {
-  return /^https?:\/\/(www\.)?(youtube\.com\/(watch\?.*[?&]v=|shorts\/|embed\/)|youtu\.be\/)[\w-]{11}/.test(
+  return /^https?:\/\/(www\.)?(youtube\.com\/(watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)[\w-]{11}/.test(
     url.trim()
   )
 }
