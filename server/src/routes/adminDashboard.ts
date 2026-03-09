@@ -383,6 +383,12 @@ adminDashboardRouter.get('/dashboard', async (req: Request, res: Response): Prom
       activeUsersLast30Days: active30?.[0]?.count != null ? Number(active30[0].count) : 0,
     }
 
+    const feedbackUserIds = (feedbackRows ?? []).map((f) => f.userId).filter((id): id is string => id != null)
+    const feedbackUsers = feedbackUserIds.length > 0
+      ? await prisma.user.findMany({ where: { id: { in: feedbackUserIds } }, select: { id: true, email: true } })
+      : []
+    const feedbackEmailMap = Object.fromEntries(feedbackUsers.map((u) => [u.id, u.email]))
+
     const feedback = (feedbackRows ?? []).map((f) => ({
       id: f.id,
       toolId: f.toolId,
@@ -391,7 +397,7 @@ adminDashboardRouter.get('/dashboard', async (req: Request, res: Response): Prom
       planAtSubmit: f.planAtSubmit,
       createdAt: f.createdAt.toISOString(),
       userId: f.userId,
-      userNameOrEmail: f.userNameOrEmail,
+      userNameOrEmail: f.userNameOrEmail ?? (f.userId ? feedbackEmailMap[f.userId] ?? null : null),
     }))
 
     const users = (allUsers ?? []).map((u) => ({
