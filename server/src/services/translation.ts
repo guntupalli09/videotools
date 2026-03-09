@@ -5,13 +5,15 @@ import { parseSRT, parseVTT, toSRT, toVTT, detectSubtitleFormat } from '../utils
 import { transcribeVideo } from './transcription'
 import fs from 'fs'
 import path from 'path'
+import { getLogger } from '../lib/logger'
+const translationLog = getLogger('worker')
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
 
 if (!process.env.OPENAI_API_KEY) {
-  console.warn('Warning: OPENAI_API_KEY not set. Translation will fail.')
+  translationLog.warn({ msg: 'OPENAI_API_KEY not set. Translation will fail.' })
 }
 
 const LANGUAGE_CODES: Record<string, string> = {
@@ -119,7 +121,7 @@ Return ALL ${batch.length} translations in numbered format (1. through ${batch.l
     
     // If we got fewer translations than expected, log a warning
     if (translatedLines.length < batch.length) {
-      console.warn(`Warning: Expected ${batch.length} translations, got ${translatedLines.length}`)
+      translationLog.warn({ msg: 'Translation count mismatch', expected: batch.length, got: translatedLines.length })
     }
     
     // Map translated lines back to entries, preserving original line breaks
@@ -134,7 +136,7 @@ Return ALL ${batch.length} translations in numbered format (1. through ${batch.l
       
       // Fallback to original if no translation found
       if (!translated || translated.length === 0) {
-        console.warn(`No translation found for entry ${i + idx + 1}, using original text`)
+        translationLog.warn({ msg: 'No translation found for entry, using original', entry: i + idx + 1 })
         translated = entry.text
       }
       // Restore original line breaks if the original had them

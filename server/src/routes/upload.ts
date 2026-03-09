@@ -196,7 +196,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
 
     // File-based input
     if (!req.file) {
-      console.warn('[upload] no file in request', { toolType, bodyKeys: Object.keys(req.body) })
+      uploadLog.warn({ msg: '[upload] no file in request', toolType, bodyKeys: Object.keys(req.body) })
       return res.status(400).json({ message: 'No file uploaded' })
     }
     const file = req.file
@@ -224,7 +224,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     let typeError: string | null = null
     if (toolType === 'translate-subtitles' || toolType === 'fix-subtitles' || toolType === 'convert-subtitles') {
       const subResult = await validateSubtitleFile(file.path)
-      console.log('[upload] subtitle validation', {
+      uploadLog.info({ msg: '[upload] subtitle validation',
         toolType,
         originalname: file.originalname,
         detectedFormat: subResult.detectedFormat,
@@ -361,7 +361,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
           return res.status(202).json({
             jobId: cachedJob.id,
             status: 'queued',
-            jobToken: (cachedJob.data as any)?.jobToken,
+            jobToken: (cachedJob.data as JobData)?.jobToken,
           })
         }
       } catch {
@@ -410,10 +410,10 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     res.status(202).json({
       jobId: job.id,
       status: 'queued',
-      jobToken: (job.data as any)?.jobToken,
+      jobToken: (job.data as JobData)?.jobToken,
     })
   } catch (error: any) {
-    console.error('Upload error:', error)
+    uploadLog.error({ msg: 'Upload error', error: String(error) })
     if (req.file) {
       try {
         fs.unlinkSync(req.file.path)
@@ -540,7 +540,7 @@ router.post('/dual', upload.fields([
 
     // Validate subtitle file (content-based; no extension check)
     const subResult = await validateSubtitleFile(subtitleFile.path)
-    console.log('[upload] subtitle validation (dual)', {
+    uploadLog.info({ msg: '[upload] subtitle validation (dual)',
       toolType: 'burn-subtitles',
       originalname: subtitleFile.originalname,
       detectedFormat: subResult.detectedFormat,
@@ -613,10 +613,10 @@ router.post('/dual', upload.fields([
     res.status(202).json({
       jobId: job.id,
       status: 'queued',
-      jobToken: (job.data as any)?.jobToken,
+      jobToken: (job.data as JobData)?.jobToken,
     })
   } catch (error: any) {
-    console.error('Upload error:', error)
+    uploadLog.error({ msg: 'Upload error', error: String(error) })
     const files = req.files as { [fieldname: string]: Express.Multer.File[] }
     if (files.video) {
       try {
@@ -667,10 +667,10 @@ router.post('/init', async (req: Request, res: Response) => {
       const msg = (e as Error)?.message ?? ''
       const isTimeout = msg.includes('timed out')
       if (isTimeout) {
-        console.error('[upload/init] getUser timeout')
+        uploadLog.error({ msg: '[upload/init] getUser timeout' })
         return res.status(503).json({ message: 'Service temporarily busy. Please retry.' })
       }
-      console.warn('[upload/init] getUser failed', msg)
+      uploadLog.warn({ msg: '[upload/init] getUser failed', error: msg })
     }
     const rawPlan =
       auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency' || auth.plan === 'founding_workflow')
@@ -697,11 +697,11 @@ router.post('/init', async (req: Request, res: Response) => {
       const msg = (e as Error)?.message ?? ''
       const isTimeout = msg.includes('timed out')
       if (isTimeout) {
-        console.error('[upload/init] queue count timeout (Redis slow or unreachable)')
+        uploadLog.error({ msg: '[upload/init] queue count timeout (Redis slow or unreachable)' })
         res.setHeader('Retry-After', '30')
         return res.status(503).json({ message: 'Queue temporarily unavailable. Please retry in a moment.' })
       }
-      console.error('[upload/init] queue count failed', msg)
+      uploadLog.error({ msg: '[upload/init] queue count failed', error: msg })
       res.setHeader('Retry-After', '30')
       return res.status(503).json({ message: 'Queue unavailable. Please retry in a moment.' })
     }
@@ -745,7 +745,7 @@ router.post('/init', async (req: Request, res: Response) => {
     try {
       fs.mkdirSync(dir, { recursive: true })
     } catch (e) {
-      console.error('[upload/init] mkdir failed', dir, (e as Error)?.message)
+      uploadLog.error({ msg: '[upload/init] mkdir failed', dir, error: (e as Error)?.message })
       return res.status(500).json({ message: 'Upload storage unavailable. Please retry.' })
     }
 
@@ -773,7 +773,7 @@ router.post('/init', async (req: Request, res: Response) => {
   } catch (error: any) {
     const msg = error?.message || String(error)
     const stack = error?.stack
-    console.error('[upload/init] 500', msg, stack || '')
+    uploadLog.error({ msg: '[upload/init] 500', error: msg, stack: stack || undefined })
     return res.status(500).json({ message: msg || 'Upload init failed' })
   }
 })
@@ -800,7 +800,7 @@ export async function handleUploadChunk(req: Request, res: Response): Promise<vo
       return
     }
 
-    const body = (req as any).body
+    const body = req.body as Buffer
     if (!body || !Buffer.isBuffer(body) || body.length === 0) {
       res.status(400).json({ message: 'Chunk body required (raw binary)' })
       return
@@ -812,13 +812,13 @@ export async function handleUploadChunk(req: Request, res: Response): Promise<vo
     const stat = await fs.promises.stat(chunkPath).catch(() => null)
     if (!stat || stat.size !== body.length) {
       try { await fs.promises.unlink(chunkPath) } catch { /* ignore */ }
-      console.error('[upload/chunk] write verify failed', { uploadId, chunkIndex, expected: body.length, actual: stat?.size })
+      uploadLog.error({ msg: '[upload/chunk] write verify failed', uploadId, chunkIndex, expected: body.length, actual: stat?.size })
       res.status(500).json({ message: 'Chunk write failed. Please retry.' })
       return
     }
     res.json({ ok: true })
   } catch (error: any) {
-    console.error('[upload/chunk] 500', error?.message || error, error?.stack)
+    uploadLog.error({ msg: '[upload/chunk] 500', error: error?.message || String(error), stack: error?.stack })
     res.status(500).json({ message: error.message || 'Chunk upload failed' })
   }
 }
@@ -1005,7 +1005,7 @@ router.post('/complete', async (req: Request, res: Response) => {
               const { job, fileSize } = await doEnqueueJob()
               yetEnqueued = true
               meta.earlyEnqueued = true
-              earlyJobResult = { jobId: String(job.id), jobToken: (job.data as any)?.jobToken }
+              earlyJobResult = { jobId: String(job.id), jobToken: (job.data as JobData)?.jobToken }
               uploadLog.info({
                 msg: 'upload_early_enqueue',
                 uploadId,
@@ -1037,7 +1037,7 @@ router.post('/complete', async (req: Request, res: Response) => {
       } catch (err: any) {
         out.destroy()
         try { fs.unlinkSync(outPath) } catch { /* ignore */ }
-        console.error('[upload/complete] streaming reassembly failed', err?.message || err, err?.stack)
+        uploadLog.error({ msg: '[upload/complete] streaming reassembly failed', error: err?.message || String(err), stack: err?.stack })
         return res.status(500).json({ message: err?.message || 'Upload complete failed' })
       }
     timings.tAssemblyEnd = Date.now()
@@ -1069,7 +1069,7 @@ router.post('/complete', async (req: Request, res: Response) => {
             const { job, fileSize } = await doEnqueueJob()
             yetEnqueued = true
             meta.earlyEnqueued = true
-            earlyJobResult = { jobId: String(job.id), jobToken: (job.data as any)?.jobToken }
+            earlyJobResult = { jobId: String(job.id), jobToken: (job.data as JobData)?.jobToken }
             uploadLog.info({
               msg: 'upload_early_enqueue',
               uploadId,
@@ -1109,12 +1109,14 @@ router.post('/complete', async (req: Request, res: Response) => {
       if (yetEnqueued && earlyJobResult) {
         getJobById(earlyJobResult.jobId)
           .then((job) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- undocumented Bull API
             if (job && typeof (job as any).moveToFailed === 'function') {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any -- undocumented Bull API
               return (job as any).moveToFailed(err)
             }
           })
           .catch(() => { /* best-effort */ })
-        console.error('[upload/complete] 500', err?.message || err, err?.stack)
+        uploadLog.error({ msg: '[upload/complete] 500', error: err?.message || String(err), stack: err?.stack })
         res.status(500).json({
           message: err?.message || 'Upload complete failed',
           jobId: earlyJobResult.jobId,
@@ -1122,7 +1124,7 @@ router.post('/complete', async (req: Request, res: Response) => {
         })
         return
       }
-      console.error('[upload/complete] 500', err?.message || err, err?.stack)
+      uploadLog.error({ msg: '[upload/complete] 500', error: err?.message || String(err), stack: err?.stack })
       res.status(500).json({ message: err?.message || 'Upload complete failed' })
     }
     out.once('error', onError)
@@ -1184,7 +1186,7 @@ router.post('/complete', async (req: Request, res: Response) => {
         return res.status(202).json({
           jobId: job.id,
           status: 'queued',
-          jobToken: (job.data as any)?.jobToken,
+          jobToken: (job.data as JobData)?.jobToken,
         })
       } catch (error: any) {
         if (error?.statusCode === 400) {
@@ -1197,7 +1199,7 @@ router.post('/complete', async (req: Request, res: Response) => {
     out.end()
   } catch (error: any) {
     if (uploadId) completingUploads.delete(uploadId)
-    console.error('[upload/complete] 500', error?.message || error, error?.stack)
+    uploadLog.error({ msg: '[upload/complete] 500', error: error?.message || String(error), stack: error?.stack })
     return res.status(500).json({ message: error.message || 'Upload complete failed' })
   }
 })

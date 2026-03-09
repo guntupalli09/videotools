@@ -1,9 +1,11 @@
 import express, { Request, Response } from 'express'
-import { getJobById } from '../workers/videoProcessor'
+import { getJobById, type JobData } from '../workers/videoProcessor'
 import { getAuthFromRequest, getEffectiveUserId } from '../utils/auth'
 import { getJobPartial, trimPartialPayloadForResponse, segmentsToPartialTranscript } from '../utils/jobPartial'
 import { getJobSummary } from '../utils/jobSummary'
+import { getLogger } from '../lib/logger'
 
+const log = getLogger('api')
 const router = express.Router()
 
 /** SSE interval (ms). Lower than polling for perceived latency. */
@@ -37,10 +39,11 @@ async function buildJobStatusPayload(job: import('bull').Job): Promise<{
 
   let result = job.returnvalue || undefined
   const queuePosition = state === 'waiting' ? await getQueuePosition(job) : undefined
-  const jobToken = (job.data as any)?.jobToken
+  const jobToken = (job.data as JobData)?.jobToken
 
   if (state === 'completed' && result != null) {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- undocumented Bull internals
       const redis = (job as any).queue?.client
       if (redis) {
         const deferred = await getJobSummary(redis, job.id)
@@ -65,6 +68,7 @@ async function buildJobStatusPayload(job: import('bull').Job): Promise<{
 
   if (state === 'active') {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- undocumented Bull internals
       const redis = (job as any).queue?.client
       if (redis) {
         const partial = await getJobPartial(redis, job.id)
@@ -91,8 +95,8 @@ router.get('/:jobId/summary', async (req: Request, res: Response) => {
       res.set({ 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache', 'Expires': '0' })
       return res.status(404).json({ message: 'Job not found' })
     }
-    const jobUserId = (job.data as any)?.userId
-    const jobToken = (job.data as any)?.jobToken
+    const jobUserId = (job.data as JobData)?.userId
+    const jobToken = (job.data as JobData)?.jobToken
     const allowedByUser = userId != null && jobUserId != null && userId === jobUserId
     const allowedByToken = clientJobToken && jobToken && clientJobToken === jobToken
     if (!allowedByUser && !allowedByToken) {
@@ -113,7 +117,7 @@ router.get('/:jobId/summary', async (req: Request, res: Response) => {
       ...(deferred.chapters != null && { chapters: deferred.chapters }),
     })
   } catch (error: any) {
-    console.error('Job summary error:', error)
+    log.error({ msg: 'Job summary error', error: (error as Error)?.message ?? String(error) })
     res.set({ 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache', 'Expires': '0' })
     return res.status(500).json({ message: error.message || 'Failed to get job summary' })
   }
@@ -129,8 +133,8 @@ router.get('/:jobId/stream', async (req: Request, res: Response) => {
     if (!job) {
       return res.status(404).json({ message: 'Job not found' })
     }
-    const jobUserId = (job.data as any)?.userId
-    const jobToken = (job.data as any)?.jobToken
+    const jobUserId = (job.data as JobData)?.userId
+    const jobToken = (job.data as JobData)?.jobToken
     const allowedByUser = userId != null && jobUserId != null && userId === jobUserId
     const allowedByToken = clientJobToken && jobToken && clientJobToken === jobToken
     if (!allowedByUser && !allowedByToken) {
@@ -212,8 +216,8 @@ router.get('/:jobId', async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Job not found' })
     }
 
-    const jobUserId = (job.data as any)?.userId
-    const jobToken = (job.data as any)?.jobToken
+    const jobUserId = (job.data as JobData)?.userId
+    const jobToken = (job.data as JobData)?.jobToken
     const allowedByUser = userId != null && jobUserId != null && userId === jobUserId
     const allowedByToken = clientJobToken && jobToken && clientJobToken === jobToken
     if (!allowedByUser && !allowedByToken) {
@@ -230,7 +234,7 @@ router.get('/:jobId', async (req: Request, res: Response) => {
     })
     res.json(payload)
   } catch (error: any) {
-    console.error('Job status error:', error)
+    log.error({ msg: 'Job status error', error: (error as Error)?.message ?? String(error) })
     res.set({
       'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
       'Pragma': 'no-cache',

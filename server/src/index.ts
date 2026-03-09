@@ -38,7 +38,7 @@ if (process.env.NODE_ENV === 'production') {
   const required = ['STRIPE_WEBHOOK_SECRET', 'STRIPE_SECRET_KEY', 'DATABASE_URL', 'REDIS_URL', 'JWT_SECRET']
   const missing = required.filter((k) => !process.env[k]?.trim())
   if (missing.length > 0) {
-    console.error(`[startup] Missing required environment variables: ${missing.join(', ')}`)
+    log.error({ msg: '[startup] Missing required environment variables', vars: missing.join(', ') })
     process.exit(1)
   }
 }
@@ -314,14 +314,10 @@ const server = app.listen(PORT, () => {
 // Handle server errors gracefully
 server.on('error', (error: NodeJS.ErrnoException) => {
   if (error.code === 'EADDRINUSE') {
-    console.error(`\n❌ Port ${PORT} is already in use!`)
-    console.error(`\nTo fix this, run one of these commands:`)
-    console.error(`  Windows: netstat -ano | findstr :${PORT}`)
-    console.error(`  Then: taskkill /F /PID [process_id]`)
-    console.error(`\nOr change the PORT in your .env file\n`)
+    log.error({ msg: 'Server port already in use', port: PORT })
     process.exit(1)
   } else {
-    console.error('Server error:', error)
+    log.error({ msg: 'Server error', error: String(error) })
     process.exit(1)
   }
 })

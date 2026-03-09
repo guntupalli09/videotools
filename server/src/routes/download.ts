@@ -2,7 +2,9 @@ import express, { Request, Response } from 'express'
 import path from 'path'
 import fs from 'fs'
 import { getAuthFromRequest } from '../utils/auth'
+import { getLogger } from '../lib/logger'
 
+const log = getLogger('api')
 const router = express.Router()
 
 const tempDir =
@@ -119,7 +121,7 @@ router.get('/:filename', (req: Request, res: Response) => {
     const fileStream = fs.createReadStream(filePath)
     fileStream.pipe(res)
   } catch (error: any) {
-    console.error('Download error:', error)
+    log.error({ msg: 'Download error', error: String(error) })
     res.status(500).json({ message: error.message || 'Download failed' })
   }
 })

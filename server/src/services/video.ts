@@ -1,6 +1,8 @@
 import path from 'path'
 import fs from 'fs'
 import { getVideoDuration } from './ffmpeg'
+import { getLogger } from '../lib/logger'
+const videoLog = getLogger('worker')
 
 /**
  * Validate video duration (max duration varies by plan; caller supplies maxDurationMinutes)
@@ -30,7 +32,7 @@ export function validateVideoDuration(
       return { valid: true, duration }
     })
     .catch(error => {
-      console.error('Video duration validation error:', error)
+      videoLog.error({ msg: 'Video duration validation error', error: String(error) })
       return {
         valid: false,
         error: error.message || 'Could not determine video duration',

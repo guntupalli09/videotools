@@ -11,7 +11,9 @@ import { prisma } from '../db'
 import { fileQueue, priorityQueue } from '../workers/videoProcessor'
 import { pushLogEntry } from '../lib/logRing'
 import type { PlanType } from '../models/User'
+import { getLogger } from '../lib/logger'
 
+const log = getLogger('api')
 const router = express.Router()
 export default router
 
@@ -101,13 +103,13 @@ async function setCooldown(type: string): Promise<void> {
 async function sendEmail(to: string, subject: string, html: string): Promise<void> {
   const key = process.env.RESEND_API_KEY
   const from = process.env.RESEND_FROM_EMAIL || 'VideoText <onboarding@resend.dev>'
-  if (!key) { console.log('[alert-email] (no RESEND_API_KEY)', subject); return }
+  if (!key) { log.info({ msg: 'alert-email skipped (no RESEND_API_KEY)', subject }); return }
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
     body: JSON.stringify({ from, to: [to], subject, html }),
   })
-  if (!res.ok) console.error('[alert-email] Resend error', res.status, await res.text())
+  if (!res.ok) log.error({ msg: 'alert-email Resend error', status: res.status, body: await res.text() })
 }
 
 // ── Fix-instruction snippets per alert type ───────────────────────────────────
@@ -340,7 +342,7 @@ export async function runAlertChecks(): Promise<void> {
       }
     }
   } catch (err) {
-    console.error('[alerts] check error:', err)
+    log.error({ msg: 'alerts check error', error: (err as Error)?.message ?? String(err) })
   }
 }
 
@@ -362,7 +364,7 @@ export async function maybeSendDailyDigest(): Promise<void> {
     await sendDigestEmail(config.alertEmail)
     await fileQueue.client.set(DIGEST_LAST_SENT_KEY, todayKey)
   } catch (err) {
-    console.error('[digest] scheduler error:', err)
+    log.error({ msg: 'digest scheduler error', error: (err as Error)?.message ?? String(err) })
   }
 }
 
@@ -418,7 +420,7 @@ router.get('/alerts', async (req: Request, res: Response): Promise<Response> => 
     const [config, log] = await Promise.all([getAlertConfig(), getAlertLog()])
     return res.json({ config, log })
   } catch (err) {
-    console.error('[admin/alerts GET]', err)
+    log.error({ msg: 'admin/alerts GET error', error: (err as Error)?.message ?? String(err) })
     return res.status(500).json({ message: 'Internal server error' })
   }
 })
@@ -431,7 +433,7 @@ router.post('/alerts', async (req: Request, res: Response): Promise<Response> =>
     await saveAlertConfig(config)
     return res.json({ ok: true })
   } catch (err) {
-    console.error('[admin/alerts POST]', err)
+    log.error({ msg: 'admin/alerts POST error', error: (err as Error)?.message ?? String(err) })
     return res.status(500).json({ message: 'Internal server error' })
   }
 })
@@ -444,7 +446,7 @@ router.post('/alerts/test', async (req: Request, res: Response): Promise<Respons
     await sendEmail(config.alertEmail, '✅ VideoText: Test alert', '<p>Test alert from VideoText Command Centre. Alert emails are working.</p>')
     return res.json({ ok: true, sentTo: config.alertEmail })
   } catch (err) {
-    console.error('[admin/alerts/test]', err)
+    log.error({ msg: 'admin/alerts/test error', error: (err as Error)?.message ?? String(err) })
     return res.status(500).json({ message: 'Internal server error' })
   }
 })
@@ -478,7 +480,7 @@ router.get('/digest/preview', async (req: Request, res: Response): Promise<Respo
       paidUsers: Number(paidRow?.[0]?.count ?? 0),
     })
   } catch (err) {
-    console.error('[admin/digest/preview]', err)
+    log.error({ msg: 'admin/digest/preview error', error: (err as Error)?.message ?? String(err) })
     return res.status(500).json({ message: 'Internal server error' })
   }
 })
@@ -492,7 +494,7 @@ router.post('/digest/send', async (req: Request, res: Response): Promise<Respons
     await sendDigestEmail(to)
     return res.json({ ok: true, sentTo: to })
   } catch (err) {
-    console.error('[admin/digest/send]', err)
+    log.error({ msg: 'admin/digest/send error', error: (err as Error)?.message ?? String(err) })
     return res.status(500).json({ message: 'Internal server error' })
   }
 })
@@ -549,7 +551,7 @@ router.get('/support/user', async (req: Request, res: Response): Promise<Respons
       })),
     })
   } catch (err) {
-    console.error('[admin/support/user]', err)
+    log.error({ msg: 'admin/support/user error', error: (err as Error)?.message ?? String(err) })
     return res.status(500).json({ message: 'Internal server error' })
   }
 })
@@ -566,10 +568,10 @@ router.post('/support/impersonate', async (req: Request, res: Response): Promise
 
     // Standard JWT — valid for 30 days (same as normal login)
     const token = signAuthToken(user)
-    console.log(`[IMPERSONATE] Founder ${founderId} → user ${userId} (${user.email})`)
+    log.info({ msg: 'IMPERSONATE', founderId, targetUserId: userId, email: user.email })
     return res.json({ token, email: user.email, plan: user.plan })
   } catch (err) {
-    console.error('[admin/support/impersonate]', err)
+    log.error({ msg: 'admin/support/impersonate error', error: (err as Error)?.message ?? String(err) })
     return res.status(500).json({ message: 'Internal server error' })
   }
 })
@@ -588,10 +590,10 @@ router.post('/support/credit', async (req: Request, res: Response): Promise<Resp
     user.usageThisMonth.totalMinutes = Math.max(0, user.usageThisMonth.totalMinutes - minutes)
     user.updatedAt = new Date()
     await saveUser(user)
-    console.log(`[CREDIT] ${founderId} → ${user.email}: +${minutes} min (new total: ${user.usageThisMonth.totalMinutes})`)
+    log.info({ msg: 'CREDIT', founderId, email: user.email, minutesAdded: minutes, newTotalMinutes: user.usageThisMonth.totalMinutes })
     return res.json({ ok: true, newTotalMinutes: user.usageThisMonth.totalMinutes })
   } catch (err) {
-    console.error('[admin/support/credit]', err)
+    log.error({ msg: 'admin/support/credit error', error: (err as Error)?.message ?? String(err) })
     return res.status(500).json({ message: 'Internal server error' })
   }
 })
@@ -615,10 +617,10 @@ router.post('/support/extend-billing', async (req: Request, res: Response): Prom
     }
     user.updatedAt = new Date()
     await saveUser(user)
-    console.log(`[EXTEND] ${founderId} → ${user.email}: +${days}d → ${extended.toISOString()}`)
+    log.info({ msg: 'EXTEND', founderId, email: user.email, daysAdded: days, newBillingPeriodEnd: extended.toISOString() })
     return res.json({ ok: true, newBillingPeriodEnd: extended.toISOString() })
   } catch (err) {
-    console.error('[admin/support/extend-billing]', err)
+    log.error({ msg: 'admin/support/extend-billing error', error: (err as Error)?.message ?? String(err) })
     return res.status(500).json({ message: 'Internal server error' })
   }
 })
@@ -639,10 +641,10 @@ router.post('/support/set-plan', async (req: Request, res: Response): Promise<Re
     user.limits = getPlanLimits(plan)
     user.updatedAt = new Date()
     await saveUser(user)
-    console.log(`[SET-PLAN] ${founderId} → ${user.email}: ${plan}`)
+    log.info({ msg: 'SET-PLAN', founderId, email: user.email, plan })
     return res.json({ ok: true, plan })
   } catch (err) {
-    console.error('[admin/support/set-plan]', err)
+    log.error({ msg: 'admin/support/set-plan error', error: (err as Error)?.message ?? String(err) })
     return res.status(500).json({ message: 'Internal server error' })
   }
 })
@@ -664,10 +666,10 @@ router.post('/support/restrict', async (req: Request, res: Response): Promise<Re
     user.updatedAt = new Date()
     await saveUser(user)
     const action = suspended ? 'SUSPEND' : 'UNSUSPEND'
-    console.log(`[${action}] ${founderId} → ${user.email}${note ? ` (${note})` : ''}`)
+    log.info({ msg: action, founderId, email: user.email, note })
     return res.json({ ok: true, suspended, email: user.email })
   } catch (err) {
-    console.error('[admin/support/restrict]', err)
+    log.error({ msg: 'admin/support/restrict error', error: (err as Error)?.message ?? String(err) })
     return res.status(500).json({ message: 'Internal server error' })
   }
 })
@@ -692,10 +694,10 @@ router.post('/support/revoke', async (req: Request, res: Response): Promise<Resp
     user.billingPeriodEnd = undefined
     user.updatedAt = new Date()
     await saveUser(user)
-    console.log(`[REVOKE] ${founderId} → ${user.email}${note ? ` (${note})` : ''}`)
+    log.info({ msg: 'REVOKE', founderId, email: user.email, note })
     return res.json({ ok: true, email: user.email })
   } catch (err) {
-    console.error('[admin/support/revoke]', err)
+    log.error({ msg: 'admin/support/revoke error', error: (err as Error)?.message ?? String(err) })
     return res.status(500).json({ message: 'Internal server error' })
   }
 })

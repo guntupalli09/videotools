@@ -1,6 +1,8 @@
 import fs from 'fs'
 import path from 'path'
 import * as Sentry from '@sentry/node'
+import { getLogger } from '../lib/logger'
+const cleanupLog = getLogger('api')
 
 const tempDir =
   process.env.TEMP_FILE_PATH ||
@@ -38,7 +40,7 @@ function cleanupFiles() {
   const maxAge = emergency ? EMERGENCY_AGE_MS : FILE_MAX_AGE
 
   if (emergency) {
-    console.warn(`[FileCleanup] Disk usage at ${Math.round(diskRatio * 100)}% — emergency mode, deleting files older than ${maxAge / 60000} min`)
+    cleanupLog.warn({ msg: '[FileCleanup] Disk emergency mode', diskPct: Math.round(diskRatio * 100), maxAgeMin: maxAge / 60000 })
   }
 
   const files = fs.readdirSync(tempDir)
@@ -58,13 +60,13 @@ function cleanupFiles() {
         deletedBytes += stats.size
       }
     } catch (error) {
-      console.error(`[FileCleanup] Error cleaning up file ${file}:`, error)
+      cleanupLog.error({ msg: '[FileCleanup] Error cleaning up file', file, error: String(error) })
       Sentry.captureException(error, { tags: { service: 'file-cleanup', file } })
     }
   })
 
   if (deletedCount > 0) {
     const mb = (deletedBytes / 1024 / 1024).toFixed(1)
-    console.log(`[FileCleanup] Deleted ${deletedCount} file(s), freed ${mb} MB`)
+    cleanupLog.info({ msg: '[FileCleanup] Cleanup complete', files: deletedCount, freedMb: mb })
   }
 }

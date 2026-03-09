@@ -8,6 +8,9 @@ import type { User } from '../models/User'
 import { signAuthToken, signEmailVerificationToken, verifyEmailVerificationToken, generatePasswordResetToken } from '../utils/auth'
 import { getPlanAndEmailForStripeCustomer } from '../services/stripe'
 import { getPlanLimits } from '../utils/limits'
+import { getLogger } from '../lib/logger'
+
+const log = getLogger('api')
 
 const router = express.Router()
 
@@ -33,7 +36,7 @@ const otpRedis = new Redis(redisUrl, {
   commandTimeout: 5000,
   lazyConnect: true,
 })
-otpRedis.on('error', (err) => console.error('[OTP Redis] connection error:', err.message))
+otpRedis.on('error', (err) => log.error({ msg: 'OTP Redis connection error', error: err.message }))
 
 function otpKey(email: string): string { return `otp:${email}` }
 
@@ -81,7 +84,7 @@ async function sendOTPEmail(email: string, code: string): Promise<void> {
     })
     const body = await res.text()
     if (!res.ok) {
-      console.error('[OTP] Resend error', res.status, body)
+      log.error({ msg: 'OTP Resend error', status: res.status, body })
       throw new Error(`Failed to send email: ${body || res.statusText}`)
     }
     let data: { id?: string } = {}
@@ -90,9 +93,9 @@ async function sendOTPEmail(email: string, code: string): Promise<void> {
     } catch {
       // ignore
     }
-    console.log('[OTP] Sent to', email, 'via Resend, id:', data.id || 'n/a')
+    log.info({ msg: 'OTP sent via Resend', email, id: data.id || 'n/a' })
   } else {
-    console.log('[OTP] (RESEND_API_KEY not set) Code for', email, ':', code)
+    log.info({ msg: 'OTP code (RESEND_API_KEY not set)', email, code })
   }
 }
 
@@ -116,12 +119,12 @@ async function sendPasswordResetEmail(email: string, resetLink: string): Promise
     })
     const body = await res.text()
     if (!res.ok) {
-      console.error('[Reset] Resend error', res.status, body)
+      log.error({ msg: 'Reset Resend error', status: res.status, body })
       throw new Error(`Failed to send email: ${body || res.statusText}`)
     }
-    console.log('[Reset] Password reset email sent to', email)
+    log.info({ msg: 'Password reset email sent', email })
   } else {
-    console.log('[Reset] (RESEND_API_KEY not set) Reset link for', email, ':', resetLink)
+    log.info({ msg: 'Password reset link (RESEND_API_KEY not set)', email, resetLink })
   }
 }
 
@@ -139,14 +142,14 @@ router.post('/send-otp', otpSendLimit, async (req: Request, res: Response) => {
     }
 
     const hasResendKey = !!(process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.trim())
-    console.log('[OTP] send-otp called for', normalized, '| RESEND_API_KEY set:', hasResendKey)
+    log.info({ msg: 'OTP send-otp called', email: normalized, resendKeySet: hasResendKey })
 
     const code = generateOTP()
     await storeOTP(normalized, code)
     await sendOTPEmail(normalized, code)
     res.json({ ok: true, message: 'Verification code sent.' })
   } catch (error: any) {
-    console.error('send-otp error:', error)
+    log.error({ msg: 'send-otp error', error: (error as Error)?.message ?? String(error) })
     res.status(500).json({ message: error.message || 'Failed to send code.' })
   }
 })
@@ -171,7 +174,7 @@ router.post('/verify-otp', async (req: Request, res: Response) => {
     const token = signEmailVerificationToken(normalized)
     res.json({ ok: true, token, email: normalized })
   } catch (error: any) {
-    console.error('verify-otp error:', error)
+    log.error({ msg: 'verify-otp error', error: (error as Error)?.message ?? String(error) })
     res.status(500).json({ message: error.message || 'Verification failed.' })
   }
 })
@@ -218,7 +221,7 @@ router.post('/setup-password', async (req: Request, res: Response) => {
     const jwt = signAuthToken(user)
     return res.json({ token: jwt })
   } catch (error: any) {
-    console.error('setup-password error:', error)
+    log.error({ msg: 'setup-password error', error: (error as Error)?.message ?? String(error) })
     return res.status(500).json({ message: error.message || 'Failed to set password' })
   }
 })
@@ -299,7 +302,7 @@ router.post('/complete-signup', async (req: Request, res: Response) => {
       email: user.email,
     })
   } catch (error: unknown) {
-    console.error('complete-signup error:', error)
+    log.error({ msg: 'complete-signup error', error: (error as Error)?.message ?? String(error) })
     return res.status(500).json({ message: error instanceof Error ? error.message : 'Signup failed' })
   }
 })
@@ -337,7 +340,7 @@ router.post('/login', async (req: Request, res: Response) => {
           await saveUser(user)
         }
       } catch (e) {
-        console.warn('[auth] Login plan re-sync from Stripe failed:', (e as Error).message)
+        log.warn({ msg: 'Login plan re-sync from Stripe failed', error: (e as Error)?.message ?? String(e) })
       }
     }
 
@@ -349,7 +352,7 @@ router.post('/login', async (req: Request, res: Response) => {
       email: user.email,
     })
   } catch (error: any) {
-    console.error('login error:', error)
+    log.error({ msg: 'login error', error: (error as Error)?.message ?? String(error) })
     return res.status(500).json({ message: error.message || 'Login failed' })
   }
 })
@@ -379,7 +382,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
 
     res.json({ ok: true, message: "If an account exists with that email, we've sent a password reset link." })
   } catch (error: any) {
-    console.error('forgot-password error:', error)
+    log.error({ msg: 'forgot-password error', error: (error as Error)?.message ?? String(error) })
     res.status(500).json({ message: error.message || 'Failed to send reset link.' })
   }
 })
@@ -416,7 +419,7 @@ router.post('/reset-password', async (req: Request, res: Response) => {
 
     res.json({ ok: true, message: 'Password updated. You can now log in.' })
   } catch (error: any) {
-    console.error('reset-password error:', error)
+    log.error({ msg: 'reset-password error', error: (error as Error)?.message ?? String(error) })
     res.status(500).json({ message: error.message || 'Failed to reset password.' })
   }
 })

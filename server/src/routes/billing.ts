@@ -5,7 +5,9 @@ import { prisma } from '../db'
 import type { User, PlanType } from '../models/User'
 import { getPlanLimits } from '../utils/limits'
 import { getAuthFromRequest, getEffectiveUserId, verifyEmailVerificationToken, generatePasswordSetupToken, signAuthToken } from '../utils/auth'
+import { getLogger } from '../lib/logger'
 
+const log = getLogger('api')
 const router = express.Router()
 
 interface CheckoutRequestBody {
@@ -163,7 +165,7 @@ router.post('/checkout', async (req: Request, res: Response) => {
 
     return res.status(400).json({ message: 'Invalid mode' })
   } catch (error: any) {
-    console.error('Stripe checkout error:', error)
+    log.error({ msg: 'Stripe checkout error', error: (error as Error)?.message ?? String(error) })
     return res
       .status(500)
       .json({ message: error.message || 'Failed to create checkout session' })
@@ -212,7 +214,7 @@ router.post('/portal', async (req: Request, res: Response) => {
 
     return res.json({ url: session.url })
   } catch (error: any) {
-    console.error('Stripe portal error:', error)
+    log.error({ msg: 'Stripe portal error', error: (error as Error)?.message ?? String(error) })
     return res
       .status(500)
       .json({ message: error.message || 'Failed to open billing portal' })
@@ -345,7 +347,7 @@ router.get('/session-details', async (req: Request, res: Response) => {
         : {}),
     })
   } catch (error: any) {
-    console.error('Session details error:', error)
+    log.error({ msg: 'Session details error', error: (error as Error)?.message ?? String(error) })
     return res
       .status(500)
       .json({ message: error.message || 'Failed to get session details' })

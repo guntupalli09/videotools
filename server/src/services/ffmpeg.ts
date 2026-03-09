@@ -5,6 +5,9 @@ import path from 'path'
 import fs from 'fs'
 import { FfprobeData } from 'fluent-ffmpeg'
 import { detectSubtitleFormat, parseSRT, parseVTT } from '../utils/srtParser'
+import { getLogger } from '../lib/logger'
+
+const log = getLogger('worker')
 
 // Explicit paths: use env in Docker (e.g. /usr/bin/ffmpeg) if the file exists, else npm installer (works on Windows)
 function resolveFfmpegPath(envPath: string | undefined, fallback: string): string {
@@ -17,7 +20,7 @@ ffmpeg.setFfmpegPath(ffmpegPath)
 try {
   ffmpeg.setFfprobePath(ffprobePath)
 } catch (e) {
-  console.warn('Could not set ffprobe path:', e)
+  log.warn({ msg: 'Could not set ffprobe path', error: (e as Error)?.message ?? String(e) })
 }
 
 /** FFmpeg thread count. Use 4+ on dedicated servers for faster encode. */
@@ -552,13 +555,14 @@ export function burnSubtitles(
     // scale the text to huge sizes (common on 1080x1920 vertical videos).
     const probeVideoSize = (p: string): Promise<{ width: number; height: number }> =>
       new Promise((res, rej) => {
-        console.log('[upload] About to run ffprobe (size) on:', p)
+        log.debug({ msg: 'About to run ffprobe (size)', path: p })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- fluent-ffmpeg doesn't type static .ffprobe
         ;(ffmpeg as any).ffprobe(p, (err: Error | null, metadata: any) => {
           if (err) {
-            console.error('[upload] ffprobe failed:', err)
+            log.error({ msg: 'ffprobe failed', error: (err as Error)?.message ?? String(err) })
             return rej(err)
           }
-          console.log('[upload] ffprobe (size) succeeded for:', p)
+          log.debug({ msg: 'ffprobe (size) succeeded', path: p })
           const v = (metadata?.streams || []).find((s: any) => s.codec_type === 'video')
           const width = Number(v?.width) || 0
           const height = Number(v?.height) || 0
@@ -585,11 +589,7 @@ export function burnSubtitles(
         const format = detectSubtitleFormat(tempSubtitlePath)
         const entries = format === 'srt' ? parseSRT(tempSubtitlePath) : parseVTT(tempSubtitlePath)
 
-        console.log('Subtitle parse:', {
-          format,
-          entries: entries.length,
-          sample: entries[0]?.text?.slice(0, 80),
-        })
+        log.debug({ msg: 'Subtitle parse', format, entries: entries.length, sample: entries[0]?.text?.slice(0, 80) })
 
         if (entries.length === 0) {
           throw new Error('No subtitle entries parsed (invalid or empty subtitle file).')
@@ -639,13 +639,8 @@ export function burnSubtitles(
 
         const subtitleFilter = `subtitles=filename='${assPathForFfmpeg}'`
     
-    console.log('Burning subtitles:', {
-      video: videoPath,
-      subtitles: subtitlePath,
-      tempSubtitles: tempSubtitlePath,
-      tempAss: tempAssPath,
-      output: outputPath,
-    })
+        log.debug({ msg: 'Burning subtitles', video: videoPath, subtitles: subtitlePath, tempSubtitles: tempSubtitlePath, tempAss: tempAssPath, output: outputPath })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- fluent-ffmpeg chain types are incomplete
         const cmd = (ffmpeg(videoPath) as any)
           .inputOptions(getGpuInputOptions())
           .videoFilters(subtitleFilter)
@@ -664,7 +659,7 @@ export function burnSubtitles(
               if (fs.existsSync(tempSubtitlePath)) fs.unlinkSync(tempSubtitlePath)
               if (fs.existsSync(tempAssPath)) fs.unlinkSync(tempAssPath)
             } catch (e) { /* ignore */ }
-            console.log('Subtitle burning completed:', outputPath)
+            log.debug({ msg: 'Subtitle burning completed', outputPath })
             resolve(outputPath)
           })
           .on('error', (err: any, stdout: any, stderr: any) => {
@@ -673,12 +668,12 @@ export function burnSubtitles(
               if (fs.existsSync(tempSubtitlePath)) fs.unlinkSync(tempSubtitlePath)
               if (fs.existsSync(tempAssPath)) fs.unlinkSync(tempAssPath)
             } catch (e) { /* ignore */ }
-            console.error('FFmpeg error:', err?.message || err)
+            log.error({ msg: 'FFmpeg error', error: (err as Error)?.message ?? String(err) })
             reject(new Error(`FFmpeg error: ${err?.message || err}\n${stderr || ''}`))
           })
           .on('stderr', (stderrLine: string) => {
             if (stderrLine.includes('error') || stderrLine.includes('Error')) {
-              console.error('FFmpeg stderr:', stderrLine)
+              log.error({ msg: 'FFmpeg stderr', line: stderrLine })
             }
           })
         const hung = setupHungProtection(cmd, reject)
@@ -767,17 +762,15 @@ export function getVideoDuration(videoPath: string): Promise<number> {
       return
     }
 
-    console.log('[upload] About to run ffprobe on:', videoPath)
+    log.debug({ msg: 'About to run ffprobe', videoPath })
     ffmpeg.ffprobe(videoPath, (err: Error | null, metadata: FfprobeData) => {
       if (err) {
-        console.error('[upload] ffprobe failed:', err)
-        console.error('FFprobe error:', err.message)
-        console.error('Video path:', videoPath)
+        log.error({ msg: 'ffprobe failed', videoPath, error: (err as Error)?.message ?? String(err) })
         reject(new Error(`Failed to probe video: ${err.message}`))
         return
       }
 
-      console.log('[upload] ffprobe succeeded for:', videoPath)
+      log.debug({ msg: 'ffprobe succeeded', videoPath })
 
       if (!metadata || !metadata.format) {
         reject(new Error('Invalid video metadata'))

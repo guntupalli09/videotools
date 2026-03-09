@@ -1,5 +1,7 @@
 import { fromFile as fileTypeFromFile } from 'file-type'
 import { detectSubtitleFormatFromContent } from './subtitleDetector'
+import { getLogger } from '../lib/logger'
+const validationLog = getLogger('api')
 
 const ALLOWED_MIME_TYPES = [
   'video/mp4',
@@ -28,7 +30,7 @@ function hasAllowedVideoExtension(originalFilename: string): boolean {
 export async function validateFileType(filePath: string, originalFilename?: string): Promise<string | null> {
   try {
     const fileType = await fileTypeFromFile(filePath)
-    console.log('[upload] detected fileType:', fileType)
+    validationLog.debug({ msg: '[fileValidation] detected fileType', fileType })
 
     if (!fileType) {
       if (originalFilename && hasAllowedVideoExtension(originalFilename)) {
@@ -46,7 +48,7 @@ export async function validateFileType(filePath: string, originalFilename?: stri
 
     return null
   } catch (error) {
-    console.error('File type validation error:', error)
+    validationLog.error({ msg: 'File type validation error', error: String(error) })
     if (originalFilename && hasAllowedVideoExtension(originalFilename)) {
       return null
     }
@@ -75,7 +77,7 @@ export async function validateSubtitleFile(filePath: string): Promise<SubtitleVa
 
     return { error: null, format: normalizedFormat, detectedFormat }
   } catch (error) {
-    console.error('Subtitle validation error:', error)
+    validationLog.error({ msg: 'Subtitle validation error', error: String(error) })
     return {
       error: 'Please upload a valid SRT or VTT subtitle file.',
       detectedFormat: 'unknown',

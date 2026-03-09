@@ -6,6 +6,8 @@
  * with score = epoch-ms. Old members outside the window are pruned atomically.
  */
 import Redis from 'ioredis'
+import { getLogger } from '../lib/logger'
+const rlLog = getLogger('api')
 
 const WINDOW_MS = 60 * 1000
 const MAX_UPLOADS_PER_WINDOW =
@@ -24,7 +26,7 @@ const rlRedis = new Redis(redisUrl, {
   commandTimeout: 3000,
   lazyConnect: true,
 })
-rlRedis.on('error', (err) => console.error('[RateLimit Redis] connection error:', err.message))
+rlRedis.on('error', (err) => rlLog.error({ msg: '[RateLimit Redis] connection error', error: err.message }))
 
 function rlKey(userId: string): string { return `upload_rl:${userId}` }
 
@@ -50,7 +52,7 @@ export async function checkAndRecordUpload(userId: string): Promise<boolean> {
     return countBeforeAdd < MAX_UPLOADS_PER_WINDOW
   } catch (err) {
     // Redis unavailable — fail-open to avoid blocking all uploads
-    console.warn('[RateLimit] Redis error, failing open:', (err as Error).message)
+    rlLog.warn({ msg: '[RateLimit] Redis error, failing open', error: (err as Error).message })
     return true
   }
 }

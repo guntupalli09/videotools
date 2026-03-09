@@ -4,6 +4,9 @@
  */
 
 import { PostHog } from 'posthog-node'
+import { getLogger } from '../lib/logger'
+
+const log = getLogger('api')
 
 const POSTHOG_KEY = process.env.POSTHOG_KEY
 const POSTHOG_HOST = process.env.POSTHOG_HOST || 'https://app.posthog.com'
@@ -27,8 +30,7 @@ function getClient(): PostHog | null {
 function capture(event: string, distinctId: string, properties?: Record<string, unknown>): void {
   try {
     if (process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console
-      console.log('[analytics]', event, { distinctId, ...properties })
+      log.debug({ msg: 'analytics event', event, distinctId, ...properties })
     }
     const c = getClient()
     if (!c) return

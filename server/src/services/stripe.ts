@@ -1,4 +1,7 @@
 import Stripe from 'stripe'
+import { getLogger } from '../lib/logger'
+
+const log = getLogger('api')
 
 const REQUIRED_STRIPE_VARS = [
   'STRIPE_SECRET_KEY',
@@ -16,17 +19,13 @@ const REQUIRED_STRIPE_VARS = [
 export function assertStripeConfig(): void {
   const missing = REQUIRED_STRIPE_VARS.filter((name) => !process.env[name]?.trim())
   if (missing.length > 0) {
-    console.error(
-      '[Stripe] Missing required env vars. Set these in the server .env or Docker env and restart the API:'
-    )
-    missing.forEach((name) => console.error(`  - ${name}`))
-    console.error('See docs/STRIPE_GO_LIVE.md and docs/ENV_CHECKLIST.md.')
+    log.error({ msg: 'Stripe missing required env vars. Set these in the server .env or Docker env and restart the API', missing })
     process.exit(1)
   }
   try {
     getStripePriceConfig()
   } catch (e) {
-    console.error('[Stripe]', (e as Error).message)
+    log.error({ msg: 'Stripe config error', error: (e as Error)?.message ?? String(e) })
     process.exit(1)
   }
 }

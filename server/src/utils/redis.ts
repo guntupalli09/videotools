@@ -1,4 +1,6 @@
 import Redis from 'ioredis'
+import { getLogger } from '../lib/logger'
+const redisLog = getLogger('api')
 
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379'
 
@@ -34,7 +36,7 @@ export function createRedisClient(
   if (!redisConnectionLogged) {
     redisConnectionLogged = true
     const kind = redisUrl.startsWith('rediss://') ? 'TLS (e.g. Upstash)' : 'plain TCP (self-hosted)'
-    console.info(`Redis: using ${kind} for Bull queue`)
+    redisLog.info({ msg: 'Redis: using queue', kind })
   }
   return new Redis(redisUrl, redisOptions)
 }
