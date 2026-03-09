@@ -46,6 +46,8 @@ import {
 import { withJobContext, getLogger } from '../lib/logger'
 import { initSentry, captureJobError } from '../lib/sentry'
 import { pushLogEntry } from '../lib/logRing'
+import { streamYoutubeAudioToFile } from '../services/youtube'
+import { v4 as uuidv4 } from 'uuid'
 
 const workerLog = getLogger('worker')
 
@@ -145,6 +147,11 @@ export interface JobData {
     glossary?: string
   }
   webhookUrl?: string
+  /** YouTube ingestion fields — set by /api/upload/youtube; worker fetches & encodes audio. */
+  youtubeUrl?: string
+  youtubeTitle?: string
+  youtubeThumbnailUrl?: string
+  youtubeDurationSec?: number
 }
 
 async function getOrCreateUserForJob(userId: string, plan: PlanType) {
@@ -309,6 +316,34 @@ async function processJob(job: import('bull').Job<JobData>) {
           await job.progress(100)
           return data.cachedResult
         }
+        case 'youtube-to-transcript': {
+          // Stream YouTube audio → 16 kHz mono MP3 → then fall through to video-to-transcript as audio-only.
+          // The worker fetches the audio itself so the API never downloads anything and the job carries only
+          // the URL — safe for distributed deployments where API and worker run on different machines.
+          log.info({ msg: 'yt_job_start', youtubeUrl: data.youtubeUrl?.slice(0, 50) })
+          await job.progress(5)
+
+          const ytAudioPath = path.join(tempDir, `${uuidv4()}_yt_audio.mp3`)
+          try {
+            await streamYoutubeAudioToFile(data.youtubeUrl!, ytAudioPath)
+          } catch (err: any) {
+            log.error({ msg: 'yt_stream_failed', error: err.message, youtubeUrl: data.youtubeUrl?.slice(0, 50) })
+            throw new Error(`YouTube audio extraction failed: ${err.message}`)
+          }
+
+          log.info({ msg: 'yt_stream_done', ytAudioPath })
+          await job.progress(20)
+
+          // Patch job data so the existing video-to-transcript case handles transcription
+          ;(data as any).filePath = ytAudioPath
+          ;(data as any).inputType = 'audio'
+          ;(data as any).originalName =
+            (data.youtubeTitle || 'youtube_video').replace(/[^\w\s.\-]/g, '_').trim() + '.mp3'
+          ;(data as any).toolType = 'video-to-transcript'
+          // Clear youtubeUrl so the url-disabled check in video-to-transcript doesn't fire
+          ;(data as any).youtubeUrl = undefined
+        }
+        // eslint-disable-next-line no-fallthrough
         case 'video-to-transcript': {
           if (data.url) {
             throw new Error('URL downloads are temporarily disabled.')

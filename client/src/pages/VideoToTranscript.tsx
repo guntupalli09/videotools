@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { FileText, Users, ListOrdered, BookOpen, Sparkles, Hash, FileCode, Download, Eraser, FileDown, Subtitles, Film, Minimize2 } from 'lucide-react'
+import { FileText, Users, ListOrdered, BookOpen, Sparkles, Hash, FileCode, Download, Eraser, FileDown, Subtitles, Film, Minimize2, Link } from 'lucide-react'
 import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import WorkflowChainSuggestion from '../components/WorkflowChainSuggestion'
@@ -13,7 +13,7 @@ import { ResultSkeleton } from '../components/figma/ResultSkeleton'
 import { TranscriptResult } from '../components/figma/TranscriptResult'
 import { Checkbox } from '../components/figma/FormControls'
 import { incrementUsage } from '../lib/usage'
-import { uploadFileWithProgress, getJobStatus, subscribeJobStatus, getCurrentUsage, invalidateUsageCache, getConnectionProbeIfNeeded, BACKEND_TOOL_TYPES, SessionExpiredError, getUserFacingMessage, isNetworkError, POLL_STOP_AFTER_CONSECUTIVE_NETWORK_ERRORS, getAuthToken } from '../lib/api'
+import { uploadFileWithProgress, getJobStatus, subscribeJobStatus, getCurrentUsage, invalidateUsageCache, getConnectionProbeIfNeeded, BACKEND_TOOL_TYPES, SessionExpiredError, getUserFacingMessage, isNetworkError, POLL_STOP_AFTER_CONSECUTIVE_NETWORK_ERRORS, getAuthToken, submitYoutubeUrl, isYoutubeUrl, type YoutubeUploadResponse } from '../lib/api'
 import { getFailureMessage } from '../lib/failureMessage'
 import { checkVideoPreflight } from '../lib/uploadPreflight'
 import { getFilePreview, formatDuration, type FilePreviewData } from '../lib/filePreview'
@@ -132,6 +132,16 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   const [lastJobCompletedToolId, setLastJobCompletedToolId] = useState<string | null>(null)
   /** Contextual failure message (from getFailureMessage); shown in FailedState and Tex. */
   const [failedMessage, setFailedMessage] = useState<string | undefined>(undefined)
+
+  // ── YouTube URL input mode ──────────────────────────────────────────────────
+  /** 'file' = drag-and-drop upload, 'youtube' = URL paste. Persists while idle. */
+  const [inputMode, setInputMode] = useState<'file' | 'youtube'>('file')
+  /** Raw value of the YouTube URL text field. */
+  const [youtubeUrlInput, setYoutubeUrlInput] = useState('')
+  /** Metadata returned by the server after enqueueing the job (no extra round-trip). */
+  const [youtubeDisplayTitle, setYoutubeDisplayTitle] = useState<string | null>(null)
+  const [youtubeThumbnailUrl, setYoutubeThumbnailUrl] = useState<string | null>(null)
+  const [youtubeDurationSec, setYoutubeDurationSec] = useState<number | null>(null)
 
   // Reset free export count when user gets a new result (e.g. process another file)
   useEffect(() => {
@@ -758,6 +768,198 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     }
   }
 
+  // ── YouTube submission ──────────────────────────────────────────────────────
+  const handleProcessYoutube = async () => {
+    const url = youtubeUrlInput.trim()
+    if (!url) { toast.error('Please enter a YouTube URL'); return }
+    if (!isYoutubeUrl(url)) { toast.error('Please enter a valid YouTube URL (youtube.com or youtu.be)'); return }
+
+    // Quota check (mirrors handleProcess)
+    let usageData: Awaited<ReturnType<typeof getCurrentUsage>> | null = null
+    try {
+      usageData = await getCurrentUsage()
+      const isImports = usageData.quotaType === 'imports'
+      const totalAvailable = isImports
+        ? (usageData.limit ?? 3)
+        : (usageData.limits.minutesPerMonth + usageData.overages.minutes)
+      const used = isImports
+        ? (usageData.used ?? usageData.usage?.importCount ?? 0)
+        : usageData.usage.totalMinutes
+      setAvailableMinutes(totalAvailable)
+      setUsedMinutes(used)
+      const atOrOverLimit = isImports
+        ? used >= (usageData.limit ?? 3)
+        : (totalAvailable > 0 && used >= totalAvailable)
+      if (atOrOverLimit) {
+        setShowPaywall(true)
+        trackEvent('paywall_shown', { tool: 'video-to-transcript', source: 'youtube' })
+        return
+      }
+    } catch { /* fall through on usage error */ }
+
+    try {
+      setStatus('processing')
+      setUploadPhase('processing') // YouTube: no upload step — goes straight to processing
+      setUploadProgress(100)
+      setProgress(0)
+      uploadAbortRef.current = new AbortController()
+      setCurrentJobId(null)
+      terminalRef.current = false
+      lastPartialVersionRef.current = 0
+      partialFirstSeenAtRef.current = null
+      if (minStreamDelayTimeoutRef.current) {
+        clearTimeout(minStreamDelayTimeoutRef.current)
+        minStreamDelayTimeoutRef.current = null
+      }
+      setPartialSegments([])
+      trackEvent('processing_started', { tool: 'video-to-transcript', source: 'youtube' })
+
+      const response: YoutubeUploadResponse = await submitYoutubeUrl(
+        url,
+        {
+          includeSummary,
+          includeChapters,
+          exportFormats: exportFormats.length > 0 ? exportFormats : ['txt'],
+          speakerDiarization,
+          glossary: glossary.trim() || undefined,
+        },
+        uploadAbortRef.current.signal
+      )
+      uploadAbortRef.current = null
+
+      // Set display metadata immediately from the response (title + thumbnail arrive in 202)
+      if (response.youtubeTitle) setYoutubeDisplayTitle(response.youtubeTitle)
+      if (response.youtubeThumbnailUrl) setYoutubeThumbnailUrl(response.youtubeThumbnailUrl)
+      if (response.youtubeDurationSec) setYoutubeDurationSec(response.youtubeDurationSec)
+
+      setCurrentJobId(response.jobId)
+      persistJobId(location.pathname, response.jobId, response.jobToken)
+      const startedAt = Date.now()
+      setProcessingStartedAt(startedAt)
+      processingStartedAtRef.current = startedAt
+      texJobStarted()
+
+      const jobToken = response.jobToken
+      const handleJobStatus = (jobStatus: import('../lib/api').JobStatus) => {
+        if (terminalRef.current) return
+        setProgress(jobStatus.progress ?? 0)
+        if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
+        if (jobStatus.status === 'processing' && jobStartedTrackedRef.current !== response.jobId) {
+          jobStartedTrackedRef.current = response.jobId
+          try { trackEvent('job_started', { job_id: response.jobId, tool_type: 'youtube-to-transcript' }) } catch { /* non-blocking */ }
+        }
+        const transition = getJobLifecycleTransition(jobStatus)
+        if (transition === 'completed') {
+          terminalRef.current = true
+          if (activeUploadPollRef.current) { activeUploadPollRef.current(); activeUploadPollRef.current = null }
+          jobStartedTrackedRef.current = null
+          savedScrollTopRef.current = partialScrollRef.current?.scrollTop ?? 0
+          const MIN_STREAM_VISIBILITY_MS = 8000
+          const res = jobStatus.result
+          const streamProg = res && typeof (res as { streamProgress?: boolean }).streamProgress === 'boolean' && (res as { streamProgress?: boolean }).streamProgress
+          const firstSeenAt = partialFirstSeenAtRef.current
+          const remainingMs = streamProg && firstSeenAt != null ? MIN_STREAM_VISIBILITY_MS - (Date.now() - firstSeenAt) : 0
+          const applyCompleted = () => {
+            minStreamDelayTimeoutRef.current = null
+            setPartialSegments([])
+            setStatus('completed')
+            setResult(jobStatus.result ?? null)
+            dispatchJobCompletedForFeedback()
+            const started = processingStartedAtRef.current ?? Date.now()
+            const processingMs = Date.now() - started
+            emitToolCompleted({ toolId: 'video-to-transcript', pathname: '/video-to-transcript', processingMs })
+            if (res?.segments?.length) {
+              const text = res.segments.map((s: { text: string }) => s.text).join('\n\n')
+              setFullTranscript(text)
+              setTranscriptPreview(text.substring(0, 500))
+            } else if (res?.downloadUrl) {
+              fetch(getAbsoluteDownloadUrl(res.downloadUrl))
+                .then((r) => r.text())
+                .then((t) => { setTranscriptPreview(t.substring(0, 500)); setFullTranscript(t) })
+                .catch(() => {})
+            }
+            incrementUsage('video-to-transcript')
+            invalidateUsageCache()
+            getCurrentUsage({ skipCache: true })
+              .then((data) => {
+                const ii = data.quotaType === 'imports'
+                const total = ii ? (data.limit ?? 3) : (data.limits.minutesPerMonth + data.overages.minutes)
+                const u = ii ? (data.used ?? data.usage?.importCount ?? 0) : data.usage.totalMinutes
+                setAvailableMinutes(total)
+                setUsedMinutes(u)
+              }).catch(() => {})
+            try {
+              trackEvent('job_completed', { job_id: response.jobId, tool_type: 'youtube-to-transcript', processing_time_ms: processingMs })
+              trackEvent('processing_completed', { tool: 'video-to-transcript', source: 'youtube' })
+              texJobCompleted(processingMs, 'video-to-transcript')
+              setLastProcessingMs(processingMs)
+              setLastJobCompletedToolId('video-to-transcript')
+            } catch { /* non-blocking */ }
+          }
+          if (remainingMs > 0) {
+            minStreamDelayTimeoutRef.current = setTimeout(() => { void applyCompleted() }, remainingMs)
+          } else {
+            void applyCompleted()
+          }
+        } else if (transition === 'failed') {
+          terminalRef.current = true
+          setPartialSegments([])
+          if (activeUploadPollRef.current) { activeUploadPollRef.current(); activeUploadPollRef.current = null }
+          const msg = getFailureMessage({})
+          setFailedMessage(msg)
+          setStatus('failed')
+          texJobFailed(msg)
+          toast.error('Processing failed. Please try again.')
+        } else if (jobStatus.status === 'processing' && jobStatus.partialVersion != null && jobStatus.partialVersion > lastPartialVersionRef.current) {
+          lastPartialVersionRef.current = jobStatus.partialVersion
+          if (jobStatus.partialSegments?.length) {
+            if (partialFirstSeenAtRef.current === null) partialFirstSeenAtRef.current = Date.now()
+            setPartialSegments(jobStatus.partialSegments)
+          }
+        }
+      }
+
+      const doPoll = async () => {
+        try {
+          if (terminalRef.current) return
+          const s = await getJobStatus(response.jobId, jobToken ? { jobToken } : undefined)
+          if (terminalRef.current) return
+          pollConsecutiveNetworkErrorsRef.current = 0
+          handleJobStatus(s)
+        } catch (error: any) {
+          if (isNetworkError(error)) {
+            pollConsecutiveNetworkErrorsRef.current += 1
+            if (pollConsecutiveNetworkErrorsRef.current >= POLL_STOP_AFTER_CONSECUTIVE_NETWORK_ERRORS) {
+              if (activeUploadPollRef.current) { activeUploadPollRef.current(); activeUploadPollRef.current = null }
+              toast.error('Server unreachable. Start the backend and refresh the page.')
+            }
+          }
+        }
+      }
+      pollConsecutiveNetworkErrorsRef.current = 0
+      doPoll().then(() => {
+        if (terminalRef.current) return
+        activeUploadPollRef.current = subscribeJobStatus(response.jobId, jobToken ? { jobToken } : undefined, handleJobStatus)
+      })
+    } catch (error: any) {
+      uploadAbortRef.current = null
+      if (error instanceof Error && error.message === 'Upload cancelled') {
+        setStatus('idle'); setUploadPhase('uploading'); setUploadProgress(0); setCurrentJobId(null)
+        return
+      }
+      if (error instanceof SessionExpiredError) {
+        clearPersistedJobId(location.pathname, navigate)
+        setStatus('idle')
+      } else {
+        const msg = getFailureMessage({ isNetworkError: isNetworkError(error) })
+        setFailedMessage(msg)
+        setStatus('failed')
+        texJobFailed(msg)
+      }
+      toast.error(getUserFacingMessage(error))
+    }
+  }
+
   const handleCopyToClipboard = async () => {
     const textToCopy =
       translationLanguage && translatedCache[translationLanguage] != null
@@ -816,6 +1018,11 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     setSearchQuery('')
     setTranscriptEditMode(false)
     setEditableSegments(null)
+    // Reset YouTube state
+    setYoutubeUrlInput('')
+    setYoutubeDisplayTitle(null)
+    setYoutubeThumbnailUrl(null)
+    setYoutubeDurationSec(null)
   }
 
   const getDownloadUrl = () => {
@@ -1082,17 +1289,158 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     <>
       <ToolLayout {...layoutProps}>
         {status === 'idle' && !selectedFile && (
-          <UploadZone
-            immediateSelect
-            onFileSelect={handleFileSelect}
-            initialFiles={selectedFile ? [selectedFile] : null}
-            onRemove={() => {
-              if (fileFromWorkflow) workflow.clearVideo()
-              setSelectedFile(null)
-              setFileFromWorkflow(false)
-            }}
-            fromWorkflowLabel={fileFromWorkflow ? 'From previous step' : undefined}
-          />
+          <div className="space-y-4">
+            {/* ── Input mode tab switcher ── */}
+            <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800/60 rounded-xl w-full max-w-sm">
+              <button
+                type="button"
+                onClick={() => setInputMode('file')}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                  inputMode === 'file'
+                    ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                }`}
+              >
+                <Film className="w-4 h-4 shrink-0" />
+                Upload File
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputMode('youtube')}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                  inputMode === 'youtube'
+                    ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                }`}
+              >
+                <Link className="w-4 h-4 shrink-0" />
+                YouTube URL
+                <span className="ml-1 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-red-500 text-white rounded-full leading-none">
+                  New
+                </span>
+              </button>
+            </div>
+
+            {/* ── File upload tab ── */}
+            {inputMode === 'file' && (
+              <UploadZone
+                immediateSelect
+                onFileSelect={handleFileSelect}
+                initialFiles={selectedFile ? [selectedFile] : null}
+                onRemove={() => {
+                  if (fileFromWorkflow) workflow.clearVideo()
+                  setSelectedFile(null)
+                  setFileFromWorkflow(false)
+                }}
+                fromWorkflowLabel={fileFromWorkflow ? 'From previous step' : undefined}
+              />
+            )}
+
+            {/* ── YouTube URL tab ── */}
+            {inputMode === 'youtube' && (
+              <div className="space-y-4">
+                {/* Highlighted input card */}
+                <div className="rounded-xl sm:rounded-2xl border-2 border-red-400/60 dark:border-red-500/50 bg-red-50/60 dark:bg-red-950/20 p-4 sm:p-6 space-y-4">
+                  <div className="flex items-center gap-2">
+                    {/* YouTube icon (SVG — no lucide dependency) */}
+                    <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0 text-red-600" fill="currentColor" aria-hidden>
+                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                    </svg>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                      Paste a YouTube URL
+                    </h3>
+                  </div>
+
+                  <div className="relative">
+                    <input
+                      type="url"
+                      value={youtubeUrlInput}
+                      onChange={(e) => setYoutubeUrlInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') void handleProcessYoutube() }}
+                      placeholder="https://youtube.com/watch?v=..."
+                      className="w-full px-4 py-3 pr-12 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 dark:focus:ring-red-500 transition"
+                    />
+                    {youtubeUrlInput && (
+                      <button
+                        type="button"
+                        onClick={() => setYoutubeUrlInput('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition"
+                        aria-label="Clear"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Example hint */}
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Supports regular videos, Shorts, and private-link videos.
+                    Example:{' '}
+                    <span className="font-mono text-gray-700 dark:text-gray-300">youtu.be/dQw4w9WgXcQ</span>
+                  </p>
+
+                  {/* Validation feedback */}
+                  {youtubeUrlInput && !isYoutubeUrl(youtubeUrlInput) && (
+                    <p className="text-xs text-red-600 dark:text-red-400 font-medium">
+                      That doesn't look like a YouTube URL. Check the link and try again.
+                    </p>
+                  )}
+                  {youtubeUrlInput && isYoutubeUrl(youtubeUrlInput) && (
+                    <p className="text-xs text-green-600 dark:text-green-400 font-medium">
+                      ✓ Valid YouTube URL
+                    </p>
+                  )}
+                </div>
+
+                {/* Options (same as file mode) */}
+                <div className="rounded-xl bg-gray-50/90 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700/50 p-4 space-y-3">
+                  <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Options</h4>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={includeSummary}
+                        onChange={(e) => setIncludeSummary(e.target.checked)}
+                        className="rounded border-gray-300 text-purple-600"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">Include AI summary &amp; bullets</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={includeChapters}
+                        onChange={(e) => setIncludeChapters(e.target.checked)}
+                        className="rounded border-gray-300 text-purple-600"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">Auto-generate chapters</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={speakerDiarization}
+                        onChange={(e) => setSpeakerDiarization(e.target.checked)}
+                        className="rounded border-gray-300 text-purple-600"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">Speaker labels (who said what)</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Transcribe button */}
+                <button
+                  type="button"
+                  onClick={() => void handleProcessYoutube()}
+                  disabled={!youtubeUrlInput || !isYoutubeUrl(youtubeUrlInput)}
+                  className="w-full py-3 px-6 rounded-xl font-semibold text-sm transition-all duration-200 bg-red-500 hover:bg-red-600 text-white shadow-md disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2"
+                >
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0" fill="currentColor" aria-hidden>
+                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                  </svg>
+                  Transcribe YouTube Video
+                </button>
+              </div>
+            )}
+          </div>
         )}
 
         {status === 'idle' && selectedFile && (
@@ -1141,14 +1489,42 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
         {status === 'processing' && (
           <div className="bg-purple-50 dark:bg-purple-900/10 rounded-2xl p-8 border border-purple-100 dark:border-purple-900/30">
             <div className="flex items-center gap-4 mb-8 pb-6 border-b border-purple-200 dark:border-purple-900/30">
-              <div className="w-16 h-16 bg-purple-200 dark:bg-purple-900/50 rounded-lg flex items-center justify-center">
-                <FileText className="w-8 h-8 text-purple-600 dark:text-purple-400" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">{selectedFile?.name}</h3>
+              {/* YouTube thumbnail or file icon */}
+              {youtubeThumbnailUrl ? (
+                <div className="w-20 h-14 sm:w-24 sm:h-16 rounded-lg overflow-hidden shrink-0 bg-gray-200 dark:bg-gray-800">
+                  <img
+                    src={youtubeThumbnailUrl}
+                    alt={youtubeDisplayTitle ?? 'YouTube video'}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                  />
+                </div>
+              ) : (
+                <div className="w-16 h-16 bg-purple-200 dark:bg-purple-900/50 rounded-lg flex items-center justify-center shrink-0">
+                  <FileText className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-1 truncate">
+                  {youtubeDisplayTitle ?? selectedFile?.name ?? 'Processing…'}
+                </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {selectedFile && `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB`}
-                  {filePreview?.durationSeconds != null && ` • ${formatDuration(filePreview.durationSeconds)}`}
+                  {youtubeDisplayTitle ? (
+                    <>
+                      {youtubeDurationSec != null && formatDuration(youtubeDurationSec)}
+                      <span className="ml-2 inline-flex items-center gap-1 text-xs text-red-600 dark:text-red-400 font-medium">
+                        <svg viewBox="0 0 24 24" className="w-3 h-3 shrink-0" fill="currentColor" aria-hidden>
+                          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                        </svg>
+                        YouTube
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      {selectedFile && `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB`}
+                      {filePreview?.durationSeconds != null && ` • ${formatDuration(filePreview.durationSeconds)}`}
+                    </>
+                  )}
                 </p>
               </div>
             </div>
