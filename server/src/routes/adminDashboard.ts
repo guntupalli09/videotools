@@ -214,7 +214,7 @@ adminDashboardRouter.get('/dashboard', async (req: Request, res: Response): Prom
       prisma.feedback.findMany({
         orderBy: { createdAt: 'desc' },
         take: 20,
-        select: { id: true, toolId: true, stars: true, comment: true, planAtSubmit: true, createdAt: true },
+        select: { id: true, toolId: true, stars: true, comment: true, planAtSubmit: true, createdAt: true, userId: true, userNameOrEmail: true },
       }),
       prisma.$queryRaw<[{ mrrCents: bigint | null }]>`
         SELECT SUM("priceMonthly")::bigint as "mrrCents"
@@ -383,6 +383,12 @@ adminDashboardRouter.get('/dashboard', async (req: Request, res: Response): Prom
       activeUsersLast30Days: active30?.[0]?.count != null ? Number(active30[0].count) : 0,
     }
 
+    const feedbackUserIds = (feedbackRows ?? []).map((f) => f.userId).filter((id): id is string => id != null)
+    const feedbackUsers = feedbackUserIds.length > 0
+      ? await prisma.user.findMany({ where: { id: { in: feedbackUserIds } }, select: { id: true, email: true } })
+      : []
+    const feedbackEmailMap = Object.fromEntries(feedbackUsers.map((u) => [u.id, u.email]))
+
     const feedback = (feedbackRows ?? []).map((f) => ({
       id: f.id,
       toolId: f.toolId,
@@ -390,6 +396,8 @@ adminDashboardRouter.get('/dashboard', async (req: Request, res: Response): Prom
       comment: f.comment,
       planAtSubmit: f.planAtSubmit,
       createdAt: f.createdAt.toISOString(),
+      userId: f.userId,
+      userNameOrEmail: f.userNameOrEmail ?? (f.userId ? feedbackEmailMap[f.userId] ?? null : null),
     }))
 
     const users = (allUsers ?? []).map((u) => ({

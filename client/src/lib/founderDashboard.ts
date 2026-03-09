@@ -75,6 +75,8 @@ export interface DashboardFeedback {
   comment: string
   planAtSubmit: string | null
   createdAt: string
+  userId: string | null
+  userNameOrEmail: string | null
 }
 
 export interface DashboardUser {
