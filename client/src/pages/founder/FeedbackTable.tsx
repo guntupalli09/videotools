@@ -17,6 +17,7 @@ export default function FeedbackTable({ feedback }: { feedback: DashboardFeedbac
                 <th className="py-2.5 px-4 text-zinc-500 font-medium">Stars</th>
                 <th className="py-2.5 px-4 text-zinc-500 font-medium">Tool</th>
                 <th className="py-2.5 px-4 text-zinc-500 font-medium">Plan</th>
+                <th className="py-2.5 px-4 text-zinc-500 font-medium">User</th>
                 <th className="py-2.5 px-4 text-zinc-500 font-medium">Comment</th>
                 <th className="py-2.5 px-4 text-zinc-500 font-medium">Date</th>
               </tr>
@@ -27,6 +28,7 @@ export default function FeedbackTable({ feedback }: { feedback: DashboardFeedbac
                   <td className="py-2.5 px-4 text-amber-400">{f.stars != null ? '★'.repeat(f.stars) + '☆'.repeat(5 - f.stars) : '—'}</td>
                   <td className="py-2.5 px-4 text-zinc-400">{f.toolId ?? '—'}</td>
                   <td className="py-2.5 px-4 text-zinc-500">{f.planAtSubmit ?? '—'}</td>
+                  <td className="py-2.5 px-4 text-zinc-400 max-w-[180px] truncate" title={f.userNameOrEmail ?? f.userId ?? undefined}>{f.userNameOrEmail ?? f.userId ?? '—'}</td>
                   <td className="py-2.5 px-4 text-zinc-300 max-w-[260px] truncate" title={f.comment}>{f.comment || '—'}</td>
                   <td className="py-2.5 px-4 text-zinc-600 whitespace-nowrap">
                     {f.createdAt ? new Date(f.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '—'}
