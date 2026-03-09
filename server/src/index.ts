@@ -258,9 +258,9 @@ const server = app.listen(PORT, () => {
 
   // Alert checks: infra-critical checks (redis/db/worker/stuck) run every 60s;
   // rate/MRR checks run every 5 min (they have 1h cooldowns so extra frequency is free).
-  setInterval(() => { runAlertChecks().catch(() => {}) }, 60 * 1000)
+  setInterval(() => { runAlertChecks().catch((e) => log.warn({ msg: 'Alert checks failed', error: (e as Error)?.message })) }, 60 * 1000)
   // Daily digest check every minute (sends once per day at configured hour)
-  setInterval(() => { maybeSendDailyDigest().catch(() => {}) }, 60 * 1000)
+  setInterval(() => { maybeSendDailyDigest().catch((e) => log.warn({ msg: 'Daily digest failed', error: (e as Error)?.message })) }, 60 * 1000)
 
   // Auto-recompute metrics so the command centre is always up-to-date:
   // 1. Hourly light recompute: last 2 days + current month (keeps today's charts fresh)

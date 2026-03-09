@@ -4,7 +4,7 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
-import { fileQueue, addJobToQueue, getJobById, getTotalQueueCount as getQueueCountFromWorker } from '../workers/videoProcessor'
+import { fileQueue, addJobToQueue, getJobById, getTotalQueueCount as getQueueCountFromWorker, JobData } from '../workers/videoProcessor'
 import { validateFileType, validateFileSize, validateSubtitleFile } from '../utils/fileValidation'
 import { enforceLanguageLimits, enforceUsageLimits, getJobPriority, getPlanLimits } from '../utils/limits'
 import { resetUserUsageIfNeeded } from '../utils/usageReset'
@@ -161,7 +161,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     }
 
     const activeJobs = await fileQueue.getJobs(['active', 'waiting', 'delayed'])
-    const activeForUser = activeJobs.filter((j) => (j.data as any)?.userId === userId)
+    const activeForUser = activeJobs.filter((j) => (j.data as JobData)?.userId === userId)
     if (activeForUser.length >= limits.maxConcurrentJobs) {
       return res.status(429).json({ message: 'MAX_CONCURRENT_JOBS_REACHED' })
     }
@@ -495,7 +495,7 @@ router.post('/dual', upload.fields([
     }
 
     const activeJobs = await fileQueue.getJobs(['active', 'waiting', 'delayed'])
-    const activeForUser = activeJobs.filter((j) => (j.data as any)?.userId === userId)
+    const activeForUser = activeJobs.filter((j) => (j.data as JobData)?.userId === userId)
     if (activeForUser.length >= burnLimits.maxConcurrentJobs) {
       return res.status(429).json({ message: 'MAX_CONCURRENT_JOBS_REACHED' })
     }
