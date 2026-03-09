@@ -341,10 +341,16 @@ router.get('/:batchId/status', async (req: Request, res: Response) => {
 // GET /api/batch/:batchId/download
 router.get('/:batchId/download', async (req: Request, res: Response) => {
   const { batchId } = req.params
+  const requestingUserId = getEffectiveUserId(req)
   const batch = await getBatchById(batchId)
 
   if (!batch) {
     return res.status(404).json({ message: 'Batch not found' })
+  }
+
+  // Ownership check: if both user and batch have a userId, they must match
+  if (batch.userId && requestingUserId && requestingUserId !== batch.userId) {
+    return res.status(403).json({ message: 'Not authorized to download this batch' })
   }
 
   if (!batch.zipPath || !fs.existsSync(batch.zipPath)) {
@@ -356,6 +362,10 @@ router.get('/:batchId/download', async (req: Request, res: Response) => {
   res.setHeader('Content-Type', 'application/zip')
 
   const fileStream = fs.createReadStream(batch.zipPath)
+  fileStream.on('error', (err) => {
+    console.error('[batch/download] stream error', err)
+    if (!res.headersSent) res.status(500).json({ message: 'Download failed' })
+  })
   fileStream.pipe(res)
 })
 

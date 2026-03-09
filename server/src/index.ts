@@ -28,6 +28,7 @@ import adminDashboardRoutes, { clearDashboardCache } from './routes/adminDashboa
 import adminSupportRoutes, { runAlertChecks, maybeSendDailyDigest } from './routes/adminSupport'
 import { runRecompute } from './services/recomputeMetrics'
 import { pushLogEntry } from './lib/logRing'
+import { purgeOldStripeEvents } from './models/StripeEventLog'
 
 const log = getLogger('api')
 
@@ -281,7 +282,24 @@ const server = app.listen(PORT, () => {
     runRecompute(90, 12)
       .then(() => { clearDashboardCache(); log.info({ msg: 'Nightly full metrics recompute done' }) })
       .catch((err) => log.warn({ msg: 'Nightly metrics recompute failed', error: (err as Error)?.message }))
+    purgeOldStripeEvents()
+      .then(() => log.info({ msg: 'Nightly stripe event log purge done' }))
+      .catch((err) => log.warn({ msg: 'Stripe event log purge failed', error: (err as Error)?.message }))
   }, 60 * 1000)
+
+  // Optional heap memory monitoring — set MEMORY_DEBUG=1 to enable
+  if (process.env.MEMORY_DEBUG === '1') {
+    setInterval(() => {
+      const { rss, heapUsed, heapTotal, external } = process.memoryUsage()
+      log.info({
+        msg: 'memory_usage',
+        rss_mb: Math.round(rss / 1024 / 1024),
+        heapUsed_mb: Math.round(heapUsed / 1024 / 1024),
+        heapTotal_mb: Math.round(heapTotal / 1024 / 1024),
+        external_mb: Math.round(external / 1024 / 1024),
+      })
+    }, 5 * 60 * 1000)
+  }
 
   // Warm up Bull's Redis connections so first readyz/upload init doesn't timeout
   const warmupMs = 25_000

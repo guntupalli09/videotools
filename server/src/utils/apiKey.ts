@@ -19,10 +19,16 @@ declare global {
 }
 
 /**
- * In-memory API key store. Format: API_KEYS=key1:userId1,key2:userId2
- * Or single key: API_KEY=secret (maps to userId "api-user")
+ * In-memory API key store.
+ * Formats:
+ *   API_KEY=secret                               → userId "api-user", plan "free"
+ *   API_KEYS=key1:userId1,key2:userId2           → plan "free" for all
+ *   API_KEYS=key1:userId1:pro,key2:userId2:basic → optional third segment sets plan
  */
 const keyToUser = new Map<string, string>()
+const keyToPlan = new Map<string, PlanType>()
+
+const VALID_PLANS: PlanType[] = ['free', 'basic', 'pro', 'agency', 'founding_workflow']
 
 function loadApiKeys() {
   if (keyToUser.size > 0) return
@@ -31,9 +37,17 @@ function loadApiKeys() {
   }
   const keysEnv = process.env.API_KEYS
   if (keysEnv) {
-    keysEnv.split(',').forEach((pair) => {
-      const [key, userId] = pair.trim().split(':')
-      if (key && userId) keyToUser.set(key.trim(), userId.trim())
+    keysEnv.split(',').forEach((entry) => {
+      const parts = entry.trim().split(':')
+      const key = parts[0]?.trim()
+      const userId = parts[1]?.trim()
+      const plan = parts[2]?.trim() as PlanType | undefined
+      if (key && userId) {
+        keyToUser.set(key, userId)
+        if (plan && (VALID_PLANS as string[]).includes(plan)) {
+          keyToPlan.set(key, plan)
+        }
+      }
     })
   }
 }
@@ -49,7 +63,8 @@ export function apiKeyAuth(req: Request, _res: Response, next: NextFunction) {
   const key = apiKey?.trim() || (authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : undefined)
   if (key && keyToUser.has(key)) {
     const userId = keyToUser.get(key)!
-    req.apiKeyUser = { userId, plan: 'free' }
+    const plan = keyToPlan.get(key) ?? 'free'
+    req.apiKeyUser = { userId, plan }
   }
   next()
 }

@@ -1,13 +1,23 @@
 import express, { Request, Response } from 'express'
+import rateLimit from 'express-rate-limit'
 import { prisma } from '../db'
 import { getEffectiveUserId } from '../utils/auth'
 
 const router = express.Router()
 
+const feedbackPostLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => (req.ip ?? 'unknown'),
+  message: { message: 'Too many feedback submissions. Please wait a minute.' },
+})
+
 const FEEDBACK_VIEWER_SECRET = process.env.FEEDBACK_VIEWER_SECRET || ''
 
 /** POST /api/feedback — store feedback from Tex panel. No auth required. */
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', feedbackPostLimit, async (req: Request, res: Response) => {
   try {
     const body = req.body as {
       toolId?: string
