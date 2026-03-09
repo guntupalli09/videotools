@@ -47,7 +47,27 @@ const chunkUploadMeta = new Map<string, {
   options: Record<string, unknown>
   /** Set when early enqueue has run; chunk handler still accepts chunks. */
   earlyEnqueued?: boolean
+  /** Creation time — used to prune abandoned uploads. */
+  createdAt: number
 }>()
+
+// Prune abandoned upload sessions (never completed) older than 4 hours
+const CHUNK_META_TTL_MS = 4 * 60 * 60 * 1000
+setInterval(() => {
+  const cutoff = Date.now() - CHUNK_META_TTL_MS
+  for (const [id, meta] of chunkUploadMeta.entries()) {
+    if (meta.createdAt < cutoff) {
+      chunkUploadMeta.delete(id)
+      const dir = path.join(chunksDir, id)
+      if (fs.existsSync(dir)) {
+        fs.rm(dir, { recursive: true, force: true }, () => {})
+      }
+    }
+  }
+}, 30 * 60 * 1000).unref()
+
+// Tracks uploadIds currently being assembled — prevents duplicate /complete calls
+const completingUploads = new Set<string>()
 const chunksDir = path.join(tempDir, 'chunks')
 if (!fs.existsSync(chunksDir)) {
   fs.mkdirSync(chunksDir, { recursive: true })
@@ -108,6 +128,10 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     const queueCount = await getTotalQueueCount()
     if (isQueueAtHardLimit(queueCount)) {
       res.setHeader('Retry-After', '30')
+      return res.status(503).json({ message: 'High demand right now. Please retry shortly.' })
+    }
+    if (isQueueAtSoftLimit(queueCount) && plan === 'free') {
+      res.setHeader('Retry-After', '60')
       return res.status(503).json({ message: 'High demand right now. Please retry shortly.' })
     }
 
@@ -685,6 +709,10 @@ router.post('/init', async (req: Request, res: Response) => {
       res.setHeader('Retry-After', '30')
       return res.status(503).json({ message: 'High demand right now. Please retry shortly.' })
     }
+    if (isQueueAtSoftLimit(queueCount) && plan === 'free') {
+      res.setHeader('Retry-After', '60')
+      return res.status(503).json({ message: 'High demand right now. Please retry shortly.' })
+    }
 
     const body = req.body
     if (!body || typeof body !== 'object') {
@@ -729,6 +757,7 @@ router.post('/init', async (req: Request, res: Response) => {
       totalSize,
       toolType,
       options: rest || {},
+      createdAt: Date.now(),
     })
 
     uploadLog.info({
@@ -796,8 +825,9 @@ export async function handleUploadChunk(req: Request, res: Response): Promise<vo
 
 router.post('/complete', async (req: Request, res: Response) => {
   const tStart = Date.now()
+  let uploadId: string | undefined
   try {
-    const { uploadId } = req.body as { uploadId?: string }
+    ;({ uploadId } = req.body as { uploadId?: string })
     if (!uploadId) {
       return res.status(400).json({ message: 'uploadId required' })
     }
@@ -806,6 +836,10 @@ router.post('/complete', async (req: Request, res: Response) => {
     if (!meta) {
       return res.status(404).json({ message: 'Upload session not found or expired' })
     }
+    if (completingUploads.has(uploadId)) {
+      return res.status(409).json({ message: 'Upload completion already in progress for this session' })
+    }
+    completingUploads.add(uploadId)
     // Do NOT delete meta here — only after /complete finishes successfully (in finish handler)
 
     const dir = path.join(chunksDir, uploadId)
@@ -1069,6 +1103,7 @@ router.post('/complete', async (req: Request, res: Response) => {
     }
 
     const onError = (err: any) => {
+      completingUploads.delete(uploadId!)
       if (res.headersSent) return
       try { fs.unlinkSync(outPath) } catch { /* ignore */ }
       if (yetEnqueued && earlyJobResult) {
@@ -1092,6 +1127,7 @@ router.post('/complete', async (req: Request, res: Response) => {
     }
     out.once('error', onError)
     out.once('finish', async () => {
+      completingUploads.delete(uploadId!)
       timings.tFinishEnter = Date.now()
       out.removeListener('error', onError)
       if (res.headersSent) return
@@ -1099,7 +1135,7 @@ router.post('/complete', async (req: Request, res: Response) => {
         try { fs.rmdirSync(dir) } catch { /* ignore if not empty or missing */ }
         if (yetEnqueued && earlyJobResult) {
           timings.tBeforeResponse = Date.now()
-          chunkUploadMeta.delete(uploadId)
+          chunkUploadMeta.delete(uploadId!)
           uploadLog.info({
             msg: 'upload_complete_timing',
             uploadId,
@@ -1122,7 +1158,7 @@ router.post('/complete', async (req: Request, res: Response) => {
         const { job, fileSize } = await doEnqueueJob()
         timings.tAfterEnqueue = Date.now()
         timings.tBeforeResponse = Date.now()
-        chunkUploadMeta.delete(uploadId)
+        chunkUploadMeta.delete(uploadId!)
         uploadLog.info({
           msg: 'upload_complete_timing',
           uploadId,
@@ -1160,6 +1196,7 @@ router.post('/complete', async (req: Request, res: Response) => {
     timings.tOutEnd = Date.now()
     out.end()
   } catch (error: any) {
+    if (uploadId) completingUploads.delete(uploadId)
     console.error('[upload/complete] 500', error?.message || error, error?.stack)
     return res.status(500).json({ message: error.message || 'Upload complete failed' })
   }

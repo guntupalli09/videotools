@@ -206,13 +206,15 @@ async function generateBatchZip(batchId: string, batch: BatchJob): Promise<void>
       const zipSize = archive.pointer()
       batch.zipPath = zipPath
       batch.zipSize = zipSize
-      batch.status = batch.failedVideos > 0 ? 'partial' : 'completed'
+      batch.status = batch.failedVideos === batch.totalVideos ? 'failed' : batch.failedVideos > 0 ? 'partial' : 'completed'
       batch.completedAt = new Date()
       await saveBatch(batch)
       resolve()
     })
 
     archive.on('error', (err: any) => {
+      output.destroy()
+      archive.abort()
       reject(err)
     })
 
@@ -291,9 +293,11 @@ async function processJob(job: import('bull').Job<JobData>) {
     try {
       await job.progress(5)
 
-      // Wait for file to be stable before extraction (avoids reading partially flushed file after early enqueue)
+      // Wait for file to be stable before extraction (avoids reading partially flushed file after early enqueue).
+      // Default 800ms; tune via FILE_STABLE_WAIT_MS env var for slow or fast disks.
+      const fileStableWaitMs = Number(process.env.FILE_STABLE_WAIT_MS) || 800
       if (data.filePath && fs.existsSync(data.filePath)) {
-        await waitForFileStable(data.filePath, 400)
+        await waitForFileStable(data.filePath, fileStableWaitMs)
       }
 
       let result: any
@@ -1165,13 +1169,13 @@ async function processJob(job: import('bull').Job<JobData>) {
       await job.progress(100)
       return result
     } catch (error: any) {
-      if (partialWriter && redis) {
-        await partialWriter.closeAndFlush()
-        deleteJobPartial(redis, jobId)
-      }
+      if (redis) deleteJobPartial(redis, jobId)
       captureJobError(jobId, data.requestId, data.toolType, error)
       log.error({ err: error, msg: 'job_failed', error_message: error?.message ?? String(error) })
       throw error
+    } finally {
+      // Always close the drain loop whether job succeeded or failed (prevents Redis handle leak on crash)
+      if (partialWriter) await partialWriter.closeAndFlush().catch(() => {})
     }
   }
 

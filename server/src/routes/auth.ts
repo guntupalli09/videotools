@@ -1,5 +1,6 @@
 import crypto from 'crypto'
 import express, { Request, Response } from 'express'
+import rateLimit from 'express-rate-limit'
 import bcrypt from 'bcryptjs'
 import Redis from 'ioredis'
 import { getUserByEmail, getUserByPasswordToken, getUserByPasswordResetToken, saveUser } from '../models/User'
@@ -9,6 +10,15 @@ import { getPlanAndEmailForStripeCustomer } from '../services/stripe'
 import { getPlanLimits } from '../utils/limits'
 
 const router = express.Router()
+
+const otpSendLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => (req.ip ?? 'unknown'),
+  message: { message: 'Too many OTP requests. Please wait a minute before trying again.' },
+})
 
 // OTP store: Redis-backed so OTPs survive server restarts and work across multiple instances
 const OTP_EXPIRY_SECONDS = 10 * 60 // 10 minutes
@@ -115,7 +125,7 @@ async function sendPasswordResetEmail(email: string, resetLink: string): Promise
   }
 }
 
-router.post('/send-otp', async (req: Request, res: Response) => {
+router.post('/send-otp', otpSendLimit, async (req: Request, res: Response) => {
   try {
     const { email } = req.body as { email?: string }
     const normalized = (email || '').toString().trim().toLowerCase()

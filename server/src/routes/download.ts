@@ -90,15 +90,34 @@ router.get('/:filename', (req: Request, res: Response) => {
       }
     }
 
-    // Paid plan or non-text file: stream directly
+    // Paid plan or non-text file: stream directly with optional Range support
+    const stat = fs.statSync(filePath)
+    const fileSize = stat.size
+    const rangeHeader = req.headers.range
+
+    if (rangeHeader) {
+      const [unit, rangeStr] = rangeHeader.split('=')
+      const [startStr, endStr] = (rangeStr || '').split('-')
+      const start = parseInt(startStr, 10) || 0
+      const end = endStr ? Math.min(parseInt(endStr, 10), fileSize - 1) : fileSize - 1
+      const chunkSize = end - start + 1
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunkSize,
+        'Content-Disposition': `attachment; filename="${asciiSafe}"`,
+        'Content-Type': unit === 'bytes' ? 'application/octet-stream' : 'application/octet-stream',
+      })
+      fs.createReadStream(filePath, { start, end }).pipe(res)
+      return
+    }
+
+    res.setHeader('Accept-Ranges', 'bytes')
+    res.setHeader('Content-Length', fileSize)
     res.setHeader('Content-Disposition', `attachment; filename="${asciiSafe}"`)
     res.setHeader('Content-Type', 'application/octet-stream')
     const fileStream = fs.createReadStream(filePath)
     fileStream.pipe(res)
-
-    fileStream.on('end', () => {
-      // File will be cleaned up by cron job
-    })
   } catch (error: any) {
     console.error('Download error:', error)
     res.status(500).json({ message: error.message || 'Download failed' })

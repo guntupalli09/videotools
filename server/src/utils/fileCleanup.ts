@@ -7,8 +7,8 @@ const tempDir =
   (process.platform === 'win32' ? path.join(process.cwd(), 'temp') : '/tmp')
 
 const CLEANUP_INTERVAL = 15 * 60 * 1000  // 15 minutes
-const FILE_MAX_AGE = 60 * 60 * 1000       // 1 hour (normal)
-const EMERGENCY_AGE_MS = 15 * 60 * 1000   // 15 minutes (disk pressure)
+const FILE_MAX_AGE = 150 * 60 * 1000      // 2.5 hours (normal) — jobs routinely take 10–30 min, 1 hr was too tight
+const EMERGENCY_AGE_MS = 40 * 60 * 1000   // 40 minutes (disk pressure) — safe buffer for active jobs
 const DISK_EMERGENCY_THRESHOLD = 0.80     // 80% full triggers emergency mode
 
 export function startFileCleanup() {
