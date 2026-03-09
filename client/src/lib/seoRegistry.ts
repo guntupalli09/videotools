@@ -552,7 +552,7 @@ const REGISTRY: SeoRegistryEntry[] = [
       'Subtitles vs closed captions: subtitles transcribe speech for language access; closed captions include all audio cues for deaf/HOH viewers. Generate either free with VideoText — no signup.',
     h1: 'Subtitles vs Closed Captions — What\'s the Difference?',
     intro:
-      'Subtitles and closed captions look similar but serve different purposes. Subtitles transcribe or translate speech for viewers who can hear but don\'t understand the language. Closed captions include all audio cues — speech, speaker labels, and sound effects — for deaf and hard-of-hearing viewers. VideoText generates both: upload a video and download SRT or VTT caption files in seconds. Free, no signup.',
+      'Subtitles and closed captions look similar but serve different purposes. Subtitles transcribe or translate speech for viewers who can hear but don\'t understand the language. Closed captions include all audio cues — speech, speaker labels, and sound effects — for deaf and hard-of-hearing viewers. VideoText generates both: upload a video and download SRT or VTT caption files in seconds. Free, no signup. VideoText supports subtitles vs closed captions and related tools.',
     breadcrumbLabel: 'Subtitles vs Closed Captions',
     toolKey: 'video-to-subtitles',
     relatedSlugs: ['/subtitle-generator', '/closed-caption-generator', '/caption-generator'],
