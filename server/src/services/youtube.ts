@@ -2,12 +2,14 @@
  * YouTube ingestion service.
  *
  * Responsibilities:
- *   1. URL validation (regex, no network call)
- *   2. Metadata fetch — title, duration, thumbnail via @distube/ytdl-core (quick info call, no download)
- *   3. Audio streaming — ytdl audio-only Node stream → FFmpeg stdin → 16 kHz mono MP3 on disk
+ *   1. URL validation — strict hostname allow-list, no regex tricks (prevents subdomain spoofing)
+ *   2. Metadata fetch — title, duration, thumbnail via @distube/ytdl-core (no download)
+ *      Rejects: livestreams, private videos, zero-duration (deleted/unavailable)
+ *   3. Audio streaming — ytdl audio-only Node stream → FFmpeg stdin → 16 kHz mono WAV (PCM)
+ *      WAV/PCM is lossless and avoids MP3 compression artefacts that reduce Whisper accuracy.
  *
  * Architecture:
- *   YouTube stream → Node.js Readable → FFmpeg stdin (pipe:0) → 16 kHz mono MP3
+ *   YouTube stream → Node.js Readable → FFmpeg stdin (pipe:0) → 16 kHz mono WAV
  *
  * The API layer only calls getYoutubeMetadata() (< 2 s, no download).
  * The worker calls streamYoutubeAudioToFile() which does the full stream → encode.
@@ -37,22 +39,69 @@ export const FFMPEG_BIN: string = (() => {
 
 // ─── URL Validation ──────────────────────────────────────────────────────────
 
-const YOUTUBE_URL_RE =
-  /^https?:\/\/(www\.)?(youtube\.com\/(watch\?.*[?&]v=|shorts\/|embed\/)|youtu\.be\/)[\w-]{11}/
+/**
+ * Strict allow-list of YouTube hostnames.
+ * Using URL.hostname prevents subdomain-spoofing attacks like youtube.com.evil.com.
+ */
+const ALLOWED_YT_HOSTS = new Set([
+  'youtube.com',
+  'www.youtube.com',
+  'm.youtube.com',
+  'youtu.be',
+])
 
-/** Fast regex check — no network call. */
-export function isValidYoutubeUrl(url: string): boolean {
-  return YOUTUBE_URL_RE.test(url.trim())
+const VIDEO_ID_RE = /^[\w-]{11}$/
+
+/** Parse hostname from URL; returns null on malformed input. */
+function parseYoutubeHostname(url: string): string | null {
+  try {
+    return new URL(url).hostname
+  } catch {
+    return null
+  }
 }
 
-/** Extract video ID from a YouTube URL. Returns null when not found. */
+/**
+ * Extract the 11-character video ID from any accepted YouTube URL form.
+ * Returns null when no valid ID is found (playlists, channel pages, etc.).
+ */
 export function extractYoutubeVideoId(url: string): string | null {
-  const m =
-    url.match(/[?&]v=([\w-]{11})/) ||
-    url.match(/youtu\.be\/([\w-]{11})/) ||
-    url.match(/shorts\/([\w-]{11})/) ||
-    url.match(/embed\/([\w-]{11})/)
-  return m ? m[1] : null
+  try {
+    const parsed = new URL(url)
+    const host = parsed.hostname
+
+    if (host === 'youtu.be') {
+      const id = parsed.pathname.slice(1).split('/')[0]
+      return VIDEO_ID_RE.test(id) ? id : null
+    }
+
+    if (host === 'youtube.com' || host === 'www.youtube.com' || host === 'm.youtube.com') {
+      // /watch?v=XXXXXXXXXXX
+      const v = parsed.searchParams.get('v')
+      if (v && VIDEO_ID_RE.test(v)) return v
+      // /shorts/XXXXXXXXXXX
+      const shorts = parsed.pathname.match(/^\/shorts\/([\w-]{11})/)
+      if (shorts) return shorts[1]
+      // /embed/XXXXXXXXXXX
+      const embed = parsed.pathname.match(/^\/embed\/([\w-]{11})/)
+      if (embed) return embed[1]
+    }
+  } catch {
+    /* malformed URL */
+  }
+  return null
+}
+
+/**
+ * Fast client-side URL check — no network call.
+ * Validates hostname against the strict allow-list AND checks that a video ID is present.
+ */
+export function isValidYoutubeUrl(url: string): boolean {
+  const trimmed = url.trim()
+  if (!trimmed) return false
+  const host = parseYoutubeHostname(trimmed)
+  if (!host || !ALLOWED_YT_HOSTS.has(host)) return false
+  return extractYoutubeVideoId(trimmed) !== null
 }
 
 // ─── Metadata ────────────────────────────────────────────────────────────────
@@ -65,36 +114,63 @@ export interface YoutubeMetadata {
 }
 
 /**
- * Fetch video metadata from YouTube without downloading any media.
- * Makes one network call (~1–2 s).  Throws on private/age-gated/deleted videos.
+ * Fetch video metadata from YouTube without downloading any media (~1–2 s).
+ *
+ * Throws a human-readable error for:
+ *   - Livestreams (no fixed duration — would stream indefinitely in the worker)
+ *   - Videos with zero/unknown duration (deleted, region-blocked, or unavailable)
+ *   - Private videos (ytdl.getInfo itself throws; we let it propagate)
  */
 export async function getYoutubeMetadata(url: string): Promise<YoutubeMetadata> {
   const info = await ytdl.getInfo(url.trim())
-  const durationSec = parseInt(info.videoDetails.lengthSeconds, 10) || 0
-  // Prefer a medium-quality thumbnail; fall back to the last (highest res) entry
-  const thumbs = info.videoDetails.thumbnails || []
+  const details = info.videoDetails
+
+  // Reject active livestreams — they have no fixed duration
+  if (details.isLiveContent) {
+    throw new Error(
+      'Live streams cannot be transcribed. Wait for the recording to be published, then try again.'
+    )
+  }
+
+  const durationSec = parseInt(details.lengthSeconds, 10) || 0
+
+  // Zero duration means the video is unavailable, deleted, or still processing
+  if (durationSec === 0) {
+    throw new Error(
+      'Could not determine video duration. The video may be unavailable or still processing.'
+    )
+  }
+
+  // Prefer a medium-quality thumbnail to avoid huge images; fall back to last (highest-res) entry
+  const thumbs = details.thumbnails || []
   const thumb =
     thumbs.find((t) => t.width && t.width <= 640) ?? thumbs[thumbs.length - 1]
+
   return {
-    title: info.videoDetails.title,
+    title: details.title,
     durationSec,
     thumbnailUrl: thumb?.url,
-    videoId: info.videoDetails.videoId,
+    videoId: details.videoId,
   }
 }
 
 // ─── Audio Streaming ─────────────────────────────────────────────────────────
 
-/** Timeout (ms) for the full YouTube stream + FFmpeg encode. Matches HUNG_JOB_MS. */
-const STREAM_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes max
+/** Hard timeout for the full YouTube stream + FFmpeg encode (10 minutes). */
+const STREAM_TIMEOUT_MS = 10 * 60 * 1000
 
 /**
- * Stream YouTube audio directly into FFmpeg and write a 16 kHz mono MP3 to outputPath.
+ * Stream YouTube audio directly into FFmpeg and write a 16 kHz mono WAV to outputPath.
  *
- * Flow: ytdl (audio-only Node stream) → FFmpeg stdin (pipe:0) → 16 kHz mono MP3
+ * Flow: ytdl (audio-only Node stream) → FFmpeg stdin (pipe:0) → 16 kHz mono PCM WAV
+ *
+ * WAV/PCM is chosen over MP3 because:
+ *   - Lossless: no compression artefacts that reduce Whisper transcription accuracy
+ *   - Whisper models natively expect PCM audio; WAV is the zero-overhead wrapper
+ *   - The temp file is deleted immediately after transcription — file size is not a concern
  *
  * No full video download; only the audio track is streamed.
- * Works with any audio format YouTube serves (webm/opus, mp4/aac, etc.) — FFmpeg auto-detects.
+ * Works with any audio format YouTube serves (webm/opus, mp4/aac, …) — FFmpeg auto-detects.
  */
 export function streamYoutubeAudioToFile(
   url: string,
@@ -110,7 +186,7 @@ export function streamYoutubeAudioToFile(
       else resolve()
     }
 
-    // Hard timeout: if the stream stalls, reject so the worker can fail + retry
+    // Hard timeout: reject so the worker can fail + retry rather than hang forever
     const timeoutHandle = setTimeout(() => {
       log.error({ msg: 'yt_stream_timeout', outputPath })
       try { ffmpegProc.kill('SIGKILL') } catch { /* ignore */ }
@@ -121,15 +197,14 @@ export function streamYoutubeAudioToFile(
     const ffmpegProc = spawn(
       FFMPEG_BIN,
       [
-        '-loglevel', 'error',          // quiet; errors still reach stderr
-        '-i', 'pipe:0',                // read from stdin
-        '-vn',                         // drop video
-        '-acodec', 'libmp3lame',
-        '-ar', '16000',                // 16 kHz — optimal for Whisper
-        '-ac', '1',                    // mono
-        '-q:a', '5',                   // VBR ~130 kbps — good quality/size balance
-        '-f', 'mp3',
-        '-y',                          // overwrite
+        '-loglevel', 'error',   // quiet; errors still reach stderr
+        '-i', 'pipe:0',         // read audio from stdin
+        '-vn',                  // drop video track
+        '-acodec', 'pcm_s16le', // 16-bit PCM — lossless, Whisper-native
+        '-ar', '16000',         // 16 kHz sample rate — Whisper optimum
+        '-ac', '1',             // mono
+        '-f', 'wav',            // WAV container
+        '-y',                   // overwrite if exists
         outputPath,
       ],
       { stdio: ['pipe', 'ignore', 'pipe'] }
@@ -151,7 +226,7 @@ export function streamYoutubeAudioToFile(
 
     ffmpegProc.on('error', (err) => done(new Error(`FFmpeg spawn error: ${err.message}`)))
 
-    // EPIPE: ffmpeg exited before we finished writing — handle silently; 'close' fires next
+    // EPIPE: FFmpeg exited before we finished writing — handle silently; 'close' fires next
     ffmpegProc.stdin!.on('error', (err: NodeJS.ErrnoException) => {
       if (err.code !== 'EPIPE') {
         done(new Error(`FFmpeg stdin error: ${err.message}`))
@@ -164,8 +239,8 @@ export function streamYoutubeAudioToFile(
       audioStream = ytdl(url.trim(), {
         quality: 'lowestaudio',
         filter: 'audioonly',
-        // Raise high-water mark so ytdl buffers more aggressively — reduces stalls
-        highWaterMark: 1 << 25, // 32 MB
+        // 32 MB high-water mark: ytdl buffers aggressively → fewer stalls on large videos
+        highWaterMark: 1 << 25,
       })
     } catch (err) {
       done(new Error(`ytdl init error: ${(err as Error).message}`))

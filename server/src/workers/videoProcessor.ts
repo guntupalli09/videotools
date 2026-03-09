@@ -317,13 +317,13 @@ async function processJob(job: import('bull').Job<JobData>) {
           return data.cachedResult
         }
         case 'youtube-to-transcript': {
-          // Stream YouTube audio → 16 kHz mono MP3 → then fall through to video-to-transcript as audio-only.
+          // Stream YouTube audio → 16 kHz mono WAV → then fall through to video-to-transcript as audio-only.
           // The worker fetches the audio itself so the API never downloads anything and the job carries only
           // the URL — safe for distributed deployments where API and worker run on different machines.
           log.info({ msg: 'yt_job_start', youtubeUrl: data.youtubeUrl?.slice(0, 50) })
           await job.progress(5)
 
-          const ytAudioPath = path.join(tempDir, `${uuidv4()}_yt_audio.mp3`)
+          const ytAudioPath = path.join(tempDir, `${uuidv4()}_yt_audio.wav`)
           try {
             await streamYoutubeAudioToFile(data.youtubeUrl!, ytAudioPath)
           } catch (err: any) {
@@ -338,7 +338,7 @@ async function processJob(job: import('bull').Job<JobData>) {
           ;(data as any).filePath = ytAudioPath
           ;(data as any).inputType = 'audio'
           ;(data as any).originalName =
-            (data.youtubeTitle || 'youtube_video').replace(/[^\w\s.\-]/g, '_').trim() + '.mp3'
+            (data.youtubeTitle || 'youtube_video').replace(/[^\w\s.\-]/g, '_').trim() + '.wav'
           ;(data as any).toolType = 'video-to-transcript'
           // Clear youtubeUrl so the url-disabled check in video-to-transcript doesn't fire
           ;(data as any).youtubeUrl = undefined
