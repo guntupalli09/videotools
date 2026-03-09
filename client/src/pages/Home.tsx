@@ -4,7 +4,6 @@ import { isLoggedIn } from '../lib/auth';
 import { Hero } from '../components/figma/Hero';
 import { Features } from '../components/figma/Features';
 import { HowItWorks } from '../components/figma/HowItWorks';
-import { Footer } from '../components/figma/Footer';
 import { Testimonials } from '../components/landing/Testimonials';
 import { UseCases } from '../components/landing/UseCases';
 import { FAQ } from '../components/landing/FAQ';
@@ -19,7 +18,7 @@ import { FinalCTA } from '../components/landing/FinalCTA';
 // 6. Pricing — friction-free plans
 // 7. FAQ — objection handling
 // 8. Final CTA — dark, bold closing section
-// 9. Footer
+// Footer rendered globally by App.tsx
 
 export default function Home() {
   return (
@@ -117,9 +116,6 @@ export default function Home() {
 
       {/* 8 — Final CTA */}
       <FinalCTA />
-
-      {/* 9 — Footer */}
-      <Footer />
     </div>
   );
 }
