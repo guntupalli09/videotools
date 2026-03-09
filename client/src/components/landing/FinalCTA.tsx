@@ -33,7 +33,7 @@ export function FinalCTA() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.07] border border-white/[0.12] mb-8">
             <Zap className="w-3.5 h-3.5 text-yellow-400" />
-            <span className="text-[12px] text-white/70 font-medium">Ready in under 60 seconds</span>
+            <span className="text-[12px] text-white/70 font-medium">AI-powered · Whisper accurate · No setup</span>
           </div>
 
           <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold text-white leading-[1.1] mb-6">
@@ -44,7 +44,7 @@ export function FinalCTA() {
           </h2>
 
           <p className="text-lg text-white/50 max-w-xl mx-auto mb-10 leading-relaxed">
-            Drop a video, paste a YouTube link, or upload an audio file. Get your transcript in under 60 seconds — no setup, no learning curve.
+            Drop a video, paste a YouTube link, or upload an audio file. Your transcript is ready before you finish your coffee.
           </p>
 
           {/* CTA button */}
@@ -79,26 +79,6 @@ export function FinalCTA() {
               Files deleted after processing
             </div>
           </div>
-        </motion.div>
-
-        {/* Floating stats */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.4, duration: 0.7 }}
-          className="mt-20 grid grid-cols-3 gap-8 max-w-lg mx-auto"
-        >
-          {[
-            { value: '2M+', label: 'minutes transcribed' },
-            { value: '50+', label: 'languages' },
-            { value: '98.5%', label: 'accuracy' },
-          ].map((s) => (
-            <div key={s.label} className="text-center">
-              <p className="text-2xl font-bold text-white/80">{s.value}</p>
-              <p className="text-[11px] text-white/30 mt-0.5">{s.label}</p>
-            </div>
-          ))}
         </motion.div>
       </div>
     </section>

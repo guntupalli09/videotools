@@ -386,10 +386,10 @@ export function Hero() {
             transition={{ delay: 0.3, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
             className="text-center text-4xl sm:text-5xl md:text-[3.75rem] lg:text-[4.5rem] font-bold tracking-tight text-gray-900 dark:text-white leading-[1.08] mb-5 transition-colors duration-500"
           >
-            Stop transcribing{' '}
+            Transcription at{' '}
             <span className="relative">
               <span className="relative z-10 bg-gradient-to-r from-purple-600 via-violet-600 to-indigo-600 bg-clip-text text-transparent">
-                by hand.
+                lightning speed.
               </span>
               <motion.span
                 className="absolute -bottom-1 left-0 right-0 h-[3px] bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full"
@@ -409,7 +409,7 @@ export function Hero() {
             className="text-center text-[16px] sm:text-[17px] text-gray-500 dark:text-white/45 max-w-xl mx-auto leading-relaxed mb-8 transition-colors duration-500"
           >
             Drop any video — or paste a YouTube link — and get a perfect transcript, SRT captions, or subtitles.{' '}
-            <span className="text-gray-700 dark:text-white/65 font-medium transition-colors duration-500">In under 60 seconds.</span>
+            <span className="text-gray-700 dark:text-white/65 font-medium transition-colors duration-500">98.5% accuracy. Zero setup.</span>
           </motion.p>
 
           {/* CTAs */}

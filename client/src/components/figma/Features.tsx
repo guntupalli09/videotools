@@ -24,7 +24,7 @@ const SPOTLIGHT_TOOLS = [
     badgeColor: 'bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300',
     icon: FileText,
     name: 'Video → Transcript',
-    tagline: 'From video to words in under a minute.',
+    tagline: 'From video to words at machine speed.',
     description: 'Upload any video and get a clean, timestamped transcript. AI-powered with 98.5% accuracy. Export as TXT, PDF, DOCX, or JSON.',
     bullets: ['Speaker detection', 'Auto chapters & summary', '50+ languages'],
     gradient: 'from-purple-500 to-indigo-600',
@@ -101,7 +101,7 @@ const SECONDARY_TOOLS = [
 
 // Why Videotext trust signals
 const WHY_US = [
-  { icon: Zap, label: 'Under 60 seconds', desc: 'Most transcripts complete in under a minute' },
+  { icon: Zap, label: 'Up to 20× real-time', desc: 'A 30-minute video transcribes in ~75 seconds' },
   { icon: Globe, label: '50+ languages', desc: 'Transcribe and translate in any major language' },
   { icon: Lock, label: 'Privacy first', desc: 'Files are processed and immediately deleted' },
 ];

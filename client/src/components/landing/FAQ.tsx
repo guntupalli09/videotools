@@ -22,7 +22,7 @@ const FAQS = [
   },
   {
     q: 'How fast is processing?',
-    a: 'Most videos are transcribed in under 60 seconds. A 60-minute podcast typically completes in 2–4 minutes. Batch jobs and very long videos may take longer but all run in the background — you receive a download link when done.',
+    a: 'Very fast. A 15-minute video typically transcribes in ~40 seconds. A 30-minute video in ~75 seconds. A 60-minute podcast in ~2.5 minutes. Processing happens in parallel so you see the transcript building in real time — you don\'t wait for the full job to finish before reading results.',
   },
   {
     q: 'What languages do you support?',
