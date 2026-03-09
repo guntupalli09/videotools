@@ -1527,6 +1527,68 @@ export async function getFeedbackList(viewerSecret: string): Promise<FeedbackIte
   return response.json()
 }
 
+// ─── YouTube ingestion ────────────────────────────────────────────────────────
+
+export interface YoutubeUploadOptions {
+  includeSummary?: boolean
+  includeChapters?: boolean
+  speakerDiarization?: boolean
+  glossary?: string
+  exportFormats?: ('txt' | 'json' | 'docx' | 'pdf')[]
+  language?: string
+  webhookUrl?: string
+}
+
+export interface YoutubeUploadResponse extends UploadResponse {
+  youtubeTitle?: string
+  youtubeThumbnailUrl?: string
+  youtubeDurationSec?: number
+}
+
+/**
+ * Submit a YouTube URL for transcription.  Validates the URL on the server, fetches metadata,
+ * enforces plan/rate limits, and enqueues a youtube-to-transcript job.
+ *
+ * Returns the same { jobId, status, jobToken } shape as uploadFileWithProgress, plus
+ * YouTube-specific metadata (title, thumbnail, duration) so the client can show a preview
+ * immediately without an extra round-trip.
+ */
+export async function submitYoutubeUrl(
+  youtubeUrl: string,
+  options: YoutubeUploadOptions,
+  signal?: AbortSignal
+): Promise<YoutubeUploadResponse> {
+  const body: Record<string, unknown> = {
+    youtubeUrl: youtubeUrl.trim(),
+    toolType: BACKEND_TOOL_TYPES.VIDEO_TO_TRANSCRIPT,
+    ...options,
+    exportFormats: options.exportFormats
+      ? JSON.stringify(options.exportFormats)
+      : JSON.stringify(['txt']),
+  }
+
+  const res = await api('/api/upload/youtube', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal,
+  })
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({})) as { message?: string }
+    throw new Error(data.message || `YouTube submission failed (${res.status})`)
+  }
+
+  return res.json()
+}
+
+/** Fast client-side YouTube URL validation (mirrors server regex). */
+export function isYoutubeUrl(url: string): boolean {
+  return /^https?:\/\/(www\.)?(youtube\.com\/(watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)[\w-]{11}/.test(
+    url.trim()
+  )
+}
+
 /** Translate transcript text to a target language (English, Hindi, Telugu, Spanish, Chinese, Russian). */
 export const TRANSCRIPT_TRANSLATION_LANGUAGES = ['English', 'Hindi', 'Telugu', 'Spanish', 'Chinese', 'Russian'] as const
 

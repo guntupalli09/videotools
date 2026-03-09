@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased] — 2026-03-09
+
+### Bug Fixes
+- **Near-empty audio chunks crashing transcription** — `transcribeChunkVerbose` now checks chunk file size before attempting WAV conversion; chunks under 1 KB are silently skipped (return `[]`). Fixes `chunk_002.mp3: Invalid argument` ffmpeg errors and Whisper `400 Audio file is too short` failures caused by near-empty last segments produced by ffmpeg `-c copy` segmenting.
+
+---
+
 ## [Unreleased] — 2026-03-08 — Product Hunt Launch Hardening
 
 ### Critical Fixes

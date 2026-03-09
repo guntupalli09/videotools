@@ -20,6 +20,8 @@ import { insertJobRecord } from '../lib/jobAnalytics'
 import { getVideoDuration } from '../services/ffmpeg'
 import { STREAM_UPLOAD_ASSEMBLY } from '../utils/featureFlags'
 import { getLogger } from '../lib/logger'
+import { isValidYoutubeUrl, getYoutubeMetadata } from '../services/youtube'
+import { checkAndRecordYoutubeJob } from '../utils/youtubeRateLimit'
 
 const router = express.Router()
 const uploadLog = getLogger('api')
@@ -1201,6 +1203,229 @@ router.post('/complete', async (req: Request, res: Response) => {
     if (uploadId) completingUploads.delete(uploadId)
     uploadLog.error({ msg: '[upload/complete] 500', error: error?.message || String(error), stack: error?.stack })
     return res.status(500).json({ message: error.message || 'Upload complete failed' })
+  }
+})
+
+// ─── YouTube ingestion endpoint ──────────────────────────────────────────────
+// POST /api/upload/youtube
+//
+// Validates the YouTube URL, fetches metadata (non-blocking — ~1-2 s network call),
+// enforces plan duration + usage limits, applies YouTube-specific rate limiting
+// (separate from the per-minute file upload limit), then enqueues a
+// 'youtube-to-transcript' job.  The worker fetches and encodes the audio itself
+// so this endpoint never downloads any media, keeping the API thread free.
+//
+// Response is identical to the file upload endpoint: { jobId, status, jobToken }
+// so the client can use the exact same polling flow.
+router.post('/youtube', async (req: Request, res: Response) => {
+  const ytStartMs = Date.now()
+  try {
+    const userId = getEffectiveUserId(req)
+    if (!userId) {
+      return res.status(401).json({ message: 'Signup required to process videos.' })
+    }
+
+    const { youtubeUrl, toolType: rawToolType, webhookUrl, ...options } = req.body
+
+    if (!youtubeUrl || typeof youtubeUrl !== 'string') {
+      return res.status(400).json({ message: 'youtubeUrl is required.' })
+    }
+
+    if (!isValidYoutubeUrl(youtubeUrl)) {
+      return res.status(400).json({ message: 'Invalid YouTube URL. Paste a youtube.com or youtu.be link.' })
+    }
+
+    const auth = getAuthFromRequest(req)
+    let user = await getUser(userId)
+    const plan: PlanType =
+      auth?.plan && (auth.plan === 'basic' || auth.plan === 'pro' || auth.plan === 'agency' || auth.plan === 'founding_workflow')
+        ? auth.plan
+        : user?.stripeCustomerId
+          ? user.plan
+          : 'free'
+
+    // ── Queue capacity ────────────────────────────────────────────────────────
+    const queueCount = await getTotalQueueCount()
+    if (isQueueAtHardLimit(queueCount)) {
+      res.setHeader('Retry-After', '30')
+      return res.status(503).json({ message: 'High demand right now. Please retry shortly.' })
+    }
+    if (isQueueAtSoftLimit(queueCount) && plan === 'free') {
+      res.setHeader('Retry-After', '60')
+      return res.status(503).json({ message: 'High demand right now. Please retry shortly.' })
+    }
+
+    // ── YouTube-specific rate limit (hourly, separate from file upload limit) ─
+    const ytRl = await checkAndRecordYoutubeJob(userId, plan)
+    if (!ytRl.allowed) {
+      const retryAfterSec = Math.ceil(ytRl.retryAfterMs / 1000)
+      res.setHeader('Retry-After', String(retryAfterSec))
+      return res.status(429).json({
+        message: `YouTube limit reached. You can submit ${
+          plan === 'free' ? '3' : plan === 'basic' ? '6' : plan === 'agency' ? '20' : '10'
+        } YouTube jobs per hour on the ${plan} plan. Try again in ${Math.ceil(retryAfterSec / 60)} minute(s).`,
+      })
+    }
+
+    // ── Fetch metadata (title, duration, thumbnail) ───────────────────────────
+    // This is the only network call in the API layer; all media fetching happens in the worker.
+    let ytMeta: { title: string; durationSec: number; thumbnailUrl: string | undefined; videoId: string }
+    try {
+      ytMeta = await getYoutubeMetadata(youtubeUrl)
+    } catch (err: any) {
+      uploadLog.warn({ msg: '[youtube] metadata fetch failed', error: err.message, youtubeUrl: youtubeUrl.slice(0, 80) })
+      return res.status(400).json({
+        message: 'Could not access that YouTube video. It may be private, age-restricted, or unavailable.',
+      })
+    }
+
+    // ── Ensure/create user record ─────────────────────────────────────────────
+    const now = new Date()
+    const limits = user?.limits ?? getPlanLimits(plan)
+    if (!user) {
+      const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+      user = {
+        id: userId,
+        email: `${userId}@example.com`,
+        passwordHash: '',
+        plan,
+        stripeCustomerId: '',
+        subscriptionId: '',
+        paymentMethodId: undefined,
+        usageThisMonth: {
+          totalMinutes: 0,
+          videoCount: 0,
+          batchCount: 0,
+          languageCount: 0,
+          translatedMinutes: 0,
+          importCount: 0,
+          resetDate,
+        },
+        limits,
+        overagesThisMonth: { minutes: 0, languages: 0, batches: 0, totalCharge: 0 },
+        createdAt: now,
+        updatedAt: now,
+      }
+      await saveUser(user)
+    } else {
+      if (user.plan !== plan) {
+        user.plan = plan
+        user.limits = getPlanLimits(plan)
+        user.updatedAt = now
+        await saveUser(user)
+      }
+      if (resetUserUsageIfNeeded(user, now)) {
+        await saveUser(user)
+      }
+    }
+
+    // ── Import count check (free plan: 3 imports/month) ───────────────────────
+    if (user.plan === 'free') {
+      if ((user.usageThisMonth.importCount ?? 0) >= 3) {
+        return res.status(403).json({ message: 'Free plan allows 3 imports per month.' })
+      }
+    }
+
+    // ── Concurrent job cap ────────────────────────────────────────────────────
+    const activeJobs = await fileQueue.getJobs(['active', 'waiting', 'delayed'])
+    const activeForUser = activeJobs.filter((j) => (j.data as JobData)?.userId === userId)
+    if (activeForUser.length >= limits.maxConcurrentJobs) {
+      return res.status(429).json({ message: 'MAX_CONCURRENT_JOBS_REACHED' })
+    }
+
+    // ── Duration limit (plan-based) ───────────────────────────────────────────
+    const maxDurationSec = limits.maxVideoDuration * 60
+    if (ytMeta.durationSec > maxDurationSec) {
+      return res.status(400).json({
+        message: `This video is ${Math.round(ytMeta.durationSec / 60)} minutes. Your ${plan} plan supports videos up to ${limits.maxVideoDuration} minutes. Upgrade for longer videos.`,
+      })
+    }
+
+    // ── Minute usage limits (paid plans) ─────────────────────────────────────
+    if (user.plan !== 'free') {
+      const requestedMinutes = Math.ceil(ytMeta.durationSec / 60)
+      const limitCheck = await enforceUsageLimits(user, requestedMinutes)
+      if (!limitCheck.allowed) {
+        return res.status(403).json({ message: 'Monthly minute limit reached. Upgrade or wait for reset.' })
+      }
+    }
+
+    // ── Parse transcript options ──────────────────────────────────────────────
+    let exportFormats: ('txt' | 'json' | 'docx' | 'pdf')[] | undefined
+    if (options.exportFormats) {
+      try {
+        const arr = typeof options.exportFormats === 'string'
+          ? JSON.parse(options.exportFormats)
+          : options.exportFormats
+        if (Array.isArray(arr)) {
+          exportFormats = arr.filter((f: string) => ['txt', 'json', 'docx', 'pdf'].includes(f))
+        }
+      } catch { /* ignore */ }
+    }
+
+    const jobOptions = {
+      language: options.language,
+      includeSummary: options.includeSummary === true || options.includeSummary === 'true',
+      includeChapters: options.includeChapters === true || options.includeChapters === 'true',
+      speakerDiarization: options.speakerDiarization === true || options.speakerDiarization === 'true',
+      glossary: typeof options.glossary === 'string' && options.glossary.trim() ? options.glossary.trim() : undefined,
+      exportFormats,
+    }
+
+    // ── Enqueue ───────────────────────────────────────────────────────────────
+    const job = await addJobToQueue(plan, {
+      toolType: 'youtube-to-transcript',
+      userId,
+      plan,
+      youtubeUrl: youtubeUrl.trim(),
+      youtubeTitle: ytMeta.title,
+      youtubeThumbnailUrl: ytMeta.thumbnailUrl,
+      youtubeDurationSec: ytMeta.durationSec,
+      originalName: ytMeta.title.replace(/[^\w\s.\-]/g, '_').trim() + '.wav',
+      options: jobOptions,
+      webhookUrl: typeof webhookUrl === 'string' && webhookUrl.trim() ? webhookUrl.trim() : undefined,
+      requestId: (req as RequestWithId).requestId,
+    })
+
+    uploadLog.info({
+      msg: 'youtube_job_enqueued',
+      jobId: job.id,
+      durationMs: Date.now() - ytStartMs,
+      ytDurationSec: ytMeta.durationSec,
+    })
+
+    try {
+      trackJobCreated({
+        job_id: String(job.id),
+        user_id: userId,
+        tool_type: 'youtube-to-transcript',
+        file_size_bytes: 0,
+        plan,
+      })
+    } catch { /* non-blocking */ }
+
+    try {
+      await insertJobRecord({
+        id: String(job.id),
+        userId,
+        toolType: 'youtube-to-transcript',
+        planAtRun: plan,
+        fileSizeBytes: 0,
+      })
+    } catch { /* non-blocking */ }
+
+    return res.status(202).json({
+      jobId: job.id,
+      status: 'queued',
+      jobToken: (job.data as JobData)?.jobToken,
+      // Pass back metadata so the client can show the thumbnail/title immediately
+      youtubeTitle: ytMeta.title,
+      youtubeThumbnailUrl: ytMeta.thumbnailUrl,
+      youtubeDurationSec: ytMeta.durationSec,
+    })
+  } catch (error: any) {
+    uploadLog.error({ msg: '[youtube] endpoint error', error: String(error) })
+    return res.status(500).json({ message: error.message || 'Failed to process YouTube URL.' })
   }
 })
 

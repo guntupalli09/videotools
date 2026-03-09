@@ -112,6 +112,9 @@ async function ensureAudioForWhisper(
   return { path: wavPath, filename: 'audio.wav', cleanupWav: wavPath }
 }
 
+/** Minimum bytes for a chunk file to be worth sending to Whisper (avoids ffmpeg "Invalid argument" on near-empty last segments). */
+const MIN_CHUNK_BYTES = 1024
+
 /** Transcribe a single audio chunk with Whisper; return segments with time offset applied. Chunk is converted to WAV so API always gets a supported format. */
 async function transcribeChunkVerbose(
   chunkPath: string,
@@ -119,6 +122,10 @@ async function transcribeChunkVerbose(
   language?: string,
   prompt?: string
 ): Promise<WhisperSegment[]> {
+  const chunkStat = await fs.promises.stat(chunkPath).catch(() => null)
+  if (!chunkStat || chunkStat.size < MIN_CHUNK_BYTES) {
+    return []
+  }
   const tempDir = path.dirname(chunkPath)
   const wavPath = path.join(tempDir, `whisper_${Date.now()}_${path.basename(chunkPath, path.extname(chunkPath))}.wav`)
   try {
