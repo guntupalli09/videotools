@@ -309,6 +309,8 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
   let event: Stripe.Event
 
   try {
+    // constructEvent verifies the HMAC-SHA256 signature using the webhook secret,
+    // rejecting any payload that wasn't sent by Stripe.
     event = stripe.webhooks.constructEvent(buf, sig || '', webhookSecret)
   } catch (err: any) {
     console.error('Stripe webhook signature verification failed:', err.message)

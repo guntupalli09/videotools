@@ -98,7 +98,7 @@ export async function getJobById(jobId: string) {
   return fileQueue.getJob(jobId)
 }
 
-interface JobData {
+export interface JobData {
   toolType: string
   userId?: string
   /** Token for anonymous job polling; always set at job creation. */
