@@ -1576,6 +1576,9 @@ export async function submitYoutubeUrl(
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({})) as { message?: string }
+    if (res.status === 404) {
+      throw new Error('YouTube transcription is not available on this server yet. Try reloading the page, or contact support if this persists.')
+    }
     throw new Error(data.message || `YouTube submission failed (${res.status})`)
   }
 
