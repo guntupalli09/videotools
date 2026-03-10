@@ -198,11 +198,11 @@ export function splitAudioIntoChunks(
     const stderrLines: string[] = []
     ffmpeg(audioPath)
       .outputOptions([
+        '-acodec', 'libmp3lame', '-ar', '16000', '-ac', '1', '-q:a', '5',
         '-f', 'segment',
         '-segment_time', String(chunkDurationSec),
         '-reset_timestamps', '1',
-        '-c', 'copy',
-        '-map', '0',
+        '-map', '0:a?',
       ])
       .output(pattern)
       .on('stderr', (line: string) => { stderrLines.push(line) })
@@ -244,8 +244,8 @@ function splitAudioIntoVariableChunks(
   const firstDuration = chunkDurationsSec.find((d) => d > 0) ?? cumulative[0]
   return new Promise((resolve, reject) => {
     const opts = cumulative.length === 1
-      ? ['-f', 'segment', '-segment_time', String(cumulative[0]), '-reset_timestamps', '1', '-c', 'copy', '-map', '0']
-      : ['-f', 'segment', '-segment_times', cumulative.slice(0, -1).join(','), '-reset_timestamps', '1', '-c', 'copy', '-map', '0']
+      ? ['-acodec', 'libmp3lame', '-ar', '16000', '-ac', '1', '-q:a', '5', '-f', 'segment', '-segment_time', String(cumulative[0]), '-reset_timestamps', '1', '-map', '0:a?']
+      : ['-acodec', 'libmp3lame', '-ar', '16000', '-ac', '1', '-q:a', '5', '-f', 'segment', '-segment_times', cumulative.slice(0, -1).join(','), '-reset_timestamps', '1', '-map', '0:a?']
     ffmpeg(audioPath)
       .outputOptions(opts)
       .output(pattern)
