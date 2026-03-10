@@ -98,11 +98,14 @@ services:
       FFPROBE_PATH: /usr/bin/ffprobe
       # TTFW: extract first 20s chunk early instead of full-file extract then split
       PROCESSING_V2: "true"
+      # Cookies for yt-dlp (bypass "Sign in to confirm you're not a bot")
+      YOUTUBE_COOKIES_FILE: /app/yt_cookies.txt
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
     volumes:
       - tmp-files:/tmp
+      - ./yt_cookies.txt:/app/yt_cookies.txt:ro
     deploy:
       resources:
         limits:
