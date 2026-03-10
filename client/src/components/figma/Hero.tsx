@@ -302,7 +302,6 @@ function LiveTranscriptPanel() {
 function StatsBar() {
   const stats = [
     { value: '2M+', label: 'minutes transcribed', icon: Clock },
-    { value: '50+', label: 'languages supported', icon: Languages },
     { value: '98.5%', label: 'accuracy', icon: CheckCircle2 },
   ];
   return (
@@ -324,6 +323,17 @@ function StatsBar() {
 
 export function Hero() {
   const ref = useRef<HTMLDivElement>(null);
+  const [showFreeMicrocopy, setShowFreeMicrocopy] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!isLoggedIn()) {
+      setShowFreeMicrocopy(true);
+      return;
+    }
+    const plan = (localStorage.getItem('plan') || 'free').toLowerCase();
+    const isPaid = ['basic', 'pro', 'agency', 'founding_workflow'].includes(plan);
+    setShowFreeMicrocopy(!isPaid);
+  }, []);
+
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ['start start', 'end start'],
@@ -440,15 +450,17 @@ export function Hero() {
             </Link>
           </motion.div>
 
-          {/* Microcopy */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8, duration: 0.5 }}
-            className="text-center text-[11px] text-gray-400 dark:text-white/20 tracking-wide transition-colors duration-500"
-          >
-            3 free imports · No credit card · Files deleted after processing
-          </motion.p>
+          {/* Microcopy — hide for paid users (Basic, Pro, Agency, Founding) */}
+          {showFreeMicrocopy === true && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.8, duration: 0.5 }}
+              className="text-center text-[11px] text-gray-400 dark:text-white/20 tracking-wide transition-colors duration-500"
+            >
+              3 free imports · No credit card · Files deleted after processing
+            </motion.p>
+          )}
 
           {/* Social proof */}
           <SocialProof />
