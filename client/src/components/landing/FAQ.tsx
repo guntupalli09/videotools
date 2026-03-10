@@ -30,7 +30,7 @@ const FAQS = [
   },
   {
     q: "What's included in the free plan?",
-    a: '3 free imports per month with no credit card required. Each import can be a video, audio file, or YouTube URL. Perfect for trying the tool before committing to a paid plan.',
+    a: 'Sign up for free to get 3 imports per month (resets on the 1st). No credit card required. Each import can be a video, audio file, or YouTube URL. Perfect for trying the tool before committing to a paid plan.',
   },
   {
     q: 'Can I export to different formats?',

@@ -5,7 +5,7 @@
 import VideoToTranscript from '../VideoToTranscript'
 
 const FAQ = [
-  { q: 'Is this free?', a: 'Yes. Free tier includes 60 minutes per month.' },
+  { q: 'Is this free?', a: 'Yes. Free tier includes 3 imports per month (resets on the 1st).' },
   { q: 'What does the summary include?', a: 'The Summary branch extracts decisions, action items, and key points from the transcript using simple pattern matching.' },
   { q: 'Can I export the summary?', a: 'Yes. Use the Exports branch to download JSON, CSV, Markdown, or Notion-style export (paid for full download).' },
 ]

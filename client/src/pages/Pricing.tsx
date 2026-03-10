@@ -245,7 +245,7 @@ export default function Pricing() {
               <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300">Free</h3>
               <span className="text-2xl font-bold text-gray-800 dark:text-white">$0</span>
             </div>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Try it: 3 free imports / month</p>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Sign up for free: 3 imports / month</p>
             <ul className="mt-6 space-y-3 flex-1">
               <li className={bulletRow}><CheckIcon /><span>Video → Transcript & Subtitles</span></li>
               <li className={bulletRow}><CheckIcon /><span>1 language · Watermarked</span></li>

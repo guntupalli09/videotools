@@ -4,7 +4,7 @@
 
 1. User **signed up with email** first → one user row created: `plan=free`, no `stripeCustomerId`.
 2. User **paid via Stripe** (e.g. from another device or without being logged in) → Stripe created a new customer. The webhook created a **second** user row keyed by `stripeCustomerId`, with `plan=pro`.
-3. When the user **logs in with email** on mobile (or any device), the server looks up by **email** and returns the **first** user — the original free account. So the app shows 60 min and Free plan.
+3. When the user **logs in with email** on mobile (or any device), the server looks up by **email** and returns the **first** user — the original free account. So the app shows 3 imports and Free plan.
 
 So the same person had two accounts: one by email (free), one by Stripe customer (pro). Email login always hit the free one.
 

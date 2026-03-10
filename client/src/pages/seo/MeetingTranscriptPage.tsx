@@ -5,7 +5,7 @@
 import VideoToTranscript from '../VideoToTranscript'
 
 const FAQ = [
-  { q: 'Is this free?', a: 'Yes. The free tier includes 60 minutes per month. No signup required to try.' },
+  { q: 'Is this free?', a: 'Yes. The free tier includes 3 imports per month (resets on the 1st). Sign up for free to try.' },
   { q: 'Does this work for meetings?', a: 'Yes. Upload any meeting recording (MP4, MOV, etc.) and get a transcript. Use the Speakers branch to see who said what.' },
   { q: 'Do timestamps stay accurate?', a: 'Yes. The transcript preserves paragraph structure; the Chapters branch lets you jump by section.' },
   { q: 'Can I get the transcript in another language?', a: 'Yes. Use the Translate button to view the transcript in English, Hindi, Telugu, Spanish, Chinese, or Russian.' },

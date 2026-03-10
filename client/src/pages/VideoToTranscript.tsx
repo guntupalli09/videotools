@@ -54,15 +54,17 @@ const BRANCH_ICONS: Record<BranchId, typeof FileText> = {
 const FILLER_WORDS = new Set(['um', 'uh', 'like', 'you know', 'basically', 'actually', 'literally', 'so', 'well', 'just', 'really', 'right', 'i mean', 'kind of', 'sort of'])
 const STOPWORDS = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been', 'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'what', 'which', 'who', 'when', 'where', 'why', 'how'])
 
-/** Optional SEO overrides for alternate entry points (e.g. /video-to-text, /mp4-to-text). Do NOT duplicate logic here. */
+/** Optional SEO overrides for alternate entry points (e.g. /video-to-text, /youtube-to-transcript). Do NOT duplicate logic here. */
 export type VideoToTranscriptSeoProps = {
   seoH1?: string
   seoIntro?: string
   faq?: { q: string; a: string }[]
+  /** Open YouTube URL tab by default (for /youtube-to-transcript SEO pages). */
+  defaultInputMode?: 'file' | 'youtube'
 }
 
 export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {}) {
-  const { seoH1, seoIntro, faq = [] } = props
+  const { seoH1, seoIntro, faq = [], defaultInputMode: defaultInputModeProp } = props
   const location = useLocation()
   const navigate = useNavigate()
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -135,7 +137,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
 
   // ── YouTube URL input mode ──────────────────────────────────────────────────
   /** 'file' = drag-and-drop upload, 'youtube' = URL paste. Persists while idle. */
-  const [inputMode, setInputMode] = useState<'file' | 'youtube'>('file')
+  const [inputMode, setInputMode] = useState<'file' | 'youtube'>(defaultInputModeProp === 'youtube' ? 'youtube' : 'file')
   /** Raw value of the YouTube URL text field. */
   const [youtubeUrlInput, setYoutubeUrlInput] = useState('')
   /** Metadata returned by the server after enqueueing the job (no extra round-trip). */

@@ -58,14 +58,19 @@ export default function SeoToolPage() {
     path,
   }))
 
+  const toolProps: Record<string, unknown> = {
+    seoH1: entry.h1,
+    seoIntro: entry.intro,
+    faq: entry.faq,
+  }
+  if (entry.toolKey === 'video-to-transcript' && entry.defaultInputMode === 'youtube') {
+    toolProps.defaultInputMode = 'youtube'
+  }
+
   return (
     <div className="min-h-screen">
       <Suspense fallback={<RouteFallback />}>
-        <Tool
-          seoH1={entry.h1}
-          seoIntro={entry.intro}
-          faq={entry.faq}
-        />
+        <Tool {...toolProps} />
       </Suspense>
       {suggestions.length > 0 && (
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pb-12">

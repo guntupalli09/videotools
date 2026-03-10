@@ -116,6 +116,12 @@ export const SLUG_TO_PRIMARY: Record<string, string> = {
   'zoom-recording-transcript': '/video-to-transcript',
   'interview-transcription': '/video-to-transcript',
   'lecture-transcription': '/video-to-transcript',
+  // YouTube transcription (high SEO potential)
+  'youtube-to-transcript': '/youtube-to-transcript',
+  'youtube-transcript': '/youtube-to-transcript',
+  'youtube-video-transcript': '/youtube-to-transcript',
+  'transcribe-youtube-video': '/youtube-to-transcript',
+  'youtube-to-text': '/youtube-to-transcript',
   // Format-specific transcription
   'mov-to-text': '/video-to-transcript',
   'webm-to-text': '/video-to-transcript',

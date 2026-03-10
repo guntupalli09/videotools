@@ -29,7 +29,7 @@ async function main(): Promise<void> {
     .filter((p) => p !== '*')
     .map((p) => {
       const loc = p === '/' ? SITE_URL : `${SITE_URL}${p}`
-      const priority = p === '/' ? '1.0' : p === '/pricing' ? '0.9' : p.startsWith('/video-to-') || p.startsWith('/mp4-') ? '0.9' : '0.8'
+      const priority = p === '/' ? '1.0' : p === '/pricing' ? '0.9' : p.startsWith('/video-to-') || p.startsWith('/mp4-') || p.startsWith('/youtube-') || p.startsWith('/transcribe-youtube') ? '0.9' : '0.8'
       const changefreq = p === '/' ? 'weekly' : 'monthly'
       return `  <url>
     <loc>${escapeXml(loc)}</loc>

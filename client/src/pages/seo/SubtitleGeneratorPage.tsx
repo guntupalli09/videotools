@@ -15,7 +15,7 @@ const FAQ = [
   },
   {
     q: 'Do I need to sign up?',
-    a: 'No. The free tier works without signup. Create an account or upgrade when you need more minutes or extra features like multi-language output.',
+    a: 'Sign up for free to try. Upgrade when you need more imports or extra features like multi-language output.',
   },
 ]
 
