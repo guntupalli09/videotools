@@ -27,6 +27,8 @@ import { saveDuplicateResult } from '../services/duplicate'
 import { createRedisClient } from '../utils/redis'
 import { WORKER_HEARTBEAT_KEY, HEARTBEAT_TTL_SEC } from '../utils/workerHeartbeat'
 import { parseSRT, parseVTT, detectSubtitleFormat, toSRT, toVTT } from '../utils/srtParser'
+import { formatTranscript } from '../utils/transcriptFormatter'
+import { segmentToStructuredText } from '../utils/pauseSegmenter'
 import type { SubtitleEntry } from '../utils/srtParser'
 import { createPartialWriter, deleteJobPartial } from '../utils/jobPartial'
 import { setJobSummary } from '../utils/jobSummary'
@@ -519,6 +521,15 @@ async function processJob(job: import('bull').Job<JobData>) {
             } else {
               fullText = await transcribeVideo(videoPath, 'text', options?.language, glossary, isAlreadyAudio)
             }
+          }
+
+          try {
+            if (segments.length > 0) {
+              fullText = segmentToStructuredText(segments)
+            }
+            fullText = formatTranscript(fullText)
+          } catch {
+            /* keep fullText unchanged on error */
           }
 
           const fileReceivedToTranscriptionFinishedMs = Date.now() - processingStartMs
