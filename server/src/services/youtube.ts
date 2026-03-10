@@ -3,23 +3,25 @@
  *
  * Responsibilities:
  *   1. URL validation — strict hostname allow-list, no regex tricks (prevents subdomain spoofing)
- *   2. Metadata fetch — title, duration, thumbnail via @distube/ytdl-core (no download)
- *      Rejects: livestreams, private videos, zero-duration (deleted/unavailable)
- *   3. Audio streaming — ytdl audio-only Node stream → FFmpeg stdin → 16 kHz mono WAV (PCM)
+ *   2. Metadata fetch — YouTube Data API v3 (primary, official, zero bot-detection) with
+ *      yt-dlp --dump-json fallback when no API key is configured.
+ *   3. Audio streaming — yt-dlp (audio-only stdout) → FFmpeg stdin → 16 kHz mono WAV (PCM)
  *      WAV/PCM is lossless and avoids MP3 compression artefacts that reduce Whisper accuracy.
  *
  * Architecture:
- *   YouTube stream → Node.js Readable → FFmpeg stdin (pipe:0) → 16 kHz mono WAV
+ *   Metadata:  YouTube Data API v3 → (fallback) yt-dlp --dump-json
+ *   Streaming: yt-dlp -f bestaudio -o - | ffmpeg → 16 kHz mono WAV
+ *
+ * Bot-detection strategy (same approach used by Descript, Otter.ai, etc.):
+ *   - Metadata: YouTube Data API v3 is an official OAuth2/API-key endpoint — never blocked.
+ *     Set YOUTUBE_API_KEY env var. Free quota: 10,000 units/day; video.list costs 1 unit.
+ *   - Streaming: yt-dlp with a real account cookies file bypasses all bot checks.
+ *     Set YOUTUBE_COOKIES_FILE env var to the path of a Netscape-format cookies.txt exported
+ *     from a real Google account (e.g. via "Get cookies.txt LOCALLY" Chrome extension).
+ *     Without cookies, yt-dlp still works for most public videos but may fail on some regions.
  *
  * The API layer only calls getYoutubeMetadata() (< 2 s, no download).
  * The worker calls streamYoutubeAudioToFile() which does the full stream → encode.
- * This keeps the API thread non-blocking and satisfies the distributed-worker constraint —
- * the job queue carries only the URL; the worker fetches the audio itself.
- *
- * Docker note: no system binaries required — @distube/ytdl-core is pure Node.js.
- * For maximum reliability in production you can swap the stream source to yt-dlp by
- * replacing ytdl(...) with spawn('yt-dlp', ['--no-playlist', '-x', '-o', '-', url]).stdout
- * and installing yt-dlp in your Docker image (apt-get install yt-dlp or pip install yt-dlp).
  */
 
 import ytdl from '@distube/ytdl-core'
@@ -121,32 +123,94 @@ export interface YoutubeMetadata {
   videoId: string
 }
 
+// ─── YouTube Data API v3 metadata (primary — official, zero bot-detection) ───
+
 /**
- * Fetch video metadata from YouTube without downloading any media (~1–2 s).
- * Uses yt-dlp --dump-json which bypasses bot-detection far more reliably than ytdl-core.
- *
- * Throws a human-readable error for:
- *   - Livestreams (no fixed duration — would stream indefinitely in the worker)
- *   - Videos with zero/unknown duration (deleted, region-blocked, or unavailable)
- *   - Private/unavailable videos (yt-dlp exits non-zero; we surface the message)
+ * Fetch metadata via YouTube Data API v3.
+ * Returns null when YOUTUBE_API_KEY is not set (caller falls back to yt-dlp).
+ * Throws on API errors (invalid key, quota exceeded, video not found).
  */
-export async function getYoutubeMetadata(url: string): Promise<YoutubeMetadata> {
+async function getMetadataViaDataApi(videoId: string): Promise<YoutubeMetadata | null> {
+  const apiKey = process.env.YOUTUBE_API_KEY
+  if (!apiKey) return null
+
+  const url = `https://www.googleapis.com/youtube/v3/videos?id=${encodeURIComponent(videoId)}&part=snippet,contentDetails,liveStreamingDetails&key=${encodeURIComponent(apiKey)}`
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: { message?: string } }
+    throw new Error(`YouTube Data API error ${res.status}: ${body?.error?.message ?? res.statusText}`)
+  }
+
+  const data = await res.json() as {
+    items?: Array<{
+      id: string
+      snippet: { title: string; thumbnails: Record<string, { url: string; width: number }> }
+      contentDetails: { duration: string }  // ISO 8601, e.g. PT1H3M42S
+      liveStreamingDetails?: { actualEndTime?: string }
+    }>
+  }
+
+  if (!data.items || data.items.length === 0) {
+    throw new Error('Video not found. It may be private, deleted, or region-restricted.')
+  }
+
+  const item = data.items[0]
+  const isLive = !item.liveStreamingDetails?.actualEndTime &&
+    item.contentDetails.duration === 'P0D'
+  if (isLive) {
+    throw new Error('Live streams cannot be transcribed. Wait for the recording to be published, then try again.')
+  }
+
+  // Parse ISO 8601 duration (PT1H3M42S) to seconds
+  const iso = item.contentDetails.duration
+  const durationSec = (() => {
+    const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/)
+    if (!m) return 0
+    return (parseInt(m[1] || '0') * 3600) + (parseInt(m[2] || '0') * 60) + parseInt(m[3] || '0')
+  })()
+
+  if (durationSec === 0) {
+    throw new Error('Could not determine video duration. The video may be unavailable or still processing.')
+  }
+
+  const thumbs = item.snippet.thumbnails
+  const thumb = thumbs.medium ?? thumbs.high ?? thumbs.default ?? Object.values(thumbs)[0]
+
+  return {
+    title: item.snippet.title,
+    durationSec,
+    thumbnailUrl: thumb?.url,
+    videoId: item.id,
+  }
+}
+
+// ─── yt-dlp metadata fallback ─────────────────────────────────────────────────
+
+/** Build yt-dlp args array, injecting --cookies if YOUTUBE_COOKIES_FILE is set. */
+function ytDlpArgs(extra: string[]): string[] {
+  const cookiesFile = process.env.YOUTUBE_COOKIES_FILE
+  const cookiesArgs = cookiesFile && fs.existsSync(cookiesFile)
+    ? ['--cookies', cookiesFile]
+    : []
+  return [...cookiesArgs, ...extra]
+}
+
+async function getMetadataViaYtDlp(url: string): Promise<YoutubeMetadata> {
   const raw = await new Promise<string>((resolve, reject) => {
     let stdout = ''
     let stderr = ''
-    const proc = spawn(YT_DLP_BIN, [
+    const proc = spawn(YT_DLP_BIN, ytDlpArgs([
       '--dump-json',
       '--no-playlist',
       '--no-warnings',
       '--socket-timeout', '15',
       url.trim(),
-    ])
+    ]))
     proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString() })
     proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
     proc.on('error', (err) => reject(new Error(`yt-dlp spawn error: ${err.message}`)))
     proc.on('close', (code) => {
       if (code !== 0) {
-        // Surface the first meaningful yt-dlp error line (strip ANSI codes)
         const msg = stderr.replace(/\x1b\[[0-9;]*m/g, '').trim().split('\n').find(Boolean) || `yt-dlp exited with code ${code}`
         reject(new Error(msg))
       } else {
@@ -156,11 +220,7 @@ export async function getYoutubeMetadata(url: string): Promise<YoutubeMetadata> 
   })
 
   let info: Record<string, any>
-  try {
-    info = JSON.parse(raw)
-  } catch {
-    throw new Error('Failed to parse yt-dlp metadata output.')
-  }
+  try { info = JSON.parse(raw) } catch { throw new Error('Failed to parse yt-dlp metadata output.') }
 
   if (info.is_live) {
     throw new Error('Live streams cannot be transcribed. Wait for the recording to be published, then try again.')
@@ -171,7 +231,6 @@ export async function getYoutubeMetadata(url: string): Promise<YoutubeMetadata> 
     throw new Error('Could not determine video duration. The video may be unavailable or still processing.')
   }
 
-  // Prefer a medium-quality thumbnail (≤640px wide) to avoid huge images
   const thumbs: Array<{ url: string; width?: number }> = info.thumbnails || []
   const thumb = thumbs.find((t) => t.width && t.width <= 640) ?? thumbs[thumbs.length - 1]
 
@@ -181,6 +240,29 @@ export async function getYoutubeMetadata(url: string): Promise<YoutubeMetadata> 
     thumbnailUrl: thumb?.url ?? (typeof info.thumbnail === 'string' ? info.thumbnail : undefined),
     videoId: String(info.id),
   }
+}
+
+// ─── Public metadata entry point ─────────────────────────────────────────────
+
+/**
+ * Fetch video metadata from YouTube without downloading any media (~1–2 s).
+ *
+ * Strategy (same as Descript / Otter.ai):
+ *   1. YouTube Data API v3 — official, quota-based, never blocked. Requires YOUTUBE_API_KEY env.
+ *   2. yt-dlp --dump-json — reliable fallback; uses YOUTUBE_COOKIES_FILE if set.
+ *
+ * Throws a human-readable error for livestreams, private, deleted, or region-blocked videos.
+ */
+export async function getYoutubeMetadata(url: string): Promise<YoutubeMetadata> {
+  const videoId = extractYoutubeVideoId(url)
+
+  // Primary: YouTube Data API v3 (zero bot-detection, official quota)
+  if (videoId && process.env.YOUTUBE_API_KEY) {
+    return getMetadataViaDataApi(videoId) as Promise<YoutubeMetadata>
+  }
+
+  // Fallback: yt-dlp (with cookies if configured)
+  return getMetadataViaYtDlp(url)
 }
 
 // ─── Audio Streaming ─────────────────────────────────────────────────────────
@@ -265,14 +347,14 @@ export function streamYoutubeAudioToFile(
     // ── 2. Stream audio-only from YouTube via yt-dlp → FFmpeg stdin ──────────
     const ytProc = spawn(
       YT_DLP_BIN,
-      [
+      ytDlpArgs([
         '--no-playlist',
         '--no-warnings',
         '-f', 'bestaudio/best',
         '-o', '-',           // write to stdout
         '--socket-timeout', '30',
         url.trim(),
-      ],
+      ]),
       { stdio: ['ignore', 'pipe', 'pipe'] }
     )
 
