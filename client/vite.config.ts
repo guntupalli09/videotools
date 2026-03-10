@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { VitePWA } from 'vite-plugin-pwa'
+// VitePWA disabled: service worker registration fails in production (sw.js 404),
+// causing "session expired" crash during signup. Re-enable when PWA is a priority.
+// import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -26,43 +28,6 @@ export default defineConfig({
   },
   plugins: [
     react(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      injectRegister: 'script-defer',
-      manifest: {
-        name: 'VideoText',
-        short_name: 'VideoText',
-        description: 'AI-powered video to text and subtitle tools. Free online.',
-        theme_color: '#7c3aed',
-        background_color: '#ffffff',
-        display: 'standalone',
-        scope: '/',
-        start_url: '/',
-        lang: 'en',
-        icons: [
-          {
-            src: '/icons/icon-192.png',
-            sizes: '192x192',
-            type: 'image/png',
-          },
-          {
-            src: '/icons/icon-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-          },
-          {
-            src: '/logo.svg',
-            sizes: 'any',
-            type: 'image/svg+xml',
-          },
-        ],
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        cleanupOutdatedCaches: true,
-        // Do not add runtimeCaching for /api — API is always network so usage/billing/jobs stay correct.
-      },
-    }),
   ],
   server: {
     port: 3000,
