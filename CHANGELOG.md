@@ -1,9 +1,26 @@
 # Changelog
 
-## [Unreleased] — 2026-03-09
+## [Unreleased] — 2026-03-10
+
+### New Features
+- **YouTube URL transcription** — Paste a `youtube.com` or `youtu.be` link to transcribe without uploading. Worker fetches audio via yt-dlp; supports age-restricted videos with optional cookies. Separate per-user rate limit; same polling flow as file uploads.
 
 ### Bug Fixes
-- **Near-empty audio chunks crashing transcription** — `transcribeChunkVerbose` now checks chunk file size before attempting WAV conversion; chunks under 1 KB are silently skipped (return `[]`). Fixes `chunk_002.mp3: Invalid argument` ffmpeg errors and Whisper `400 Audio file is too short` failures caused by near-empty last segments produced by ffmpeg `-c copy` segmenting.
+- **YouTube / uploaded-audio WAV → MP3 chunking** — `splitAudioIntoChunks` and `splitAudioIntoVariableChunks` now encode with `libmp3lame` instead of `-c copy`. Fixes "Invalid audio stream. Exactly one MP3 audio stream is required" when processing WAV input (YouTube or uploaded audio).
+- **Near-empty audio chunks crashing transcription** — `transcribeChunkVerbose` now checks chunk file size before attempting WAV conversion; chunks under 1 KB are silently skipped (return `[]`). Fixes `chunk_002.mp3: Invalid argument` ffmpeg errors and Whisper `400 Audio file is too short` failures.
+
+### Security
+- **OTP store in Redis** — OTP codes persist across restarts and work across multiple instances.
+- **Stripe webhook idempotency** — Double-processing prevented via Postgres `StripeEventLog` table.
+- **Upload rate limit in Redis** — Per-user limits survive restarts and scale to multi-instance deployments.
+- **Filename sanitization** — User-provided filenames sanitized to prevent path traversal and shell injection.
+- **CORS allowlist** — Production restricts origins to videotext.io and `CORS_ORIGINS` env.
+
+### Memory & Resource Management
+- **Temp file cleanup** — 15-minute interval; emergency mode at 80% disk usage deletes files older than 40 minutes.
+- **Duplicate-processing cache eviction** — Background eviction every 6 h to prevent unbounded growth.
+- **Chunk cleanup after transcription** — Chunk files and output dirs removed in `finally` block after each job.
+- **Graceful queue shutdown on SIGTERM** — Bull queues close before HTTP server; 15 s force-exit safety net.
 
 ---
 
