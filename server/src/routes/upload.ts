@@ -1274,9 +1274,16 @@ router.post('/youtube', async (req: Request, res: Response) => {
       ytMeta = await getYoutubeMetadata(youtubeUrl)
     } catch (err: any) {
       uploadLog.warn({ msg: '[youtube] metadata fetch failed', error: err.message, youtubeUrl: youtubeUrl.slice(0, 80) })
-      return res.status(400).json({
-        message: 'Could not access that YouTube video. It may be private, age-restricted, or unavailable.',
-      })
+      // Surface live/unavailable messages directly; mask low-level errors
+      const msg: string = err.message || ''
+      const userMessage = (
+        msg.includes('Live stream') || msg.includes('live stream') ||
+        msg.includes('unavailable') || msg.includes('private') ||
+        msg.includes('age-restricted') || msg.includes('duration')
+      )
+        ? msg
+        : 'Could not access that YouTube video. It may be private, age-restricted, or unavailable.'
+      return res.status(400).json({ message: userMessage })
     }
 
     // ── Ensure/create user record ─────────────────────────────────────────────

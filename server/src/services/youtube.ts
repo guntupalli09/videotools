@@ -37,6 +37,14 @@ export const FFMPEG_BIN: string = (() => {
   return ffmpegInstaller.path
 })()
 
+/** Resolve yt-dlp binary: prefer YT_DLP_PATH env, then Docker default, then PATH. */
+const YT_DLP_BIN: string = (() => {
+  const envPath = process.env.YT_DLP_PATH
+  if (envPath && fs.existsSync(envPath)) return envPath
+  if (fs.existsSync('/usr/local/bin/yt-dlp')) return '/usr/local/bin/yt-dlp'
+  return 'yt-dlp'
+})()
+
 // ─── URL Validation ──────────────────────────────────────────────────────────
 
 /**
@@ -115,42 +123,63 @@ export interface YoutubeMetadata {
 
 /**
  * Fetch video metadata from YouTube without downloading any media (~1–2 s).
+ * Uses yt-dlp --dump-json which bypasses bot-detection far more reliably than ytdl-core.
  *
  * Throws a human-readable error for:
  *   - Livestreams (no fixed duration — would stream indefinitely in the worker)
  *   - Videos with zero/unknown duration (deleted, region-blocked, or unavailable)
- *   - Private videos (ytdl.getInfo itself throws; we let it propagate)
+ *   - Private/unavailable videos (yt-dlp exits non-zero; we surface the message)
  */
 export async function getYoutubeMetadata(url: string): Promise<YoutubeMetadata> {
-  const info = await ytdl.getInfo(url.trim())
-  const details = info.videoDetails
+  const raw = await new Promise<string>((resolve, reject) => {
+    let stdout = ''
+    let stderr = ''
+    const proc = spawn(YT_DLP_BIN, [
+      '--dump-json',
+      '--no-playlist',
+      '--no-warnings',
+      '--socket-timeout', '15',
+      url.trim(),
+    ])
+    proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString() })
+    proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
+    proc.on('error', (err) => reject(new Error(`yt-dlp spawn error: ${err.message}`)))
+    proc.on('close', (code) => {
+      if (code !== 0) {
+        // Surface the first meaningful yt-dlp error line (strip ANSI codes)
+        const msg = stderr.replace(/\x1b\[[0-9;]*m/g, '').trim().split('\n').find(Boolean) || `yt-dlp exited with code ${code}`
+        reject(new Error(msg))
+      } else {
+        resolve(stdout)
+      }
+    })
+  })
 
-  // Reject active livestreams — they have no fixed duration
-  if (details.isLiveContent) {
-    throw new Error(
-      'Live streams cannot be transcribed. Wait for the recording to be published, then try again.'
-    )
+  let info: Record<string, any>
+  try {
+    info = JSON.parse(raw)
+  } catch {
+    throw new Error('Failed to parse yt-dlp metadata output.')
   }
 
-  const durationSec = parseInt(details.lengthSeconds, 10) || 0
+  if (info.is_live) {
+    throw new Error('Live streams cannot be transcribed. Wait for the recording to be published, then try again.')
+  }
 
-  // Zero duration means the video is unavailable, deleted, or still processing
+  const durationSec = Math.round(Number(info.duration) || 0)
   if (durationSec === 0) {
-    throw new Error(
-      'Could not determine video duration. The video may be unavailable or still processing.'
-    )
+    throw new Error('Could not determine video duration. The video may be unavailable or still processing.')
   }
 
-  // Prefer a medium-quality thumbnail to avoid huge images; fall back to last (highest-res) entry
-  const thumbs = details.thumbnails || []
-  const thumb =
-    thumbs.find((t) => t.width && t.width <= 640) ?? thumbs[thumbs.length - 1]
+  // Prefer a medium-quality thumbnail (≤640px wide) to avoid huge images
+  const thumbs: Array<{ url: string; width?: number }> = info.thumbnails || []
+  const thumb = thumbs.find((t) => t.width && t.width <= 640) ?? thumbs[thumbs.length - 1]
 
   return {
-    title: details.title,
+    title: String(info.title || info.fulltitle || 'YouTube video'),
     durationSec,
-    thumbnailUrl: thumb?.url,
-    videoId: details.videoId,
+    thumbnailUrl: thumb?.url ?? (typeof info.thumbnail === 'string' ? info.thumbnail : undefined),
+    videoId: String(info.id),
   }
 }
 
@@ -233,27 +262,38 @@ export function streamYoutubeAudioToFile(
       }
     })
 
-    // ── 2. Request audio-only stream from YouTube ────────────────────────────
-    let audioStream: ReturnType<typeof ytdl>
-    try {
-      audioStream = ytdl(url.trim(), {
-        quality: 'lowestaudio',
-        filter: 'audioonly',
-        // 32 MB high-water mark: ytdl buffers aggressively → fewer stalls on large videos
-        highWaterMark: 1 << 25,
-      })
-    } catch (err) {
-      done(new Error(`ytdl init error: ${(err as Error).message}`))
-      return
-    }
+    // ── 2. Stream audio-only from YouTube via yt-dlp → FFmpeg stdin ──────────
+    const ytProc = spawn(
+      YT_DLP_BIN,
+      [
+        '--no-playlist',
+        '--no-warnings',
+        '-f', 'bestaudio/best',
+        '-o', '-',           // write to stdout
+        '--socket-timeout', '30',
+        url.trim(),
+      ],
+      { stdio: ['ignore', 'pipe', 'pipe'] }
+    )
 
-    audioStream.on('error', (err) => {
+    const ytStderrChunks: string[] = []
+    ytProc.stderr.on('data', (chunk: Buffer) => ytStderrChunks.push(chunk.toString()))
+
+    ytProc.on('error', (err) => {
       try { ffmpegProc.stdin!.destroy() } catch { /* ignore */ }
-      done(new Error(`YouTube stream error: ${err.message}`))
+      done(new Error(`yt-dlp spawn error: ${err.message}`))
     })
 
-    // ── 3. Pipe YouTube audio → FFmpeg stdin ─────────────────────────────────
-    audioStream.pipe(ffmpegProc.stdin!)
+    ytProc.on('close', (code) => {
+      if (code !== 0 && !settled) {
+        const msg = ytStderrChunks.join('').replace(/\x1b\[[0-9;]*m/g, '').trim().split('\n').find(Boolean) || `yt-dlp exited with code ${code}`
+        try { ffmpegProc.stdin!.destroy() } catch { /* ignore */ }
+        done(new Error(`yt-dlp error: ${msg}`))
+      }
+    })
+
+    // ── 3. Pipe yt-dlp stdout → FFmpeg stdin ─────────────────────────────────
+    ytProc.stdout.pipe(ffmpegProc.stdin!)
 
     log.info({ msg: 'yt_stream_started', url: url.slice(0, 50) })
   })
