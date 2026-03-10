@@ -192,7 +192,9 @@ function ytDlpArgs(extra: string[]): string[] {
   const cookiesArgs = cookiesFile && fs.existsSync(cookiesFile)
     ? ['--cookies', cookiesFile]
     : []
-  return [...cookiesArgs, ...extra]
+  // Deno for YouTube n/sig challenge solving (required since ~2025)
+  const jsRuntime = ['--js-runtimes', 'deno']
+  return [...cookiesArgs, ...jsRuntime, ...extra]
 }
 
 async function getMetadataViaYtDlp(url: string): Promise<YoutubeMetadata> {

@@ -105,7 +105,7 @@ services:
       redis: { condition: service_healthy }
     volumes:
       - tmp-files:/tmp
-      - ./yt_cookies.txt:/app/yt_cookies.txt:ro
+      - ./yt_cookies.txt:/app/yt_cookies.txt
     deploy:
       resources:
         limits:

@@ -1,15 +1,17 @@
 # Single image for API and worker. Node 18 LTS.
 FROM node:20-slim
 
-# System dependencies (ffmpeg for workers; yt-dlp binary for URL-based video import).
+# System dependencies (ffmpeg for workers; yt-dlp + Deno for YouTube n/sig challenge solving).
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     python3 \
     curl \
     ca-certificates \
+    unzip \
     && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
         -o /usr/local/bin/yt-dlp \
     && chmod +x /usr/local/bin/yt-dlp \
+    && curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
