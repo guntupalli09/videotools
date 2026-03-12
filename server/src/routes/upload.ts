@@ -20,7 +20,7 @@ import { insertJobRecord } from '../lib/jobAnalytics'
 import { getVideoDuration } from '../services/ffmpeg'
 import { STREAM_UPLOAD_ASSEMBLY } from '../utils/featureFlags'
 import { getLogger } from '../lib/logger'
-import { isValidYoutubeUrl, getYoutubeMetadata } from '../services/youtube'
+import { isValidYoutubeUrl, getYoutubeMetadata, normalizeYoutubeUrl } from '../services/youtube'
 import { checkAndRecordYoutubeJob } from '../utils/youtubeRateLimit'
 
 const router = express.Router()
@@ -1384,7 +1384,7 @@ router.post('/youtube', async (req: Request, res: Response) => {
       toolType: 'youtube-to-transcript',
       userId,
       plan,
-      youtubeUrl: youtubeUrl.trim(),
+      youtubeUrl: normalizeYoutubeUrl(youtubeUrl.trim()),
       youtubeTitle: ytMeta.title,
       youtubeThumbnailUrl: ytMeta.thumbnailUrl,
       youtubeDurationSec: ytMeta.durationSec,
