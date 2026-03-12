@@ -79,7 +79,7 @@ services:
           memory: 1g
           cpus: "1.0"
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:3001/healthz"]
+      test: ["CMD", "curl", "-sf", "<http://localhost:3001/healthz>"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -98,16 +98,17 @@ services:
       FFPROBE_PATH: /usr/bin/ffprobe
       # TTFW: extract first 20s chunk early instead of full-file extract then split
       PROCESSING_V2: "true"
-      # YouTube: try without cookies first; retry with cookies on bot error if file exists.
-      # Set to "true" to never use cookies (e.g. if cookies cause "page needs to be reloaded").
+      # YouTube cookies written daily by cookie-refresher; read by yt-dlp on every job.
+      # Set YOUTUBE_SKIP_COOKIES=true to disable cookies entirely
+      # (e.g. if cookies cause "page needs to be reloaded" on your IP).
       YOUTUBE_SKIP_COOKIES: "false"
-      YOUTUBE_COOKIES_FILE: /app/yt_cookies.txt
+      YOUTUBE_COOKIES_FILE: /cookies/youtube.txt
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
     volumes:
       - tmp-files:/tmp
-      - ./yt_cookies.txt:/app/yt_cookies.txt
+      - yt-cookies:/cookies   # shared with cookie-refresher
     deploy:
       resources:
         limits:
@@ -115,7 +116,42 @@ services:
           cpus: "2.0"
     command: node dist/workers/videoProcessor.js
 
+  # ── Cookie refresher ───────────────────────────────────────────────────────
+  # Visits <youtube.com> daily (03:00 UTC) with your existing cookies to keep the
+  # Google session alive. Does NOT automate login — you export cookies once from
+  # your real browser; automation only handles the daily refresh.
+  #
+  # First-time setup (and whenever Google expires the session):
+  #   1. Sign into YouTube in Chrome/Firefox on your local machine.
+  #   2. Export cookies with "Get cookies.txt LOCALLY" extension → yt_cookies.txt
+  #   3. Copy to the server volume:
+  #        docker compose cp yt_cookies.txt cookie-refresher:/cookies/youtube.txt
+  #        docker compose restart cookie-refresher worker
+  #
+  # Monitor: docker compose logs -f cookie-refresher
+  # Healthy: "[refresh-yt-cookies] OK — wrote N cookies to /cookies/youtube.txt"
+  # Expired: "[refresh-yt-cookies] ERROR: Session expired — re-export cookies from your browser."
+  cookie-refresher:
+    build:
+      context: .
+      dockerfile: Dockerfile.cookie-refresher
+    container_name: videotools-cookie-refresher
+    restart: unless-stopped
+    environment:
+      YOUTUBE_COOKIES_FILE: /cookies/youtube.txt
+      HEADLESS: "true"
+      # Optional: POST to this URL when the session expires (Slack/Discord incoming webhook)
+      ALERT_WEBHOOK: ${ALERT_WEBHOOK:-}
+    volumes:
+      - yt-cookies:/cookies   # persists cookies.txt across restarts
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "1.0"
+
 volumes:
   redis-data:
   postgres-data:
   tmp-files:
+  yt-cookies:    # shared between worker (reads cookies) and cookie-refresher (writes cookies)
