@@ -50,11 +50,67 @@ function getIndexableSeoPathsFromRegistry(): string[] {
   return matches.map((m) => m[1]).filter((p) => !nonIndexable.has(p))
 }
 
-/** All routes that should appear in sitemap (static + indexable SEO + programmatic). No duplicates. */
+/** Core pages (~35) — submit first. Homepage, legal, key tools, high-intent manual pages. */
+export const CORE_PATHS: string[] = [
+  '/',
+  '/pricing',
+  '/privacy',
+  '/faq',
+  '/terms',
+  '/guide',
+  '/blog',
+  '/video-to-transcript',
+  '/video-to-text',
+  '/video-to-subtitles',
+  '/youtube-to-transcript',
+  '/youtube-transcript',
+  '/youtube-transcript-generator',
+  '/transcribe-youtube-video',
+  '/audio-to-text',
+  '/audio-to-text-converter',
+  '/subtitle-generator',
+  '/video-caption-generator',
+  '/add-subtitles-to-video',
+  '/srt-generator',
+  '/video-to-srt',
+  '/podcast-transcript',
+  '/podcast-transcription',
+  '/meeting-transcript',
+  '/meeting-transcription',
+  '/webinar-transcription',
+  '/interview-transcription',
+  '/video-summary-generator',
+  '/video-chapters-generator',
+  '/keyword-indexed-transcript',
+  '/video-compressor',
+  '/reduce-video-size',
+  '/translate-subtitles',
+  '/translate-video',
+  '/video-translation',
+  '/fix-subtitles',
+  '/burn-subtitles',
+  '/batch-process',
+  '/mp4-to-text',
+  '/mp4-to-srt',
+]
+
+/** Programmatic-only paths (from targets × intents). Submit after core. */
+export function getProgrammaticPaths(): string[] {
+  return getProgrammaticSeoEntries().map((e) => e.path)
+}
+
+/** Paths for sitemap 2: programmatic + remaining manual (not in core). */
+export function getSitemap2Paths(): string[] {
+  const coreSet = new Set(CORE_PATHS)
+  const registry = getIndexableSeoPathsFromRegistry()
+  const programmatic = getProgrammaticPaths()
+  const otherManual = registry.filter((p) => !coreSet.has(p))
+  return [...new Set([...otherManual, ...programmatic])]
+}
+
+/** All routes (for validation). No duplicates. */
 export function getIndexablePaths(): string[] {
-  const programmaticPaths = getProgrammaticSeoEntries().map((e) => e.path)
-  const all = [...STATIC_ROUTES, ...getIndexableSeoPathsFromRegistry(), ...programmaticPaths]
-  return [...new Set(all)]
+  return [...new Set([...CORE_PATHS, ...getSitemap2Paths()])]
 }
 
 /** Intent keys of indexable SEO pages (for decision engine: block CREATE_NEW_PAGE if intentKey exists). */
