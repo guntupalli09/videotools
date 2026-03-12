@@ -1,0 +1,31 @@
+# Dockerfile.cookie-refresher
+#
+# Lightweight container that runs refresh-yt-cookies.mjs on a cron schedule.
+# Uses the official Playwright base image which includes Chromium + all OS deps.
+#
+# Build:  docker compose build cookie-refresher
+# Run once (setup / debug):  docker compose run --rm cookie-refresher
+FROM mcr.microsoft.com/playwright:v1.44.0-jammy
+
+WORKDIR /app
+
+# Only copy what the script needs — no full server build required.
+COPY scripts/refresh-yt-cookies.mjs ./refresh-yt-cookies.mjs
+
+# Install only playwright (already in the base image, but this pins the version
+# used by the script and installs the JS bindings).
+RUN npm init -y && npm install playwright@1.44.0 --save
+
+# Install cron daemon
+RUN apt-get update && apt-get install -y --no-install-recommends cron && rm -rf /var/lib/apt/lists/*
+
+# Write cron job: run daily at 03:00 UTC, log to stdout
+RUN echo '0 3 * * * root node /app/refresh-yt-cookies.mjs >> /proc/1/fd/1 2>&1' \
+    > /etc/cron.d/refresh-yt-cookies \
+    && chmod 0644 /etc/cron.d/refresh-yt-cookies \
+    && crontab /etc/cron.d/refresh-yt-cookies
+
+# Run once on container start, then hand off to cron.
+# The "|| true" keeps the container alive even if the first run fails
+# (e.g. credentials not set yet — user can docker exec in to set up).
+CMD node /app/refresh-yt-cookies.mjs || true ; cron -f

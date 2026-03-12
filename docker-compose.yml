@@ -98,11 +98,14 @@ services:
       FFPROBE_PATH: /usr/bin/ffprobe
       # TTFW: extract first 20s chunk early instead of full-file extract then split
       PROCESSING_V2: "true"
+      # YouTube cookies written by cookie-refresher; read by yt-dlp on every job
+      YOUTUBE_COOKIES_FILE: /cookies/youtube.txt
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
     volumes:
       - tmp-files:/tmp
+      - yt-cookies:/cookies   # shared with cookie-refresher
     deploy:
       resources:
         limits:
@@ -110,7 +113,39 @@ services:
           cpus: "2.0"
     command: node dist/workers/videoProcessor.js
 
+  # ── Cookie refresher ───────────────────────────────────────────────────────
+  # Headless Chromium logs into YouTube once, then refreshes cookies daily at 03:00 UTC.
+  #
+  # First-time setup:
+  #   1. Add YOUTUBE_EMAIL and YOUTUBE_PASSWORD to .env
+  #   2. docker compose up -d cookie-refresher
+  #   3. docker compose logs -f cookie-refresher   # watch for "Wrote N cookies to ..."
+  #
+  # After the first successful run the Chrome profile is saved in the yt-cookies
+  # volume. Subsequent runs just visit youtube.com to renew short-lived tokens —
+  # no re-login unless Google invalidates the session (rare; typically months).
+  cookie-refresher:
+    build:
+      context: .
+      dockerfile: Dockerfile.cookie-refresher
+    container_name: videotools-cookie-refresher
+    restart: unless-stopped
+    environment:
+      YOUTUBE_COOKIES_FILE: /cookies/youtube.txt
+      CHROME_PROFILE_DIR: /cookies/chrome-profile
+      HEADLESS: "true"
+      YOUTUBE_EMAIL: ${YOUTUBE_EMAIL:-}
+      YOUTUBE_PASSWORD: ${YOUTUBE_PASSWORD:-}
+    volumes:
+      - yt-cookies:/cookies   # persists Chrome profile + cookies.txt across restarts
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "1.0"
+
 volumes:
   redis-data:
   postgres-data:
   tmp-files:
+  yt-cookies:    # shared between worker (reads cookies) and cookie-refresher (writes cookies)

@@ -211,7 +211,10 @@ async function getMetadataViaYtDlp(url: string): Promise<YoutubeMetadata> {
     proc.on('error', (err) => reject(new Error(`yt-dlp spawn error: ${err.message}`)))
     proc.on('close', (code) => {
       if (code !== 0) {
-        const msg = stderr.replace(/\x1b\[[0-9;]*m/g, '').trim().split('\n').find(Boolean) || `yt-dlp exited with code ${code}`
+        const lines = stderr.replace(/\x1b\[[0-9;]*m/g, '').trim().split('\n').filter(Boolean)
+        const msg = lines.find(l => /ERROR:|Sign in|bot|reload|HTTP Error/i.test(l))
+          ?? lines[lines.length - 1]
+          ?? `yt-dlp exited with code ${code}`
         reject(new Error(msg))
       } else {
         resolve(stdout)
@@ -368,7 +371,12 @@ export function streamYoutubeAudioToFile(
 
     ytProc.on('close', (code) => {
       if (code !== 0 && !settled) {
-        const msg = ytStderrChunks.join('').replace(/\x1b\[[0-9;]*m/g, '').trim().split('\n').find(Boolean) || `yt-dlp exited with code ${code}`
+        const raw = ytStderrChunks.join('').replace(/\x1b\[[0-9;]*m/g, '').trim()
+        const lines = raw.split('\n').filter(Boolean)
+        // Prefer the line that contains the real error (ERROR: / Sign in / reload / HTTP)
+        const msg = lines.find(l => /ERROR:|Sign in|bot|reload|HTTP Error/i.test(l))
+          ?? lines[lines.length - 1]   // last line (most informative)
+          ?? `yt-dlp exited with code ${code}`
         try { ffmpegProc.stdin!.destroy() } catch { /* ignore */ }
         done(new Error(`yt-dlp error: ${msg}`))
       }
