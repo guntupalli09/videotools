@@ -14,11 +14,12 @@
 
 import * as fs from 'fs'
 import * as path from 'path'
+import { getProgrammaticSeoEntries } from '../client/src/lib/generateSeoPages'
 
 const REPO_ROOT = path.resolve(__dirname, '..')
 const DIST_DIR = path.join(REPO_ROOT, 'client', 'dist')
 const REGISTRY_PATH = path.join(REPO_ROOT, 'client', 'src', 'lib', 'seoRegistry.ts')
-const SITE_URL = 'https://www.videotext.io'
+const SITE_URL = 'https://videotext.io'
 const SITE_NAME = 'VideoText'
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`
 
@@ -40,7 +41,7 @@ const STATIC_META: RouteMeta[] = [
     path: '/',
     title: `Video to Text & Subtitles — Free Online Tools | ${SITE_NAME}`,
     description:
-      'VideoText: AI-powered video to text and subtitle tools. Transcribe video to transcript, generate SRT/VTT, translate subtitles, fix timing, burn captions, compress video. Free tier, no signup.',
+      'VideoText: AI-powered video to text and subtitle tools. Transcribe video to transcript, generate SRT/VTT, translate subtitles, fix timing, burn captions, compress video. Sign up for free to try.',
   },
   {
     path: '/pricing',
@@ -62,9 +63,9 @@ const STATIC_META: RouteMeta[] = [
     faq: [
       { q: 'Do you store my videos or files?', a: "No. We process your files and then delete them. We don't keep your uploads, transcripts, or generated outputs. Your content is never stored on our servers." },
       { q: 'Is my content used for AI training?', a: "No. Your content is used only to deliver the service you requested. We do not use it for training AI models." },
-      { q: 'Do I need to sign up?', a: "No. You can use the free tier without creating an account for 3 imports per month. Sign up when you want to track usage or subscribe to a plan." },
+      { q: 'Do I need to sign up?', a: "Yes. Sign up for free to try the tools. No credit card required. Upgrade when you need more imports or paid features." },
       { q: 'What file formats are supported?', a: "Videos: MP4, MOV, AVI, WebM, MKV. Subtitles: SRT and VTT. You can also paste a video URL for supported sources." },
-      { q: 'How does the free tier work?', a: "Free tier includes 60 minutes per month, single language output. No credit card required. Sign up for a free account to track usage across sessions." },
+      { q: 'How does the free tier work?', a: "Sign up for free to get 3 imports per month (resets on the 1st), single language output, watermark on subtitle exports. No credit card required." },
       { q: 'Can I translate subtitles or transcripts?', a: "Yes. Use Translate Subtitles for SRT/VTT files (50+ languages). For transcripts, click Translate after generating to view in 6 languages: English, Hindi, Telugu, Spanish, Chinese, Russian." },
     ],
   },
@@ -367,11 +368,19 @@ function main() {
 
   const template = fs.readFileSync(templatePath, 'utf8')
 
-  // Collect all routes
+  // Collect all routes: static + registry (parsed) + programmatic
   const registryEntries = parseRegistryEntries()
+  const programmaticEntries = getProgrammaticSeoEntries()
   const allRoutes: RouteMeta[] = [
     ...STATIC_META,
     ...registryEntries.map((e) => ({
+      path: e.path,
+      title: e.title,
+      description: e.description,
+      faq: e.faq,
+      breadcrumbLabel: e.breadcrumbLabel,
+    })),
+    ...programmaticEntries.map((e) => ({
       path: e.path,
       title: e.title,
       description: e.description,

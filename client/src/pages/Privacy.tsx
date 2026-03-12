@@ -54,7 +54,7 @@ export default function Privacy() {
               Your control
             </h2>
             <p>
-              You can use many features without creating an account. For paid users, you can manage your subscription and billing through our pricing page and the Stripe customer portal. We do not sell your personal information to third parties.
+              Sign up for a free account to use the tools. For paid users, you can manage your subscription and billing through our pricing page and the Stripe customer portal. We do not sell your personal information to third parties.
             </p>
           </section>
 

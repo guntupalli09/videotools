@@ -9,7 +9,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
-const SITE_URL = (process.env.SITE_URL || 'https://www.videotext.io').replace(/\/$/, '')
+const SITE_URL = (process.env.SITE_URL || 'https://videotext.io').replace(/\/$/, '')
 const BASE_URL = (process.env.BASE_URL || SITE_URL).replace(/\/$/, '')
 const MODE = process.env.SEO_HEALTH_MODE || 'shell'
 const SAMPLE_SIZE = Math.min(20, parseInt(process.env.SEO_HEALTH_SAMPLE_SIZE || '10', 10) || 10)

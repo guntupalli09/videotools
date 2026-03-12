@@ -5,7 +5,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 
 const SUGGEST_URL = 'https://suggestqueries.google.com/complete/search'
-const USER_AGENT = 'VideoText-SEO-Bot/1.0 (compatible; +https://www.videotext.io)'
+const USER_AGENT = 'VideoText-SEO-Bot/1.0 (compatible; +https://videotext.io)'
 
 function getCacheDir(): string {
   const dir = path.join(__dirname, '..', 'cache')

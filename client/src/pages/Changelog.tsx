@@ -23,6 +23,16 @@ const TAG_LABELS: Record<ChangelogEntry['tag'], string> = {
 
 const ENTRIES: ChangelogEntry[] = [
   {
+    date: 'March 10, 2026',
+    version: 'v1.10',
+    tag: 'new',
+    items: [
+      'YouTube URL transcription: paste a youtube.com or youtu.be link to transcribe without uploading.',
+      'Improved reliability for YouTube and uploaded-audio jobs.',
+      'Security and resource hardening: rate limits, temp file cleanup, and graceful shutdown on deploys.',
+    ],
+  },
+  {
     date: 'March 6, 2026',
     version: 'v1.9',
     tag: 'new',

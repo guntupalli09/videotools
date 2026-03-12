@@ -14,7 +14,7 @@ Professional video utilities platform: transcribe video to text, generate and tr
 - **Faster long-video transcription**: parallel chunking + merge (same result shape).
 - **Optional GPU FFmpeg**: set `FFMPEG_USE_GPU=true` to use GPU decode/encode where available.
 - **Result caching**: repeat processing (same user + file + tool + options) returns instantly within `CACHE_TTL_DAYS`.
-- **Plan limits**: Free = 60 min/month, 15 min max per video; Basic = 45 min max per video. See [§5 Billing & usage](#5-billing--usage).
+- **Plan limits**: Free = 3 imports/month (resets on the 1st), 30 min max per video; Basic = 450 min/month, 45 min max per video. See [§5 Billing & usage](#5-billing--usage).
 - **Usage tracking**: Batch jobs charge minutes per video; all tools show minutes remaining and refetch when a job completes.
 - **Client: fast load & revisits** — Route-level code splitting (lazy-loaded pages), prefetch on link hover/focus, and PWA (precache of static assets; API is never cached). See [§10 Client: performance, devices & reliability](#10-client-performance-devices--reliability).
 - **Client: mobile & reliability** — Chunked upload is mobile-optimised (smaller chunks, sequential, per-chunk timeout and retry with exponential backoff); “keep tab open” reminder during upload; offline banner when the app loses connection; user-facing “Check your connection” message on network/abort errors; error boundary and unhandled-rejection safety net.
@@ -233,7 +233,7 @@ Source of truth: `server/src/utils/limits.ts`.
 
 | Tier   | Minutes/month | Max video duration | Max file size | Max concurrent jobs | Max languages | Batch | Batch max videos | Batch max duration |
 |--------|----------------|--------------------|---------------|---------------------|---------------|-------|-------------------|---------------------|
-| **Free**   | 60   | 15 min   | 2 GB   | 1 | 1 | No  | —  | —  |
+| **Free**   | 3 imports | 30 min   | 2 GB   | 1 | 1 | No  | —  | —  |
 | **Basic**  | 450  | 45 min   | 5 GB   | 1 | 2 | No  | —  | —  |
 | **Pro**    | 1200 | 120 min (2 h) | 10 GB  | 2 | 5 | Yes | 20  | 60 min total  |
 | **Agency** | 3000 | 240 min (4 h) | 20 GB  | 3 | 10 | Yes | 100 | 300 min total |

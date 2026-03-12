@@ -38,7 +38,7 @@ export const TEX_ENTRIES: TexEntry[] = [
   },
   {
     id: 'no-signup',
-    keywords: ['signup', 'sign up', 'account', 'register', 'no signup', 'free trial', 'try free'],
+    keywords: ['signup', 'sign up', 'account', 'register', 'free signup', 'free trial', 'try free'],
     question: 'Do I need to sign up?',
     answer:
       "Sign up to try free (3 imports, no credit card). When you're ready for more minutes or features (batch, multi-language, no watermark), subscribe from Pricing.",

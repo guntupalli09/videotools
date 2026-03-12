@@ -23,7 +23,7 @@ export default function Mp4ToSrtPage() {
   return (
     <VideoToSubtitles
       seoH1="MP4 to SRT Online"
-      seoIntro="Generate SRT subtitles from MP4 video. Upload your file, pick SRT or VTT, and download timed captions. No signup required for the free tier."
+      seoIntro="Generate SRT subtitles from MP4 video. Upload your file, pick SRT or VTT, and download timed captions. Sign up for free to try."
       faq={FAQ}
     />
   )

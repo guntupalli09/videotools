@@ -1,41 +1,49 @@
 #!/usr/bin/env node
 /**
- * Validate sitemap: no duplicate URLs; sitemap must match indexable inventory exactly.
+ * Validate sitemaps: no duplicate URLs; core + programmatic must match indexable inventory.
  * Run after generate-sitemap. Exit 1 on failure.
- * Run from repo root: npx tsx scripts/seo/validate-sitemap.ts
  */
 import * as path from 'path'
 import * as fs from 'fs'
 import { getIndexablePaths } from './registry'
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..')
-const SITEMAP_PATH = path.join(REPO_ROOT, 'client', 'public', 'sitemap.xml')
-const SITE_URL = process.env.SITE_URL || 'https://www.videotext.io'
+const PUBLIC_DIR = path.join(REPO_ROOT, 'client', 'public')
+const SITE_URL = process.env.SITE_URL || 'https://videotext.io'
 
-function main(): void {
-  if (!fs.existsSync(SITEMAP_PATH)) {
-    console.error('[validate-sitemap] Sitemap not found:', SITEMAP_PATH)
-    process.exit(1)
-  }
-
-  const indexablePaths = getIndexablePaths()
-  const expectedUrls = new Set(
-    indexablePaths.map((p) => (p === '/' ? SITE_URL : `${SITE_URL}${p}`))
-  )
-
-  const xml = fs.readFileSync(SITEMAP_PATH, 'utf8')
+function extractUrlsFromXml(xml: string): string[] {
   const locRe = /<loc>([^<]+)<\/loc>/g
   const found: string[] = []
   let match: RegExpExecArray | null
   while ((match = locRe.exec(xml)) !== null) {
     found.push(match[1])
   }
+  return found
+}
+
+function main(): void {
+  const corePath = path.join(PUBLIC_DIR, 'sitemap-core.xml')
+  const programmaticPath = path.join(PUBLIC_DIR, 'sitemap-programmatic.xml')
+
+  if (!fs.existsSync(corePath) || !fs.existsSync(programmaticPath)) {
+    console.error('[validate-sitemap] Run npm run seo:sitemap first')
+    process.exit(1)
+  }
+
+  const coreUrls = extractUrlsFromXml(fs.readFileSync(corePath, 'utf8'))
+  const programmaticUrls = extractUrlsFromXml(fs.readFileSync(programmaticPath, 'utf8'))
+  const found = [...coreUrls, ...programmaticUrls]
+
+  const indexablePaths = getIndexablePaths()
+  const expectedUrls = new Set(
+    indexablePaths.map((p) => (p === '/' ? SITE_URL : `${SITE_URL}${p}`))
+  )
 
   const foundSet = new Set(found)
   let failed = false
 
   if (found.length !== foundSet.size) {
-    console.error('[validate-sitemap] Duplicate <loc> in sitemap')
+    console.error('[validate-sitemap] Duplicate <loc> across sitemaps')
     failed = true
   }
 
@@ -58,7 +66,7 @@ function main(): void {
   if (failed) {
     process.exit(1)
   }
-  console.log('[validate-sitemap] OK —', found.length, 'URLs (indexable only)')
+  console.log('[validate-sitemap] OK — core:', coreUrls.length, ', programmatic:', programmaticUrls.length, ', total:', found.length)
 }
 
 main()

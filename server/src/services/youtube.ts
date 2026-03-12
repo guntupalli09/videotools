@@ -12,7 +12,7 @@
  *   Metadata:  YouTube Data API v3 → (fallback) yt-dlp --dump-json
  *   Streaming: yt-dlp -f bestaudio -o - | ffmpeg → 16 kHz mono WAV
  *
- * Bot-detection strategy (same approach used by Descript, Otter.ai, etc.):
+ * Bot-detection strategy (same approach used by Descript, <Otter.ai>, etc.):
  *   - Metadata: YouTube Data API v3 is an official OAuth2/API-key endpoint — never blocked.
  *     Set YOUTUBE_API_KEY env var. Free quota: 10,000 units/day; video.list costs 1 unit.
  *   - Streaming: yt-dlp with a real account cookies file bypasses all bot checks.
@@ -24,8 +24,8 @@
  * The worker calls streamYoutubeAudioToFile() which does the full stream → encode.
  */
 
-import ytdl from '@distube/ytdl-core'
 import { spawn } from 'child_process'
+import path from 'path'
 import { getLogger } from '../lib/logger'
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg'
 import fs from 'fs'
@@ -51,16 +51,35 @@ const YT_DLP_BIN: string = (() => {
 
 /**
  * Strict allow-list of YouTube hostnames.
- * Using URL.hostname prevents subdomain-spoofing attacks like youtube.com.evil.com.
+ * Using URL.hostname prevents subdomain-spoofing attacks like <youtube.com.evil.com>.
  */
 const ALLOWED_YT_HOSTS = new Set([
-  'youtube.com',
-  'www.youtube.com',
-  'm.youtube.com',
-  'youtu.be',
+  '<youtube.com>',
+  '<www.youtube.com>',
+  '<m.youtube.com>',
+  '<youtu.be>',
 ])
 
 const VIDEO_ID_RE = /^[\w-]{11}$/
+
+/**
+ * Normalize to canonical URL with only video ID. Avoids playlist/list params (?si=, ?list=, &t=).
+ */
+export function normalizeYoutubeUrl(url: string): string {
+  const trimmed = url.trim()
+  try {
+    const u = new URL(trimmed)
+    if (u.hostname.includes('<youtu.be>')) {
+      const id = u.pathname.slice(1).split('/')[0]
+      return id && /^[\w-]{11}$/.test(id) ? <https://www.youtube.com/watch?v=${id}> : trimmed
+    }
+    const id = u.searchParams.get('v')
+    if (id && /^[\w-]{11}$/.test(id)) return <https://www.youtube.com/watch?v=${id}>
+    return trimmed
+  } catch {
+    return trimmed
+  }
+}
 
 /** Parse hostname from URL; returns null on malformed input. */
 function parseYoutubeHostname(url: string): string | null {
@@ -80,12 +99,12 @@ export function extractYoutubeVideoId(url: string): string | null {
     const parsed = new URL(url)
     const host = parsed.hostname
 
-    if (host === 'youtu.be') {
+    if (host === '<youtu.be>') {
       const id = parsed.pathname.slice(1).split('/')[0]
       return VIDEO_ID_RE.test(id) ? id : null
     }
 
-    if (host === 'youtube.com' || host === 'www.youtube.com' || host === 'm.youtube.com') {
+    if (host === '<youtube.com>' || host === '<www.youtube.com>' || host === '<m.youtube.com>') {
       // /watch?v=XXXXXXXXXXX
       const v = parsed.searchParams.get('v')
       if (v && VIDEO_ID_RE.test(v)) return v
@@ -134,11 +153,11 @@ async function getMetadataViaDataApi(videoId: string): Promise<YoutubeMetadata |
   const apiKey = process.env.YOUTUBE_API_KEY
   if (!apiKey) return null
 
-  const url = `https://www.googleapis.com/youtube/v3/videos?id=${encodeURIComponent(videoId)}&part=snippet,contentDetails,liveStreamingDetails&key=${encodeURIComponent(apiKey)}`
+  const url = <https://www.googleapis.com/youtube/v3/videos?id=${encodeURIComponent(videoId)}&part=snippet,contentDetails,liveStreamingDetails&key=${encodeURIComponent(apiKey)}>
   const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
   if (!res.ok) {
     const body = await res.json().catch(() => ({})) as { error?: { message?: string } }
-    throw new Error(`YouTube Data API error ${res.status}: ${body?.error?.message ?? res.statusText}`)
+    throw new Error(YouTube Data API error ${res.status}: ${body?.error?.message ?? res.statusText})
   }
 
   const data = await res.json() as {
@@ -180,23 +199,79 @@ async function getMetadataViaDataApi(videoId: string): Promise<YoutubeMetadata |
     title: item.snippet.title,
     durationSec,
     thumbnailUrl: thumb?.url,
-    videoId: item.id,
+    videoId: <item.id>,
   }
+}
+
+// ─── yt-dlp helpers ───────────────────────────────────────────────────────────
+
+/**
+ * Extract the real error from yt-dlp stderr.
+ * yt-dlp often prints "[youtube] Extracting URL: ..." first; the actual error is usually on a later line.
+ * When it fails early, stderr may only contain "Extracting URL" (silent-fail) — use full stderr then.
+ */
+function extractYtDlpErrorMessage(stderr: string, exitCode: number): string {
+  const cleaned = stderr.replace(/\x1b\[[0-9;]*m/g, '').trim()
+  const lines = cleaned.split('\n').map((l) => l.trim()).filter(Boolean)
+  const errorLine = lines.find((l) => /^ERROR:/i.test(l) || /error:/i.test(l))
+  if (errorLine) return errorLine
+  if (lines.length > 1) return lines[lines.length - 1]
+  const first = lines[0] || ''
+  // Silent-fail: only "Extracting URL" — stderr has no useful error; include full output for debugging
+  if (/\[youtube\]\s*Extracting URL/i.test(first) && lines.length <= 1) {
+    const full = cleaned.slice(-1200).trim()
+    return full ? extraction failed (stderr): ${full} : yt-dlp exited ${exitCode} (no error text). Try YOUTUBE_COOKIES_FILE or update yt-dlp.
+  }
+  return first || yt-dlp exited with code ${exitCode}
+}
+
+const RETRYABLE_WITH_COOKIES = [
+  /page needs to be reloaded/i,
+  /sign in to confirm you're not a bot/i,
+  /sign in/i,
+  /http error 403/i,
+  /video unavailable/i,
+  /unable to extract/i,
+  /unable to extract player/i,
+]
+const NOT_RETRYABLE = [
+  /private video/i,
+  /video is private/i,
+  /deleted video/i,
+  /video has been removed/i,
+]
+
+/** Errors that may be fixed by retrying with cookies. Skip retry for private/deleted. */
+function isRetryableWithCookiesError(msg: string): boolean {
+  if (NOT_RETRYABLE.some((r) => r.test(msg))) return false
+  return RETRYABLE_WITH_COOKIES.some((r) => r.test(msg))
+}
+
+/**
+ * Build yt-dlp args array, injecting --cookies unless YOUTUBE_SKIP_COOKIES=true.
+ * useCookiesOverride: false = never use cookies, true = always use if file exists,
+ * undefined = respect YOUTUBE_SKIP_COOKIES env var.
+ */
+function ytDlpArgs(extra: string[], useCookiesOverride?: boolean): string[] {
+  const skipCookies = process.env.YOUTUBE_SKIP_COOKIES === 'true' || process.env.YOUTUBE_SKIP_COOKIES === '1'
+  const cookiesFile = process.env.YOUTUBE_COOKIES_FILE
+  const useCookies = useCookiesOverride ?? !skipCookies
+  const cookiesArgs = useCookies && cookiesFile && fs.existsSync(cookiesFile)
+    ? ['--cookies', cookiesFile]
+    : []
+  const jsRuntime = ['--js-runtimes', 'deno']
+  const playerClient = process.env.YOUTUBE_PLAYER_CLIENT
+  const extractorArgs = playerClient !== ''
+    ? ['--extractor-args', youtube:player_client=${playerClient || 'android,web'}]
+    : []
+  const userAgent = ['--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36']
+  return [...cookiesArgs, ...jsRuntime, ...extractorArgs, ...userAgent, ...extra]
 }
 
 // ─── yt-dlp metadata fallback ─────────────────────────────────────────────────
 
-/** Build yt-dlp args array, injecting --cookies unless YOUTUBE_SKIP_COOKIES=true. */
-function ytDlpArgs(extra: string[]): string[] {
-  const skip = process.env.YOUTUBE_SKIP_COOKIES === 'true'
-  const cookiesFile = process.env.YOUTUBE_COOKIES_FILE
-  const cookiesArgs = !skip && cookiesFile && fs.existsSync(cookiesFile)
-    ? ['--cookies', cookiesFile]
-    : []
-  return [...cookiesArgs, ...extra]
-}
-
 async function getMetadataViaYtDlp(url: string): Promise<YoutubeMetadata> {
+  const cleanUrl = normalizeYoutubeUrl(url)
   const raw = await new Promise<string>((resolve, reject) => {
     let stdout = ''
     let stderr = ''
@@ -205,18 +280,14 @@ async function getMetadataViaYtDlp(url: string): Promise<YoutubeMetadata> {
       '--no-playlist',
       '--no-warnings',
       '--socket-timeout', '15',
-      url.trim(),
+      cleanUrl,
     ]))
     proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString() })
     proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
-    proc.on('error', (err) => reject(new Error(`yt-dlp spawn error: ${err.message}`)))
+    proc.on('error', (err) => reject(new Error(yt-dlp spawn error: ${err.message})))
     proc.on('close', (code) => {
-      if (code !== 0) {
-        const lines = stderr.replace(/\x1b\[[0-9;]*m/g, '').trim().split('\n').filter(Boolean)
-        const msg = lines.find(l => /ERROR:|Sign in|bot|reload|HTTP Error/i.test(l))
-          ?? lines[lines.length - 1]
-          ?? `yt-dlp exited with code ${code}`
-        reject(new Error(msg))
+      if (code !== 0 && code !== null) {
+        reject(new Error(extractYtDlpErrorMessage(stderr, code)))
       } else {
         resolve(stdout)
       }
@@ -242,7 +313,7 @@ async function getMetadataViaYtDlp(url: string): Promise<YoutubeMetadata> {
     title: String(info.title || info.fulltitle || 'YouTube video'),
     durationSec,
     thumbnailUrl: thumb?.url ?? (typeof info.thumbnail === 'string' ? info.thumbnail : undefined),
-    videoId: String(info.id),
+    videoId: String(<info.id>),
   }
 }
 
@@ -251,14 +322,15 @@ async function getMetadataViaYtDlp(url: string): Promise<YoutubeMetadata> {
 /**
  * Fetch video metadata from YouTube without downloading any media (~1–2 s).
  *
- * Strategy (same as Descript / Otter.ai):
+ * Strategy (same as Descript / <Otter.ai>):
  *   1. YouTube Data API v3 — official, quota-based, never blocked. Requires YOUTUBE_API_KEY env.
  *   2. yt-dlp --dump-json — reliable fallback; uses YOUTUBE_COOKIES_FILE if set.
  *
  * Throws a human-readable error for livestreams, private, deleted, or region-blocked videos.
  */
 export async function getYoutubeMetadata(url: string): Promise<YoutubeMetadata> {
-  const videoId = extractYoutubeVideoId(url)
+  const cleanUrl = normalizeYoutubeUrl(url)
+  const videoId = extractYoutubeVideoId(cleanUrl)
 
   // Primary: YouTube Data API v3 (zero bot-detection, official quota)
   if (videoId && process.env.YOUTUBE_API_KEY) {
@@ -266,7 +338,97 @@ export async function getYoutubeMetadata(url: string): Promise<YoutubeMetadata> 
   }
 
   // Fallback: yt-dlp (with cookies if configured)
-  return getMetadataViaYtDlp(url)
+  return getMetadataViaYtDlp(cleanUrl)
+}
+
+// ─── Caption fallback (skip Whisper when captions exist) ─────────────────────
+
+/** Parse VTT timestamp "00:00:01.234 --> 00:00:05.678" to seconds. */
+function parseVttTimestamp(s: string): number {
+  const m = s.match(/(\d+):(\d+):(\d+)\.(\d+)/) || s.match(/(\d+):(\d+)\.(\d+)/) || s.match(/(\d+)\.(\d+)/)
+  if (!m) return 0
+  if (m.length === 5) return parseInt(m[1], 10) * 3600 + parseInt(m[2], 10) * 60 + parseInt(m[3], 10) + parseInt(m[4], 10) / 1000
+  if (m.length === 4) return parseInt(m[1], 10) * 60 + parseInt(m[2], 10) + parseInt(m[3], 10) / 1000
+  return parseInt(m[1], 10) + parseInt(m[2], 10) / 1000
+}
+
+/** Parse VTT content to segments. */
+function parseVttToSegments(content: string): { start: number; end: number; text: string }[] {
+  const segments: { start: number; end: number; text: string }[] = []
+  const blocks = content.split(/\n\s*\n/).filter((b) => b.trim())
+  for (const block of blocks) {
+    const lines = block.trim().split('\n')
+    const timeLine = lines.find((l) => /-->/.test(l))
+    if (!timeLine) continue
+    const [startStr, endStr] = timeLine.split(/\s*-->\s*/).map((x) => x.trim())
+    const start = parseVttTimestamp(startStr)
+    const end = parseVttTimestamp(endStr)
+    const text = lines
+      .filter((l) => l !== timeLine && !l.startsWith('WEBVTT') && !/^\d+$/.test(l.trim()))
+      .join(' ')
+      .trim()
+    if (text) segments.push({ start, end, text })
+  }
+  return segments
+}
+
+export interface YoutubeCaptionResult {
+  fullText: string
+  segments: { start: number; end: number; text: string }[]
+}
+
+/**
+ * Fetch YouTube captions (auto or manual) without downloading video/audio.
+ * Returns null if no captions. Use to skip Whisper for faster, cheaper transcription.
+ */
+export async function fetchYoutubeCaptions(
+  url: string,
+  outputDir: string,
+  language?: string
+): Promise<YoutubeCaptionResult | null> {
+  const cleanUrl = normalizeYoutubeUrl(url)
+  const outTemplate = path.join(outputDir, 'yt_%(id)s')
+  const subLangs = language ? ${language},${language}.*,en,en.*,en-US : 'en,en.*,en-US'
+
+  return new Promise((resolve) => {
+    let stderr = ''
+    const proc = spawn(YT_DLP_BIN, ytDlpArgs([
+      '--write-auto-sub',
+      '--write-sub',
+      '--skip-download',
+      '--no-playlist',
+      '--no-warnings',
+      '--sub-langs', subLangs,
+      '--convert-subs', 'vtt',
+      '-o', outTemplate,
+      '--socket-timeout', '15',
+      cleanUrl,
+    ], false))
+    proc.stdout.on('data', () => {})
+    proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
+    proc.on('error', () => resolve(null))
+    proc.on('close', (code) => {
+      if (code !== 0 && code !== null) {
+        log.debug({ msg: 'yt_captions_unavailable', stderr: stderr.slice(-500) })
+        return resolve(null)
+      }
+      const files = fs.readdirSync(outputDir).filter((f) => f.endsWith('.vtt') && f.startsWith('yt_'))
+      if (files.length === 0) return resolve(null)
+      const vttPath = path.join(outputDir, files[0])
+      try {
+        const content = fs.readFileSync(vttPath, 'utf-8')
+        fs.unlinkSync(vttPath)
+        const segments = parseVttToSegments(content)
+        if (segments.length === 0) return resolve(null)
+        const fullText = segments.map((s) => s.text).join(' ').replace(/\s+/g, ' ').trim()
+        <log.info>({ msg: 'yt_captions_used', segmentCount: segments.length, url: cleanUrl.slice(0, 50) })
+        resolve({ fullText, segments })
+      } catch {
+        try { fs.unlinkSync(vttPath) } catch { /* ignore */ }
+        resolve(null)
+      }
+    })
+  })
 }
 
 // ─── Audio Streaming ─────────────────────────────────────────────────────────
@@ -277,19 +439,35 @@ const STREAM_TIMEOUT_MS = 10 * 60 * 1000
 /**
  * Stream YouTube audio directly into FFmpeg and write a 16 kHz mono WAV to outputPath.
  *
- * Flow: ytdl (audio-only Node stream) → FFmpeg stdin (pipe:0) → 16 kHz mono PCM WAV
- *
- * WAV/PCM is chosen over MP3 because:
- *   - Lossless: no compression artefacts that reduce Whisper transcription accuracy
- *   - Whisper models natively expect PCM audio; WAV is the zero-overhead wrapper
- *   - The temp file is deleted immediately after transcription — file size is not a concern
- *
- * No full video download; only the audio track is streamed.
- * Works with any audio format YouTube serves (webm/opus, mp4/aac, …) — FFmpeg auto-detects.
+ * Strategy: try without cookies first (avoids "page needs to be reloaded" from stale cookies).
+ * On bot/sign-in errors, retry with cookies if YOUTUBE_COOKIES_FILE exists.
  */
-export function streamYoutubeAudioToFile(
+export async function streamYoutubeAudioToFile(
   url: string,
   outputPath: string
+): Promise<void> {
+  const cleanUrl = normalizeYoutubeUrl(url)
+  const skipCookies = process.env.YOUTUBE_SKIP_COOKIES === 'true' || process.env.YOUTUBE_SKIP_COOKIES === '1'
+  const cookiesFile = process.env.YOUTUBE_COOKIES_FILE
+  const hasCookies = !!(cookiesFile && fs.existsSync(cookiesFile))
+
+  try {
+    await doStreamYoutubeAudio(cleanUrl, outputPath, false)
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (isRetryableWithCookiesError(msg) && hasCookies && !skipCookies) {
+      <log.info>({ msg: 'yt_retry_with_cookies', url: cleanUrl.slice(0, 50) })
+      await doStreamYoutubeAudio(cleanUrl, outputPath, true)
+    } else {
+      throw err
+    }
+  }
+}
+
+function doStreamYoutubeAudio(
+  url: string,
+  outputPath: string,
+  useCookies: boolean
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     let settled = false
@@ -335,16 +513,16 @@ export function streamYoutubeAudioToFile(
         done()
       } else {
         const stderr = stderrChunks.join('').slice(-1500)
-        done(new Error(`FFmpeg exited ${code}. stderr: ${stderr}`))
+        done(new Error(FFmpeg exited ${code}. stderr: ${stderr}))
       }
     })
 
-    ffmpegProc.on('error', (err) => done(new Error(`FFmpeg spawn error: ${err.message}`)))
+    ffmpegProc.on('error', (err) => done(new Error(FFmpeg spawn error: ${err.message})))
 
     // EPIPE: FFmpeg exited before we finished writing — handle silently; 'close' fires next
     ffmpegProc.stdin!.on('error', (err: NodeJS.ErrnoException) => {
       if (err.code !== 'EPIPE') {
-        done(new Error(`FFmpeg stdin error: ${err.message}`))
+        done(new Error(FFmpeg stdin error: ${err.message}))
       }
     })
 
@@ -355,10 +533,10 @@ export function streamYoutubeAudioToFile(
         '--no-playlist',
         '--no-warnings',
         '-f', 'bestaudio/best',
-        '-o', '-',           // write to stdout
+        '-o', '-',
         '--socket-timeout', '30',
-        url.trim(),
-      ]),
+        url,
+      ], useCookies),
       { stdio: ['ignore', 'pipe', 'pipe'] }
     )
 
@@ -367,25 +545,22 @@ export function streamYoutubeAudioToFile(
 
     ytProc.on('error', (err) => {
       try { ffmpegProc.stdin!.destroy() } catch { /* ignore */ }
-      done(new Error(`yt-dlp spawn error: ${err.message}`))
+      done(new Error(yt-dlp spawn error: ${err.message}))
     })
 
     ytProc.on('close', (code) => {
-      if (code !== 0 && !settled) {
-        const raw = ytStderrChunks.join('').replace(/\x1b\[[0-9;]*m/g, '').trim()
-        const lines = raw.split('\n').filter(Boolean)
-        // Prefer the line that contains the real error (ERROR: / Sign in / reload / HTTP)
-        const msg = lines.find(l => /ERROR:|Sign in|bot|reload|HTTP Error/i.test(l))
-          ?? lines[lines.length - 1]   // last line (most informative)
-          ?? `yt-dlp exited with code ${code}`
+      if (code !== 0 && code !== null && !settled) {
+        const stderr = ytStderrChunks.join('')
+        const msg = extractYtDlpErrorMessage(stderr, code)
+        log.error({ msg: 'yt_stream_stderr', stderr: stderr.slice(-2000), url: url.slice(0, 80) })
         try { ffmpegProc.stdin!.destroy() } catch { /* ignore */ }
-        done(new Error(`yt-dlp error: ${msg}`))
+        done(new Error(yt-dlp error: ${msg}))
       }
     })
 
     // ── 3. Pipe yt-dlp stdout → FFmpeg stdin ─────────────────────────────────
     ytProc.stdout.pipe(ffmpegProc.stdin!)
 
-    log.info({ msg: 'yt_stream_started', url: url.slice(0, 50) })
+    <log.info>({ msg: 'yt_stream_started', url: url.slice(0, 50) })
   })
 }

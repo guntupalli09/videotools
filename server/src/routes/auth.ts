@@ -367,7 +367,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
     }
 
     const user = await getUserByEmail(normalized)
-    const baseUrl = process.env.BASE_URL || process.env.VITE_SITE_URL || 'https://www.videotext.io'
+    const baseUrl = process.env.BASE_URL || process.env.VITE_SITE_URL || 'https://videotext.io'
     const baseOrigin = baseUrl.replace(/\/$/, '')
 
     if (user?.passwordHash) {

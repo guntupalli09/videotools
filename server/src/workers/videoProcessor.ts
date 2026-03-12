@@ -27,6 +27,8 @@ import { saveDuplicateResult } from '../services/duplicate'
 import { createRedisClient } from '../utils/redis'
 import { WORKER_HEARTBEAT_KEY, HEARTBEAT_TTL_SEC } from '../utils/workerHeartbeat'
 import { parseSRT, parseVTT, detectSubtitleFormat, toSRT, toVTT } from '../utils/srtParser'
+import { formatTranscript } from '../utils/transcriptFormatter'
+import { segmentToStructuredText } from '../utils/pauseSegmenter'
 import type { SubtitleEntry } from '../utils/srtParser'
 import { createPartialWriter, deleteJobPartial } from '../utils/jobPartial'
 import { setJobSummary } from '../utils/jobSummary'
@@ -46,7 +48,7 @@ import {
 import { withJobContext, getLogger } from '../lib/logger'
 import { initSentry, captureJobError } from '../lib/sentry'
 import { pushLogEntry } from '../lib/logRing'
-import { streamYoutubeAudioToFile } from '../services/youtube'
+import { streamYoutubeAudioToFile, fetchYoutubeCaptions } from '../services/youtube'
 import { v4 as uuidv4 } from 'uuid'
 
 const workerLog = getLogger('worker')
@@ -86,7 +88,12 @@ export async function addJobToQueue(
     totalCount > PAID_TIER_RESERVATION_QUEUE_THRESHOLD
   // Use the UUID jobToken as the Bull job ID so the DB record ID never conflicts
   // with auto-incremented IDs from a previous Redis instance or queue flush.
-  const jobOptions = { priority, attempts: 2, jobId: jobToken }
+  const jobOptions = {
+    priority,
+    attempts: 3,
+    backoff: { type: 'exponential' as const, delay: 2000 },
+    jobId: jobToken,
+  }
   if (usePriorityQueue) {
     return priorityQueue.add(jobData, jobOptions)
   }
@@ -152,6 +159,8 @@ export interface JobData {
   youtubeTitle?: string
   youtubeThumbnailUrl?: string
   youtubeDurationSec?: number
+  /** Pre-computed transcript from YouTube captions; skips Whisper. */
+  precomputedTranscript?: { fullText: string; segments: { start: number; end: number; text: string }[] }
 }
 
 async function getOrCreateUserForJob(userId: string, plan: PlanType) {
@@ -317,31 +326,56 @@ async function processJob(job: import('bull').Job<JobData>) {
           return data.cachedResult
         }
         case 'youtube-to-transcript': {
-          // Stream YouTube audio → 16 kHz mono WAV → then fall through to video-to-transcript as audio-only.
-          // The worker fetches the audio itself so the API never downloads anything and the job carries only
-          // the URL — safe for distributed deployments where API and worker run on different machines.
           log.info({ msg: 'yt_job_start', youtubeUrl: data.youtubeUrl?.slice(0, 50) })
           await job.progress(5)
 
-          const ytAudioPath = path.join(tempDir, `${uuidv4()}_yt_audio.wav`)
-          try {
-            await streamYoutubeAudioToFile(data.youtubeUrl!, ytAudioPath)
-          } catch (err: any) {
-            log.error({ msg: 'yt_stream_failed', error: err.message, youtubeUrl: data.youtubeUrl?.slice(0, 50) })
-            throw new Error(`YouTube audio extraction failed: ${err.message}`)
+          // Try captions first — skip Whisper if available (seconds vs minutes)
+          const captions = await fetchYoutubeCaptions(
+            data.youtubeUrl!,
+            tempDir,
+            options?.language as string | undefined
+          )
+          const minCoverage = Number(process.env.YOUTUBE_CAPTION_MIN_COVERAGE) || 0.7
+          const durationSec = data.youtubeDurationSec ?? 0
+          const captionDuration = captions
+            ? captions.segments.reduce((sum, s) => sum + (s.end - s.start), 0)
+            : 0
+          const coverage = durationSec > 0 ? captionDuration / durationSec : 0
+          const useCaptions = captions && coverage >= minCoverage
+          if (!useCaptions && captions) {
+            log.info({
+              msg: 'yt_captions_low_coverage',
+              coverage: Math.round(coverage * 100) / 100,
+              minCoverage,
+              durationSec,
+              segmentCount: captions.segments.length,
+            })
           }
-
-          log.info({ msg: 'yt_stream_done', ytAudioPath })
+          if (useCaptions) {
+            ;(data as any).precomputedTranscript = captions
+            ;(data as any).filePath = ''
+            ;(data as any).inputType = 'audio'
+            ;(data as any).originalName =
+              (data.youtubeTitle || 'youtube_video').replace(/[^\w\s.\-]/g, '_').trim() + '.wav'
+            ;(data as any).toolType = 'video-to-transcript'
+            ;(data as any).youtubeUrl = undefined
+          } else {
+            const ytAudioPath = path.join(tempDir, `${uuidv4()}_yt_audio.wav`)
+            try {
+              await streamYoutubeAudioToFile(data.youtubeUrl!, ytAudioPath)
+            } catch (err: any) {
+              log.error({ msg: 'yt_stream_failed', error: err.message, youtubeUrl: data.youtubeUrl?.slice(0, 50) })
+              throw new Error(`YouTube audio extraction failed: ${err.message}`)
+            }
+            log.info({ msg: 'yt_stream_done', ytAudioPath })
+            ;(data as any).filePath = ytAudioPath
+            ;(data as any).inputType = 'audio'
+            ;(data as any).originalName =
+              (data.youtubeTitle || 'youtube_video').replace(/[^\w\s.\-]/g, '_').trim() + '.wav'
+            ;(data as any).toolType = 'video-to-transcript'
+            ;(data as any).youtubeUrl = undefined
+          }
           await job.progress(20)
-
-          // Patch job data so the existing video-to-transcript case handles transcription
-          ;(data as any).filePath = ytAudioPath
-          ;(data as any).inputType = 'audio'
-          ;(data as any).originalName =
-            (data.youtubeTitle || 'youtube_video').replace(/[^\w\s.\-]/g, '_').trim() + '.wav'
-          ;(data as any).toolType = 'video-to-transcript'
-          // Clear youtubeUrl so the url-disabled check in video-to-transcript doesn't fire
-          ;(data as any).youtubeUrl = undefined
         }
         // eslint-disable-next-line no-fallthrough
         case 'video-to-transcript': {
@@ -363,6 +397,22 @@ async function processJob(job: import('bull').Job<JobData>) {
           let firstPartialEmittedAt: number | undefined
           let firstChunkDurationSec: number | undefined
           let totalVideoDurationSec: number | undefined
+          let fullText: string
+          let segments: { start: number; end: number; text: string; speaker?: string }[] = []
+          const processingStartMs = Date.now()
+
+          if (data.precomputedTranscript) {
+            fullText = data.precomputedTranscript.fullText
+            segments = data.precomputedTranscript.segments.map((s) => ({ start: s.start, end: s.end, text: s.text }))
+            totalVideoDurationSec = data.youtubeDurationSec ?? (segments.length > 0 ? Math.max(...segments.map((s) => s.end)) : 0)
+            if (redis) {
+              partialWriter = createPartialWriter(redis, jobId)
+              partialWriter.startDrain()
+              if (segments.length > 0) partialWriter.onPartial(segments.slice(0, 2000))
+            }
+            log.info({ msg: 'transcription_from_captions', segmentCount: segments.length })
+          } else {
+          let videoPath = data.filePath!
 
           // Trim video if start/end times provided (not used for audio-only; client sends video when trim requested)
           if (
@@ -392,9 +442,6 @@ async function processJob(job: import('bull').Job<JobData>) {
 
           const needVerbose = includeSummary || includeChapters || exportFormats.includes('json')
           const wantDiarization = options?.speakerDiarization === true
-          let fullText: string
-          let segments: { start: number; end: number; text: string; speaker?: string }[] = []
-          const processingStartMs = Date.now()
 
           // Live transcript (TTFW): stream partials whenever Redis is available
           if (redis) {
@@ -520,6 +567,16 @@ async function processJob(job: import('bull').Job<JobData>) {
               fullText = await transcribeVideo(videoPath, 'text', options?.language, glossary, isAlreadyAudio)
             }
           }
+          }
+
+          try {
+            if (segments.length > 0) {
+              fullText = segmentToStructuredText(segments)
+            }
+            fullText = formatTranscript(fullText)
+          } catch {
+            /* keep fullText unchanged on error */
+          }
 
           const fileReceivedToTranscriptionFinishedMs = Date.now() - processingStartMs
           log.info({
@@ -528,6 +585,7 @@ async function processJob(job: import('bull').Job<JobData>) {
             file_received_to_transcription_finished_ms: fileReceivedToTranscriptionFinishedMs,
             file_size_bytes: data.fileSize ?? undefined,
             extraction_skipped: isAlreadyAudio,
+            transcription_from_captions: !!data.precomputedTranscript,
           })
 
           const baseName = path.basename(data.originalName || 'video', path.extname(data.originalName || 'video'))
@@ -640,7 +698,7 @@ async function processJob(job: import('bull').Job<JobData>) {
           const processedSeconds =
             data.trimmedStart !== undefined && data.trimmedEnd !== undefined
               ? Math.max(0, data.trimmedEnd - data.trimmedStart)
-              : durationCheck.duration || 0
+              : totalVideoDurationSec || 0
           result = {
             downloadUrl: primaryDownloadUrl,
             fileName: primaryFileName,
@@ -1308,14 +1366,26 @@ function attachQueueEvents(queue: import('bull').Queue<JobData>) {
     }
   })
   queue.on('failed', async (job, err) => {
+    const attempts = job?.opts?.attempts ?? 2
+    const made = job?.attemptsMade ?? 1
+    const isFinalFailure = made >= attempts
+
     if (err?.message === HUNG_JOB_MESSAGE) {
       workerLog.warn({
         jobId: job?.id,
         msg: 'job_hung',
-        willRetry: (job?.opts?.attempts ?? 2) - (job?.attemptsMade ?? 1) > 0,
+        willRetry: attempts - made > 0,
       })
     } else {
       workerLog.error({ jobId: job?.id, err, msg: 'job_failed' })
+      if (isFinalFailure) {
+        workerLog.error({
+          jobId: job?.id,
+          toolType: (job?.data as JobData)?.toolType,
+          error: err?.message,
+          msg: 'job_failed_permanent',
+        })
+      }
     }
     const data = job?.data as JobData
     if (data?.webhookUrl) {

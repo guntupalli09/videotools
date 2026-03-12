@@ -20,6 +20,8 @@ const tools = [
 ]
 
 const SUPPORT_EMAIL = 'support@videotext.io'
+/** Set to true to re-enable referral program */
+const SHOW_REFERRAL = false
 
 export default function UserMenu() {
   const [open, setOpen] = useState(false)
@@ -259,7 +261,7 @@ export default function UserMenu() {
                   <span>Email support</span>
                 </a>
 
-                {/* Refer and earn */}
+                {SHOW_REFERRAL && (
                 <Link
                   to="/refer"
                   className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -270,6 +272,7 @@ export default function UserMenu() {
                   <Gift className="w-5 h-5 shrink-0 text-gray-600 dark:text-gray-300" />
                   <span>Refer and earn: 45 min free (Free, Basic, Pro)</span>
                 </Link>
+                )}
 
                 {/* Theme toggle */}
                 <div className="flex items-center justify-between rounded-xl px-4 py-3 bg-gray-100 dark:bg-gray-700">

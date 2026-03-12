@@ -48,7 +48,7 @@ All limits live in `server/src/utils/limits.ts` and are used by API, worker, and
 
 | Tier   | Minutes/month | Max duration | Max file size | Concurrent jobs | Languages | Batch |
 |--------|----------------|--------------|---------------|------------------|-----------|--------|
-| Free   | 60             | 15 min       | 2 GB          | 1                | 1         | No     |
+| Free   | 3 imports      | 30 min       | 2 GB          | 1                | 1         | No     |
 | Basic  | 450            | 45 min       | 5 GB          | 1                | 2         | No     |
 | Pro    | 1,200          | 120 min      | 10 GB         | 2                | 5         | Yes (20 videos, 60 min total) |
 | Agency | 3,000          | 240 min      | 20 GB         | 3                | 10        | Yes (100 videos, 300 min total) |

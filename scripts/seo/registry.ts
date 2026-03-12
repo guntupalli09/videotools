@@ -4,6 +4,7 @@
  */
 import * as path from 'path'
 import * as fs from 'fs'
+import { getProgrammaticSeoEntries } from '../../client/src/lib/generateSeoPages'
 
 const SCRIPT_DIR = __dirname
 const REPO_ROOT = path.join(SCRIPT_DIR, '..', '..')
@@ -49,9 +50,67 @@ function getIndexableSeoPathsFromRegistry(): string[] {
   return matches.map((m) => m[1]).filter((p) => !nonIndexable.has(p))
 }
 
-/** All routes that should appear in sitemap (static + indexable SEO only). Single source: registry + STATIC_ROUTES. */
+/** Core pages (~35) — submit first. Homepage, legal, key tools, high-intent manual pages. */
+export const CORE_PATHS: string[] = [
+  '/',
+  '/pricing',
+  '/privacy',
+  '/faq',
+  '/terms',
+  '/guide',
+  '/blog',
+  '/video-to-transcript',
+  '/video-to-text',
+  '/video-to-subtitles',
+  '/youtube-to-transcript',
+  '/youtube-transcript',
+  '/youtube-transcript-generator',
+  '/transcribe-youtube-video',
+  '/audio-to-text',
+  '/audio-to-text-converter',
+  '/subtitle-generator',
+  '/video-caption-generator',
+  '/add-subtitles-to-video',
+  '/srt-generator',
+  '/video-to-srt',
+  '/podcast-transcript',
+  '/podcast-transcription',
+  '/meeting-transcript',
+  '/meeting-transcription',
+  '/webinar-transcription',
+  '/interview-transcription',
+  '/video-summary-generator',
+  '/video-chapters-generator',
+  '/keyword-indexed-transcript',
+  '/video-compressor',
+  '/reduce-video-size',
+  '/translate-subtitles',
+  '/translate-video',
+  '/video-translation',
+  '/fix-subtitles',
+  '/burn-subtitles',
+  '/batch-process',
+  '/mp4-to-text',
+  '/mp4-to-srt',
+]
+
+/** Programmatic-only paths (from targets × intents). Submit after core. */
+export function getProgrammaticPaths(): string[] {
+  return getProgrammaticSeoEntries().map((e) => e.path)
+}
+
+/** Paths for sitemap 2: programmatic + remaining manual (not in core). */
+export function getSitemap2Paths(): string[] {
+  const coreSet = new Set(CORE_PATHS)
+  const registry = getIndexableSeoPathsFromRegistry()
+  const programmatic = getProgrammaticPaths()
+  const otherManual = registry.filter((p) => !coreSet.has(p))
+  return [...new Set([...otherManual, ...programmatic])]
+}
+
+/** All routes (for validation). No duplicates. */
 export function getIndexablePaths(): string[] {
-  return [...STATIC_ROUTES, ...getIndexableSeoPathsFromRegistry()]
+  return [...new Set([...CORE_PATHS, ...getSitemap2Paths()])]
 }
 
 /** Intent keys of indexable SEO pages (for decision engine: block CREATE_NEW_PAGE if intentKey exists). */
@@ -116,6 +175,12 @@ export const SLUG_TO_PRIMARY: Record<string, string> = {
   'zoom-recording-transcript': '/video-to-transcript',
   'interview-transcription': '/video-to-transcript',
   'lecture-transcription': '/video-to-transcript',
+  // YouTube transcription (high SEO potential)
+  'youtube-to-transcript': '/youtube-to-transcript',
+  'youtube-transcript': '/youtube-to-transcript',
+  'youtube-video-transcript': '/youtube-to-transcript',
+  'transcribe-youtube-video': '/youtube-to-transcript',
+  'youtube-to-text': '/youtube-to-transcript',
   // Format-specific transcription
   'mov-to-text': '/video-to-transcript',
   'webm-to-text': '/video-to-transcript',

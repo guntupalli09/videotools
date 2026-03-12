@@ -20,9 +20,9 @@ export function Footer() {
             <Link to="/feedback" className="hover:text-gray-900 dark:hover:text-white transition-colors">
               Support
             </Link>
-            <a href="https://videotext.io" className="hover:text-gray-900 dark:hover:text-white transition-colors" target="_blank" rel="noopener noreferrer">
+            <Link to="/" className="hover:text-gray-900 dark:hover:text-white transition-colors">
               API
-            </a>
+            </Link>
           </div>
 
           <div className="text-sm text-gray-500 dark:text-gray-500">

@@ -212,7 +212,7 @@ Today we are covering subtitle formats.`}
         </p>
         <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Is all of this free?</h3>
         <p>
-          The free tier gives you 3 imports per month across all tools without creating an account. Sign up (free) to get 60 minutes per month tracked across sessions. Paid plans start at $19/month if you need more volume.
+          Sign up for free to get 3 imports per month across all tools. Resets on the 1st of each month. Paid plans start at $19/month if you need more volume.
         </p>
       </div>
     ),
@@ -251,7 +251,7 @@ Today we are covering subtitle formats.`}
         </p>
         <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">VideoText</h3>
         <p>
-          <strong>Free tier:</strong> 3 imports per month without account, 60 min/month with free account, no watermark on transcript. <strong>Accuracy:</strong> Whisper-based, same model as the field. <strong>Privacy:</strong> Files are deleted after processing — we store no transcript, no audio, no video. <strong>Best for:</strong> One-off transcription where you do not want your content stored, or workflows that also need subtitle generation, translation, fixing, or burning.
+          <strong>Free tier:</strong> 3 imports per month (resets on the 1st), sign up for free, watermark on subtitle exports. <strong>Accuracy:</strong> Whisper-based, same model as the field. <strong>Privacy:</strong> Files are deleted after processing — we store no transcript, no audio, no video. <strong>Best for:</strong> One-off transcription where you do not want your content stored, or workflows that also need subtitle generation, translation, fixing, or burning.
         </p>
         <p>
           <strong>Where we fall short:</strong> We do not have persistent storage — if you close the tab, the transcript is gone. We do not have a collaborative workspace. Speaker diarization is not as mature as Otter's. We do not support audio-only files natively.
@@ -270,7 +270,7 @@ Today we are covering subtitle formats.`}
             <tbody className="space-y-1">
               <tr className="border-b border-gray-100 dark:border-gray-800">
                 <td className="py-2 pr-4">VideoText</td>
-                <td className="py-2 pr-4">60 min/mo</td>
+                <td className="py-2 pr-4">3 imports/mo</td>
                 <td className="py-2 pr-4">No (3 imports)</td>
                 <td className="py-2">No</td>
               </tr>
@@ -498,7 +498,7 @@ function PostView({ post, onBack }: { post: BlogPost; onBack: () => void }) {
       </div>
 
       <div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Try VideoText for free — 3 imports per month, no credit card required.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Sign up for free — 3 imports per month, no credit card required.</p>
         <Link
           to="/video-to-transcript"
           className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors"

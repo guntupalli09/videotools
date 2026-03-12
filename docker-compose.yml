@@ -79,7 +79,7 @@ services:
           memory: 1g
           cpus: "1.0"
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:3001/healthz"]
+      test: ["CMD", "curl", "-sf", "<http://localhost:3001/healthz>"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -117,7 +117,7 @@ services:
     command: node dist/workers/videoProcessor.js
 
   # ── Cookie refresher ───────────────────────────────────────────────────────
-  # Visits youtube.com daily (03:00 UTC) with your existing cookies to keep the
+  # Visits <youtube.com> daily (03:00 UTC) with your existing cookies to keep the
   # Google session alive. Does NOT automate login — you export cookies once from
   # your real browser; automation only handles the daily refresh.
   #

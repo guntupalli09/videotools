@@ -4,7 +4,7 @@ import { createCheckoutSession, createBillingPortalSession } from '../lib/billin
 import { trackEvent } from '../lib/analytics'
 import type { BillingPlan } from '../lib/billing'
 import { getCurrentUsage, sendOtp, verifyOtp } from '../lib/api'
-import { isLoggedIn } from '../lib/auth'
+import { isLoggedIn, logout } from '../lib/auth'
 
 // Must match server auth validation: /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 function isValidEmail(email: string): boolean {
@@ -93,7 +93,14 @@ export default function Pricing() {
         trackEvent('payment_completed', { type: 'subscription_checkout_started', plan, annual })
         window.location.href = url
       } catch (e: any) {
-        alert(e.message || 'Failed to start checkout. Please try again.')
+        // Session expired: clear stale token and reload so the user can log back in
+        const msg: string = e.message || ''
+        if (msg.includes('session has expired') || msg.includes('log out and log back in')) {
+          logout()
+          window.location.reload()
+          return
+        }
+        alert(msg || 'Failed to start checkout. Please try again.')
       } finally {
         setDirectCheckoutLoading(false)
       }
@@ -238,7 +245,7 @@ export default function Pricing() {
               <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300">Free</h3>
               <span className="text-2xl font-bold text-gray-800 dark:text-white">$0</span>
             </div>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Try it: 3 free imports / month</p>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Sign up for free: 3 imports / month</p>
             <ul className="mt-6 space-y-3 flex-1">
               <li className={bulletRow}><CheckIcon /><span>Video → Transcript & Subtitles</span></li>
               <li className={bulletRow}><CheckIcon /><span>1 language · Watermarked</span></li>

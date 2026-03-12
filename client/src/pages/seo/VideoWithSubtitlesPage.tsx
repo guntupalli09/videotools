@@ -6,7 +6,7 @@ import BurnSubtitles from '../BurnSubtitles'
 
 const FAQ = [
   { q: 'How do I add subtitles to video?', a: 'Upload your video and an SRT or VTT file. We burn the captions into the video and you download one file with subtitles visible.' },
-  { q: 'Is this free?', a: 'Yes. Free tier available. No signup required to try.' },
+  { q: 'Is this free?', a: 'Yes. Free tier available. Sign up for free to try.' },
   { q: 'What video formats are supported?', a: 'MP4, MOV, AVI, WebM, MKV. Output is typically MP4.' },
 ]
 
@@ -14,7 +14,7 @@ export default function VideoWithSubtitlesPage() {
   return (
     <BurnSubtitles
       seoH1="Video with Subtitles — Add Captions to Video"
-      seoIntro="Add subtitles to video permanently. Upload video and SRT/VTT, get a single video with captions baked in. No signup for free tier."
+      seoIntro="Add subtitles to video permanently. Upload video and SRT/VTT, get a single video with captions baked in. Sign up for free to try."
       faq={FAQ}
     />
   )

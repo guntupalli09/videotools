@@ -19,13 +19,19 @@ const FAQ_ITEMS = [
     category: 'General',
     icon: HelpCircle,
     q: 'Do I need to sign up?',
-    a: 'No. You can use the free tier without creating an account. Sign up or log in when you want to track usage, subscribe to a plan, or manage billing.',
+    a: 'Sign up for a free account to try. No credit card required. Upgrade or manage billing when you need more imports or paid features.',
+  },
+  {
+    category: 'General',
+    icon: HelpCircle,
+    q: 'Can I transcribe a YouTube video without downloading it?',
+    a: 'Yes. Paste any public YouTube URL (youtube.com or youtu.be) into the Video to Transcript tool and we stream the audio and transcribe it directly. No download, no file upload. Works with public videos, Shorts, and age-restricted content (with optional cookies). Same features as file upload: speakers, summary, chapters, translate to 6 languages.',
   },
   {
     category: 'General',
     icon: HelpCircle,
     q: 'What file formats are supported?',
-    a: 'Videos: MP4, MOV, AVI, WebM (and optionally MKV where noted). Subtitles: SRT and VTT. You can also paste a video URL for transcript and subtitle tools.',
+    a: 'Videos: MP4, MOV, AVI, WebM (and optionally MKV where noted). Subtitles: SRT and VTT. You can also paste a YouTube URL for transcript — no download needed.',
   },
   {
     category: 'General',
@@ -37,7 +43,7 @@ const FAQ_ITEMS = [
     category: 'Billing',
     icon: CreditCard,
     q: 'How does the free tier work?',
-    a: 'Free tier includes 3 imports per month (resets on the 1st of each month), single language, and a watermark on subtitle exports. No credit card required. Upgrade when you need more, multiple languages, or batch processing.',
+    a: 'Sign up for free to get 3 imports per month (resets on the 1st), single language, and a watermark on subtitle exports. No credit card required. Upgrade when you need more, multiple languages, or batch processing.',
   },
   {
     category: 'Billing',

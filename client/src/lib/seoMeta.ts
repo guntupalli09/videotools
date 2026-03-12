@@ -8,9 +8,9 @@ import { getAllSeoEntries } from './seoRegistry'
 /** Static (non-SEO-registry) routes: title + description. */
 const STATIC_ROUTE_SEO: Record<string, { title: string; description: string }> = {
   '/': {
-    title: 'Video to Text & Subtitles — Free Online Tools',
+    title: 'Video to Text & Subtitles — Free Online Tools | YouTube Transcript',
     description:
-      'VideoText: AI-powered video to text and subtitle tools. Transcribe video to transcript, view in 6 languages (English, Hindi, Telugu, Spanish, Chinese, Russian), generate SRT/VTT, translate subtitles, fix timing, burn captions, compress video. Upload your file. Sign up to try free.',
+      'VideoText: AI-powered video to text and subtitle tools. Paste a YouTube URL or upload a file — get a transcript in seconds. Transcribe to text, view in 6 languages, generate SRT/VTT, translate subtitles. No download for YouTube. Sign up to try free.',
   },
   '/pricing': {
     title: 'Pricing — Free, Basic, Pro & Agency Plans',
@@ -40,7 +40,7 @@ const STATIC_ROUTE_SEO: Record<string, { title: string; description: string }> =
   '/video-to-transcript': {
     title: 'Video to Transcript — Free AI Transcription & Translation',
     description:
-      'Convert video to text with AI. View transcript in English, Hindi, Telugu, Spanish, Chinese, or Russian with one click. Upload video, get plain-text transcript. Summary, chapters, speakers. Download or copy. No signup. Free tier.',
+      'Convert video to text with AI. View transcript in English, Hindi, Telugu, Spanish, Chinese, or Russian with one click. Upload video, get plain-text transcript. Summary, chapters, speakers. Download or copy. Sign up for free. Free tier.',
   },
   '/video-to-subtitles': {
     title: 'Video to Subtitles — SRT & VTT Generator',
@@ -125,13 +125,14 @@ export const ROUTE_BREADCRUMB: Record<string, { name: string; path: string }[]> 
   ),
 }
 
-/** FAQ items for /faq page (global FAQ; not from registry). */
+/** FAQ items for /faq page (global FAQ; not from registry). Used for page content and FAQPage JSON-LD. */
 const FAQ_SCHEMA_ITEMS = [
   { q: 'Do you store my videos or files?', a: "No. We process your files and then delete them. We don't keep your uploads, transcripts, or generated outputs." },
   { q: 'Is my content used for AI training?', a: "No. Your content is used only to deliver the service you requested. We do not use it for training models." },
-  { q: 'Do I need to sign up?', a: "No. You can use the free tier without creating an account. Sign up when you want to track usage or subscribe to a plan." },
-  { q: 'What file formats are supported?', a: "Videos: MP4, MOV, AVI, WebM (and optionally MKV). Subtitles: SRT and VTT. You can also paste a video URL." },
-  { q: 'How does the free tier work?', a: "Free tier includes 60 minutes per month, single language, and a watermark on subtitle exports. No credit card required." },
+  { q: 'Do I need to sign up?', a: "Yes. Sign up for free to try the tools. No credit card required. Upgrade when you need more imports or paid features." },
+  { q: 'Can I transcribe a YouTube video without downloading it?', a: "Yes. Paste any public YouTube URL (youtube.com or youtu.be) into the Video to Transcript tool and we stream the audio and transcribe it directly. No download, no file upload. Works with public videos, Shorts, and age-restricted content with optional cookies. Same features as file upload: speakers, summary, chapters, translate to 6 languages." },
+  { q: 'What file formats are supported?', a: "Videos: MP4, MOV, AVI, WebM (and optionally MKV). Subtitles: SRT and VTT. You can also paste a YouTube URL — no download needed." },
+  { q: 'How does the free tier work?', a: "Sign up for free to get 3 imports per month (resets on the 1st), single language, and a watermark on subtitle exports. No credit card required." },
   { q: 'Can I translate subtitles or transcripts?', a: "Yes. Use Translate Subtitles for SRT/VTT. For transcripts, use the Translate button after generating to view in 6 languages." },
 ]
 
@@ -154,7 +155,7 @@ export function getWebApplicationJsonLd() {
     name: SITE_NAME,
     url: SITE_URL,
     description:
-      'Free online tools: video to transcript (with translation to Hindi, Telugu, Spanish, Chinese, Russian), video to subtitles (SRT/VTT), translate subtitles, fix, burn, compress video. AI-powered. No signup.',
+      'Free online tools: video to transcript (with translation to Hindi, Telugu, Spanish, Chinese, Russian), video to subtitles (SRT/VTT), translate subtitles, fix, burn, compress video. AI-powered. Sign up for free to try.',
     applicationCategory: 'MultimediaApplication',
     offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
   }

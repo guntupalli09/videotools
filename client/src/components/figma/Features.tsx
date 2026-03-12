@@ -11,7 +11,6 @@ import {
   Youtube,
   ChevronRight,
   Zap,
-  Globe,
   Lock,
 } from 'lucide-react';
 import { trackEvent } from '../../lib/analytics';
@@ -47,7 +46,7 @@ const SPOTLIGHT_TOOLS = [
     bullets: ['No file download needed', 'Handles 4-hour videos', 'Works with playlists too'],
     gradient: 'from-red-500 to-rose-600',
     glowColor: 'bg-red-500/10 dark:bg-red-500/5',
-    href: '/video-to-transcript',
+    href: '/youtube-to-transcript',
     outputPreview: null,
     urlPreview: 'https://youtube.com/watch?v=dQw4w9WgXcQ',
   },
@@ -101,8 +100,8 @@ const SECONDARY_TOOLS = [
 
 // Why Videotext trust signals
 const WHY_US = [
-  { icon: Zap, label: 'Up to 20× real-time', desc: 'A 30-minute video transcribes in ~75 seconds' },
-  { icon: Globe, label: '50+ languages', desc: 'Transcribe and translate in any major language' },
+  { icon: Zap, label: 'Fastest video workflow', desc: 'Transcript, subtitles, translate — all in one place' },
+  { icon: Package, label: 'All-in-one toolkit', desc: 'No switching tools. One place for your entire caption workflow.' },
   { icon: Lock, label: 'Privacy first', desc: 'Files are processed and immediately deleted' },
 ];
 
