@@ -51,8 +51,13 @@ function parseNetscape(content) {
   const cookies = []
   for (const raw of content.split('\n')) {
     const line = raw.trim()
-    if (!line || line.startsWith('#')) continue
-    const parts = line.split('\t')
+    if (!line) continue
+    // Netscape encodes HttpOnly cookies with a "#HttpOnly_" prefix — strip it but keep the line.
+    // SID, SAPISID, HSID and other critical auth tokens are often marked HttpOnly.
+    const clean = line.startsWith('#HttpOnly_') ? line.slice('#HttpOnly_'.length) : line
+    // Skip genuine comment lines (after HttpOnly handling above)
+    if (clean.startsWith('#')) continue
+    const parts = clean.split('\t')
     if (parts.length < 7) continue
     const [domain, , cookiePath, secure, expiresStr, name, ...valueParts] = parts
     const value = valueParts.join('\t') // value may contain tabs in edge cases
@@ -60,11 +65,12 @@ function parseNetscape(content) {
     cookies.push({
       name,
       value,
-      // Playwright domain field must not start with a dot
-      domain: domain.startsWith('.') ? domain.slice(1) : domain,
+      // Keep domain as-is (including leading dot). Playwright accepts ".youtube.com" and
+      // needs it to match cookies across subdomains (www, m, studio, etc.).
+      domain,
       path: cookiePath || '/',
       secure: secure === 'TRUE',
-      httpOnly: false,
+      httpOnly: line.startsWith('#HttpOnly_'),
       sameSite: /** @type {'None'} */ ('None'),
       expires: expires > 0 ? expires : -1,
     })
