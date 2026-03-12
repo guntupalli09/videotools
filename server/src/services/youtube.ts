@@ -186,6 +186,26 @@ async function getMetadataViaDataApi(videoId: string): Promise<YoutubeMetadata |
 
 // ─── yt-dlp metadata fallback ─────────────────────────────────────────────────
 
+/**
+ * Extract the real error from yt-dlp stderr.
+ * yt-dlp often prints "[youtube] Extracting URL: ..." first; the actual error is usually on a later line.
+ * When it fails early, stderr may only contain "Extracting URL" (silent-fail) — use full stderr then.
+ */
+function extractYtDlpErrorMessage(stderr: string, exitCode: number): string {
+  const cleaned = stderr.replace(/\x1b\[[0-9;]*m/g, '').trim()
+  const lines = cleaned.split('\n').map((l) => l.trim()).filter(Boolean)
+  const errorLine = lines.find((l) => /^ERROR:/i.test(l) || /error:/i.test(l))
+  if (errorLine) return errorLine
+  if (lines.length > 1) return lines[lines.length - 1]
+  const first = lines[0] || ''
+  // Silent-fail: only "Extracting URL" — stderr has no useful error; include full output for debugging
+  if (/\[youtube\]\s*Extracting URL/i.test(first) && lines.length <= 1) {
+    const full = cleaned.slice(-1200).trim()
+    return full ? `extraction failed (stderr): ${full}` : `yt-dlp exited ${exitCode} (no error text). Try YOUTUBE_COOKIES_FILE or update yt-dlp.`
+  }
+  return first || `yt-dlp exited with code ${exitCode}`
+}
+
 /** Build yt-dlp args array, injecting --cookies if YOUTUBE_COOKIES_FILE is set. */
 function ytDlpArgs(extra: string[]): string[] {
   const cookiesFile = process.env.YOUTUBE_COOKIES_FILE
@@ -194,7 +214,12 @@ function ytDlpArgs(extra: string[]): string[] {
     : []
   // Deno for YouTube n/sig challenge solving (required since ~2025)
   const jsRuntime = ['--js-runtimes', 'deno']
-  return [...cookiesArgs, ...jsRuntime, ...extra]
+  // Try android then web — often bypasses web bot detection (March 2026). Set YOUTUBE_PLAYER_CLIENT="" to disable.
+  const playerClient = process.env.YOUTUBE_PLAYER_CLIENT
+  const extractorArgs = playerClient !== ''  // undefined or custom value → add; "" → disable
+    ? ['--extractor-args', `youtube:player_client=${playerClient || 'android,web'}`]
+    : []
+  return [...cookiesArgs, ...jsRuntime, ...extractorArgs, ...extra]
 }
 
 async function getMetadataViaYtDlp(url: string): Promise<YoutubeMetadata> {
@@ -213,7 +238,7 @@ async function getMetadataViaYtDlp(url: string): Promise<YoutubeMetadata> {
     proc.on('error', (err) => reject(new Error(`yt-dlp spawn error: ${err.message}`)))
     proc.on('close', (code) => {
       if (code !== 0) {
-        const msg = stderr.replace(/\x1b\[[0-9;]*m/g, '').trim().split('\n').find(Boolean) || `yt-dlp exited with code ${code}`
+        const msg = extractYtDlpErrorMessage(stderr, code)
         reject(new Error(msg))
       } else {
         resolve(stdout)
@@ -370,7 +395,9 @@ export function streamYoutubeAudioToFile(
 
     ytProc.on('close', (code) => {
       if (code !== 0 && !settled) {
-        const msg = ytStderrChunks.join('').replace(/\x1b\[[0-9;]*m/g, '').trim().split('\n').find(Boolean) || `yt-dlp exited with code ${code}`
+        const stderr = ytStderrChunks.join('')
+        const msg = extractYtDlpErrorMessage(stderr, code)
+        log.error({ msg: 'yt_stream_stderr', stderr: stderr.slice(-2000), url: url.slice(0, 80) })
         try { ffmpegProc.stdin!.destroy() } catch { /* ignore */ }
         done(new Error(`yt-dlp error: ${msg}`))
       }
