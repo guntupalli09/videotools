@@ -40,7 +40,7 @@ router.post('/checkout', async (req: Request, res: Response) => {
 
     // Frontend URL for Stripe success/cancel redirects. Client sends frontendOrigin; otherwise use BASE_URL (Hetzner).
     const envOrigin = process.env.BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
-    const baseUrl = frontendOrigin || envOrigin || 'https://www.videotext.io'
+    const baseUrl = frontendOrigin || envOrigin || 'https://videotext.io'
     const normalizedPath =
       typeof returnToPath === 'string' && returnToPath.startsWith('/')
         ? returnToPath
@@ -190,7 +190,7 @@ router.post('/portal', async (req: Request, res: Response) => {
     }
     const returnUrl =
       (req.body && typeof req.body.returnUrl === 'string' && req.body.returnUrl) ||
-      (process.env.BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) || 'https://www.videotext.io') + '/pricing'
+      (process.env.BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) || 'https://videotext.io') + '/pricing'
 
     if (!userId) {
       return res.status(401).json({ message: 'Not signed in. Complete a purchase or sign in to manage your subscription.' })

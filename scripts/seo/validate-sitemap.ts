@@ -10,7 +10,7 @@ import { getIndexablePaths } from './registry'
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..')
 const SITEMAP_PATH = path.join(REPO_ROOT, 'client', 'public', 'sitemap.xml')
-const SITE_URL = process.env.SITE_URL || 'https://www.videotext.io'
+const SITE_URL = process.env.SITE_URL || 'https://videotext.io'
 
 function main(): void {
   if (!fs.existsSync(SITEMAP_PATH)) {

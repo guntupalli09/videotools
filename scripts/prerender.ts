@@ -14,11 +14,12 @@
 
 import * as fs from 'fs'
 import * as path from 'path'
+import { getProgrammaticSeoEntries } from '../client/src/lib/generateSeoPages'
 
 const REPO_ROOT = path.resolve(__dirname, '..')
 const DIST_DIR = path.join(REPO_ROOT, 'client', 'dist')
 const REGISTRY_PATH = path.join(REPO_ROOT, 'client', 'src', 'lib', 'seoRegistry.ts')
-const SITE_URL = 'https://www.videotext.io'
+const SITE_URL = 'https://videotext.io'
 const SITE_NAME = 'VideoText'
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`
 
@@ -367,11 +368,19 @@ function main() {
 
   const template = fs.readFileSync(templatePath, 'utf8')
 
-  // Collect all routes
+  // Collect all routes: static + registry (parsed) + programmatic
   const registryEntries = parseRegistryEntries()
+  const programmaticEntries = getProgrammaticSeoEntries()
   const allRoutes: RouteMeta[] = [
     ...STATIC_META,
     ...registryEntries.map((e) => ({
+      path: e.path,
+      title: e.title,
+      description: e.description,
+      faq: e.faq,
+      breadcrumbLabel: e.breadcrumbLabel,
+    })),
+    ...programmaticEntries.map((e) => ({
       path: e.path,
       title: e.title,
       description: e.description,

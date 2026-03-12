@@ -15,7 +15,7 @@ export default defineConfig({
   define: {
     // Ensure build uses VITE_SITE_URL from env (e.g. CI smoke test). Fallback only when unset.
     'import.meta.env.VITE_SITE_URL': JSON.stringify(
-      process.env.VITE_SITE_URL || 'https://www.videotext.io'
+      process.env.VITE_SITE_URL || 'https://videotext.io'
     ),
     // Release ID for debugging (git SHA + build time in CI; "dev" locally)
     'import.meta.env.VITE_RELEASE': JSON.stringify(

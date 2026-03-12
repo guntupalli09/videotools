@@ -8,7 +8,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import { getIndexablePaths } from './registry'
 
-const SITE_URL = process.env.SITE_URL || 'https://www.videotext.io'
+const SITE_URL = process.env.SITE_URL || 'https://videotext.io'
 const REPO_ROOT = path.resolve(__dirname, '..', '..')
 const DEFAULT_OUTPUT = path.join(REPO_ROOT, 'client', 'public', 'sitemap.xml')
 

@@ -46,7 +46,7 @@ const SPOTLIGHT_TOOLS = [
     bullets: ['No file download needed', 'Handles 4-hour videos', 'Works with playlists too'],
     gradient: 'from-red-500 to-rose-600',
     glowColor: 'bg-red-500/10 dark:bg-red-500/5',
-    href: '/video-to-transcript',
+    href: '/youtube-to-transcript',
     outputPreview: null,
     urlPreview: 'https://youtube.com/watch?v=dQw4w9WgXcQ',
   },

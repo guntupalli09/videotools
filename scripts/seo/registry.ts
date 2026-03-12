@@ -4,6 +4,7 @@
  */
 import * as path from 'path'
 import * as fs from 'fs'
+import { getProgrammaticSeoEntries } from '../../client/src/lib/generateSeoPages'
 
 const SCRIPT_DIR = __dirname
 const REPO_ROOT = path.join(SCRIPT_DIR, '..', '..')
@@ -49,9 +50,11 @@ function getIndexableSeoPathsFromRegistry(): string[] {
   return matches.map((m) => m[1]).filter((p) => !nonIndexable.has(p))
 }
 
-/** All routes that should appear in sitemap (static + indexable SEO only). Single source: registry + STATIC_ROUTES. */
+/** All routes that should appear in sitemap (static + indexable SEO + programmatic). No duplicates. */
 export function getIndexablePaths(): string[] {
-  return [...STATIC_ROUTES, ...getIndexableSeoPathsFromRegistry()]
+  const programmaticPaths = getProgrammaticSeoEntries().map((e) => e.path)
+  const all = [...STATIC_ROUTES, ...getIndexableSeoPathsFromRegistry(), ...programmaticPaths]
+  return [...new Set(all)]
 }
 
 /** Intent keys of indexable SEO pages (for decision engine: block CREATE_NEW_PAGE if intentKey exists). */
