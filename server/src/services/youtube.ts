@@ -54,10 +54,10 @@ const YT_DLP_BIN: string = (() => {
  * Using URL.hostname prevents subdomain-spoofing attacks like <youtube.com.evil.com>.
  */
 const ALLOWED_YT_HOSTS = new Set([
-  '<youtube.com>',
-  '<www.youtube.com>',
-  '<m.youtube.com>',
-  '<youtu.be>',
+  'youtube.com',
+  'www.youtube.com',
+  'm.youtube.com',
+  'youtu.be',
 ])
 
 const VIDEO_ID_RE = /^[\w-]{11}$/
@@ -69,12 +69,12 @@ export function normalizeYoutubeUrl(url: string): string {
   const trimmed = url.trim()
   try {
     const u = new URL(trimmed)
-    if (u.hostname.includes('<youtu.be>')) {
+    if (u.hostname.includes('youtu.be')) {
       const id = u.pathname.slice(1).split('/')[0]
-      return id && /^[\w-]{11}$/.test(id) ? <https://www.youtube.com/watch?v=${id}> : trimmed
+      return id && /^[\w-]{11}$/.test(id) ? `https://www.youtube.com/watch?v=${id}` : trimmed
     }
     const id = u.searchParams.get('v')
-    if (id && /^[\w-]{11}$/.test(id)) return <https://www.youtube.com/watch?v=${id}>
+    if (id && /^[\w-]{11}$/.test(id)) return `https://www.youtube.com/watch?v=${id}`
     return trimmed
   } catch {
     return trimmed
@@ -99,12 +99,12 @@ export function extractYoutubeVideoId(url: string): string | null {
     const parsed = new URL(url)
     const host = parsed.hostname
 
-    if (host === '<youtu.be>') {
+    if (host === 'youtu.be') {
       const id = parsed.pathname.slice(1).split('/')[0]
       return VIDEO_ID_RE.test(id) ? id : null
     }
 
-    if (host === '<youtube.com>' || host === '<www.youtube.com>' || host === '<m.youtube.com>') {
+    if (host === 'youtube.com' || host === 'www.youtube.com' || host === 'm.youtube.com') {
       // /watch?v=XXXXXXXXXXX
       const v = parsed.searchParams.get('v')
       if (v && VIDEO_ID_RE.test(v)) return v
@@ -153,11 +153,11 @@ async function getMetadataViaDataApi(videoId: string): Promise<YoutubeMetadata |
   const apiKey = process.env.YOUTUBE_API_KEY
   if (!apiKey) return null
 
-  const url = <https://www.googleapis.com/youtube/v3/videos?id=${encodeURIComponent(videoId)}&part=snippet,contentDetails,liveStreamingDetails&key=${encodeURIComponent(apiKey)}>
+  const url = `https://www.googleapis.com/youtube/v3/videos?id=${encodeURIComponent(videoId)}&part=snippet,contentDetails,liveStreamingDetails&key=${encodeURIComponent(apiKey)}`
   const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
   if (!res.ok) {
     const body = await res.json().catch(() => ({})) as { error?: { message?: string } }
-    throw new Error(YouTube Data API error ${res.status}: ${body?.error?.message ?? res.statusText})
+    throw new Error(`YouTube Data API error ${res.status}: ${body?.error?.message ?? res.statusText}`)
   }
 
   const data = await res.json() as {
@@ -199,7 +199,7 @@ async function getMetadataViaDataApi(videoId: string): Promise<YoutubeMetadata |
     title: item.snippet.title,
     durationSec,
     thumbnailUrl: thumb?.url,
-    videoId: <item.id>,
+    videoId: item.id,
   }
 }
 
@@ -220,9 +220,9 @@ function extractYtDlpErrorMessage(stderr: string, exitCode: number): string {
   // Silent-fail: only "Extracting URL" — stderr has no useful error; include full output for debugging
   if (/\[youtube\]\s*Extracting URL/i.test(first) && lines.length <= 1) {
     const full = cleaned.slice(-1200).trim()
-    return full ? extraction failed (stderr): ${full} : yt-dlp exited ${exitCode} (no error text). Try YOUTUBE_COOKIES_FILE or update yt-dlp.
+    return full ? `extraction failed (stderr): ${full}` : `yt-dlp exited ${exitCode} (no error text). Try YOUTUBE_COOKIES_FILE or update yt-dlp.`
   }
-  return first || yt-dlp exited with code ${exitCode}
+  return first || `yt-dlp exited with code ${exitCode}`
 }
 
 const RETRYABLE_WITH_COOKIES = [
@@ -262,7 +262,7 @@ function ytDlpArgs(extra: string[], useCookiesOverride?: boolean): string[] {
   const jsRuntime = ['--js-runtimes', 'deno']
   const playerClient = process.env.YOUTUBE_PLAYER_CLIENT
   const extractorArgs = playerClient !== ''
-    ? ['--extractor-args', youtube:player_client=${playerClient || 'android,web'}]
+    ? ['--extractor-args', `youtube:player_client=${playerClient || 'android,web'}`]
     : []
   const userAgent = ['--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36']
   return [...cookiesArgs, ...jsRuntime, ...extractorArgs, ...userAgent, ...extra]
@@ -284,7 +284,7 @@ async function getMetadataViaYtDlp(url: string): Promise<YoutubeMetadata> {
     ]))
     proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString() })
     proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
-    proc.on('error', (err) => reject(new Error(yt-dlp spawn error: ${err.message})))
+    proc.on('error', (err) => reject(new Error(`yt-dlp spawn error: ${err.message}`)))
     proc.on('close', (code) => {
       if (code !== 0 && code !== null) {
         reject(new Error(extractYtDlpErrorMessage(stderr, code)))
@@ -313,7 +313,7 @@ async function getMetadataViaYtDlp(url: string): Promise<YoutubeMetadata> {
     title: String(info.title || info.fulltitle || 'YouTube video'),
     durationSec,
     thumbnailUrl: thumb?.url ?? (typeof info.thumbnail === 'string' ? info.thumbnail : undefined),
-    videoId: String(<info.id>),
+    videoId: String(info.id),
   }
 }
 
@@ -388,7 +388,7 @@ export async function fetchYoutubeCaptions(
 ): Promise<YoutubeCaptionResult | null> {
   const cleanUrl = normalizeYoutubeUrl(url)
   const outTemplate = path.join(outputDir, 'yt_%(id)s')
-  const subLangs = language ? ${language},${language}.*,en,en.*,en-US : 'en,en.*,en-US'
+  const subLangs = language ? `${language},${language}.*,en,en.*,en-US` : 'en,en.*,en-US'
 
   return new Promise((resolve) => {
     let stderr = ''
@@ -421,7 +421,7 @@ export async function fetchYoutubeCaptions(
         const segments = parseVttToSegments(content)
         if (segments.length === 0) return resolve(null)
         const fullText = segments.map((s) => s.text).join(' ').replace(/\s+/g, ' ').trim()
-        <log.info>({ msg: 'yt_captions_used', segmentCount: segments.length, url: cleanUrl.slice(0, 50) })
+        log.info({ msg: 'yt_captions_used', segmentCount: segments.length, url: cleanUrl.slice(0, 50) })
         resolve({ fullText, segments })
       } catch {
         try { fs.unlinkSync(vttPath) } catch { /* ignore */ }
@@ -456,7 +456,7 @@ export async function streamYoutubeAudioToFile(
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
     if (isRetryableWithCookiesError(msg) && hasCookies && !skipCookies) {
-      <log.info>({ msg: 'yt_retry_with_cookies', url: cleanUrl.slice(0, 50) })
+      log.info({ msg: 'yt_retry_with_cookies', url: cleanUrl.slice(0, 50) })
       await doStreamYoutubeAudio(cleanUrl, outputPath, true)
     } else {
       throw err
@@ -513,16 +513,16 @@ function doStreamYoutubeAudio(
         done()
       } else {
         const stderr = stderrChunks.join('').slice(-1500)
-        done(new Error(FFmpeg exited ${code}. stderr: ${stderr}))
+        done(new Error(`FFmpeg exited ${code}. stderr: ${stderr}`))
       }
     })
 
-    ffmpegProc.on('error', (err) => done(new Error(FFmpeg spawn error: ${err.message})))
+    ffmpegProc.on('error', (err) => done(new Error(`FFmpeg spawn error: ${err.message}`)))
 
     // EPIPE: FFmpeg exited before we finished writing — handle silently; 'close' fires next
     ffmpegProc.stdin!.on('error', (err: NodeJS.ErrnoException) => {
       if (err.code !== 'EPIPE') {
-        done(new Error(FFmpeg stdin error: ${err.message}))
+        done(new Error(`FFmpeg stdin error: ${err.message}`))
       }
     })
 
@@ -545,7 +545,7 @@ function doStreamYoutubeAudio(
 
     ytProc.on('error', (err) => {
       try { ffmpegProc.stdin!.destroy() } catch { /* ignore */ }
-      done(new Error(yt-dlp spawn error: ${err.message}))
+      done(new Error(`yt-dlp spawn error: ${err.message}`))
     })
 
     ytProc.on('close', (code) => {
@@ -554,13 +554,13 @@ function doStreamYoutubeAudio(
         const msg = extractYtDlpErrorMessage(stderr, code)
         log.error({ msg: 'yt_stream_stderr', stderr: stderr.slice(-2000), url: url.slice(0, 80) })
         try { ffmpegProc.stdin!.destroy() } catch { /* ignore */ }
-        done(new Error(yt-dlp error: ${msg}))
+        done(new Error(`yt-dlp error: ${msg}`))
       }
     })
 
     // ── 3. Pipe yt-dlp stdout → FFmpeg stdin ─────────────────────────────────
     ytProc.stdout.pipe(ffmpegProc.stdin!)
 
-    <log.info>({ msg: 'yt_stream_started', url: url.slice(0, 50) })
+    log.info({ msg: 'yt_stream_started', url: url.slice(0, 50) })
   })
 }
