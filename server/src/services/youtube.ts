@@ -237,7 +237,7 @@ async function getMetadataViaYtDlp(url: string): Promise<YoutubeMetadata> {
     proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
     proc.on('error', (err) => reject(new Error(`yt-dlp spawn error: ${err.message}`)))
     proc.on('close', (code) => {
-      if (code !== 0) {
+      if (code !== 0 && code !== null) {
         const msg = extractYtDlpErrorMessage(stderr, code)
         reject(new Error(msg))
       } else {
@@ -394,7 +394,7 @@ export function streamYoutubeAudioToFile(
     })
 
     ytProc.on('close', (code) => {
-      if (code !== 0 && !settled) {
+      if (code !== 0 && code !== null && !settled) {
         const stderr = ytStderrChunks.join('')
         const msg = extractYtDlpErrorMessage(stderr, code)
         log.error({ msg: 'yt_stream_stderr', stderr: stderr.slice(-2000), url: url.slice(0, 80) })
