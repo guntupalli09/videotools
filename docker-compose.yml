@@ -98,7 +98,10 @@ services:
       FFPROBE_PATH: /usr/bin/ffprobe
       # TTFW: extract first 20s chunk early instead of full-file extract then split
       PROCESSING_V2: "true"
-      # YouTube cookies written by cookie-refresher; read by yt-dlp on every job
+      # YouTube cookies written daily by cookie-refresher; read by yt-dlp on every job.
+      # Set YOUTUBE_SKIP_COOKIES=true to disable cookies entirely
+      # (e.g. if cookies cause "page needs to be reloaded" on your IP).
+      YOUTUBE_SKIP_COOKIES: "false"
       YOUTUBE_COOKIES_FILE: /cookies/youtube.txt
     depends_on:
       postgres: { condition: service_healthy }

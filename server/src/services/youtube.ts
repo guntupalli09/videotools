@@ -186,10 +186,11 @@ async function getMetadataViaDataApi(videoId: string): Promise<YoutubeMetadata |
 
 // ─── yt-dlp metadata fallback ─────────────────────────────────────────────────
 
-/** Build yt-dlp args array, injecting --cookies if YOUTUBE_COOKIES_FILE is set. */
+/** Build yt-dlp args array, injecting --cookies unless YOUTUBE_SKIP_COOKIES=true. */
 function ytDlpArgs(extra: string[]): string[] {
+  const skip = process.env.YOUTUBE_SKIP_COOKIES === 'true'
   const cookiesFile = process.env.YOUTUBE_COOKIES_FILE
-  const cookiesArgs = cookiesFile && fs.existsSync(cookiesFile)
+  const cookiesArgs = !skip && cookiesFile && fs.existsSync(cookiesFile)
     ? ['--cookies', cookiesFile]
     : []
   return [...cookiesArgs, ...extra]
