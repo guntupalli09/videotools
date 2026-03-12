@@ -114,16 +114,20 @@ services:
     command: node dist/workers/videoProcessor.js
 
   # ── Cookie refresher ───────────────────────────────────────────────────────
-  # Headless Chromium logs into YouTube once, then refreshes cookies daily at 03:00 UTC.
+  # Visits youtube.com daily (03:00 UTC) with your existing cookies to keep the
+  # Google session alive. Does NOT automate login — you export cookies once from
+  # your real browser; automation only handles the daily refresh.
   #
-  # First-time setup:
-  #   1. Add YOUTUBE_EMAIL and YOUTUBE_PASSWORD to .env
-  #   2. docker compose up -d cookie-refresher
-  #   3. docker compose logs -f cookie-refresher   # watch for "Wrote N cookies to ..."
+  # First-time setup (and whenever Google expires the session):
+  #   1. Sign into YouTube in Chrome/Firefox on your local machine.
+  #   2. Export cookies with "Get cookies.txt LOCALLY" extension → yt_cookies.txt
+  #   3. Copy to the server volume:
+  #        docker compose cp yt_cookies.txt cookie-refresher:/cookies/youtube.txt
+  #        docker compose restart cookie-refresher worker
   #
-  # After the first successful run the Chrome profile is saved in the yt-cookies
-  # volume. Subsequent runs just visit youtube.com to renew short-lived tokens —
-  # no re-login unless Google invalidates the session (rare; typically months).
+  # Monitor: docker compose logs -f cookie-refresher
+  # Healthy: "[refresh-yt-cookies] OK — wrote N cookies to /cookies/youtube.txt"
+  # Expired: "[refresh-yt-cookies] ERROR: Session expired — re-export cookies from your browser."
   cookie-refresher:
     build:
       context: .
@@ -132,12 +136,11 @@ services:
     restart: unless-stopped
     environment:
       YOUTUBE_COOKIES_FILE: /cookies/youtube.txt
-      CHROME_PROFILE_DIR: /cookies/chrome-profile
       HEADLESS: "true"
-      YOUTUBE_EMAIL: ${YOUTUBE_EMAIL:-}
-      YOUTUBE_PASSWORD: ${YOUTUBE_PASSWORD:-}
+      # Optional: POST to this URL when the session expires (Slack/Discord incoming webhook)
+      ALERT_WEBHOOK: ${ALERT_WEBHOOK:-}
     volumes:
-      - yt-cookies:/cookies   # persists Chrome profile + cookies.txt across restarts
+      - yt-cookies:/cookies   # persists cookies.txt across restarts
     deploy:
       resources:
         limits:

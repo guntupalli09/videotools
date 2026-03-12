@@ -1,31 +1,49 @@
 # Dockerfile.cookie-refresher
 #
-# Lightweight container that runs refresh-yt-cookies.mjs on a cron schedule.
-# Uses the official Playwright base image which includes Chromium + all OS deps.
+# Lightweight container that keeps YouTube cookies fresh.
 #
-# Build:  docker compose build cookie-refresher
-# Run once (setup / debug):  docker compose run --rm cookie-refresher
+# It does NOT automate Google login — that violates Google's policies and
+# triggers account lockouts. Instead it:
+#   1. Loads an existing cookies.txt you exported from your browser
+#   2. Visits youtube.com with those cookies daily (keeps the session alive)
+#   3. Writes back the refreshed Netscape-format cookies for yt-dlp
+#
+# If the session expires you will see an ERROR in the logs and (optionally)
+# an alert webhook call. Re-export cookies from your browser and copy them:
+#   scp yt_cookies.txt user@server:/path/to/project/
+#   docker compose cp yt_cookies.txt cookie-refresher:/cookies/youtube.txt
+#   docker compose restart cookie-refresher worker
+#
+# Build:     docker compose build cookie-refresher
+# First run: docker compose up -d cookie-refresher
+#            docker compose logs -f cookie-refresher  # watch for "OK — wrote N cookies"
 FROM mcr.microsoft.com/playwright:v1.44.0-jammy
 
 WORKDIR /app
 
-# Only copy what the script needs — no full server build required.
 COPY scripts/refresh-yt-cookies.mjs ./refresh-yt-cookies.mjs
 
-# Install only playwright (already in the base image, but this pins the version
-# used by the script and installs the JS bindings).
+# Pin playwright JS bindings to match the base image version
 RUN npm init -y && npm install playwright@1.44.0 --save
 
-# Install cron daemon
-RUN apt-get update && apt-get install -y --no-install-recommends cron && rm -rf /var/lib/apt/lists/*
+# Install cron
+RUN apt-get update && apt-get install -y --no-install-recommends cron \
+    && rm -rf /var/lib/apt/lists/*
 
-# Write cron job: run daily at 03:00 UTC, log to stdout
+# Daily refresh at 03:00 UTC; output goes to container stdout via /proc/1/fd/1
 RUN echo '0 3 * * * root node /app/refresh-yt-cookies.mjs >> /proc/1/fd/1 2>&1' \
     > /etc/cron.d/refresh-yt-cookies \
     && chmod 0644 /etc/cron.d/refresh-yt-cookies \
     && crontab /etc/cron.d/refresh-yt-cookies
 
-# Run once on container start, then hand off to cron.
-# The "|| true" keeps the container alive even if the first run fails
-# (e.g. credentials not set yet — user can docker exec in to set up).
-CMD node /app/refresh-yt-cookies.mjs || true ; cron -f
+# Health check: the cookies file must exist and have been written in the last 26 hours
+# (cron runs every 24h; 26h gives a 2h buffer for transient failures).
+HEALTHCHECK --interval=1h --timeout=10s --start-period=5m --retries=1 \
+  CMD test -f /cookies/youtube.txt \
+      && test $(( $(date +%s) - $(stat -c %Y /cookies/youtube.txt) )) -lt 93600 \
+      || exit 1
+
+# On startup: attempt an immediate refresh so the worker gets fresh cookies right away.
+# If the file doesn't exist yet this exits 1 and logs the "file not found" instructions.
+# The container stays up regardless so cron keeps running and the admin can copy cookies in.
+CMD node /app/refresh-yt-cookies.mjs ; cron -f

@@ -2,31 +2,35 @@
 /**
  * refresh-yt-cookies.mjs
  *
- * Keeps YouTube cookies fresh using a persistent Chromium profile.
+ * Keeps an existing YouTube session alive and exports fresh cookies for yt-dlp.
  *
- * How it works:
- *   1. Launch Chromium with a persistent profile stored in CHROME_PROFILE_DIR.
- *   2. If not logged in (no SAPISID cookie), attempt Google login using
- *      YOUTUBE_EMAIL + YOUTUBE_PASSWORD env vars (only needed on first run
- *      or when the session expires).
- *   3. Visit youtube.com to refresh session cookies.
- *   4. Export all youtube.com cookies in Netscape format to YOUTUBE_COOKIES_FILE.
+ * What it does (and does NOT do):
+ *   ✓ Loads existing cookies from YOUTUBE_COOKIES_FILE into a fresh Chromium context
+ *   ✓ Visits youtube.com — this renews short-lived tokens and keeps the Google
+ *     backend session "active" (preventing idle-expiry)
+ *   ✓ Validates the session is still authenticated (checks for SAPISID cookie)
+ *   ✓ Writes back the updated cookies in Netscape format
+ *   ✗ Does NOT attempt automated Google login — that violates Google's policies,
+ *     triggers bot detection, and causes account lockouts
+ *
+ * When the session expires you will see:
+ *   [refresh-yt-cookies] ERROR: Session expired — re-export cookies from your browser.
+ * At that point, follow the manual steps in the SETUP section below.
+ *
+ * SETUP (one-time, and whenever Google expires the session):
+ *   1. In Chrome/Firefox on your local machine, sign into YouTube.
+ *   2. Install the "Get cookies.txt LOCALLY" extension.
+ *   3. Export cookies for youtube.com → save as yt_cookies.txt
+ *   4. Copy to the server:
+ *        scp yt_cookies.txt user@server:/path/to/project/
+ *   5. Load into the Docker volume:
+ *        docker compose cp yt_cookies.txt cookie-refresher:/cookies/youtube.txt
+ *        docker compose restart cookie-refresher worker
  *
  * Environment variables:
- *   YOUTUBE_COOKIES_FILE   Where to write cookies.txt  (default: /cookies/youtube.txt)
- *   CHROME_PROFILE_DIR     Persistent Chromium profile  (default: /cookies/chrome-profile)
- *   YOUTUBE_EMAIL          Google account email          (required for first-run login)
- *   YOUTUBE_PASSWORD       Google account password       (required for first-run login)
- *   HEADLESS               "false" to see the browser   (default: "true")
- *
- * After login the session lasts months; the daily cron only visits YouTube
- * to refresh short-lived cookies — no re-login needed.
- *
- * Run manually:
- *   node scripts/refresh-yt-cookies.mjs
- *
- * Run via Docker (see docker-compose.yml cookie-refresher service):
- *   docker compose run --rm cookie-refresher
+ *   YOUTUBE_COOKIES_FILE   Netscape cookies file path  (default: /cookies/youtube.txt)
+ *   ALERT_WEBHOOK          Optional URL to POST when session expires (Slack/Discord/etc.)
+ *   HEADLESS               Set "false" to watch the browser (default: "true")
  */
 
 import { chromium } from 'playwright'
@@ -34,98 +38,131 @@ import fs from 'fs'
 import path from 'path'
 
 const COOKIES_FILE = process.env.YOUTUBE_COOKIES_FILE || '/cookies/youtube.txt'
-const PROFILE_DIR  = process.env.CHROME_PROFILE_DIR   || '/cookies/chrome-profile'
-const HEADLESS     = process.env.HEADLESS !== 'false'
-const EMAIL        = process.env.YOUTUBE_EMAIL    || ''
-const PASSWORD     = process.env.YOUTUBE_PASSWORD || ''
+const ALERT_WEBHOOK = process.env.ALERT_WEBHOOK || ''
+const HEADLESS = process.env.HEADLESS !== 'false'
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Netscape ↔ Playwright cookie conversion ──────────────────────────────────
 
-/** Convert Playwright cookies → Netscape cookies.txt format (for yt-dlp). */
+/**
+ * Parse a Netscape-format cookies.txt into Playwright cookie objects.
+ * Format per line: domain \t includeSubdomains \t path \t secure \t expiry \t name \t value
+ */
+function parseNetscape(content) {
+  const cookies = []
+  for (const raw of content.split('\n')) {
+    const line = raw.trim()
+    if (!line || line.startsWith('#')) continue
+    const parts = line.split('\t')
+    if (parts.length < 7) continue
+    const [domain, , cookiePath, secure, expiresStr, name, ...valueParts] = parts
+    const value = valueParts.join('\t') // value may contain tabs in edge cases
+    const expires = parseInt(expiresStr, 10)
+    cookies.push({
+      name,
+      value,
+      // Playwright domain field must not start with a dot
+      domain: domain.startsWith('.') ? domain.slice(1) : domain,
+      path: cookiePath || '/',
+      secure: secure === 'TRUE',
+      httpOnly: false,
+      sameSite: /** @type {'None'} */ ('None'),
+      expires: expires > 0 ? expires : -1,
+    })
+  }
+  return cookies
+}
+
+/**
+ * Serialize Playwright cookie objects back to Netscape format for yt-dlp.
+ * yt-dlp expects the domain column to start with a dot for domain cookies.
+ */
 function toNetscape(cookies) {
-  const lines = ['# Netscape HTTP Cookie File', '# Generated by refresh-yt-cookies.mjs', '']
+  const lines = [
+    '# Netscape HTTP Cookie File',
+    '# Automatically refreshed by refresh-yt-cookies.mjs',
+    '# Do not edit — changes will be overwritten on next refresh.',
+    '',
+  ]
   for (const c of cookies) {
-    const domain    = c.domain.startsWith('.') ? c.domain : `.${c.domain}`
-    const httpOnly  = 'TRUE'           // yt-dlp uses this field but doesn't validate it
-    const secure    = c.secure ? 'TRUE' : 'FALSE'
-    const expiry    = c.expires > 0 ? Math.floor(c.expires) : 2147483647
-    lines.push([domain, httpOnly, c.path, secure, expiry, c.name, c.value].join('\t'))
+    const domain = c.domain.startsWith('.') ? c.domain : `.${c.domain}`
+    const secure = c.secure ? 'TRUE' : 'FALSE'
+    const expiry = c.expires > 0 ? Math.floor(c.expires) : 2147483647
+    lines.push([domain, 'TRUE', c.path || '/', secure, expiry, c.name, c.value].join('\t'))
   }
   return lines.join('\n') + '\n'
 }
 
-function ensureDir(p) {
-  const dir = path.dirname(p)
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-}
+// ── Validation ────────────────────────────────────────────────────────────────
 
-/** Check whether the stored profile already has a valid YouTube session. */
-async function isLoggedIn(context) {
-  const cookies = await context.cookies(['https://www.youtube.com'])
+/** Returns true when cookies include a SAPISID or SID — the core Google session tokens. */
+function hasActiveSession(cookies) {
   return cookies.some(c => c.name === 'SAPISID' || c.name === 'SID')
 }
 
-/** Navigate with a generous timeout; resolves on domcontentloaded so we don't wait forever. */
-async function go(page, url) {
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45_000 })
+/** Basic sanity check on a parsed Netscape file: must have at least one YouTube cookie. */
+function validateCookieFile(cookies) {
+  if (cookies.length === 0) throw new Error('Cookie file is empty or could not be parsed.')
+  const ytCookies = cookies.filter(c => c.domain.includes('youtube.com'))
+  if (ytCookies.length === 0) throw new Error('Cookie file contains no youtube.com cookies.')
 }
 
-// ── Login flow ────────────────────────────────────────────────────────────────
+// ── Alert helper ──────────────────────────────────────────────────────────────
 
-async function login(page) {
-  if (!EMAIL || !PASSWORD) {
-    console.error(
-      '[refresh-yt-cookies] Session expired and YOUTUBE_EMAIL/YOUTUBE_PASSWORD are not set.\n' +
-      'Either set those env vars, or export fresh cookies manually and place them at:\n' +
-      `  ${COOKIES_FILE}`
-    )
-    process.exit(1)
-  }
-
-  console.log('[refresh-yt-cookies] Logging in to Google...')
-  await go(page, 'https://accounts.google.com/signin/v2/identifier?service=youtube')
-
-  // Email step
-  await page.waitForSelector('input[type="email"]', { timeout: 20_000 })
-  await page.fill('input[type="email"]', EMAIL)
-  await page.click('#identifierNext, button[jsname="LgbsSe"]')
-
-  // Password step
-  await page.waitForSelector('input[type="password"]', { timeout: 20_000 })
-  await page.fill('input[type="password"]', PASSWORD)
-  await page.click('#passwordNext, button[jsname="LgbsSe"]')
-
-  // Wait for redirect to YouTube or Google home page
+async function sendAlert(message) {
+  if (!ALERT_WEBHOOK) return
   try {
-    await page.waitForURL(/youtube\.com|google\.com/, { timeout: 30_000 })
-  } catch {
-    // Check for 2FA / CAPTCHA
-    const url = page.url()
-    console.error(
-      `[refresh-yt-cookies] Login did not complete. Current URL: ${url}\n` +
-      'Google may have triggered a CAPTCHA or 2-step verification.\n' +
-      'Try running with HEADLESS=false to complete login manually, then restart.'
-    )
-    process.exit(1)
+    await fetch(ALERT_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: message }),
+      signal: AbortSignal.timeout(10_000),
+    })
+    console.log('[refresh-yt-cookies] Alert sent to webhook.')
+  } catch (err) {
+    console.warn('[refresh-yt-cookies] Could not send alert:', err.message)
   }
-  console.log('[refresh-yt-cookies] Login successful.')
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log(`[refresh-yt-cookies] Starting. Profile: ${PROFILE_DIR}  Cookies: ${COOKIES_FILE}`)
-  ensureDir(PROFILE_DIR + '/marker')
-  ensureDir(COOKIES_FILE)
+  // ── 1. Load existing cookies ─────────────────────────────────────────────
+  if (!fs.existsSync(COOKIES_FILE)) {
+    const msg =
+      `[refresh-yt-cookies] ERROR: ${COOKIES_FILE} not found.\n` +
+      'Export cookies from your browser and copy them here. See SETUP instructions at the top of this file.'
+    console.error(msg)
+    await sendAlert(`videotools: YouTube cookie file missing (${COOKIES_FILE}). Transcriptions may fail until cookies are uploaded.`)
+    process.exit(1)
+  }
 
-  const context = await chromium.launchPersistentContext(PROFILE_DIR, {
+  let existingCookies
+  try {
+    const raw = fs.readFileSync(COOKIES_FILE, 'utf-8')
+    existingCookies = parseNetscape(raw)
+    validateCookieFile(existingCookies)
+  } catch (err) {
+    const msg = `[refresh-yt-cookies] ERROR: Could not parse cookie file: ${err.message}`
+    console.error(msg)
+    await sendAlert(`videotools: YouTube cookie file is invalid. Re-export from your browser. Error: ${err.message}`)
+    process.exit(1)
+  }
+
+  console.log(`[refresh-yt-cookies] Loaded ${existingCookies.length} cookies from ${COOKIES_FILE}`)
+
+  // ── 2. Launch browser and inject cookies ─────────────────────────────────
+  const browser = await chromium.launch({
     headless: HEADLESS,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
+      // Avoid trivial fingerprinting via automation flag
       '--disable-blink-features=AutomationControlled',
     ],
+  })
+
+  const context = await browser.newContext({
     userAgent:
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
       '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -133,34 +170,47 @@ async function main() {
     timezoneId: 'America/New_York',
   })
 
-  const page = await context.newPage()
-
   try {
-    if (!(await isLoggedIn(context))) {
-      console.log('[refresh-yt-cookies] No active session found — attempting login.')
-      await login(page)
-    } else {
-      console.log('[refresh-yt-cookies] Existing session found — refreshing cookies.')
-    }
+    await context.addCookies(existingCookies)
 
-    // Visit YouTube to renew short-lived cookies
-    await go(page, 'https://www.youtube.com')
-    // Small pause so YouTube can set all cookies
+    // ── 3. Visit YouTube to renew the session on Google's backend ────────────
+    const page = await context.newPage()
+    await page.goto('https://www.youtube.com', {
+      waitUntil: 'domcontentloaded',
+      timeout: 45_000,
+    })
+    // Brief pause — lets YouTube set any new short-lived cookies
     await new Promise(r => setTimeout(r, 3000))
 
-    if (!(await isLoggedIn(context))) {
-      console.error('[refresh-yt-cookies] Still not logged in after visiting YouTube.')
-      await context.close()
+    // ── 4. Validate session is still active ──────────────────────────────────
+    const currentCookies = await context.cookies()
+    if (!hasActiveSession(currentCookies)) {
+      const msg =
+        '[refresh-yt-cookies] ERROR: Session expired — Google no longer recognises these cookies.\n' +
+        'Re-export cookies from your browser and copy them to the server. See SETUP in this file.'
+      console.error(msg)
+      await sendAlert(
+        'videotools: YouTube session expired. Re-export cookies from your browser and run:\n' +
+        `  docker compose cp yt_cookies.txt cookie-refresher:/cookies/youtube.txt\n` +
+        `  docker compose restart cookie-refresher worker`
+      )
       process.exit(1)
     }
 
-    // Export cookies to Netscape format
-    const cookies = await context.cookies(['https://www.youtube.com', 'https://.youtube.com'])
-    const netscape = toNetscape(cookies)
-    fs.writeFileSync(COOKIES_FILE, netscape, 'utf-8')
-    console.log(`[refresh-yt-cookies] Wrote ${cookies.length} cookies to ${COOKIES_FILE}`)
+    // ── 5. Write refreshed cookies back ──────────────────────────────────────
+    const ytCookies = currentCookies.filter(c =>
+      c.domain.includes('youtube.com') || c.domain.includes('google.com')
+    )
+    const netscape = toNetscape(ytCookies)
+
+    // Atomic write: write to temp file then rename (prevents partial reads)
+    const tmp = COOKIES_FILE + '.tmp'
+    fs.writeFileSync(tmp, netscape, 'utf-8')
+    fs.renameSync(tmp, COOKIES_FILE)
+
+    console.log(`[refresh-yt-cookies] OK — wrote ${ytCookies.length} cookies to ${COOKIES_FILE}`)
   } finally {
-    await context.close()
+    await browser.close()
   }
 }
 
