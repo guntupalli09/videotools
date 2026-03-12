@@ -698,7 +698,7 @@ async function processJob(job: import('bull').Job<JobData>) {
           const processedSeconds =
             data.trimmedStart !== undefined && data.trimmedEnd !== undefined
               ? Math.max(0, data.trimmedEnd - data.trimmedStart)
-              : durationCheck.duration || 0
+              : totalVideoDurationSec || 0
           result = {
             downloadUrl: primaryDownloadUrl,
             fileName: primaryFileName,
