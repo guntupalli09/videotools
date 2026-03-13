@@ -535,6 +535,20 @@ async function fetchCaptionsViaPlayerApiClient(
     if (!playerRes.ok) return null
 
     const playerData = await playerRes.json() as Record<string, any>
+
+    // Detect bot-check / login-required responses (HTTP 200 but no usable data)
+    const playabilityStatus = playerData?.playabilityStatus?.status as string | undefined
+    if (playabilityStatus && playabilityStatus !== 'OK' && playabilityStatus !== 'LIVE_STREAM_OFFLINE') {
+      log.warn({
+        msg: 'yt_player_api_blocked',
+        videoId,
+        clientName,
+        status: playabilityStatus,
+        reason: playerData?.playabilityStatus?.reason ?? 'unknown',
+      })
+      return null
+    }
+
     const tracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks as Array<{
       baseUrl: string
       languageCode: string
