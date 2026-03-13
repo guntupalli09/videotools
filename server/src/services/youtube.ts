@@ -52,6 +52,15 @@ const YT_DLP_BIN: string = (() => {
   return 'yt-dlp'
 })()
 
+/** Deno binary path — used for YouTube n/sig JS challenge decryption. Checked once at startup. */
+const DENO_BIN: string | null = (() => {
+  // Dockerfile installs to /usr/local/bin/deno; also check common PATH locations
+  for (const p of ['/usr/local/bin/deno', '/usr/bin/deno', process.env.DENO_INSTALL ? `${process.env.DENO_INSTALL}/bin/deno` : null].filter(Boolean) as string[]) {
+    if (fs.existsSync(p)) return p
+  }
+  return null
+})()
+
 // ─── URL Validation ──────────────────────────────────────────────────────────
 
 /**
@@ -282,7 +291,8 @@ function ytDlpArgs(
   const proxyUrl = process.env.YOUTUBE_PROXY?.trim()
   const useProxy = useProxyOverride ?? true
   const proxyArgs = proxyUrl && useProxy ? ['--proxy', proxyUrl] : []
-  const jsRuntime = ['--js-runtimes', 'deno']
+  // Only pass --js-runtimes if Deno is actually installed — avoids "deno not found" yt-dlp errors
+  const jsRuntime = DENO_BIN ? ['--js-runtimes', 'deno'] : []
   const playerClient = process.env.YOUTUBE_PLAYER_CLIENT
   const extractorArgs = playerClient !== ''
     ? ['--extractor-args', `youtube:player_client=${playerClient || 'android,web'}`]
@@ -620,6 +630,10 @@ async function fetchCaptionsViaPlayerApi(
 
 // ─── Fallback: yt-dlp caption fetch ──────────────────────────────────────────
 
+/** Hard timeout for yt-dlp caption fetch (60 seconds). yt-dlp can hang indefinitely
+ *  when Deno runtime initialization stalls or YouTube network requests hang. */
+const CAPTION_YTDLP_TIMEOUT_MS = 60_000
+
 async function fetchCaptionsViaYtDlp(
   cleanUrl: string,
   outputDir: string,
@@ -631,6 +645,21 @@ async function fetchCaptionsViaYtDlp(
   const subLangs = langOrder.map((l) => `${l},${l}.*`).join(',') + ',en-US'
 
   return new Promise((resolve) => {
+    let settled = false
+    const done = (result: YoutubeCaptionResult | null) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeoutHandle)
+      resolve(result)
+    }
+
+    // Hard timeout: kill yt-dlp if it hangs (Deno init stall, network hang, etc.)
+    const timeoutHandle = setTimeout(() => {
+      log.warn({ msg: 'yt_captions_ytdlp_timeout', url: cleanUrl.slice(0, 50) })
+      try { proc.kill('SIGKILL') } catch { /* ignore */ }
+      done(null)
+    }, CAPTION_YTDLP_TIMEOUT_MS)
+
     let stderr = ''
     // Pass false for useCookies — caption endpoints don't need cookies
     const proc = spawn(YT_DLP_BIN, ytDlpArgs([
@@ -647,26 +676,26 @@ async function fetchCaptionsViaYtDlp(
     ], false))
     proc.stdout.on('data', () => {})
     proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
-    proc.on('error', () => resolve(null))
+    proc.on('error', () => done(null))
     proc.on('close', (code) => {
       if (code !== 0 && code !== null) {
         log.debug({ msg: 'yt_captions_ytdlp_unavailable', stderr: stderr.slice(-400) })
-        return resolve(null)
+        return done(null)
       }
       const files = fs.readdirSync(outputDir).filter((f) => f.endsWith('.vtt') && f.startsWith('yt_'))
-      if (files.length === 0) return resolve(null)
+      if (files.length === 0) return done(null)
       const vttPath = path.join(outputDir, files[0])
       try {
         const content = fs.readFileSync(vttPath, 'utf-8')
         fs.unlinkSync(vttPath)
         const segments = parseVttToSegments(content)
-        if (segments.length === 0) return resolve(null)
+        if (segments.length === 0) return done(null)
         const fullText = segments.map((s) => s.text).join(' ').replace(/\s+/g, ' ').trim()
         log.info({ msg: 'yt_caption_ytdlp_hit', segmentCount: segments.length, url: cleanUrl.slice(0, 50) })
-        resolve({ fullText, segments })
+        done({ fullText, segments })
       } catch {
         try { fs.unlinkSync(vttPath) } catch { /* ignore */ }
-        resolve(null)
+        done(null)
       }
     })
   })
