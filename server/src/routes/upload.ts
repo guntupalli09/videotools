@@ -1388,6 +1388,7 @@ router.post('/youtube', async (req: Request, res: Response) => {
       youtubeTitle: ytMeta.title,
       youtubeThumbnailUrl: ytMeta.thumbnailUrl,
       youtubeDurationSec: ytMeta.durationSec,
+      youtubeDefaultLanguage: ytMeta.defaultLanguage,
       originalName: ytMeta.title.replace(/[^\w\s.\-]/g, '_').trim() + '.wav',
       options: jobOptions,
       webhookUrl: typeof webhookUrl === 'string' && webhookUrl.trim() ? webhookUrl.trim() : undefined,

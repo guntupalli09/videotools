@@ -22,3 +22,6 @@ export const STREAM_UPLOAD_ASSEMBLY = isFlagEnabled(process.env.STREAM_UPLOAD_AS
 
 /** Phase 7: Higher worker concurrency (WORKER_CONCURRENCY_V2) */
 export const WORKER_CONCURRENCY_V2 = isFlagEnabled(process.env.WORKER_CONCURRENCY_V2)
+
+/** Phase 8: Separate queues for YouTube pipeline so captions never wait behind Whisper (YOUTUBE_QUEUE_SEPARATION) */
+export const YOUTUBE_QUEUE_SEPARATION = isFlagEnabled(process.env.YOUTUBE_QUEUE_SEPARATION)
