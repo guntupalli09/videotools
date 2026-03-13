@@ -5,23 +5,28 @@
  *   1. URL validation — strict hostname allow-list, no regex tricks (prevents subdomain spoofing)
  *   2. Metadata fetch — YouTube Data API v3 (primary, official, zero bot-detection) with
  *      yt-dlp --dump-json fallback when no API key is configured.
- *   3. Audio streaming — yt-dlp (audio-only stdout) → FFmpeg stdin → 16 kHz mono WAV (PCM)
- *      WAV/PCM is lossless and avoids MP3 compression artefacts that reduce Whisper accuracy.
+ *   3. Caption fetch — YouTube player API first (no bot detection, works from datacenter IPs);
+ *      yt-dlp fallback when captions unavailable.
+ *   4. Audio streaming — yt-dlp (audio-only stdout) → FFmpeg stdin → 16 kHz mono WAV (PCM)
+ *      when captions are insufficient. WAV/PCM is lossless for Whisper accuracy.
  *
- * Architecture:
+ * Architecture (same approach as Descript, TurboScribe):
  *   Metadata:  YouTube Data API v3 → (fallback) yt-dlp --dump-json
- *   Streaming: yt-dlp -f bestaudio -o - | ffmpeg → 16 kHz mono WAV
+ *   Captions: YouTube player API (youtubei/v1/player) → (fallback) yt-dlp --write-auto-sub
+ *   Audio:    yt-dlp -f bestaudio -o - | ffmpeg → 16 kHz mono WAV (only when no captions)
  *
- * Bot-detection strategy (same approach used by Descript, Otter.ai, etc.):
- *   - Metadata: YouTube Data API v3 is an official OAuth2/API-key endpoint — never blocked.
- *     Set YOUTUBE_API_KEY env var. Free quota: 10,000 units/day; video.list costs 1 unit.
- *   - Streaming: yt-dlp with a real account cookies file bypasses all bot checks.
- *     Set YOUTUBE_COOKIES_FILE env var to the path of a Netscape-format cookies.txt exported
- *     from a real Google account (e.g. via "Get cookies.txt LOCALLY" Chrome extension).
- *     Without cookies, yt-dlp still works for most public videos but may fail on some regions.
+ * Bot-detection strategy:
+ *   - Metadata: YOUTUBE_API_KEY → official API, never blocked.
+ *   - Captions:  Player API uses public endpoints — works from datacenter IPs.
+ *   - Audio:    yt-dlp from datacenter IPs is often blocked. Solutions:
+ *     1. YOUTUBE_PROXY — residential proxy (http://user:pass@host:port or socks5://...).
+ *        Same approach used by production transcription services.
+ *     2. YOUTUBE_COOKIES_FILE — cookies from a real account; helps but may still fail
+ *        when IP differs from where cookies were created.
  *
  * The API layer only calls getYoutubeMetadata() (< 2 s, no download).
- * The worker calls streamYoutubeAudioToFile() which does the full stream → encode.
+ * The worker calls fetchYoutubeCaptions() first; if captions suffice, skips audio entirely.
+ * Otherwise calls streamYoutubeAudioToFile() for Whisper transcription.
  */
 
 import { spawn } from 'child_process'
@@ -140,6 +145,8 @@ export interface YoutubeMetadata {
   durationSec: number
   thumbnailUrl: string | undefined
   videoId: string
+  /** Video's default/original language from YouTube (e.g. "en"). Used for caption fallback. */
+  defaultLanguage?: string
 }
 
 // ─── YouTube Data API v3 metadata (primary — official, zero bot-detection) ───
@@ -163,7 +170,12 @@ async function getMetadataViaDataApi(videoId: string): Promise<YoutubeMetadata |
   const data = await res.json() as {
     items?: Array<{
       id: string
-      snippet: { title: string; thumbnails: Record<string, { url: string; width: number }> }
+      snippet: {
+        title: string
+        thumbnails: Record<string, { url: string; width: number }>
+        defaultAudioLanguage?: string
+        defaultLanguage?: string
+      }
       contentDetails: { duration: string }  // ISO 8601, e.g. PT1H3M42S
       liveStreamingDetails?: { actualEndTime?: string }
     }>
@@ -195,11 +207,14 @@ async function getMetadataViaDataApi(videoId: string): Promise<YoutubeMetadata |
   const thumbs = item.snippet.thumbnails
   const thumb = thumbs.medium ?? thumbs.high ?? thumbs.default ?? Object.values(thumbs)[0]
 
+  const defaultLanguage = item.snippet.defaultAudioLanguage ?? item.snippet.defaultLanguage
+
   return {
     title: item.snippet.title,
     durationSec,
     thumbnailUrl: thumb?.url,
     videoId: item.id,
+    defaultLanguage,
   }
 }
 
@@ -248,24 +263,32 @@ function isRetryableWithCookiesError(msg: string): boolean {
 }
 
 /**
- * Build yt-dlp args array, injecting --cookies unless YOUTUBE_SKIP_COOKIES=true.
+ * Build yt-dlp args array, injecting --cookies, --proxy, etc.
  * useCookiesOverride: false = never use cookies, true = always use if file exists,
  * undefined = respect YOUTUBE_SKIP_COOKIES env var.
+ * useProxyOverride: false = never use proxy (for retry pattern: direct first, proxy on 3rd attempt).
  */
-function ytDlpArgs(extra: string[], useCookiesOverride?: boolean): string[] {
+function ytDlpArgs(
+  extra: string[],
+  useCookiesOverride?: boolean,
+  useProxyOverride?: boolean
+): string[] {
   const skipCookies = process.env.YOUTUBE_SKIP_COOKIES === 'true' || process.env.YOUTUBE_SKIP_COOKIES === '1'
   const cookiesFile = process.env.YOUTUBE_COOKIES_FILE
   const useCookies = useCookiesOverride ?? !skipCookies
   const cookiesArgs = useCookies && cookiesFile && fs.existsSync(cookiesFile)
     ? ['--cookies', cookiesFile]
     : []
+  const proxyUrl = process.env.YOUTUBE_PROXY?.trim()
+  const useProxy = useProxyOverride ?? true
+  const proxyArgs = proxyUrl && useProxy ? ['--proxy', proxyUrl] : []
   const jsRuntime = ['--js-runtimes', 'deno']
   const playerClient = process.env.YOUTUBE_PLAYER_CLIENT
   const extractorArgs = playerClient !== ''
     ? ['--extractor-args', `youtube:player_client=${playerClient || 'android,web'}`]
     : []
   const userAgent = ['--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36']
-  return [...cookiesArgs, ...jsRuntime, ...extractorArgs, ...userAgent, ...extra]
+  return [...proxyArgs, ...cookiesArgs, ...jsRuntime, ...extractorArgs, ...userAgent, ...extra]
 }
 
 // ─── yt-dlp metadata fallback ─────────────────────────────────────────────────
@@ -309,11 +332,14 @@ async function getMetadataViaYtDlp(url: string): Promise<YoutubeMetadata> {
   const thumbs: Array<{ url: string; width?: number }> = info.thumbnails || []
   const thumb = thumbs.find((t) => t.width && t.width <= 640) ?? thumbs[thumbs.length - 1]
 
+  const defaultLanguage = typeof info.language === 'string' ? info.language : undefined
+
   return {
     title: String(info.title || info.fulltitle || 'YouTube video'),
     durationSec,
     thumbnailUrl: thumb?.url ?? (typeof info.thumbnail === 'string' ? info.thumbnail : undefined),
     videoId: String(info.id),
+    defaultLanguage,
   }
 }
 
@@ -404,25 +430,84 @@ export interface YoutubeCaptionResult {
   segments: { start: number; end: number; text: string }[]
 }
 
+/** Language fallback order: requested → English → original → auto. */
+function getCaptionLanguageOrder(requested?: string, original?: string): string[] {
+  const req = (requested || 'en').split('-')[0].toLowerCase()
+  const orig = original?.split('-')[0].toLowerCase()
+  const seen = new Set<string>()
+  const order: string[] = []
+  for (const lang of [req, 'en', orig].filter((x): x is string => Boolean(x))) {
+    if (!seen.has(lang)) {
+      seen.add(lang)
+      order.push(lang)
+    }
+  }
+  return order
+}
+
+/** Caption quality validation. Rules: coverage >= 70%, max_gap <= 20s, segment_count >= 10. */
+export function validateCaptionQuality(
+  segments: { start: number; end: number; text: string }[],
+  videoDurationSec: number
+): { valid: boolean; coverage: number; maxGap: number; segmentCount: number } {
+  const segmentCount = segments.length
+  const captionDuration = segments.reduce((sum, s) => sum + (s.end - s.start), 0)
+  const coverage = videoDurationSec > 0 ? captionDuration / videoDurationSec : 0
+  const sorted = [...segments].sort((a, b) => a.start - b.start)
+  let maxGap = 0
+  for (let i = 1; i < sorted.length; i++) {
+    const gap = sorted[i].start - sorted[i - 1].end
+    if (gap > maxGap) maxGap = gap
+  }
+  const valid = coverage >= 0.70 && maxGap <= 20 && segmentCount >= 10
+  return { valid, coverage, maxGap, segmentCount }
+}
+
+// ─── Timedtext endpoint (legacy, no token for some videos) ───────────────────
+
+/**
+ * Fetch captions via YouTube's undocumented timedtext API.
+ * Works for some videos without token; often fails for newer content. Fast cheap request.
+ */
+async function fetchTimedtextCaptions(
+  videoId: string,
+  language: string = 'en'
+): Promise<YoutubeCaptionResult | null> {
+  try {
+    const url = `https://www.youtube.com/api/timedtext?v=${encodeURIComponent(videoId)}&lang=${encodeURIComponent(language)}&fmt=vtt`
+    const res = await fetch(url, { signal: AbortSignal.timeout(8_000) })
+    if (!res.ok) return null
+    const content = await res.text()
+    if (!content.includes('WEBVTT')) return null
+    const segments = parseVttToSegments(content)
+    if (segments.length === 0) return null
+    const fullText = segments.map((s) => s.text).join(' ').replace(/\s+/g, ' ').trim()
+    log.info({ msg: 'yt_caption_timedtext_hit', videoId, language, segmentCount: segments.length })
+    return { fullText, segments }
+  } catch {
+    return null
+  }
+}
+
 // ─── Primary: YouTube player API (no yt-dlp, no bot detection) ───────────────
 //
 // YouTube's internal player API returns pre-signed caption track URLs.
 // These don't require authentication and work from any IP — including datacenter.
-// This is the same approach used by Descript, Turboscribe, and other professional
-// transcription services. Set YOUTUBE_INNERTUBE_KEY to override the default client key.
 
+const YT_CLIENT_NAMES = ['WEB', 'ANDROID', 'TVHTML5', 'IOS'] as const
 const YT_CLIENT_VERSION = '2.20240304.01.00'
 
 /**
- * Fetch caption tracks from YouTube's internal player API, then download the VTT.
+ * Fetch caption tracks from YouTube's internal player API for a given client.
  * No yt-dlp, no cookies, no bot detection — works reliably from datacenter IPs.
  */
-async function fetchCaptionsViaPlayerApi(
+async function fetchCaptionsViaPlayerApiClient(
   videoId: string,
-  language?: string
+  language: string | undefined,
+  clientName: (typeof YT_CLIENT_NAMES)[number],
+  defaultLanguage?: string
 ): Promise<YoutubeCaptionResult | null> {
   try {
-    // Step 1: Get player response (contains signed caption track URLs)
     const playerRes = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
       method: 'POST',
       headers: {
@@ -437,20 +522,17 @@ async function fetchCaptionsViaPlayerApi(
         videoId,
         context: {
           client: {
-            clientName: 'WEB',
+            clientName,
             clientVersion: YT_CLIENT_VERSION,
             hl: 'en',
             gl: 'US',
           },
         },
       }),
-      signal: AbortSignal.timeout(15_000),
+      signal: AbortSignal.timeout(12_000),
     })
 
-    if (!playerRes.ok) {
-      log.debug({ msg: 'yt_player_api_error', status: playerRes.status, videoId })
-      return null
-    }
+    if (!playerRes.ok) return null
 
     const playerData = await playerRes.json() as Record<string, any>
     const tracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks as Array<{
@@ -459,24 +541,24 @@ async function fetchCaptionsViaPlayerApi(
       kind?: string
     }> | undefined
 
-    if (!tracks || tracks.length === 0) {
-      log.debug({ msg: 'yt_no_caption_tracks', videoId })
-      return null
-    }
+    if (!tracks || tracks.length === 0) return null
 
-    // Step 2: Pick the best track (prefer exact lang match → prefix → auto-generated en → any)
-    const lang = (language || 'en').split('-')[0].toLowerCase()
-    const track =
-      tracks.find((t) => t.languageCode.toLowerCase() === lang) ||
-      tracks.find((t) => t.languageCode.toLowerCase().startsWith(lang)) ||
-      tracks.find((t) => t.kind === 'asr' && t.languageCode === 'en') ||
-      tracks.find((t) => t.kind === 'asr') ||
-      tracks.find((t) => t.languageCode === 'en') ||
-      tracks[0]
+    const langOrder = getCaptionLanguageOrder(language, defaultLanguage)
+    const manual = tracks.filter((t) => t.kind !== 'asr')
+    const asr = tracks.filter((t) => t.kind === 'asr')
+    const byLangOrder = (arr: typeof tracks) => {
+      for (const lang of langOrder) {
+        const t =
+          arr.find((x) => x.languageCode.toLowerCase() === lang) ||
+          arr.find((x) => x.languageCode.toLowerCase().startsWith(lang))
+        if (t) return t
+      }
+      return arr.find((x) => x.languageCode === 'en') ?? arr[0]
+    }
+    const track = byLangOrder(manual) ?? byLangOrder(asr) ?? byLangOrder(tracks)
 
     if (!track?.baseUrl) return null
 
-    // Step 3: Fetch VTT (add fmt=vtt; YouTube baseUrl may already have params)
     const captionUrl = track.baseUrl.includes('fmt=')
       ? track.baseUrl.replace(/fmt=[^&]+/, 'fmt=vtt')
       : `${track.baseUrl}&fmt=vtt`
@@ -492,17 +574,34 @@ async function fetchCaptionsViaPlayerApi(
 
     const fullText = segments.map((s) => s.text).join(' ').replace(/\s+/g, ' ').trim()
     log.info({
-      msg: 'yt_captions_api_hit',
+      msg: 'yt_caption_player_hit',
       videoId,
+      clientName,
       languageCode: track.languageCode,
       kind: track.kind ?? 'manual',
       segmentCount: segments.length,
     })
     return { fullText, segments }
-  } catch (err) {
-    log.debug({ msg: 'yt_player_api_failed', videoId, err: err instanceof Error ? err.message : String(err) })
+  } catch {
     return null
   }
+}
+
+/**
+ * Fetch caption tracks from YouTube player API with client rotation.
+ * Tries WEB, ANDROID, TVHTML5, IOS until one succeeds.
+ */
+async function fetchCaptionsViaPlayerApi(
+  videoId: string,
+  language?: string,
+  defaultLanguage?: string
+): Promise<YoutubeCaptionResult | null> {
+  for (const clientName of YT_CLIENT_NAMES) {
+    const result = await fetchCaptionsViaPlayerApiClient(videoId, language, clientName, defaultLanguage)
+    if (result) return result
+  }
+  log.debug({ msg: 'yt_player_api_all_clients_failed', videoId })
+  return null
 }
 
 // ─── Fallback: yt-dlp caption fetch ──────────────────────────────────────────
@@ -510,10 +609,12 @@ async function fetchCaptionsViaPlayerApi(
 async function fetchCaptionsViaYtDlp(
   cleanUrl: string,
   outputDir: string,
-  language?: string
+  language?: string,
+  defaultLanguage?: string
 ): Promise<YoutubeCaptionResult | null> {
   const outTemplate = path.join(outputDir, 'yt_%(id)s')
-  const subLangs = language ? `${language},${language}.*,en,en.*,en-US` : 'en,en.*,en-US'
+  const langOrder = getCaptionLanguageOrder(language, defaultLanguage)
+  const subLangs = langOrder.map((l) => `${l},${l}.*`).join(',') + ',en-US'
 
   return new Promise((resolve) => {
     let stderr = ''
@@ -547,7 +648,7 @@ async function fetchCaptionsViaYtDlp(
         const segments = parseVttToSegments(content)
         if (segments.length === 0) return resolve(null)
         const fullText = segments.map((s) => s.text).join(' ').replace(/\s+/g, ' ').trim()
-        log.info({ msg: 'yt_captions_used', segmentCount: segments.length, url: cleanUrl.slice(0, 50) })
+        log.info({ msg: 'yt_caption_ytdlp_hit', segmentCount: segments.length, url: cleanUrl.slice(0, 50) })
         resolve({ fullText, segments })
       } catch {
         try { fs.unlinkSync(vttPath) } catch { /* ignore */ }
@@ -561,28 +662,60 @@ async function fetchCaptionsViaYtDlp(
  * Fetch YouTube captions without downloading video/audio.
  *
  * Strategy (same as Descript / Turboscribe):
- *   1. YouTube player API — fetches pre-signed VTT URLs directly. No yt-dlp, no cookies,
- *      no bot detection. Works from any IP including datacenter. ~200ms.
- *   2. yt-dlp fallback — covers edge cases (embargoed/age-gated/private-but-unlisted).
+ *   1. Player API + timedtext in parallel — accept first valid result.
+ *   2. yt-dlp fallback — sub-langs: requested → en → original (caption language order).
  *
  * Returns null when no captions are available → caller falls back to audio download + Whisper.
  */
 export async function fetchYoutubeCaptions(
   url: string,
   outputDir: string,
-  language?: string
+  language?: string,
+  videoDurationSec?: number,
+  defaultLanguage?: string
 ): Promise<YoutubeCaptionResult | null> {
   const cleanUrl = normalizeYoutubeUrl(url)
   const videoId = extractYoutubeVideoId(cleanUrl)
+  const langOrder = getCaptionLanguageOrder(language, defaultLanguage)
+  const minCoverage = Number(process.env.YOUTUBE_CAPTION_MIN_COVERAGE) || 0.7
+  const duration = videoDurationSec ?? 0
 
-  // Primary: YouTube player API (fast, reliable, no yt-dlp)
-  if (videoId) {
-    const result = await fetchCaptionsViaPlayerApi(videoId, language)
-    if (result) return result
+  if (!videoId) return fetchCaptionsViaYtDlp(cleanUrl, outputDir, language, defaultLanguage)
+
+  // Fast path: timedtext first — single HTTP GET, typically 1–3s when captions exist
+  for (const lang of langOrder) {
+    const result = await fetchTimedtextCaptions(videoId, lang)
+    if (!result) continue
+    const validation = validateCaptionQuality(result.segments, duration)
+    if (validation.valid || (validation.coverage >= minCoverage && validation.segmentCount >= 10)) {
+      return result
+    }
   }
 
-  // Fallback: yt-dlp --write-auto-sub
-  return fetchCaptionsViaYtDlp(cleanUrl, outputDir, language)
+  // Player API (no bot detection; works from datacenter) — try WEB only first for speed
+  const playerResult = await fetchCaptionsViaPlayerApiClient(videoId, language, 'WEB', defaultLanguage)
+  if (playerResult) {
+    const validation = validateCaptionQuality(playerResult.segments, duration)
+    if (validation.valid || (validation.coverage >= minCoverage && validation.segmentCount >= 10)) {
+      return playerResult
+    }
+  }
+
+  // Try remaining player clients (ANDROID, TVHTML5, IOS) in parallel — worst-case ~8s, not 24s
+  const [android, tv, ios] = await Promise.all([
+    fetchCaptionsViaPlayerApiClient(videoId, language, 'ANDROID', defaultLanguage),
+    fetchCaptionsViaPlayerApiClient(videoId, language, 'TVHTML5', defaultLanguage),
+    fetchCaptionsViaPlayerApiClient(videoId, language, 'IOS', defaultLanguage),
+  ])
+  for (const result of [android, tv, ios]) {
+    if (!result) continue
+    const validation = validateCaptionQuality(result.segments, duration)
+    if (validation.valid || (validation.coverage >= minCoverage && validation.segmentCount >= 10)) {
+      return result
+    }
+  }
+
+  return fetchCaptionsViaYtDlp(cleanUrl, outputDir, language, defaultLanguage)
 }
 
 // ─── Audio Streaming ─────────────────────────────────────────────────────────
@@ -604,24 +737,43 @@ export async function streamYoutubeAudioToFile(
   const skipCookies = process.env.YOUTUBE_SKIP_COOKIES === 'true' || process.env.YOUTUBE_SKIP_COOKIES === '1'
   const cookiesFile = process.env.YOUTUBE_COOKIES_FILE
   const hasCookies = !!(cookiesFile && fs.existsSync(cookiesFile))
+  const hasProxy = !!(process.env.YOUTUBE_PROXY?.trim())
 
   try {
-    await doStreamYoutubeAudio(cleanUrl, outputPath, false)
+    await doStreamYoutubeAudio(cleanUrl, outputPath, false, false)
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
-    if (isRetryableWithCookiesError(msg) && hasCookies && !skipCookies) {
-      log.info({ msg: 'yt_retry_with_cookies', url: cleanUrl.slice(0, 50) })
-      await doStreamYoutubeAudio(cleanUrl, outputPath, true)
-    } else {
-      throw err
+    if (!isRetryableWithCookiesError(msg)) throw err
+    if (hasCookies && !skipCookies) {
+      try {
+        log.info({ msg: 'yt_retry_with_cookies', url: cleanUrl.slice(0, 50) })
+        await doStreamYoutubeAudio(cleanUrl, outputPath, true, false)
+        return
+      } catch {
+    if (hasProxy) {
+      log.info({ msg: 'yt_retry_with_proxy', url: cleanUrl.slice(0, 50) })
+      log.info({ msg: 'yt_proxy_used', url: cleanUrl.slice(0, 50) })
+      await doStreamYoutubeAudio(cleanUrl, outputPath, true, true)
+          return
+        }
+        throw err
+      }
     }
+    if (hasProxy) {
+      log.info({ msg: 'yt_retry_with_proxy', url: cleanUrl.slice(0, 50) })
+      log.info({ msg: 'yt_proxy_used', url: cleanUrl.slice(0, 50) })
+      await doStreamYoutubeAudio(cleanUrl, outputPath, false, true)
+      return
+    }
+    throw err
   }
 }
 
 function doStreamYoutubeAudio(
   url: string,
   outputPath: string,
-  useCookies: boolean
+  useCookies: boolean,
+  useProxy: boolean
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     let settled = false
@@ -683,14 +835,18 @@ function doStreamYoutubeAudio(
     // ── 2. Stream audio-only from YouTube via yt-dlp → FFmpeg stdin ──────────
     const ytProc = spawn(
       YT_DLP_BIN,
-      ytDlpArgs([
-        '--no-playlist',
-        '--no-warnings',
-        '-f', 'bestaudio/best',
-        '-o', '-',
-        '--socket-timeout', '30',
-        url,
-      ], useCookies),
+      ytDlpArgs(
+        [
+          '--no-playlist',
+          '--no-warnings',
+          '-f', 'bestaudio/best',
+          '-o', '-',
+          '--socket-timeout', '30',
+          url,
+        ],
+        useCookies,
+        useProxy
+      ),
       { stdio: ['ignore', 'pipe', 'pipe'] }
     )
 
