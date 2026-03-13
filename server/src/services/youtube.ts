@@ -677,25 +677,44 @@ export async function fetchYoutubeCaptions(
   const cleanUrl = normalizeYoutubeUrl(url)
   const videoId = extractYoutubeVideoId(cleanUrl)
   const langOrder = getCaptionLanguageOrder(language, defaultLanguage)
+  const minCoverage = Number(process.env.YOUTUBE_CAPTION_MIN_COVERAGE) || 0.7
+  const duration = videoDurationSec ?? 0
 
-  // Run player API and timedtext (all languages) in parallel; accept first valid result
-  if (videoId) {
-    const timedtextPromises = langOrder.map((lang) => fetchTimedtextCaptions(videoId, lang))
-    const [playerResult, ...timedtextResults] = await Promise.all([
-      fetchCaptionsViaPlayerApi(videoId, language, defaultLanguage),
-      ...timedtextPromises,
-    ])
-    const allResults = [playerResult, ...timedtextResults]
-    for (const result of allResults) {
-      if (!result) continue
-      const validation = validateCaptionQuality(result.segments, videoDurationSec ?? 0)
-      if (validation.valid) return result
-      const minCoverage = Number(process.env.YOUTUBE_CAPTION_MIN_COVERAGE) || 0.7
-      if (validation.coverage >= minCoverage && validation.segmentCount >= 10) return result
+  if (!videoId) return fetchCaptionsViaYtDlp(cleanUrl, outputDir, language, defaultLanguage)
+
+  // Fast path: timedtext first — single HTTP GET, typically 1–3s when captions exist
+  for (const lang of langOrder) {
+    const result = await fetchTimedtextCaptions(videoId, lang)
+    if (!result) continue
+    const validation = validateCaptionQuality(result.segments, duration)
+    if (validation.valid || (validation.coverage >= minCoverage && validation.segmentCount >= 10)) {
+      return result
     }
   }
 
-  // Fallback: yt-dlp --write-auto-sub --write-sub (sub-langs: requested → en → original)
+  // Player API (no bot detection; works from datacenter) — try WEB only first for speed
+  const playerResult = await fetchCaptionsViaPlayerApiClient(videoId, language, 'WEB', defaultLanguage)
+  if (playerResult) {
+    const validation = validateCaptionQuality(playerResult.segments, duration)
+    if (validation.valid || (validation.coverage >= minCoverage && validation.segmentCount >= 10)) {
+      return playerResult
+    }
+  }
+
+  // Try remaining player clients (ANDROID, TVHTML5, IOS) in parallel — worst-case ~8s, not 24s
+  const [android, tv, ios] = await Promise.all([
+    fetchCaptionsViaPlayerApiClient(videoId, language, 'ANDROID', defaultLanguage),
+    fetchCaptionsViaPlayerApiClient(videoId, language, 'TVHTML5', defaultLanguage),
+    fetchCaptionsViaPlayerApiClient(videoId, language, 'IOS', defaultLanguage),
+  ])
+  for (const result of [android, tv, ios]) {
+    if (!result) continue
+    const validation = validateCaptionQuality(result.segments, duration)
+    if (validation.valid || (validation.coverage >= minCoverage && validation.segmentCount >= 10)) {
+      return result
+    }
+  }
+
   return fetchCaptionsViaYtDlp(cleanUrl, outputDir, language, defaultLanguage)
 }
 
