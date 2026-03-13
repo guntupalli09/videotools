@@ -1269,7 +1269,7 @@ router.post('/youtube', async (req: Request, res: Response) => {
 
     // ── Fetch metadata (title, duration, thumbnail) ───────────────────────────
     // This is the only network call in the API layer; all media fetching happens in the worker.
-    let ytMeta: { title: string; durationSec: number; thumbnailUrl: string | undefined; videoId: string }
+    let ytMeta: { title: string; durationSec: number; thumbnailUrl: string | undefined; videoId: string; defaultLanguage?: string }
     try {
       ytMeta = await getYoutubeMetadata(youtubeUrl)
     } catch (err: any) {
@@ -1388,6 +1388,7 @@ router.post('/youtube', async (req: Request, res: Response) => {
       youtubeTitle: ytMeta.title,
       youtubeThumbnailUrl: ytMeta.thumbnailUrl,
       youtubeDurationSec: ytMeta.durationSec,
+      youtubeDefaultLanguage: ytMeta.defaultLanguage,
       originalName: ytMeta.title.replace(/[^\w\s.\-]/g, '_').trim() + '.wav',
       options: jobOptions,
       webhookUrl: typeof webhookUrl === 'string' && webhookUrl.trim() ? webhookUrl.trim() : undefined,

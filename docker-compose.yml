@@ -103,6 +103,8 @@ services:
       # (e.g. if cookies cause "page needs to be reloaded" on your IP).
       YOUTUBE_SKIP_COOKIES: "false"
       YOUTUBE_COOKIES_FILE: /cookies/youtube.txt
+      # Optional: residential proxy when YouTube blocks datacenter IPs. Same approach as Descript/TurboScribe.
+      # Add to .env: YOUTUBE_PROXY=http://user:pass@proxy.example.com:8080 or socks5://...
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
