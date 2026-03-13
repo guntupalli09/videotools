@@ -69,7 +69,7 @@ export function normalizeYoutubeUrl(url: string): string {
   const trimmed = url.trim()
   try {
     const u = new URL(trimmed)
-    if (u.hostname === 'youtu.be') {
+    if (u.hostname.includes('youtu.be')) {
       const id = u.pathname.slice(1).split('/')[0]
       return id && /^[\w-]{11}$/.test(id) ? `https://www.youtube.com/watch?v=${id}` : trimmed
     }
@@ -547,7 +547,7 @@ async function fetchCaptionsViaYtDlp(
         const segments = parseVttToSegments(content)
         if (segments.length === 0) return resolve(null)
         const fullText = segments.map((s) => s.text).join(' ').replace(/\s+/g, ' ').trim()
-        log.info({ msg: 'yt_captions_ytdlp_hit', segmentCount: segments.length, url: cleanUrl.slice(0, 50) })
+        log.info({ msg: 'yt_captions_used', segmentCount: segments.length, url: cleanUrl.slice(0, 50) })
         resolve({ fullText, segments })
       } catch {
         try { fs.unlinkSync(vttPath) } catch { /* ignore */ }
