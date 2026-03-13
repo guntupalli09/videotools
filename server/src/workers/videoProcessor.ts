@@ -49,8 +49,17 @@ import { withJobContext, getLogger } from '../lib/logger'
 import { initSentry, captureJobError } from '../lib/sentry'
 import { pushLogEntry } from '../lib/logRing'
 import { streamYoutubeAudioToFile, fetchYoutubeCaptions } from '../services/youtube'
-import { setJobStage, deleteJobStage } from '../utils/jobStage'
 import { v4 as uuidv4 } from 'uuid'
+
+/** Inline stage helpers — write directly to Redis so no cross-file import is required. */
+const JOB_STAGE_TTL = 3600
+const jobStageKey = (id: string | number) => `job:stage:${id}`
+async function setJobStage(redis: import('ioredis').Redis, id: string | number, stage: string): Promise<void> {
+  try { await redis.set(jobStageKey(id), stage, 'EX', JOB_STAGE_TTL) } catch { /* non-blocking */ }
+}
+async function deleteJobStage(redis: import('ioredis').Redis, id: string | number): Promise<void> {
+  try { await redis.del(jobStageKey(id)) } catch { /* non-blocking */ }
+}
 
 const workerLog = getLogger('worker')
 
