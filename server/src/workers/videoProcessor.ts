@@ -62,11 +62,17 @@ export const priorityQueue = new Queue('file-processing-priority', {
   createClient: createRedisClient,
 })
 
-/** Phase 8: YouTube pipeline separation. Bull default lockDuration (30s) is too short for caption fetch/audio/Whisper. */
-const YT_QUEUE_OPTS = { createClient: createRedisClient, settings: { lockDuration: 600000 } } // 10 min
-export const captionQueue = new Queue('youtube-caption', YT_QUEUE_OPTS)
-export const audioQueue = new Queue('youtube-audio', YT_QUEUE_OPTS)
-export const transcriptionQueue = new Queue('youtube-transcription', { createClient: createRedisClient, settings: { lockDuration: 1800000 } }) // 30 min for Whisper
+/** Phase 8: YouTube pipeline separation. Bull default lockDuration (30s) is too short. Use v2 prefix for fresh queue. */
+const YT_QUEUE_OPTS = {
+  createClient: createRedisClient,
+  settings: { lockDuration: 600000, maxStalledCount: 3, stalledInterval: 60000 },
+}
+export const captionQueue = new Queue('youtube-caption-v2', YT_QUEUE_OPTS)
+export const audioQueue = new Queue('youtube-audio-v2', YT_QUEUE_OPTS)
+export const transcriptionQueue = new Queue('youtube-transcription-v2', {
+  createClient: createRedisClient,
+  settings: { lockDuration: 1800000, maxStalledCount: 3, stalledInterval: 60000 },
+})
 
 export async function getTotalQueueCount(): Promise<number> {
   const queues = [fileQueue, priorityQueue, ...(YOUTUBE_QUEUE_SEPARATION ? [captionQueue, audioQueue, transcriptionQueue] : [])]
@@ -307,41 +313,49 @@ const TRANSCRIPTION_CONCURRENCY = Math.max(1, Math.min(2, parseInt(process.env.T
 async function processCaptionJob(job: import('bull').Job<JobData>): Promise<unknown> {
   const data = job.data as JobData
   const log = withJobContext(job.id, data.requestId)
+  log.info({ msg: 'caption_job_claimed', jobId: String(job.id), youtubeUrl: data.youtubeUrl?.slice(0, 60) })
   updateJobStarted(String(job.id)).catch(() => {})
   log.info({ msg: 'caption_job_started', jobId: String(job.id) })
   const options = data.options
+  log.info({ msg: 'caption_fetch_start', jobId: String(job.id) })
   const captions = await fetchYoutubeCaptions(data.youtubeUrl!, tempDir, options?.language as string | undefined, data.youtubeDurationSec ?? undefined, data.youtubeDefaultLanguage)
+  log.info({ msg: 'caption_fetch_done', jobId: String(job.id), hasCaptions: !!captions, segmentCount: captions?.segments?.length ?? 0 })
   const minCoverage = Number(process.env.YOUTUBE_CAPTION_MIN_COVERAGE) || 0.7
   const validation = captions ? validateCaptionQuality(captions.segments, data.youtubeDurationSec ?? 0) : null
   const useCaptions = captions && (validation?.valid || (validation && validation.coverage >= minCoverage && validation.segmentCount >= 10))
   if (!useCaptions && captions && validation) {
     log.info({ msg: 'yt_captions_rejected', coverage: Math.round(validation.coverage * 100) / 100, maxGap: Math.round(validation.maxGap * 10) / 10, segmentCount: validation.segmentCount })
   }
+  log.info({ msg: 'caption_validation_done', jobId: String(job.id), useCaptions: !!useCaptions, validation: validation ? { valid: validation.valid, coverage: validation.coverage } : null })
   if (useCaptions) {
+    log.info({ msg: 'caption_using_captions', jobId: String(job.id) })
     ;(data as any).precomputedTranscript = captions
     ;(data as any).filePath = ''
     ;(data as any).inputType = 'audio'
     ;(data as any).originalName = (data.youtubeTitle || 'youtube_video').replace(/[^\w\s.\-]/g, '_').trim() + '.wav'
     ;(data as any).toolType = 'video-to-transcript'
     ;(data as any).youtubeUrl = undefined
-    log.info({ msg: 'caption_job_completed', source: 'captions' })
+    log.info({ msg: 'caption_job_completed', source: 'captions', jobId: String(job.id) })
     return processJob(job)
   }
+  log.info({ msg: 'caption_handoff_to_audio', jobId: String(job.id) })
   const nextData: JobData = { ...data, toolType: 'youtube-audio-to-transcript', youtubeFallbackToAudio: true }
   await audioQueue.add(nextData, { jobId: data.jobToken ?? String(job.id), attempts: 3, backoff: { type: 'exponential' as const, delay: 2000 } })
-  log.info({ msg: 'caption_job_completed', source: 'handoff_audio' })
+  log.info({ msg: 'caption_job_completed', source: 'handoff_audio', jobId: String(job.id) })
   return HANDED_OFF
 }
 
 async function processAudioJob(job: import('bull').Job<JobData>): Promise<unknown> {
   const data = job.data as JobData
   const log = withJobContext(job.id, data.requestId)
+  log.info({ msg: 'audio_job_claimed', jobId: String(job.id) })
   updateJobStarted(String(job.id)).catch(() => {})
   log.info({ msg: 'audio_job_started', jobId: String(job.id) })
   const ytAudioPath = path.join(tempDir, `${uuidv4()}_yt_audio.wav`)
-  log.info({ msg: 'yt_audio_download_used', youtubeUrl: data.youtubeUrl?.slice(0, 50) })
+  log.info({ msg: 'audio_download_start', jobId: String(job.id), youtubeUrl: data.youtubeUrl?.slice(0, 50) })
   try {
     await streamYoutubeAudioToFile(data.youtubeUrl!, ytAudioPath)
+    log.info({ msg: 'audio_download_done', jobId: String(job.id) })
   } catch (err: any) {
     log.error({ msg: 'yt_stream_failed', error: err.message })
     throw new Error(`YouTube audio extraction failed: ${err.message}`)
@@ -355,7 +369,9 @@ async function processAudioJob(job: import('bull').Job<JobData>): Promise<unknow
     youtubeUrl: undefined,
     youtubeFallbackToAudio: true,
   }
+  log.info({ msg: 'audio_handoff_to_transcription', jobId: String(job.id) })
   await transcriptionQueue.add(nextData, { jobId: data.jobToken ?? String(job.id), attempts: 3, backoff: { type: 'exponential' as const, delay: 2000 } })
+  log.info({ msg: 'audio_job_completed', jobId: String(job.id) })
   return HANDED_OFF
 }
 
@@ -1451,6 +1467,17 @@ function attachQueueEvents(queue: import('bull').Queue<JobData>) {
     }
   })
   queue.on('failed', async (job, err) => {
+    const data = job?.data as JobData
+    const queueName = (queue as any)?.name ?? 'unknown'
+    workerLog.error({
+      jobId: job?.id,
+      queue: queueName,
+      toolType: data?.toolType,
+      err,
+      errorMessage: err?.message,
+      attemptsMade: job?.attemptsMade,
+      msg: 'job_failed_event',
+    })
     const attempts = job?.opts?.attempts ?? 2
     const made = job?.attemptsMade ?? 1
     const isFinalFailure = made >= attempts
@@ -1472,7 +1499,6 @@ function attachQueueEvents(queue: import('bull').Queue<JobData>) {
         })
       }
     }
-    const data = job?.data as JobData
     if (data?.webhookUrl) {
       fireWebhook(data.webhookUrl, {
         jobId: String(job?.id),
@@ -1511,12 +1537,20 @@ export function startWorker() {
   attachQueueEvents(fileQueue)
   attachQueueEvents(priorityQueue)
   if (YOUTUBE_QUEUE_SEPARATION) {
+    workerLog.info({
+      msg: 'youtube_queues_registered',
+      captionConcurrency: CAPTION_CONCURRENCY,
+      audioConcurrency: AUDIO_CONCURRENCY,
+      transcriptionConcurrency: TRANSCRIPTION_CONCURRENCY,
+    })
     captionQueue.process(CAPTION_CONCURRENCY, processCaptionJob)
     audioQueue.process(AUDIO_CONCURRENCY, processAudioJob)
     transcriptionQueue.process(TRANSCRIPTION_CONCURRENCY, processTranscriptionJob)
     attachQueueEvents(captionQueue)
     attachQueueEvents(audioQueue)
     attachQueueEvents(transcriptionQueue)
+  } else {
+    workerLog.info({ msg: 'youtube_queue_separation_disabled' })
   }
   startHeartbeat()
 }
