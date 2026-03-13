@@ -51,6 +51,16 @@ import { pushLogEntry } from '../lib/logRing'
 import { streamYoutubeAudioToFile, fetchYoutubeCaptions, validateCaptionQuality } from '../services/youtube'
 import { v4 as uuidv4 } from 'uuid'
 
+/** Inline stage helpers — write directly to Redis so no cross-file import is required. */
+const JOB_STAGE_TTL = 3600
+const jobStageKey = (id: string | number) => `job:stage:${id}`
+async function setJobStage(redis: import('ioredis').Redis, id: string | number, stage: string): Promise<void> {
+  try { await redis.set(jobStageKey(id), stage, 'EX', JOB_STAGE_TTL) } catch { /* non-blocking */ }
+}
+async function deleteJobStage(redis: import('ioredis').Redis, id: string | number): Promise<void> {
+  try { await redis.del(jobStageKey(id)) } catch { /* non-blocking */ }
+}
+
 const workerLog = getLogger('worker')
 
 /** Lock settings: 10-minute lock (covers long YouTube audio downloads) with 15s renewal intervals. */
