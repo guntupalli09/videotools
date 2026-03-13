@@ -65,6 +65,8 @@ services:
       DISABLE_WORKER: "true"
       FFMPEG_PATH: /usr/bin/ffmpeg
       FFPROBE_PATH: /usr/bin/ffprobe
+      # Must match worker — API routes YouTube jobs to captionQueue when true
+      YOUTUBE_QUEUE_SEPARATION: "true"
     depends_on:
       redis: { condition: service_healthy }
       postgres: { condition: service_healthy }
@@ -98,6 +100,10 @@ services:
       FFPROBE_PATH: /usr/bin/ffprobe
       # TTFW: extract first 20s chunk early instead of full-file extract then split
       PROCESSING_V2: "true"
+      # Separate YouTube caption/audio/transcription queues so caption fetches (seconds)
+      # are never blocked by Whisper transcription jobs (minutes). Both API and worker
+      # must share this flag so jobs route to the same queue.
+      YOUTUBE_QUEUE_SEPARATION: "true"
       # YouTube cookies written daily by cookie-refresher; read by yt-dlp on every job.
       # Set YOUTUBE_SKIP_COOKIES=true to disable cookies entirely
       # (e.g. if cookies cause "page needs to be reloaded" on your IP).

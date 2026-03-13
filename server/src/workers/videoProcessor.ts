@@ -340,6 +340,9 @@ async function processCaptionJob(job: import('bull').Job<JobData>): Promise<unkn
   log.info({ msg: 'caption_job_claimed', jobId: String(job.id), youtubeUrl: data.youtubeUrl?.slice(0, 60) })
   updateJobStarted(String(job.id)).catch(() => {})
   log.info({ msg: 'caption_job_started', jobId: String(job.id) })
+  // Stage 1: fetching captions — set before the network call so UI shows progress immediately
+  const redis = (job as any).queue?.client as import('ioredis').Redis | undefined
+  if (redis) await setJobStage(redis, job.id, 'fetching_captions')
   const options = data.options
   log.info({ msg: 'caption_fetch_start', jobId: String(job.id) })
   const captions = await fetchYoutubeCaptions(data.youtubeUrl!, tempDir, options?.language as string | undefined, data.youtubeDurationSec ?? undefined, data.youtubeDefaultLanguage)
@@ -362,6 +365,7 @@ async function processCaptionJob(job: import('bull').Job<JobData>): Promise<unkn
     log.info({ msg: 'caption_job_completed', source: 'captions', jobId: String(job.id) })
     return processJob(job)
   }
+  if (redis) await setJobStage(redis, job.id, 'downloading_audio')
   log.info({ msg: 'caption_handoff_to_audio', jobId: String(job.id) })
   const nextData: JobData = { ...data, toolType: 'youtube-audio-to-transcript', youtubeFallbackToAudio: true }
   await audioQueue.add(nextData, { jobId: data.jobToken ?? String(job.id), attempts: 3, backoff: { type: 'exponential' as const, delay: 2000 } })
@@ -375,6 +379,8 @@ async function processAudioJob(job: import('bull').Job<JobData>): Promise<unknow
   log.info({ msg: 'audio_job_claimed', jobId: String(job.id) })
   updateJobStarted(String(job.id)).catch(() => {})
   log.info({ msg: 'audio_job_started', jobId: String(job.id) })
+  const redis = (job as any).queue?.client as import('ioredis').Redis | undefined
+  if (redis) await setJobStage(redis, job.id, 'downloading_audio')
   const ytAudioPath = path.join(tempDir, `${uuidv4()}_yt_audio.wav`)
   log.info({ msg: 'audio_download_start', jobId: String(job.id), youtubeUrl: data.youtubeUrl?.slice(0, 50) })
   try {
@@ -393,6 +399,7 @@ async function processAudioJob(job: import('bull').Job<JobData>): Promise<unknow
     youtubeUrl: undefined,
     youtubeFallbackToAudio: true,
   }
+  if (redis) await setJobStage(redis, job.id, 'transcribing')
   log.info({ msg: 'audio_handoff_to_transcription', jobId: String(job.id) })
   await transcriptionQueue.add(nextData, { jobId: data.jobToken ?? String(job.id), attempts: 3, backoff: { type: 'exponential' as const, delay: 2000 } })
   log.info({ msg: 'audio_job_completed', jobId: String(job.id) })
@@ -400,7 +407,10 @@ async function processAudioJob(job: import('bull').Job<JobData>): Promise<unknow
 }
 
 async function processTranscriptionJob(job: import('bull').Job<JobData>): Promise<unknown> {
-  withJobContext(job.id, (job.data as JobData).requestId).info({ msg: 'transcription_job_started', jobId: String(job.id) })
+  const data = job.data as JobData
+  withJobContext(job.id, data.requestId).info({ msg: 'transcription_job_started', jobId: String(job.id) })
+  const redis = (job as any).queue?.client as import('ioredis').Redis | undefined
+  if (redis) await setJobStage(redis, job.id, 'transcribing')
   return processJob(job)
 }
 
@@ -460,22 +470,21 @@ async function processJob(job: import('bull').Job<JobData>) {
           const captions = await fetchYoutubeCaptions(
             data.youtubeUrl!,
             tempDir,
-            options?.language as string | undefined
+            options?.language as string | undefined,
+            data.youtubeDurationSec,
+            data.youtubeDefaultLanguage
           )
           const minCoverage = Number(process.env.YOUTUBE_CAPTION_MIN_COVERAGE) || 0.7
           const durationSec = data.youtubeDurationSec ?? 0
-          const captionDuration = captions
-            ? captions.segments.reduce((sum, s) => sum + (s.end - s.start), 0)
-            : 0
-          const coverage = durationSec > 0 ? captionDuration / durationSec : 0
-          const useCaptions = captions && coverage >= minCoverage
-          if (!useCaptions && captions) {
+          const captionValidation = captions ? validateCaptionQuality(captions.segments, durationSec) : null
+          const useCaptions = captions && (captionValidation?.valid || (captionValidation && captionValidation.coverage >= minCoverage && captionValidation.segmentCount >= 10))
+          if (!useCaptions && captions && captionValidation) {
             log.info({
               msg: 'yt_captions_low_coverage',
-              coverage: Math.round(coverage * 100) / 100,
+              coverage: Math.round(captionValidation.coverage * 100) / 100,
               minCoverage,
               durationSec,
-              segmentCount: captions.segments.length,
+              segmentCount: captionValidation.segmentCount,
             })
           }
           if (useCaptions) {
