@@ -504,8 +504,16 @@ async function fetchTimedtextCaptions(
 // YouTube's internal player API returns pre-signed caption track URLs.
 // These don't require authentication and work from any IP — including datacenter.
 
-const YT_CLIENT_NAMES = ['WEB', 'ANDROID', 'TVHTML5', 'IOS'] as const
-const YT_CLIENT_VERSION = '2.20240304.01.00'
+// Per-client IDs and versions for the youtubei/v1/player API.
+// X-YouTube-Client-Name must match the numeric ID for the client; using '1' (WEB)
+// for non-WEB clients causes YouTube to ignore or reject the body client hint.
+const YT_CLIENTS = {
+  WEB:     { id: '1',  version: '2.20240304.01.00' },
+  ANDROID: { id: '3',  version: '19.09.37' },
+  TVHTML5: { id: '7',  version: '7.20240304.12.00' },
+  IOS:     { id: '5',  version: '19.09.3' },
+} as const
+type YtClientName = keyof typeof YT_CLIENTS
 
 /**
  * Fetch caption tracks from YouTube's internal player API for a given client.
@@ -514,17 +522,18 @@ const YT_CLIENT_VERSION = '2.20240304.01.00'
 async function fetchCaptionsViaPlayerApiClient(
   videoId: string,
   language: string | undefined,
-  clientName: (typeof YT_CLIENT_NAMES)[number],
+  clientName: YtClientName,
   defaultLanguage?: string
 ): Promise<YoutubeCaptionResult | null> {
+  const client = YT_CLIENTS[clientName]
   try {
     const playerRes = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'X-YouTube-Client-Name': '1',
-        'X-YouTube-Client-Version': YT_CLIENT_VERSION,
+        'X-YouTube-Client-Name': client.id,
+        'X-YouTube-Client-Version': client.version,
         'Origin': 'https://www.youtube.com',
         'Referer': `https://www.youtube.com/watch?v=${videoId}`,
       },
@@ -533,7 +542,7 @@ async function fetchCaptionsViaPlayerApiClient(
         context: {
           client: {
             clientName,
-            clientVersion: YT_CLIENT_VERSION,
+            clientVersion: client.version,
             hl: 'en',
             gl: 'US',
           },
@@ -620,7 +629,7 @@ async function fetchCaptionsViaPlayerApi(
   language?: string,
   defaultLanguage?: string
 ): Promise<YoutubeCaptionResult | null> {
-  for (const clientName of YT_CLIENT_NAMES) {
+  for (const clientName of Object.keys(YT_CLIENTS) as YtClientName[]) {
     const result = await fetchCaptionsViaPlayerApiClient(videoId, language, clientName, defaultLanguage)
     if (result) return result
   }

@@ -67,6 +67,9 @@ services:
       FFPROBE_PATH: /usr/bin/ffprobe
       # Must match worker — API routes YouTube jobs to captionQueue when true
       YOUTUBE_QUEUE_SEPARATION: "true"
+      # Residential proxy for yt-dlp metadata fallback (when YOUTUBE_API_KEY is unset).
+      # Set in .env: YOUTUBE_PROXY=http://user:pass@gw.dataimpulse.com:823
+      YOUTUBE_PROXY: ${YOUTUBE_PROXY:-}
     depends_on:
       redis: { condition: service_healthy }
       postgres: { condition: service_healthy }
@@ -109,8 +112,9 @@ services:
       # (e.g. if cookies cause "page needs to be reloaded" on your IP).
       YOUTUBE_SKIP_COOKIES: "false"
       YOUTUBE_COOKIES_FILE: /cookies/youtube.txt
-      # Optional: residential proxy when YouTube blocks datacenter IPs. Same approach as Descript/TurboScribe.
-      # Add to .env: YOUTUBE_PROXY=http://user:pass@proxy.example.com:8080 or socks5://...
+      # Residential proxy for yt-dlp caption/audio fallback (and metadata if no API key).
+      # Set in .env: YOUTUBE_PROXY=http://user:pass@gw.dataimpulse.com:823
+      YOUTUBE_PROXY: ${YOUTUBE_PROXY:-}
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
