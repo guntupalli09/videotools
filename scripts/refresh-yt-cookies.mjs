@@ -62,6 +62,9 @@ function parseNetscape(content) {
     const [domain, , cookiePath, secure, expiresStr, name, ...valueParts] = parts
     const value = valueParts.join('\t') // value may contain tabs in edge cases
     const expires = parseInt(expiresStr, 10)
+    const isSecure = secure === 'TRUE'
+    // Chrome rejects SameSite=None on non-Secure cookies — use Lax as a safe fallback.
+    const sameSite = isSecure ? /** @type {'None'} */ ('None') : /** @type {'Lax'} */ ('Lax')
     cookies.push({
       name,
       value,
@@ -69,9 +72,9 @@ function parseNetscape(content) {
       // needs it to match cookies across subdomains (www, m, studio, etc.).
       domain,
       path: cookiePath || '/',
-      secure: secure === 'TRUE',
+      secure: isSecure,
       httpOnly: line.startsWith('#HttpOnly_'),
-      sameSite: /** @type {'None'} */ ('None'),
+      sameSite,
       expires: expires > 0 ? expires : -1,
     })
   }
@@ -177,7 +180,16 @@ async function main() {
   })
 
   try {
-    await context.addCookies(existingCookies)
+    // Try bulk add first; fall back to per-cookie to skip any invalid ones.
+    try {
+      await context.addCookies(existingCookies)
+    } catch {
+      let skipped = 0
+      for (const cookie of existingCookies) {
+        try { await context.addCookies([cookie]) } catch { skipped++ }
+      }
+      if (skipped > 0) console.warn(`[refresh-yt-cookies] Skipped ${skipped} invalid cookies.`)
+    }
 
     // ── 3. Visit YouTube to renew the session on Google's backend ────────────
     const page = await context.newPage()
