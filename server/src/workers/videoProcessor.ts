@@ -62,16 +62,23 @@ export const priorityQueue = new Queue('file-processing-priority', {
   createClient: createRedisClient,
 })
 
-/** Phase 8: YouTube pipeline separation. Bull default lockDuration (30s) is too short. Use v2 prefix for fresh queue. */
+/** Phase 8: YouTube pipeline separation. Bull default lockDuration (30s) causes "job stalled" on caption fetch.
+ *  lockDuration 10min, lockRenewTime 15s = lock renewed every 15s during processing.
+ *  Verify deployed worker has these settings — rebuild image if stalling persists. */
 const YT_QUEUE_OPTS = {
   createClient: createRedisClient,
-  settings: { lockDuration: 600000, maxStalledCount: 3, stalledInterval: 60000 },
+  settings: {
+    lockDuration: 600000,
+    lockRenewTime: 15000,
+    maxStalledCount: 3,
+    stalledInterval: 60000,
+  },
 }
 export const captionQueue = new Queue('youtube-caption-v2', YT_QUEUE_OPTS)
 export const audioQueue = new Queue('youtube-audio-v2', YT_QUEUE_OPTS)
 export const transcriptionQueue = new Queue('youtube-transcription-v2', {
   createClient: createRedisClient,
-  settings: { lockDuration: 1800000, maxStalledCount: 3, stalledInterval: 60000 },
+  settings: { lockDuration: 1800000, lockRenewTime: 60000, maxStalledCount: 3, stalledInterval: 60000 },
 })
 
 export async function getTotalQueueCount(): Promise<number> {
@@ -1537,11 +1544,15 @@ export function startWorker() {
   attachQueueEvents(fileQueue)
   attachQueueEvents(priorityQueue)
   if (YOUTUBE_QUEUE_SEPARATION) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Bull internal settings
+    const captionSettings = (captionQueue as any).settings
     workerLog.info({
       msg: 'youtube_queues_registered',
       captionConcurrency: CAPTION_CONCURRENCY,
       audioConcurrency: AUDIO_CONCURRENCY,
       transcriptionConcurrency: TRANSCRIPTION_CONCURRENCY,
+      captionLockDurationMs: captionSettings?.lockDuration,
+      captionLockRenewMs: captionSettings?.lockRenewTime,
     })
     captionQueue.process(CAPTION_CONCURRENCY, processCaptionJob)
     audioQueue.process(AUDIO_CONCURRENCY, processAudioJob)
