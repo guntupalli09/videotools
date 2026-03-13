@@ -341,21 +341,28 @@ export async function getYoutubeMetadata(url: string): Promise<YoutubeMetadata> 
   return getMetadataViaYtDlp(cleanUrl)
 }
 
-// ─── Caption fallback (skip Whisper when captions exist) ─────────────────────
+// ─── Caption fetching (skip Whisper when captions exist) ─────────────────────
 
 /** Parse VTT timestamp "00:00:01.234 --> 00:00:05.678" to seconds. */
 function parseVttTimestamp(s: string): number {
-  const m = s.match(/(\d+):(\d+):(\d+)\.(\d+)/) || s.match(/(\d+):(\d+)\.(\d+)/) || s.match(/(\d+)\.(\d+)/)
+  // Strip position/alignment cue settings (e.g. "00:00:01.234 align:start")
+  const clean = s.split(' ')[0].trim()
+  const m = clean.match(/(\d+):(\d+):(\d+)[.,](\d+)/) || clean.match(/(\d+):(\d+)[.,](\d+)/)
   if (!m) return 0
   if (m.length === 5) return parseInt(m[1], 10) * 3600 + parseInt(m[2], 10) * 60 + parseInt(m[3], 10) + parseInt(m[4], 10) / 1000
-  if (m.length === 4) return parseInt(m[1], 10) * 60 + parseInt(m[2], 10) + parseInt(m[3], 10) / 1000
-  return parseInt(m[1], 10) + parseInt(m[2], 10) / 1000
+  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10) + parseInt(m[3], 10) / 1000
 }
 
-/** Parse VTT content to segments. */
+/**
+ * Parse VTT content into timed segments.
+ * Handles YouTube-specific quirks:
+ *   - Strips inline timing tags like <00:00:01.200> and formatting tags <c>, <b>, <i>
+ *   - Deduplicates YouTube's "rolling caption" format where each cue extends the previous
+ */
 function parseVttToSegments(content: string): { start: number; end: number; text: string }[] {
-  const segments: { start: number; end: number; text: string }[] = []
+  const raw: { start: number; end: number; text: string }[] = []
   const blocks = content.split(/\n\s*\n/).filter((b) => b.trim())
+
   for (const block of blocks) {
     const lines = block.trim().split('\n')
     const timeLine = lines.find((l) => /-->/.test(l))
@@ -364,12 +371,32 @@ function parseVttToSegments(content: string): { start: number; end: number; text
     const start = parseVttTimestamp(startStr)
     const end = parseVttTimestamp(endStr)
     const text = lines
-      .filter((l) => l !== timeLine && !l.startsWith('WEBVTT') && !/^\d+$/.test(l.trim()))
+      .filter((l) => l !== timeLine && !l.startsWith('WEBVTT') && !/^\d+$/.test(l.trim()) && l.trim())
       .join(' ')
+      // Strip YouTube inline timing tags like <00:00:01.234> and <c>, </c>, <b>, </b>, etc.
+      .replace(/<[\d:.]+>/g, '')
+      .replace(/<\/?[a-zA-Z][^>]*>/g, '')
+      // Collapse whitespace
+      .replace(/\s+/g, ' ')
       .trim()
-    if (text) segments.push({ start, end, text })
+    if (text) raw.push({ start, end, text })
   }
-  return segments
+
+  // Deduplicate YouTube "rolling captions":
+  // Auto-generated captions show an expanding window — each cue prefixes the next.
+  // Keep only cues whose text is NOT a strict prefix of the following cue.
+  const deduped: { start: number; end: number; text: string }[] = []
+  for (let i = 0; i < raw.length; i++) {
+    const curr = raw[i]
+    const next = raw[i + 1]
+    // If next cue starts the same text and extends it, the current is a rolling duplicate
+    if (next && next.text.startsWith(curr.text) && next.text.length > curr.text.length) {
+      continue // skip — the next cue has the full sentence
+    }
+    deduped.push(curr)
+  }
+
+  return deduped
 }
 
 export interface YoutubeCaptionResult {
@@ -377,21 +404,120 @@ export interface YoutubeCaptionResult {
   segments: { start: number; end: number; text: string }[]
 }
 
+// ─── Primary: YouTube player API (no yt-dlp, no bot detection) ───────────────
+//
+// YouTube's internal player API returns pre-signed caption track URLs.
+// These don't require authentication and work from any IP — including datacenter.
+// This is the same approach used by Descript, Turboscribe, and other professional
+// transcription services. Set YOUTUBE_INNERTUBE_KEY to override the default client key.
+
+const YT_CLIENT_VERSION = '2.20240304.01.00'
+
 /**
- * Fetch YouTube captions (auto or manual) without downloading video/audio.
- * Returns null if no captions. Use to skip Whisper for faster, cheaper transcription.
+ * Fetch caption tracks from YouTube's internal player API, then download the VTT.
+ * No yt-dlp, no cookies, no bot detection — works reliably from datacenter IPs.
  */
-export async function fetchYoutubeCaptions(
-  url: string,
+async function fetchCaptionsViaPlayerApi(
+  videoId: string,
+  language?: string
+): Promise<YoutubeCaptionResult | null> {
+  try {
+    // Step 1: Get player response (contains signed caption track URLs)
+    const playerRes = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'X-YouTube-Client-Name': '1',
+        'X-YouTube-Client-Version': YT_CLIENT_VERSION,
+        'Origin': 'https://www.youtube.com',
+        'Referer': `https://www.youtube.com/watch?v=${videoId}`,
+      },
+      body: JSON.stringify({
+        videoId,
+        context: {
+          client: {
+            clientName: 'WEB',
+            clientVersion: YT_CLIENT_VERSION,
+            hl: 'en',
+            gl: 'US',
+          },
+        },
+      }),
+      signal: AbortSignal.timeout(15_000),
+    })
+
+    if (!playerRes.ok) {
+      log.debug({ msg: 'yt_player_api_error', status: playerRes.status, videoId })
+      return null
+    }
+
+    const playerData = await playerRes.json() as Record<string, any>
+    const tracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks as Array<{
+      baseUrl: string
+      languageCode: string
+      kind?: string
+    }> | undefined
+
+    if (!tracks || tracks.length === 0) {
+      log.debug({ msg: 'yt_no_caption_tracks', videoId })
+      return null
+    }
+
+    // Step 2: Pick the best track (prefer exact lang match → prefix → auto-generated en → any)
+    const lang = (language || 'en').split('-')[0].toLowerCase()
+    const track =
+      tracks.find((t) => t.languageCode.toLowerCase() === lang) ||
+      tracks.find((t) => t.languageCode.toLowerCase().startsWith(lang)) ||
+      tracks.find((t) => t.kind === 'asr' && t.languageCode === 'en') ||
+      tracks.find((t) => t.kind === 'asr') ||
+      tracks.find((t) => t.languageCode === 'en') ||
+      tracks[0]
+
+    if (!track?.baseUrl) return null
+
+    // Step 3: Fetch VTT (add fmt=vtt; YouTube baseUrl may already have params)
+    const captionUrl = track.baseUrl.includes('fmt=')
+      ? track.baseUrl.replace(/fmt=[^&]+/, 'fmt=vtt')
+      : `${track.baseUrl}&fmt=vtt`
+
+    const captionRes = await fetch(captionUrl, { signal: AbortSignal.timeout(10_000) })
+    if (!captionRes.ok) return null
+
+    const content = await captionRes.text()
+    if (!content.includes('WEBVTT')) return null
+
+    const segments = parseVttToSegments(content)
+    if (segments.length === 0) return null
+
+    const fullText = segments.map((s) => s.text).join(' ').replace(/\s+/g, ' ').trim()
+    log.info({
+      msg: 'yt_captions_api_hit',
+      videoId,
+      languageCode: track.languageCode,
+      kind: track.kind ?? 'manual',
+      segmentCount: segments.length,
+    })
+    return { fullText, segments }
+  } catch (err) {
+    log.debug({ msg: 'yt_player_api_failed', videoId, err: err instanceof Error ? err.message : String(err) })
+    return null
+  }
+}
+
+// ─── Fallback: yt-dlp caption fetch ──────────────────────────────────────────
+
+async function fetchCaptionsViaYtDlp(
+  cleanUrl: string,
   outputDir: string,
   language?: string
 ): Promise<YoutubeCaptionResult | null> {
-  const cleanUrl = normalizeYoutubeUrl(url)
   const outTemplate = path.join(outputDir, 'yt_%(id)s')
   const subLangs = language ? `${language},${language}.*,en,en.*,en-US` : 'en,en.*,en-US'
 
   return new Promise((resolve) => {
     let stderr = ''
+    // Pass false for useCookies — caption endpoints don't need cookies
     const proc = spawn(YT_DLP_BIN, ytDlpArgs([
       '--write-auto-sub',
       '--write-sub',
@@ -409,7 +535,7 @@ export async function fetchYoutubeCaptions(
     proc.on('error', () => resolve(null))
     proc.on('close', (code) => {
       if (code !== 0 && code !== null) {
-        log.debug({ msg: 'yt_captions_unavailable', stderr: stderr.slice(-500) })
+        log.debug({ msg: 'yt_captions_ytdlp_unavailable', stderr: stderr.slice(-400) })
         return resolve(null)
       }
       const files = fs.readdirSync(outputDir).filter((f) => f.endsWith('.vtt') && f.startsWith('yt_'))
@@ -421,7 +547,7 @@ export async function fetchYoutubeCaptions(
         const segments = parseVttToSegments(content)
         if (segments.length === 0) return resolve(null)
         const fullText = segments.map((s) => s.text).join(' ').replace(/\s+/g, ' ').trim()
-        log.info({ msg: 'yt_captions_used', segmentCount: segments.length, url: cleanUrl.slice(0, 50) })
+        log.info({ msg: 'yt_captions_ytdlp_hit', segmentCount: segments.length, url: cleanUrl.slice(0, 50) })
         resolve({ fullText, segments })
       } catch {
         try { fs.unlinkSync(vttPath) } catch { /* ignore */ }
@@ -429,6 +555,34 @@ export async function fetchYoutubeCaptions(
       }
     })
   })
+}
+
+/**
+ * Fetch YouTube captions without downloading video/audio.
+ *
+ * Strategy (same as Descript / Turboscribe):
+ *   1. YouTube player API — fetches pre-signed VTT URLs directly. No yt-dlp, no cookies,
+ *      no bot detection. Works from any IP including datacenter. ~200ms.
+ *   2. yt-dlp fallback — covers edge cases (embargoed/age-gated/private-but-unlisted).
+ *
+ * Returns null when no captions are available → caller falls back to audio download + Whisper.
+ */
+export async function fetchYoutubeCaptions(
+  url: string,
+  outputDir: string,
+  language?: string
+): Promise<YoutubeCaptionResult | null> {
+  const cleanUrl = normalizeYoutubeUrl(url)
+  const videoId = extractYoutubeVideoId(cleanUrl)
+
+  // Primary: YouTube player API (fast, reliable, no yt-dlp)
+  if (videoId) {
+    const result = await fetchCaptionsViaPlayerApi(videoId, language)
+    if (result) return result
+  }
+
+  // Fallback: yt-dlp --write-auto-sub
+  return fetchCaptionsViaYtDlp(cleanUrl, outputDir, language)
 }
 
 // ─── Audio Streaming ─────────────────────────────────────────────────────────
