@@ -129,7 +129,8 @@ async function getOrCreateDemoUser(req: Request): Promise<User | null> {
     }
     // Stripe-driven reset: if a paid user with billingPeriodEnd and no active subscription
     // has passed their period end, downgrade them to Free.
-    if (user.billingPeriodEnd && user.billingPeriodEnd < now && !user.subscriptionId) {
+    // founding_workflow is a permanent plan — never auto-downgrade it.
+    if (user.plan !== 'founding_workflow' && user.billingPeriodEnd && user.billingPeriodEnd < now && !user.subscriptionId) {
       user.plan = 'free'
       user.limits = getPlanLimits('free')
       // Downgrade to free: reset usage; importCount resets monthly on the 1st
