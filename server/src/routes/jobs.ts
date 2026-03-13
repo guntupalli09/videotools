@@ -3,6 +3,7 @@ import { getJobById, type JobData } from '../workers/videoProcessor'
 import { getAuthFromRequest, getEffectiveUserId } from '../utils/auth'
 import { getJobPartial, trimPartialPayloadForResponse, segmentsToPartialTranscript } from '../utils/jobPartial'
 import { getJobSummary } from '../utils/jobSummary'
+import { getJobStage, type YoutubeJobStage } from '../utils/jobStage'
 import { getLogger } from '../lib/logger'
 
 const log = getLogger('api')
@@ -26,6 +27,7 @@ async function buildJobStatusPayload(job: import('bull').Job): Promise<{
   result?: unknown
   queuePosition?: number
   jobToken?: string
+  youtubeStage?: YoutubeJobStage
   partialVersion?: number
   partialSegments?: { start: number; end: number; text: string; speaker?: string }[]
   partialTranscript?: string
@@ -60,6 +62,7 @@ async function buildJobStatusPayload(job: import('bull').Job): Promise<{
     result?: unknown
     queuePosition?: number
     jobToken?: string
+    youtubeStage?: YoutubeJobStage
     partialVersion?: number
     partialSegments?: { start: number; end: number; text: string; speaker?: string }[]
     partialTranscript?: string
@@ -71,6 +74,10 @@ async function buildJobStatusPayload(job: import('bull').Job): Promise<{
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- undocumented Bull internals
       const redis = (job as any).queue?.client
       if (redis) {
+        // Include YouTube pipeline stage when present
+        const stage = await getJobStage(redis, job.id)
+        if (stage) payload.youtubeStage = stage
+
         const partial = await getJobPartial(redis, job.id)
         if (partial && partial.segments.length > 0) {
           const trimmed = trimPartialPayloadForResponse(partial)

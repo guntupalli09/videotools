@@ -53,14 +53,21 @@ import { v4 as uuidv4 } from 'uuid'
 
 const workerLog = getLogger('worker')
 
-export const fileQueue = new Queue('file-processing', {
+/** Lock settings: 10-minute lock (covers long YouTube audio downloads) with 15s renewal intervals. */
+const QUEUE_SETTINGS = {
   createClient: createRedisClient,
-})
+  settings: {
+    lockDuration: 600000,   // 10 minutes — covers yt-dlp + Whisper for long videos
+    lockRenewTime: 15000,   // renew every 15s (well before 600s expiry)
+    maxStalledCount: 3,     // allow 3 stalls before marking permanently failed
+    stalledInterval: 30000, // check for stalled jobs every 30s
+  },
+}
+
+export const fileQueue = new Queue('file-processing', QUEUE_SETTINGS)
 
 /** Phase 2.5: Pro/Agency jobs when queue > 50 get 1 dedicated worker; remaining 2 serve all tiers. */
-export const priorityQueue = new Queue('file-processing-priority', {
-  createClient: createRedisClient,
-})
+export const priorityQueue = new Queue('file-processing-priority', QUEUE_SETTINGS)
 
 /** Phase 8: YouTube pipeline separation. Bull default lockDuration (30s) causes "job stalled" on caption fetch.
  *  lockDuration 10min, lockRenewTime 15s = lock renewed every 15s during processing.
@@ -436,6 +443,9 @@ async function processJob(job: import('bull').Job<JobData>) {
           log.info({ msg: 'yt_job_start', youtubeUrl: data.youtubeUrl?.slice(0, 50) })
           await job.progress(5)
 
+          // Stage 1: fetching captions
+          if (redis) await setJobStage(redis, jobId, 'fetching_captions')
+
           // Try captions first — skip Whisper if available (seconds vs minutes)
           const captions = await fetchYoutubeCaptions(
             data.youtubeUrl!,
@@ -459,6 +469,8 @@ async function processJob(job: import('bull').Job<JobData>) {
             })
           }
           if (useCaptions) {
+            // Stage 3: transcribing from captions (no audio download needed)
+            if (redis) await setJobStage(redis, jobId, 'transcribing')
             ;(data as any).precomputedTranscript = captions
             ;(data as any).filePath = ''
             ;(data as any).inputType = 'audio'
@@ -467,14 +479,18 @@ async function processJob(job: import('bull').Job<JobData>) {
             ;(data as any).toolType = 'video-to-transcript'
             ;(data as any).youtubeUrl = undefined
           } else {
+            // Stage 2: downloading audio (captions unavailable or low coverage)
+            if (redis) await setJobStage(redis, jobId, 'downloading_audio')
             const ytAudioPath = path.join(tempDir, `${uuidv4()}_yt_audio.wav`)
             try {
               await streamYoutubeAudioToFile(data.youtubeUrl!, ytAudioPath)
             } catch (err: any) {
               log.error({ msg: 'yt_stream_failed', error: err.message, youtubeUrl: data.youtubeUrl?.slice(0, 50) })
-              throw new Error(`YouTube audio extraction failed: ${err.message}`)
+              throw new Error(`YouTube audio download failed: ${err.message}. The video may be private, age-restricted, or unavailable in your region.`)
             }
             log.info({ msg: 'yt_stream_done', ytAudioPath })
+            // Stage 3: transcribing downloaded audio
+            if (redis) await setJobStage(redis, jobId, 'transcribing')
             ;(data as any).filePath = ytAudioPath
             ;(data as any).inputType = 'audio'
             ;(data as any).originalName =
@@ -1372,12 +1388,15 @@ async function processJob(job: import('bull').Job<JobData>) {
       return result
     } catch (error: any) {
       if (redis) deleteJobPartial(redis, jobId)
+      if (redis) deleteJobStage(redis, jobId)
       captureJobError(jobId, data.requestId, data.toolType, error)
       log.error({ err: error, msg: 'job_failed', error_message: error?.message ?? String(error) })
       throw error
     } finally {
       // Always close the drain loop whether job succeeded or failed (prevents Redis handle leak on crash)
       if (partialWriter) await partialWriter.closeAndFlush().catch(() => {})
+      // Clean up stage key on success
+      if (redis) deleteJobStage(redis, jobId)
     }
   }
 

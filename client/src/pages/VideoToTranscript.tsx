@@ -144,6 +144,10 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   const [youtubeDisplayTitle, setYoutubeDisplayTitle] = useState<string | null>(null)
   const [youtubeThumbnailUrl, setYoutubeThumbnailUrl] = useState<string | null>(null)
   const [youtubeDurationSec, setYoutubeDurationSec] = useState<number | null>(null)
+  /** Current stage of the YouTube pipeline (set from job status polling). */
+  const [youtubeStage, setYoutubeStage] = useState<import('../lib/api').YoutubeJobStage | null>(null)
+  /** Last stage before failure — used to generate a contextual error message. */
+  const youtubeStageAtFailureRef = useRef<import('../lib/api').YoutubeJobStage | null>(null)
 
   // Reset free export count when user gets a new result (e.g. process another file)
   useEffect(() => {
@@ -814,6 +818,8 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
         minStreamDelayTimeoutRef.current = null
       }
       setPartialSegments([])
+      setYoutubeStage(null)
+      youtubeStageAtFailureRef.current = null
       trackEvent('processing_started', { tool: 'video-to-transcript', source: 'youtube' })
 
       const response: YoutubeUploadResponse = await submitYoutubeUrl(
@@ -846,6 +852,10 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
         if (terminalRef.current) return
         setProgress(jobStatus.progress ?? 0)
         if (jobStatus.queuePosition !== undefined) setQueuePosition(jobStatus.queuePosition)
+        if (jobStatus.youtubeStage) {
+          setYoutubeStage(jobStatus.youtubeStage)
+          youtubeStageAtFailureRef.current = jobStatus.youtubeStage
+        }
         if (jobStatus.status === 'processing' && jobStartedTrackedRef.current !== response.jobId) {
           jobStartedTrackedRef.current = response.jobId
           try { trackEvent('job_started', { job_id: response.jobId, tool_type: 'youtube-to-transcript' }) } catch { /* non-blocking */ }
@@ -907,11 +917,18 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
           terminalRef.current = true
           setPartialSegments([])
           if (activeUploadPollRef.current) { activeUploadPollRef.current(); activeUploadPollRef.current = null }
-          const msg = getFailureMessage({})
+          const stageAtFailure = youtubeStageAtFailureRef.current
+          const msg = stageAtFailure === 'downloading_audio'
+            ? 'Could not download audio from this YouTube video. It may be private, age-restricted, or region-blocked. Try a different video or use the file upload.'
+            : stageAtFailure === 'fetching_captions'
+              ? 'Could not retrieve captions or audio for this video. The video may be private, unavailable, or have no accessible audio track.'
+              : getFailureMessage({})
           setFailedMessage(msg)
           setStatus('failed')
           texJobFailed(msg)
-          toast.error('Processing failed. Please try again.')
+          toast.error(stageAtFailure === 'downloading_audio' || stageAtFailure === 'fetching_captions'
+            ? 'YouTube processing failed. See details below.'
+            : 'Processing failed. Please try again.')
         } else if (jobStatus.status === 'processing' && jobStatus.partialVersion != null && jobStatus.partialVersion > lastPartialVersionRef.current) {
           lastPartialVersionRef.current = jobStatus.partialVersion
           if (jobStatus.partialSegments?.length) {
@@ -1025,6 +1042,8 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     setYoutubeDisplayTitle(null)
     setYoutubeThumbnailUrl(null)
     setYoutubeDurationSec(null)
+    setYoutubeStage(null)
+    youtubeStageAtFailureRef.current = null
   }
 
   const getDownloadUrl = () => {
@@ -1531,7 +1550,27 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
               </div>
             </div>
             <ProcessingProgress
-              steps={[
+              steps={youtubeDisplayTitle ? [
+                {
+                  label: 'Captions',
+                  status: youtubeStage == null ? 'active'
+                    : youtubeStage === 'fetching_captions' ? 'active'
+                    : 'completed',
+                },
+                {
+                  label: 'Audio',
+                  status: youtubeStage == null ? 'pending'
+                    : youtubeStage === 'fetching_captions' ? 'pending'
+                    : youtubeStage === 'downloading_audio' ? 'active'
+                    : 'completed',
+                },
+                {
+                  label: 'Transcript',
+                  status: youtubeStage === 'transcribing' ? 'active'
+                    : progress >= 100 ? 'completed'
+                    : 'pending',
+                },
+              ] : [
                 { label: 'Uploading', status: uploadPhase === 'uploading' ? 'active' : 'completed' },
                 { label: 'Processing', status: uploadPhase === 'processing' ? 'active' : uploadPhase === 'uploading' ? 'pending' : 'completed' },
                 { label: 'Finalizing', status: progress >= 100 ? 'completed' : 'pending' },
@@ -1539,10 +1578,14 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
               currentMessage={
                 isRehydrating ? 'Resuming…' :
                 uploadPhase === 'uploading' ? `Uploading (${uploadProgress}%)` :
+                youtubeDisplayTitle && youtubeStage === 'fetching_captions' ? 'Fetching captions…' :
+                youtubeDisplayTitle && youtubeStage === 'downloading_audio' ? 'Downloading audio (captions unavailable)…' :
+                youtubeDisplayTitle && youtubeStage === 'transcribing' ? 'Transcribing audio…' :
+                youtubeDisplayTitle ? 'Processing YouTube video…' :
                 'Processing audio and generating transcript'
               }
               progress={uploadPhase === 'uploading' ? uploadProgress : progress}
-              estimatedTime="30-60 seconds"
+              estimatedTime={youtubeDisplayTitle ? undefined : '30-60 seconds'}
               statusSubtext={queuePosition !== undefined ? `${queuePosition} jobs ahead of you` : undefined}
               liveTranscript={partialSegments.map((s) => (s.speaker ? `${s.speaker}: ` : '') + s.text).join('\n')}
               onCancel={handleCancelUpload}
