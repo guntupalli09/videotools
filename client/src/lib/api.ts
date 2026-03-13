@@ -80,11 +80,16 @@ export interface UploadResponse {
   jobToken?: string
 }
 
+/** Current stage of the YouTube 3-step pipeline (caption fetch → audio download → transcription). */
+export type YoutubeJobStage = 'fetching_captions' | 'downloading_audio' | 'transcribing'
+
 export interface JobStatus {
   status: 'queued' | 'processing' | 'completed' | 'failed'
   progress: number
   /** Phase 2.5: jobs ahead in queue for "Processing… {N} jobs ahead of you." */
   queuePosition?: number
+  /** YouTube pipeline stage — present when status === 'processing' for YouTube jobs. */
+  youtubeStage?: YoutubeJobStage
   result?: {
     downloadUrl: string
     fileName?: string
