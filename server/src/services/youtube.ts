@@ -630,9 +630,10 @@ async function fetchCaptionsViaPlayerApi(
 
 // ─── Fallback: yt-dlp caption fetch ──────────────────────────────────────────
 
-/** Hard timeout for yt-dlp caption fetch (60 seconds). yt-dlp can hang indefinitely
- *  when Deno runtime initialization stalls or YouTube network requests hang. */
-const CAPTION_YTDLP_TIMEOUT_MS = 60_000
+/** Hard timeout for yt-dlp caption fetch (20 seconds). If captions exist they were
+ *  already retrieved via timedtext or player API; yt-dlp is a last-resort fallback
+ *  that rarely succeeds from datacenter IPs, so fail fast. */
+const CAPTION_YTDLP_TIMEOUT_MS = 20_000
 
 async function fetchCaptionsViaYtDlp(
   cleanUrl: string,
