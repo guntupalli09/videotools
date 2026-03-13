@@ -62,10 +62,11 @@ export const priorityQueue = new Queue('file-processing-priority', {
   createClient: createRedisClient,
 })
 
-/** Phase 8: YouTube pipeline separation — caption (fast), audio (medium), transcription (heavy). */
-export const captionQueue = new Queue('youtube-caption', { createClient: createRedisClient })
-export const audioQueue = new Queue('youtube-audio', { createClient: createRedisClient })
-export const transcriptionQueue = new Queue('youtube-transcription', { createClient: createRedisClient })
+/** Phase 8: YouTube pipeline separation. Bull default lockDuration (30s) is too short for caption fetch/audio/Whisper. */
+const YT_QUEUE_OPTS = { createClient: createRedisClient, lockDuration: 600000 } // 10 min
+export const captionQueue = new Queue('youtube-caption', YT_QUEUE_OPTS)
+export const audioQueue = new Queue('youtube-audio', YT_QUEUE_OPTS)
+export const transcriptionQueue = new Queue('youtube-transcription', { ...YT_QUEUE_OPTS, lockDuration: 1800000 }) // 30 min for Whisper
 
 export async function getTotalQueueCount(): Promise<number> {
   const queues = [fileQueue, priorityQueue, ...(YOUTUBE_QUEUE_SEPARATION ? [captionQueue, audioQueue, transcriptionQueue] : [])]
