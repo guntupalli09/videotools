@@ -436,7 +436,7 @@ function getCaptionLanguageOrder(requested?: string, original?: string): string[
   const orig = original?.split('-')[0].toLowerCase()
   const seen = new Set<string>()
   const order: string[] = []
-  for (const lang of [req, 'en', orig].filter(Boolean)) {
+  for (const lang of [req, 'en', orig].filter((x): x is string => Boolean(x))) {
     if (!seen.has(lang)) {
       seen.add(lang)
       order.push(lang)
