@@ -1607,49 +1607,78 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
 
         {status === 'completed' && result && (
           <>
-            {/* ── Teaser preview card (non-logged-in) ── */}
-            {showAuthGate && !isLoggedIn() && (
-              <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 overflow-hidden select-none pointer-events-none mb-2">
-                {/* header row */}
-                <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" aria-hidden />
-                    <span className="text-sm font-semibold text-gray-800 dark:text-white">Transcript ready</span>
-                    {lastProcessingMs != null && (
-                      <span className="text-xs text-gray-400">· {(lastProcessingMs / 1000).toFixed(1)}s</span>
-                    )}
+            {/* ── Teaser preview card (non-logged-in) — first 10% of real content ── */}
+            {showAuthGate && !isLoggedIn() && (() => {
+              const fullText = displayTranscript || fullTranscript || transcriptPreview || ''
+              const previewSegs = result.segments?.length
+                ? result.segments.slice(0, Math.max(3, Math.ceil(result.segments.length * 0.1)))
+                : null
+              const previewText = fullText.slice(0, Math.max(400, Math.ceil(fullText.length * 0.1)))
+              return (
+                <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 overflow-hidden select-none pointer-events-none mb-2">
+                  {/* header row */}
+                  <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" aria-hidden />
+                      <span className="text-sm font-semibold text-gray-800 dark:text-white">Transcript ready</span>
+                      {lastProcessingMs != null && (
+                        <span className="text-xs text-gray-400">· {(lastProcessingMs / 1000).toFixed(1)}s</span>
+                      )}
+                    </div>
+                    <span className="text-xs text-gray-400">
+                      {[
+                        result.segments?.length ? `${result.segments.length} segments` : '',
+                        fullText ? `~${Math.round(fullText.trim().split(/\s+/).length)} words` : '',
+                      ].filter(Boolean).join(' · ')}
+                    </span>
                   </div>
-                  <span className="text-xs text-gray-400">
-                    {[
-                      result.segments?.length ? `${result.segments.length} segments` : '',
-                      (displayTranscript || fullTranscript || transcriptPreview)
-                        ? `~${Math.round((displayTranscript || fullTranscript || transcriptPreview || '').trim().split(/\s+/).length)} words`
-                        : '',
-                    ].filter(Boolean).join(' · ')}
-                  </span>
-                </div>
-                {/* transcript snippet — first ~280 chars, faded at bottom */}
-                <div className="relative px-5 py-4">
-                  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                    {(displayTranscript || fullTranscript || transcriptPreview || '').slice(0, 280)}
-                    {(displayTranscript || fullTranscript || transcriptPreview || '').length > 280 && '…'}
-                  </p>
-                  <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-white dark:from-gray-900 to-transparent" aria-hidden />
-                </div>
-                {/* locked features */}
-                <div className="px-5 pb-4 pt-1">
-                  <p className="text-[11px] text-gray-400 mb-2 font-medium">Sign up to unlock:</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(['Full transcript', 'Summary', 'Speaker labels', 'Chapters', 'SRT / VTT / PDF'] as const).map((feat) => (
-                      <span key={feat} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-[11px] text-gray-400 dark:text-gray-500">
-                        <Lock className="w-2.5 h-2.5" aria-hidden />
-                        {feat}
-                      </span>
-                    ))}
+
+                  {/* 10% preview — real segments or text, fades out at bottom */}
+                  <div className="relative overflow-hidden" style={{ maxHeight: '18rem' }}>
+                    <div className="px-5 py-4 space-y-2">
+                      {previewSegs ? (
+                        previewSegs.map((seg, i) => {
+                          const mins = Math.floor(seg.start / 60)
+                          const secs = Math.floor(seg.start % 60)
+                          const ts = `${mins}:${String(secs).padStart(2, '0')}`
+                          return (
+                            <div key={i} className="flex gap-3 items-start">
+                              <span className="shrink-0 text-[11px] text-gray-400 dark:text-gray-500 font-mono mt-0.5 w-8">{ts}</span>
+                              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                                {seg.speaker && (
+                                  <span className="font-semibold text-violet-600 dark:text-violet-400 mr-1">{seg.speaker}:</span>
+                                )}
+                                {seg.text}
+                              </p>
+                            </div>
+                          )
+                        })
+                      ) : (
+                        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{previewText}</p>
+                      )}
+                    </div>
+                    {/* strong gradient fade — covers bottom ~55% to make it feel "cut off" */}
+                    <div
+                      className="absolute bottom-0 left-0 right-0 h-40 pointer-events-none bg-gradient-to-t from-white dark:from-gray-900 via-white/60 dark:via-gray-900/60 to-transparent"
+                      aria-hidden
+                    />
+                  </div>
+
+                  {/* locked features */}
+                  <div className="px-5 pb-4 pt-2">
+                    <p className="text-[11px] text-gray-400 mb-2 font-medium">Sign up to unlock:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(['Full transcript', 'Summary', 'Speaker labels', 'Chapters', 'SRT / VTT / PDF'] as const).map((feat) => (
+                        <span key={feat} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-[11px] text-gray-400 dark:text-gray-500">
+                          <Lock className="w-2.5 h-2.5" aria-hidden />
+                          {feat}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )
+            })()}
 
           <div className={`space-y-6 relative ${showAuthGate && !isLoggedIn() ? 'pointer-events-none select-none' : ''}`}>
             {/* Blur overlay for non-logged-in users — the JobAuthGateModal sits above this */}
