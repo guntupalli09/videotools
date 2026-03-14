@@ -1603,7 +1603,7 @@ export const TRANSCRIPT_TRANSLATION_LANGUAGES = ['English', 'Hindi', 'Telugu', '
 /** Claim a guest job after signup/login. Associates the job with the authenticated user and increments their importCount. Best-effort — failures are non-blocking. */
 export async function claimGuestJob(jobId: string, jobToken: string): Promise<void> {
   try {
-    await api(`/api/jobs/${jobId}/claim`, {
+    await api(`/api/job/${jobId}/claim`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jobToken }),

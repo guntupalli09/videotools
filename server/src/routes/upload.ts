@@ -143,8 +143,8 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
         email: `${userId}@example.com`,
         passwordHash: '',
         plan,
-        stripeCustomerId: '',
-        subscriptionId: '',
+        stripeCustomerId: undefined,
+        subscriptionId: undefined,
         paymentMethodId: undefined,
         usageThisMonth: {
           totalMinutes: 0,
@@ -160,7 +160,8 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
         createdAt: now,
         updatedAt: now,
       }
-      await saveUser(user)
+      // Guest users are ephemeral — skip DB write to avoid stripeCustomerId unique constraint issues
+      if (!userId.startsWith('guest_')) await saveUser(user)
     } else {
       if (user.plan !== plan) {
         user.plan = plan
@@ -477,8 +478,8 @@ router.post('/dual', upload.fields([
         email: `${userId}@example.com`,
         passwordHash: '',
         plan,
-        stripeCustomerId: '',
-        subscriptionId: '',
+        stripeCustomerId: undefined,
+        subscriptionId: undefined,
         paymentMethodId: undefined,
         usageThisMonth: { totalMinutes: 0, videoCount: 0, batchCount: 0, languageCount: 0, translatedMinutes: 0, importCount: 0, resetDate },
         limits: burnLimits,
@@ -486,7 +487,8 @@ router.post('/dual', upload.fields([
         createdAt: now,
         updatedAt: now,
       }
-      await saveUser(burnUser)
+      // Guest users are ephemeral — skip DB write to avoid stripeCustomerId unique constraint issues
+      if (!userId.startsWith('guest_')) await saveUser(burnUser)
     } else {
       if (burnUser.plan !== plan) {
         burnUser.plan = plan
@@ -862,8 +864,8 @@ router.post('/complete', async (req: Request, res: Response) => {
           email: `${meta.userId}@example.com`,
           passwordHash: '',
           plan: meta.plan,
-          stripeCustomerId: '',
-          subscriptionId: '',
+          stripeCustomerId: undefined,
+          subscriptionId: undefined,
           paymentMethodId: undefined,
           usageThisMonth: {
             totalMinutes: 0,
@@ -879,7 +881,8 @@ router.post('/complete', async (req: Request, res: Response) => {
           createdAt: now,
           updatedAt: now,
         }
-        await saveUser(user)
+        // Guest users are ephemeral — skip DB write to avoid stripeCustomerId unique constraint issues
+        if (!meta.userId!.startsWith('guest_')) await saveUser(user)
       }
       if (user && user.plan === 'free' && (user.usageThisMonth.importCount ?? 0) >= 3) {
         throw Object.assign(new Error('Free plan allows 3 imports per month.'), { statusCode: 403 })
@@ -1280,8 +1283,8 @@ router.post('/youtube', async (req: Request, res: Response) => {
         email: `${userId}@example.com`,
         passwordHash: '',
         plan,
-        stripeCustomerId: '',
-        subscriptionId: '',
+        stripeCustomerId: undefined,
+        subscriptionId: undefined,
         paymentMethodId: undefined,
         usageThisMonth: {
           totalMinutes: 0,
@@ -1297,7 +1300,8 @@ router.post('/youtube', async (req: Request, res: Response) => {
         createdAt: now,
         updatedAt: now,
       }
-      await saveUser(user)
+      // Guest users are ephemeral — skip DB write to avoid stripeCustomerId unique constraint issues
+      if (!userId.startsWith('guest_')) await saveUser(user)
     } else {
       if (user.plan !== plan) {
         user.plan = plan
