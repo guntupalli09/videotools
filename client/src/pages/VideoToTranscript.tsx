@@ -95,6 +95,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   const [editableSegments, setEditableSegments] = useState<Segment[] | null>(null)
   const [showPaywall, setShowPaywall] = useState(false)
   const [showAuthGate, setShowAuthGate] = useState(false)
+  const [showAuthModal, setShowAuthModal] = useState(false)
   const [availableMinutes, setAvailableMinutes] = useState<number | null>(null)
   const [usedMinutes, setUsedMinutes] = useState<number | null>(null)
   const [queuePosition, setQueuePosition] = useState<number | undefined>(undefined)
@@ -1587,7 +1588,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                 : null
               const previewText = fullText.slice(0, Math.max(400, Math.ceil(fullText.length * 0.1)))
               return (
-                <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 overflow-hidden select-none pointer-events-none mb-2">
+                <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 overflow-hidden select-none mb-2">
                   {/* header row */}
                   <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
                     <div className="flex items-center gap-2">
@@ -1636,16 +1637,32 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                     />
                   </div>
 
-                  {/* locked features */}
-                  <div className="px-5 pb-4 pt-2">
+                  {/* locked features + CTA */}
+                  <div className="px-5 pb-5 pt-2 pointer-events-auto">
                     <p className="text-[11px] text-gray-400 mb-2 font-medium">Sign up to unlock:</p>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1.5 mb-4">
                       {(['Full transcript', 'Summary', 'Speaker labels', 'Chapters', 'SRT / VTT / PDF'] as const).map((feat) => (
                         <span key={feat} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-[11px] text-gray-400 dark:text-gray-500">
                           <Lock className="w-2.5 h-2.5" aria-hidden />
                           {feat}
                         </span>
                       ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowAuthModal(true)}
+                        className="flex-1 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors"
+                      >
+                        Create free account
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowAuthModal(true)}
+                        className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      >
+                        Log in
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -2188,21 +2205,17 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
       />
 
       <JobAuthGateModal
-        isOpen={showAuthGate}
-        onClose={() => {
-          // Don't allow dismissal — user must sign in or log in to see results.
-          // Clicking backdrop just focuses the modal (no-op).
-        }}
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
         jobDescription="Your transcript is ready!"
         onAuthSuccess={async () => {
-          // Claim the guest job so the user's importCount reflects the trial
           const jobId = currentJobId || getPersistedJobId(location.pathname)
           const jobToken = getPersistedJobToken(location.pathname)
           if (jobId && jobToken) {
             await claimGuestJob(jobId, jobToken)
           }
           setShowAuthGate(false)
-          // Reload to apply the new auth token and show the result with full download access
+          setShowAuthModal(false)
           window.location.reload()
         }}
       />
