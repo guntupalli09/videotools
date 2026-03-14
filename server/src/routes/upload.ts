@@ -101,10 +101,7 @@ async function getTotalQueueCount(): Promise<number> {
 router.post('/', upload.single('file'), async (req: Request, res: Response) => {
   const uploadStartMs = Date.now()
   try {
-    const userId = getEffectiveUserId(req)
-    if (!userId) {
-      return res.status(401).json({ message: 'Signup required to process videos.' })
-    }
+    const userId = getEffectiveUserId(req) ?? `guest_${uuidv4()}`
 
     const { toolType, url, webhookUrl, ...options } = req.body
 
@@ -146,8 +143,8 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
         email: `${userId}@example.com`,
         passwordHash: '',
         plan,
-        stripeCustomerId: '',
-        subscriptionId: '',
+        stripeCustomerId: undefined,
+        subscriptionId: undefined,
         paymentMethodId: undefined,
         usageThisMonth: {
           totalMinutes: 0,
@@ -163,7 +160,8 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
         createdAt: now,
         updatedAt: now,
       }
-      await saveUser(user)
+      // Guest users are ephemeral — skip DB write to avoid stripeCustomerId unique constraint issues
+      if (!userId.startsWith('guest_')) await saveUser(user)
     } else {
       if (user.plan !== plan) {
         user.plan = plan
@@ -433,17 +431,7 @@ router.post('/dual', upload.fields([
   { name: 'subtitles', maxCount: 1 },
 ]), async (req: Request, res: Response) => {
   try {
-    const userId = getEffectiveUserId(req)
-    if (!userId) {
-      const files = req.files as { [fieldname: string]: Express.Multer.File[] }
-      if (files?.video?.[0]) {
-        try { fs.unlinkSync(files.video[0].path) } catch { /* ignore */ }
-      }
-      if (files?.subtitles?.[0]) {
-        try { fs.unlinkSync(files.subtitles[0].path) } catch { /* ignore */ }
-      }
-      return res.status(401).json({ message: 'Signup required to process videos.' })
-    }
+    const userId = getEffectiveUserId(req) ?? `guest_${uuidv4()}`
 
     const { toolType, trimmedStart, trimmedEnd, burnFontSize, burnPosition, burnBackgroundOpacity } = req.body
     const auth = getAuthFromRequest(req)
@@ -490,8 +478,8 @@ router.post('/dual', upload.fields([
         email: `${userId}@example.com`,
         passwordHash: '',
         plan,
-        stripeCustomerId: '',
-        subscriptionId: '',
+        stripeCustomerId: undefined,
+        subscriptionId: undefined,
         paymentMethodId: undefined,
         usageThisMonth: { totalMinutes: 0, videoCount: 0, batchCount: 0, languageCount: 0, translatedMinutes: 0, importCount: 0, resetDate },
         limits: burnLimits,
@@ -499,7 +487,8 @@ router.post('/dual', upload.fields([
         createdAt: now,
         updatedAt: now,
       }
-      await saveUser(burnUser)
+      // Guest users are ephemeral — skip DB write to avoid stripeCustomerId unique constraint issues
+      if (!userId.startsWith('guest_')) await saveUser(burnUser)
     } else {
       if (burnUser.plan !== plan) {
         burnUser.plan = plan
@@ -656,10 +645,7 @@ router.get('/init', (_req: Request, res: Response) => {
 })
 router.post('/init', async (req: Request, res: Response) => {
   try {
-    const userId = getEffectiveUserId(req)
-    if (!userId) {
-      return res.status(401).json({ message: 'Signup required to process videos.' })
-    }
+    const userId = getEffectiveUserId(req) ?? `guest_${uuidv4()}`
     const auth = getAuthFromRequest(req)
     const rateLimitKey = userId
     let user: User | null = null
@@ -878,8 +864,8 @@ router.post('/complete', async (req: Request, res: Response) => {
           email: `${meta.userId}@example.com`,
           passwordHash: '',
           plan: meta.plan,
-          stripeCustomerId: '',
-          subscriptionId: '',
+          stripeCustomerId: undefined,
+          subscriptionId: undefined,
           paymentMethodId: undefined,
           usageThisMonth: {
             totalMinutes: 0,
@@ -895,7 +881,8 @@ router.post('/complete', async (req: Request, res: Response) => {
           createdAt: now,
           updatedAt: now,
         }
-        await saveUser(user)
+        // Guest users are ephemeral — skip DB write to avoid stripeCustomerId unique constraint issues
+        if (!meta.userId!.startsWith('guest_')) await saveUser(user)
       }
       if (user && user.plan === 'free' && (user.usageThisMonth.importCount ?? 0) >= 3) {
         throw Object.assign(new Error('Free plan allows 3 imports per month.'), { statusCode: 403 })
@@ -1296,8 +1283,8 @@ router.post('/youtube', async (req: Request, res: Response) => {
         email: `${userId}@example.com`,
         passwordHash: '',
         plan,
-        stripeCustomerId: '',
-        subscriptionId: '',
+        stripeCustomerId: undefined,
+        subscriptionId: undefined,
         paymentMethodId: undefined,
         usageThisMonth: {
           totalMinutes: 0,
@@ -1313,7 +1300,8 @@ router.post('/youtube', async (req: Request, res: Response) => {
         createdAt: now,
         updatedAt: now,
       }
-      await saveUser(user)
+      // Guest users are ephemeral — skip DB write to avoid stripeCustomerId unique constraint issues
+      if (!userId.startsWith('guest_')) await saveUser(user)
     } else {
       if (user.plan !== plan) {
         user.plan = plan
