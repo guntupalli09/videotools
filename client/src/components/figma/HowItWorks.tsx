@@ -7,7 +7,7 @@ const steps = [
     step: '01',
     icon: Upload,
     title: 'Upload or paste',
-    description: 'Drop a video file (MP4, MOV, MKV…) or paste a YouTube URL. No download required for YouTube.',
+    description: 'Drop any video or audio file — MP4, MOV, MKV, MP3, WAV, and more.',
     color: 'from-purple-500 to-indigo-600',
     shadowColor: 'shadow-purple-500/30',
   },

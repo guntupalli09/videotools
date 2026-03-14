@@ -13,8 +13,8 @@ const FAQS = [
     a: "We use OpenAI's Whisper model — one of the most accurate AI transcription systems available. Expect 95–98.5% accuracy on clear audio. Accuracy varies with audio quality, accents, and background noise, but Whisper handles diverse accents better than most alternatives.",
   },
   {
-    q: 'Can I transcribe a YouTube video directly?',
-    a: 'Yes — paste any public YouTube URL into the transcript tool and we extract and transcribe the audio directly. No download needed, no extra software. Works for any public video up to the duration limit on your plan.',
+    q: 'Can I transcribe a YouTube video?',
+    a: 'Yes — download the video and upload it directly. YouTube URL support (paste-and-go) is coming soon.',
   },
   {
     q: 'What video and audio formats do you support?',
@@ -30,7 +30,7 @@ const FAQS = [
   },
   {
     q: "What's included in the free plan?",
-    a: 'Sign up for free to get 3 imports per month (resets on the 1st). No credit card required. Each import can be a video, audio file, or YouTube URL. Perfect for trying the tool before committing to a paid plan.',
+    a: 'Sign up for free to get 3 imports per month (resets on the 1st). No credit card required. Each import can be a video or audio file. Perfect for trying the tool before committing to a paid plan.',
   },
   {
     q: 'Can I export to different formats?',

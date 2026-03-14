@@ -43,7 +43,7 @@ export function FinalCTA() {
           </h2>
 
           <p className="text-lg text-white/50 max-w-xl mx-auto mb-10 leading-relaxed">
-            Drop a video, paste a YouTube link, or upload an audio file. Your transcript is ready before you finish your coffee.
+            Drop a video or upload an audio file. Your transcript is ready before you finish your coffee.
           </p>
 
           {/* CTA button */}
