@@ -321,6 +321,9 @@ function StatsBar() {
   );
 }
 
+// Hardcoded spots remaining for Creator Pro FOMO (update manually as spots are claimed)
+const CREATOR_PRO_SPOTS_LEFT = 4;
+
 export function Hero() {
   const ref = useRef<HTMLDivElement>(null);
   const [showFreeMicrocopy, setShowFreeMicrocopy] = useState<boolean | null>(null);
@@ -370,6 +373,31 @@ export function Hero() {
 
         <div className="relative z-10 w-full max-w-4xl mx-auto px-6 pt-24 sm:pt-28 pb-6">
 
+          {/* FOMO: Creator Pro spot counter */}
+          {!isLoggedIn() && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1, duration: 0.5 }}
+              className="flex justify-center mb-4"
+            >
+              <Link to="/pricing">
+                <div className="group inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-500/10 dark:to-orange-500/10 border border-amber-300/70 dark:border-amber-500/25 hover:border-amber-400 dark:hover:border-amber-400/40 transition-all cursor-pointer">
+                  <motion.span
+                    className="w-1.5 h-1.5 rounded-full bg-amber-500"
+                    animate={{ opacity: [1, 0.4, 1] }}
+                    transition={{ duration: 1.2, repeat: Infinity }}
+                  />
+                  <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                    {CREATOR_PRO_SPOTS_LEFT} spots left
+                  </span>
+                  <span className="text-[11px] text-amber-600/80 dark:text-amber-400/60">· $10/month Creator Pro — locked forever</span>
+                  <ChevronRight className="w-3 h-3 text-amber-500/60 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </Link>
+            </motion.div>
+          )}
+
           {/* YouTube badge — NEW feature announcement */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -396,10 +424,10 @@ export function Hero() {
             transition={{ delay: 0.3, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
             className="text-center text-4xl sm:text-5xl md:text-[3.75rem] lg:text-[4.5rem] font-bold tracking-tight text-gray-900 dark:text-white leading-[1.08] mb-5 transition-colors duration-500"
           >
-            High-speed video processing{' '}
+            From Video to Transcript{' '}
             <span className="relative">
               <span className="relative z-10 bg-gradient-to-r from-purple-600 via-violet-600 to-indigo-600 bg-clip-text text-transparent">
-                for real workloads
+                in Minutes — Not Hours.
               </span>
               <motion.span
                 className="absolute -bottom-1 left-0 right-0 h-[3px] bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full"
@@ -418,7 +446,7 @@ export function Hero() {
             transition={{ delay: 0.5, duration: 0.6 }}
             className="text-center text-[16px] sm:text-[17px] text-gray-500 dark:text-white/45 max-w-xl mx-auto leading-relaxed mb-8 transition-colors duration-500"
           >
-            Built for creators and agencies that demand speed, scale, and zero-friction execution.
+            Paste a YouTube link or upload a file. Get a clean, accurate transcript ready to download — no waiting, no hassle.
           </motion.p>
 
           {/* CTAs */}
@@ -428,7 +456,7 @@ export function Hero() {
             transition={{ delay: 0.65, duration: 0.5 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-3"
           >
-            <Link to={isLoggedIn() ? '/video-to-transcript' : '/signup'}>
+            <Link to="/video-to-transcript">
               <motion.span
                 whileHover={{ y: -2, scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}
@@ -436,7 +464,7 @@ export function Hero() {
               >
                 <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                 <span className="relative flex items-center gap-2">
-                  {isLoggedIn() ? 'Open transcript tool' : 'Get started free'}
+                  Transcribe My Video Now
                   <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                 </span>
               </motion.span>
@@ -458,7 +486,7 @@ export function Hero() {
               transition={{ delay: 0.8, duration: 0.5 }}
               className="text-center text-[11px] text-gray-400 dark:text-white/20 tracking-wide transition-colors duration-500"
             >
-              3 free imports · No credit card · Files deleted after processing
+              Try free · No credit card · Files deleted after processing
             </motion.p>
           )}
 

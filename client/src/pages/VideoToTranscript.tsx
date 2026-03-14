@@ -5,6 +5,8 @@ import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import WorkflowChainSuggestion from '../components/WorkflowChainSuggestion'
 import PaywallModal from '../components/PaywallModal'
+import JobAuthGateModal from '../components/JobAuthGateModal'
+import { isLoggedIn } from '../lib/auth'
 import { ToolLayout } from '../components/figma/ToolLayout'
 import { UploadZone } from '../components/figma/UploadZone'
 import { ProcessingInterface } from '../components/figma/ProcessingInterface'
@@ -92,6 +94,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   const [transcriptEditMode, setTranscriptEditMode] = useState(false)
   const [editableSegments, setEditableSegments] = useState<Segment[] | null>(null)
   const [showPaywall, setShowPaywall] = useState(false)
+  const [showAuthGate, setShowAuthGate] = useState(false)
   const [availableMinutes, setAvailableMinutes] = useState<number | null>(null)
   const [usedMinutes, setUsedMinutes] = useState<number | null>(null)
   const [queuePosition, setQueuePosition] = useState<number | undefined>(undefined)
@@ -455,6 +458,14 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   useEffect(() => {
     if (status === 'completed' && selectedFile) workflow.setVideo(selectedFile)
   }, [status, selectedFile])
+
+  // Show auth gate immediately when job completes and user is not logged in.
+  // Users can see live partial transcription during processing but results are gated.
+  useEffect(() => {
+    if (status === 'completed' && !isLoggedIn()) {
+      setShowAuthGate(true)
+    }
+  }, [status])
 
   const handleFileSelect = (file: File) => {
     try {
@@ -1595,7 +1606,11 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
         )}
 
         {status === 'completed' && result && (
-          <div className="space-y-6">
+          <div className={`space-y-6 relative ${showAuthGate && !isLoggedIn() ? 'pointer-events-none select-none' : ''}`}>
+            {/* Blur overlay for non-logged-in users — the JobAuthGateModal sits above this */}
+            {showAuthGate && !isLoggedIn() && (
+              <div className="absolute inset-0 z-10 backdrop-blur-sm bg-white/40 dark:bg-gray-950/40 rounded-2xl" aria-hidden="true" />
+            )}
             {/* Result header + primary actions */}
             <TranscriptResult
               fileName={result.fileName ?? selectedFile?.name?.replace(/\.[^/.]+$/, '') + '_transcript.txt'}
@@ -2123,6 +2138,20 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
         onClose={() => setShowPaywall(false)}
         usedMinutes={usedMinutes ?? 0}
         availableMinutes={availableMinutes ?? 0}
+      />
+
+      <JobAuthGateModal
+        isOpen={showAuthGate}
+        onClose={() => {
+          // Don't allow dismissal — user must sign in or log in to see results.
+          // Clicking backdrop just focuses the modal (no-op).
+        }}
+        jobDescription="Your transcript is ready!"
+        onAuthSuccess={() => {
+          setShowAuthGate(false)
+          // Reload to apply the new auth token and show the result with full download access
+          window.location.reload()
+        }}
       />
 
       {faq.length > 0 && (
