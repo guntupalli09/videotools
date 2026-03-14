@@ -13,9 +13,11 @@
     "seo:apply-proposals": "tsx scripts/seo/apply-proposals-to-registry.ts",
     "seo:changelog": "tsx scripts/seo/write-changelog.ts",
     "seo:verify": "tsx scripts/seo/verify.ts",
-    "seo:health": "tsx scripts/ops/seo-health-check.ts"
+    "seo:health": "tsx scripts/ops/seo-health-check.ts",
+    "blog:generate": "npx tsx scripts/blog/generate-blog-post.ts"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
     "tsx": "^4.7.0"
   }
 }

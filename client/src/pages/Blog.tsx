@@ -1,4 +1,5 @@
 import { Link, useParams, useNavigate } from 'react-router-dom'
+import { GENERATED_POSTS } from '../data/generatedPosts'
 
 interface BlogPost {
   slug: string
@@ -827,6 +828,26 @@ Today we are covering subtitle formats.`}
   },
 ]
 
+/** Merge static + AI-generated posts. Generated posts converted to BlogPost shape. */
+const ALL_POSTS: BlogPost[] = [
+  ...GENERATED_POSTS.map((gp) => ({
+    slug: gp.slug,
+    date: gp.date,
+    title: gp.title,
+    summary: gp.summary,
+    tag: gp.tag,
+    readTime: gp.readTime,
+    content: (
+      <div
+        className="space-y-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed blog-generated-content"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: gp.contentHtml }}
+      />
+    ),
+  })),
+  ...POSTS,
+]
+
 function PostCard({ post }: { post: BlogPost }) {
   return (
     <Link
@@ -887,7 +908,7 @@ function PostView({ post }: { post: BlogPost }) {
 export default function Blog() {
   const { slug } = useParams<{ slug?: string }>()
   const navigate = useNavigate()
-  const activePost = slug ? (POSTS.find((p) => p.slug === slug) ?? null) : null
+  const activePost = slug ? (ALL_POSTS.find((p) => p.slug === slug) ?? null) : null
 
   // 404 redirect for unknown slugs
   if (slug && !activePost) {
@@ -919,7 +940,7 @@ export default function Blog() {
             </div>
 
             <div className="space-y-4">
-              {POSTS.map((post) => (
+              {ALL_POSTS.map((post) => (
                 <PostCard key={post.slug} post={post} />
               ))}
             </div>

@@ -1,0 +1,422 @@
+{
+  "description": "52-week rotating blog topic queue. Each entry is consumed once then moved to 'used'. The script picks the first unused topic each week.",
+  "topics": [
+    {
+      "slug": "how-to-transcribe-podcast-episode",
+      "keyword": "how to transcribe a podcast episode",
+      "title": "How to Transcribe a Podcast Episode (Free, Any Format)",
+      "angle": "Step-by-step guide for MP3/M4A podcast episodes. Cover VideoText workflow, speaker labelling, exporting show notes. Include actual time estimates.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "how-to-add-captions-youtube-video",
+      "keyword": "how to add captions to youtube video",
+      "title": "How to Add Captions to a YouTube Video (The Right Way)",
+      "angle": "Upload SRT vs use YouTube auto-captions. Why uploaded SRT is more accurate and helps search. Include step-by-step screenshots description.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "video-transcription-accuracy-whisper",
+      "keyword": "whisper ai transcription accuracy",
+      "title": "Whisper AI Transcription Accuracy: What to Expect in 2026",
+      "angle": "Real benchmark data (our own internal tests). Accuracy by language, audio quality, speaker count. When Whisper is great vs where it struggles.",
+      "tag": "Engineering",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "how-to-translate-video-subtitles",
+      "keyword": "how to translate video subtitles",
+      "title": "How to Translate Video Subtitles to Any Language",
+      "angle": "Two methods: translate existing SRT file vs transcribe and translate from scratch. Cover 5 common use cases (YouTube, TikTok, eLearning, meetings, docs).",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "srt-file-format-explained",
+      "keyword": "srt file format",
+      "title": "SRT File Format Explained: Everything You Need to Know",
+      "angle": "What SRT is, how timestamps work, character limits, common errors. Include a valid SRT example. When to use SRT vs VTT vs ASS.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "how-to-transcribe-interview",
+      "keyword": "how to transcribe an interview",
+      "title": "How to Transcribe an Interview: Fast, Accurate, Free",
+      "angle": "Journalists, researchers, HR teams. Multi-speaker labelling. How to handle overlapping speech. Export options for different workflows.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "video-accessibility-captions-guide",
+      "keyword": "video accessibility captions",
+      "title": "Making Videos Accessible: A Practical Captions Guide (WCAG 2026)",
+      "angle": "WCAG 2.1 requirements for captions. Soft vs hard captions for compliance. How to check timing standards. Real examples of compliant vs non-compliant.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "best-way-to-transcribe-lectures",
+      "keyword": "how to transcribe lecture recordings",
+      "title": "How to Transcribe Lecture Recordings for Students and Educators",
+      "angle": "University lectures, online courses, recorded webinars. Accuracy tips for technical vocabulary. How to create study notes from transcripts.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "ffmpeg-extract-audio-from-video",
+      "keyword": "extract audio from video for transcription",
+      "title": "How to Extract Audio from Video for Transcription (FFmpeg Guide)",
+      "angle": "Technical guide with actual FFmpeg commands. Mono vs stereo, sample rate for Whisper. When you actually need this vs just uploading video directly.",
+      "tag": "Engineering",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "how-to-transcribe-webinar-recording",
+      "keyword": "how to transcribe a webinar",
+      "title": "How to Transcribe a Webinar Recording: Step-by-Step",
+      "angle": "GoToWebinar, Zoom Webinar, Teams Live Event recordings. Getting the MP4, handling Q&A segments, exporting as searchable content.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "subtitle-translation-accuracy-tips",
+      "keyword": "subtitle translation accuracy",
+      "title": "How to Improve Subtitle Translation Accuracy: 7 Practical Tips",
+      "angle": "Based on real observations from processing. Language pairs that work well vs harder ones. When to manually review AI translation. Include specific examples.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "how-to-make-tiktok-subtitles",
+      "keyword": "how to add subtitles to tiktok",
+      "title": "How to Add Subtitles to TikTok Videos (Burned In, Accurate)",
+      "angle": "Why TikTok's auto-captions fail for non-English and fast speech. VideoText workflow: SRT → burn → upload. Font size and positioning for mobile.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "transcription-for-content-repurposing",
+      "keyword": "video to blog post transcript",
+      "title": "How to Turn a Video Transcript into a Blog Post (Step-by-Step)",
+      "angle": "Full workflow: transcript → clean → structure → edit into article. Using Summary and Chapters tabs. Real example transformation.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "closed-captions-vs-subtitles",
+      "keyword": "closed captions vs subtitles difference",
+      "title": "Closed Captions vs Subtitles: The Difference Explained",
+      "angle": "Exact definitions. When CC is required (broadcast, accessibility law). When subtitles are used (translation, foreign language). Common misconceptions.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "how-to-create-subtitles-for-instagram",
+      "keyword": "how to create subtitles for instagram reels",
+      "title": "How to Create Subtitles for Instagram Reels That Actually Work",
+      "angle": "Why Instagram's auto-captions aren't enough for reach. Burn-in workflow. Font size, position, duration for Reels format. A/B test data on engagement.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "transcribe-google-meet-recording",
+      "keyword": "how to transcribe google meet recording",
+      "title": "How to Transcribe a Google Meet Recording",
+      "angle": "Downloading Meet recordings. MP4 workflow. Speaker detection for team calls. Compare to Otter.ai bot approach. Privacy note on who can see recordings.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "ai-transcription-vs-human-transcription",
+      "keyword": "ai transcription vs human transcription",
+      "title": "AI Transcription vs Human Transcription: When to Use Which",
+      "angle": "Honest comparison with real accuracy numbers. AI wins on speed and cost; human wins on legal/medical accuracy. Decision framework for choosing.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "how-to-generate-video-chapters",
+      "keyword": "how to add chapters to youtube video automatically",
+      "title": "How to Generate Video Chapters Automatically from a Transcript",
+      "angle": "YouTube's timestamp chapter format. Using VideoText Chapters tab. Formatting timestamps for YouTube description. Improves watch time and search.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "multilingual-subtitles-guide",
+      "keyword": "how to add multiple language subtitles to video",
+      "title": "How to Add Multi-Language Subtitles to One Video",
+      "angle": "One video, 5 subtitle tracks. YouTube multi-language upload. Workflow for creating translated SRTs. Which languages drive the most reach.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "video-to-text-for-seo",
+      "keyword": "transcribing videos for seo",
+      "title": "Why Transcribing Your Videos Dramatically Improves SEO",
+      "angle": "Google can't watch videos but can index transcripts. Real case studies on transcript + description strategy. How to embed transcripts on your page.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "how-to-burn-subtitles-premiere-pro",
+      "keyword": "burn subtitles into video premiere pro alternative",
+      "title": "How to Burn Subtitles into Video Without Premiere Pro",
+      "angle": "Premiere Pro workflow is complex. VideoText Burn Subtitles as a browser alternative. Use cases where browser tool is faster than NLE.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "transcription-for-lawyers",
+      "keyword": "legal transcription software",
+      "title": "Best Transcription Tools for Legal Professionals in 2026",
+      "angle": "What lawyers need: accuracy, confidentiality, exportable formats. Which tools store data (problem for attorney-client privilege). VideoText privacy model.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "how-to-create-srt-file",
+      "keyword": "how to create srt file",
+      "title": "How to Create an SRT Subtitle File (3 Methods)",
+      "angle": "Method 1: VideoText auto-generate. Method 2: Write manually with correct format. Method 3: Convert from VTT. Include SRT format template.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "video-transcription-for-podcasters",
+      "keyword": "podcast transcription for show notes",
+      "title": "How Podcasters Use Transcription to 10x Their SEO",
+      "angle": "Show notes, blog posts, quote graphics, newsletter content — all from one transcript. Real workflow. Which export formats work for each use case.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "compress-video-without-quality-loss",
+      "keyword": "compress video without losing quality",
+      "title": "How to Compress Video Without Losing Quality (Free, Online)",
+      "angle": "What causes quality loss during compression. CRF settings explained. VideoText light/medium/heavy presets and when to use each. File size benchmarks.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "transcribe-microsoft-teams-recording",
+      "keyword": "how to transcribe microsoft teams recording",
+      "title": "How to Transcribe a Microsoft Teams Recording",
+      "angle": "Where Teams recordings are stored (OneDrive/SharePoint). Downloading the MP4. Upload to VideoText. Teams built-in transcription vs Whisper accuracy.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "how-to-export-transcript-notion",
+      "keyword": "video transcript to notion",
+      "title": "How to Export a Video Transcript to Notion",
+      "angle": "VideoText Notion export format. Structured blocks with timestamps. Use cases: meeting notes, research, content planning. Step-by-step walkthrough.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "best-transcription-tools-content-agencies",
+      "keyword": "transcription tools for content agencies",
+      "title": "Best Transcription Tools for Content Agencies in 2026",
+      "angle": "Agency-specific needs: batch volume, client privacy, multi-language, billing. VideoText Agency plan breakdown. Workflow for managing client video libraries.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "vtt-file-format-explained",
+      "keyword": "vtt subtitle file format",
+      "title": "VTT Subtitle File Format: Complete Guide for Web Developers",
+      "angle": "WebVTT spec. Cue settings (position, size, align). RTL support. How to load VTT in video.js, Plyr, and native HTML5. SRT vs VTT decision tree.",
+      "tag": "Engineering",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "auto-subtitle-generator-free",
+      "keyword": "automatic subtitle generator free",
+      "title": "Best Free Automatic Subtitle Generators in 2026",
+      "angle": "Honest round-up. VideoText, CapCut, YouTube auto-captions, Veed, Clideo. Accuracy, format support, watermarks, limits. Decision matrix.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "speech-to-text-vs-transcription",
+      "keyword": "speech to text vs transcription",
+      "title": "Speech to Text vs Transcription: What's the Difference?",
+      "angle": "Real-time speech-to-text (dictation) vs post-processing transcription. When each applies. Why transcription accuracy is higher than live speech-to-text.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "how-to-transcribe-video-python",
+      "keyword": "transcribe video python",
+      "title": "How to Transcribe Video in Python Using Whisper",
+      "angle": "Technical: install Whisper, load model, transcribe MP4 with FFmpeg pre-processing. Code examples. When to use API vs local. VideoText as no-code alternative.",
+      "tag": "Engineering",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "improve-video-search-with-transcripts",
+      "keyword": "video search transcription indexing",
+      "title": "How to Make Your Video Content Searchable with Transcripts",
+      "angle": "Embedding transcript text for on-site search. Structured data for video sitemaps. VideoText JSON export for Algolia/Elasticsearch indexing.",
+      "tag": "Engineering",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "how-to-fix-subtitle-timing",
+      "keyword": "subtitle timing wrong how to fix",
+      "title": "How to Fix Subtitle Timing Issues (Overlaps, Gaps, Drift)",
+      "angle": "Three types of timing problems: overlap, gap, cumulative drift. What causes each. VideoText Fix Subtitles tool. Manual fix as fallback with formulas.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "youtube-transcript-api-guide",
+      "keyword": "youtube transcript api",
+      "title": "YouTube Transcript API: How to Get Transcripts Programmatically",
+      "angle": "python-youtube-transcript-api library. Limitations (only works for videos with existing captions). When to use Whisper instead. Code examples.",
+      "tag": "Engineering",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "online-video-editor-for-subtitles",
+      "keyword": "online video editor for subtitles",
+      "title": "Best Online Video Editors for Subtitles in 2026",
+      "angle": "Round-up: VideoText, CapCut, Veed, Clideo, Kapwing. Which is best for burning, translating, timing fix. No-install comparison.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "how-to-dub-video-different-language",
+      "keyword": "how to dub a video in another language",
+      "title": "How to Create Dubbed or Translated Subtitles for Any Video",
+      "angle": "Dubbing vs subtitling decision. Subtitle translation workflow as practical alternative to dubbing. Cost comparison. Multi-language release strategy.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "transcript-for-online-courses",
+      "keyword": "add transcript to online course",
+      "title": "How to Add Transcripts to Your Online Course (LMS Guide)",
+      "angle": "Teachable, Kajabi, Thinkific — how each handles transcripts. Accessibility requirements for course creators. VideoText workflow for course libraries.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "reduce-video-file-size-upload",
+      "keyword": "reduce video file size for upload",
+      "title": "How to Reduce Video File Size Before Uploading (Fast, Free)",
+      "angle": "Why file size matters for upload limits and processing speed. VideoText Compress tool. FFmpeg as alternative. Size/quality benchmarks by preset.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "sonix-alternative",
+      "keyword": "sonix alternative",
+      "title": "Best Sonix Alternative: VideoText vs Sonix Compared",
+      "angle": "Sonix pricing ($22/hr + $17/month base) vs VideoText flat rate. Feature comparison. Privacy: Sonix stores files, VideoText deletes. Speed comparison.",
+      "tag": "Guide",
+      "target_intent": "transactional"
+    },
+    {
+      "slug": "happy-scribe-alternative",
+      "keyword": "happyscribe alternative",
+      "title": "HappyScribe Alternative: Cheaper with Better Privacy",
+      "angle": "HappyScribe pricing per minute vs VideoText flat rate. Feature matrix. Privacy model comparison. Who should use which.",
+      "tag": "Guide",
+      "target_intent": "transactional"
+    },
+    {
+      "slug": "transcription-software-comparison-2026",
+      "keyword": "transcription software comparison",
+      "title": "Transcription Software Comparison 2026: 10 Tools, 5 Criteria",
+      "angle": "Structured comparison: speed, accuracy, privacy, price, features. Decision matrix. VideoText, Otter, Descript, Trint, Rev, Sonix, HappyScribe, Whisper, Tactiq, Fireflies.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "how-to-transcribe-video-on-iphone",
+      "keyword": "how to transcribe video on iphone",
+      "title": "How to Transcribe a Video on iPhone or iPad",
+      "angle": "iOS-specific guide. Safari upload tips. File size limits on mobile. VideoText vs Apple Notes dictation vs Otter iOS app.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "using-transcripts-for-email-newsletters",
+      "keyword": "turn video into email newsletter",
+      "title": "How to Turn a Video into an Email Newsletter Using a Transcript",
+      "angle": "Full workflow: transcript → summary → edit for email. Which export format works best for newsletter tools (Mailchimp, ConvertKit). Real example.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "how-ai-transcription-works",
+      "keyword": "how does ai transcription work",
+      "title": "How AI Transcription Works: A Plain-English Explanation",
+      "angle": "Acoustic models, language models, Whisper architecture. Why AI is now 98%+ accurate. What still causes errors. No jargon.",
+      "tag": "Engineering",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "transcription-for-journalists",
+      "keyword": "transcription tool for journalists",
+      "title": "Best Transcription Tools for Journalists and Reporters",
+      "angle": "Source confidentiality (critical for journalists). Speed for deadline work. Privacy comparison across tools. Off-the-record interview handling.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "caption-vs-subtitle-youtube",
+      "keyword": "captions vs subtitles youtube",
+      "title": "Captions vs Subtitles on YouTube: What's the Difference and Which to Use",
+      "angle": "YouTube-specific: CC track vs translated subtitles. Auto-captions vs uploaded. How captions help YouTube search ranking. Step-by-step upload.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "how-to-export-transcript-word",
+      "keyword": "export video transcript to word",
+      "title": "How to Export a Video Transcript to Word (DOCX)",
+      "angle": "VideoText DOCX export (Pro plan). What the file looks like. Editing in Word for client deliverables. PDF conversion steps.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "best-tools-for-creating-subtitles",
+      "keyword": "best tool to create subtitles",
+      "title": "Best Tools to Create Subtitles in 2026 (Free and Paid)",
+      "angle": "Comparison across 6 tools on: accuracy, speed, burn-in, translation, price. Use case matrix for YouTube creators vs agencies vs developers.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "transcription-for-researchers",
+      "keyword": "qualitative research transcription",
+      "title": "Transcription for Qualitative Research: Methods and Tools",
+      "angle": "Focus groups, interviews, ethnographic observations. Verbatim vs intelligent transcription. Speaker labelling for coded analysis. Export for NVivo/Atlas.ti.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "how-to-reduce-transcription-errors",
+      "keyword": "improve transcription accuracy",
+      "title": "10 Ways to Improve AI Transcription Accuracy Before You Hit Start",
+      "angle": "Pre-processing steps: noise reduction, mono audio, set language, trim silence. Real accuracy improvements from each step with numbers.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    },
+    {
+      "slug": "batch-video-processing-workflow",
+      "keyword": "batch video transcription workflow",
+      "title": "How to Set Up a Batch Video Transcription Workflow",
+      "angle": "Agency workflow: naming conventions, folder structure, ZIP output, QA process. VideoText batch tool limits and best practices. Cost per video breakdown.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    }
+  ],
+  "used": []
+}
