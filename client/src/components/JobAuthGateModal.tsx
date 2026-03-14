@@ -1,12 +1,11 @@
 /**
  * JobAuthGateModal
  *
- * Shown after a job completes for a non-authenticated user.
- * Gates "download / see full result" behind a quick email+OTP signup or login.
- * After auth, calls onAuthSuccess() so the parent can resume the download or show results.
+ * Gates "download / see full result" behind a quick signup or login.
+ * After auth, calls onAuthSuccess() so the parent can resume the download.
  *
- * Flow A (signup): email → OTP → password → account created → onAuthSuccess
- * Flow B (login):  email → password → logged in → onAuthSuccess
+ * Flow A (signup): email + password → OTP verify → account created → onAuthSuccess
+ * Flow B (login):  email + password → logged in → onAuthSuccess
  */
 
 import { useState } from 'react'
@@ -16,27 +15,26 @@ import { sendOtp, verifyOtp } from '../lib/api'
 import { completeSignup, login, storeLoginResult } from '../lib/auth'
 import { identifyUser } from '../lib/analytics'
 
-type Mode = 'choice' | 'signup-email' | 'signup-otp' | 'signup-password' | 'login'
+type Mode = 'choice' | 'signup-combo' | 'signup-otp' | 'login'
 
 interface JobAuthGateModalProps {
   isOpen: boolean
   onClose: () => void
-  /** Called after successful authentication so the parent can resume the download. */
   onAuthSuccess: () => void
-  /** Short description of what was processed, e.g. "Your transcript is ready" */
   jobDescription?: string
-  /**
-   * If false (default when blocking results), backdrop click and X button are disabled.
-   * Set true only when the modal is used as a soft prompt (not blocking content).
-   */
   dismissable?: boolean
 }
 
-export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDescription = 'Your transcript is ready', dismissable = false }: JobAuthGateModalProps) {
+export default function JobAuthGateModal({
+  isOpen,
+  onClose,
+  onAuthSuccess,
+  jobDescription = 'Your transcript is ready',
+  dismissable = false,
+}: JobAuthGateModalProps) {
   const [mode, setMode] = useState<Mode>('choice')
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
-  const [verificationToken, setVerificationToken] = useState<string | null>(null)
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -45,7 +43,6 @@ export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDe
     setMode('choice')
     setEmail('')
     setOtp('')
-    setVerificationToken(null)
     setPassword('')
     setError(null)
     setLoading(false)
@@ -56,9 +53,9 @@ export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDe
     onClose()
   }
 
-  // ── SIGNUP flow ─────────────────────────────────────────────────────────────
+  // ── SIGNUP: step 1 — email + password, send OTP ──────────────────────────
 
-  async function handleSignupEmail(e: React.FormEvent) {
+  async function handleSignupCombo(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     setLoading(true)
@@ -72,14 +69,21 @@ export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDe
     }
   }
 
+  // ── SIGNUP: step 2 — verify OTP and complete signup ──────────────────────
+
   async function handleSignupOtp(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     setLoading(true)
     try {
       const { token } = await verifyOtp(email.trim().toLowerCase(), otp)
-      setVerificationToken(token)
-      setMode('signup-password')
+      const result = await completeSignup(token, password)
+      storeLoginResult(result)
+      try { localStorage.setItem('videotext:guestJobUsed', '1') } catch { /* ignore */ }
+      try { identifyUser(result.userId, { plan: result.plan, email: result.email }) } catch { /* ignore */ }
+      window.dispatchEvent(new CustomEvent('videotext:plan-updated'))
+      reset()
+      onAuthSuccess()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Invalid or expired code')
     } finally {
@@ -87,28 +91,7 @@ export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDe
     }
   }
 
-  async function handleSignupPassword(e: React.FormEvent) {
-    e.preventDefault()
-    if (!verificationToken) return
-    setError(null)
-    setLoading(true)
-    try {
-      const result = await completeSignup(verificationToken, password)
-      storeLoginResult(result)
-      // Mark 1 import as "used" for the guest trial
-      try { localStorage.setItem('videotext:guestJobUsed', '1') } catch { /* ignore */ }
-      try { identifyUser(result.userId, { plan: result.plan, email: result.email }) } catch { /* ignore */ }
-      window.dispatchEvent(new CustomEvent('videotext:plan-updated'))
-      reset()
-      onAuthSuccess()
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Signup failed')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // ── LOGIN flow ───────────────────────────────────────────────────────────────
+  // ── LOGIN ─────────────────────────────────────────────────────────────────
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
@@ -132,7 +115,7 @@ export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDe
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        {/* Backdrop — only clickable when dismissable */}
+        {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -152,7 +135,6 @@ export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDe
           aria-modal="true"
           aria-labelledby="auth-gate-title"
         >
-          {/* Close — only shown when dismissable */}
           {dismissable && (
             <button
               onClick={handleClose}
@@ -163,18 +145,18 @@ export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDe
             </button>
           )}
 
-          {/* Success badge */}
+          {/* Header badge */}
           <div className="flex items-center gap-3 mb-5">
             <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
               <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
               <p className="font-bold text-gray-900 dark:text-white text-[15px]" id="auth-gate-title">{jobDescription}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Sign up or log in to download the full file</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Sign up free or log in to download</p>
             </div>
           </div>
 
-          {/* CHOICE */}
+          {/* ── CHOICE ── */}
           {mode === 'choice' && (
             <div className="space-y-3">
               <div className="p-3.5 rounded-xl bg-purple-50 dark:bg-purple-500/10 border border-purple-200/60 dark:border-purple-500/20">
@@ -183,7 +165,7 @@ export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDe
                   <span className="text-sm font-semibold text-purple-800 dark:text-purple-300">Create a free account to:</span>
                 </div>
                 <ul className="space-y-1 text-sm text-purple-700 dark:text-purple-400/80 ml-6">
-                  <li>• Download your full transcript (TXT, PDF, SRT)</li>
+                  <li>• Download full transcript (TXT, PDF, SRT)</li>
                   <li>• Get 2 more free imports this month</li>
                   <li>• Access all VideoText tools</li>
                 </ul>
@@ -192,7 +174,7 @@ export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDe
               <motion.button
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => { setMode('signup-email'); setError(null); }}
+                onClick={() => { setMode('signup-combo'); setError(null) }}
                 className="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold text-[15px] flex items-center justify-center gap-2 shadow-lg shadow-violet-500/20 hover:shadow-xl transition-all"
               >
                 Create free account
@@ -200,7 +182,7 @@ export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDe
               </motion.button>
 
               <button
-                onClick={() => { setMode('login'); setError(null); }}
+                onClick={() => { setMode('login'); setError(null) }}
                 className="w-full py-3 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium text-sm hover:border-violet-400 dark:hover:border-violet-500 transition-colors"
               >
                 Already have an account? Log in
@@ -213,7 +195,7 @@ export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDe
               {!dismissable && (
                 <p className="text-center text-[11px] text-gray-400 dark:text-gray-500 mt-1">
                   Want to start over?{' '}
-                  <button type="button" onClick={() => { reset(); window.location.reload(); }} className="underline hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                  <button type="button" onClick={() => { reset(); window.location.reload() }} className="underline hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
                     Process a different file
                   </button>
                 </p>
@@ -221,10 +203,16 @@ export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDe
             </div>
           )}
 
-          {/* SIGNUP: email */}
-          {mode === 'signup-email' && (
-            <form onSubmit={handleSignupEmail} className="space-y-4">
+          {/* ── SIGNUP step 1: email + password ── */}
+          {mode === 'signup-combo' && (
+            <form onSubmit={handleSignupCombo} className="space-y-4">
               <h3 className="text-base font-bold text-gray-900 dark:text-white">Create your free account</h3>
+
+              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20">
+                <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">2 free imports included</p>
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">1 used for this trial · 2 more after signup</p>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">Email</label>
                 <input
@@ -233,11 +221,30 @@ export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDe
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   autoFocus
+                  autoComplete="email"
                   className="w-full rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-3 text-gray-900 dark:text-white bg-white dark:bg-gray-800 focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-colors"
                   placeholder="you@example.com"
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
+                  Password <span className="font-normal text-gray-400">(min 8 chars)</span>
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  className="w-full rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-3 text-gray-900 dark:text-white bg-white dark:bg-gray-800 focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-colors"
+                  placeholder="At least 8 characters"
+                />
+              </div>
+
               {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-3 py-2 rounded-lg">{error}</p>}
+
               <div className="flex gap-2">
                 <motion.button
                   type="submit"
@@ -245,20 +252,23 @@ export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDe
                   whileHover={{ scale: 1.01 }}
                   className="flex-1 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold text-sm disabled:opacity-60 flex items-center justify-center gap-2 shadow-md"
                 >
-                  {loading ? 'Sending…' : <><span>Send code</span><ChevronRight className="w-3.5 h-3.5" /></>}
+                  {loading ? 'Sending code…' : <><span>Continue</span><ChevronRight className="w-3.5 h-3.5" /></>}
                 </motion.button>
-                <button type="button" onClick={() => { setMode('choice'); setError(null); }} className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <button type="button" onClick={() => { setMode('choice'); setError(null) }} className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                   Back
                 </button>
               </div>
+              <p className="text-center text-[11px] text-gray-400">We'll email a verification code to confirm your address.</p>
             </form>
           )}
 
-          {/* SIGNUP: OTP */}
+          {/* ── SIGNUP step 2: OTP only ── */}
           {mode === 'signup-otp' && (
             <form onSubmit={handleSignupOtp} className="space-y-4">
               <h3 className="text-base font-bold text-gray-900 dark:text-white">Check your email</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">We sent a 6-digit code to <strong className="text-gray-700 dark:text-gray-300">{email}</strong></p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                We sent a 6-digit code to <strong className="text-gray-700 dark:text-gray-300">{email}</strong>
+              </p>
               <input
                 type="text"
                 inputMode="numeric"
@@ -277,53 +287,20 @@ export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDe
                   whileHover={{ scale: 1.01 }}
                   className="flex-1 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold text-sm disabled:opacity-60 flex items-center justify-center gap-2 shadow-md"
                 >
-                  {loading ? 'Verifying…' : <><span>Verify</span><ChevronRight className="w-3.5 h-3.5" /></>}
+                  {loading ? 'Creating account…' : <><span>Create account & download</span><ChevronRight className="w-3.5 h-3.5" /></>}
                 </motion.button>
-                <button type="button" onClick={() => { setMode('signup-email'); setOtp(''); setError(null); }} className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <button type="button" onClick={() => { setMode('signup-combo'); setOtp(''); setError(null) }} className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                   Back
                 </button>
               </div>
             </form>
           )}
 
-          {/* SIGNUP: password */}
-          {mode === 'signup-password' && (
-            <form onSubmit={handleSignupPassword} className="space-y-4">
-              <h3 className="text-base font-bold text-gray-900 dark:text-white">Set your password</h3>
-              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20">
-                <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">2 free imports ready</p>
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">1 used for this trial. 2 more after signup.</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">Password <span className="font-normal text-gray-400">(min 8 chars)</span></label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={8}
-                  autoFocus
-                  autoComplete="new-password"
-                  className="w-full rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-3 text-gray-900 dark:text-white bg-white dark:bg-gray-800 focus:ring-2 focus:ring-violet-500 transition-colors"
-                  placeholder="At least 8 characters"
-                />
-              </div>
-              {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-3 py-2 rounded-lg">{error}</p>}
-              <motion.button
-                type="submit"
-                disabled={loading}
-                whileHover={{ scale: 1.01 }}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold text-sm disabled:opacity-60 flex items-center justify-center gap-2 shadow-md"
-              >
-                {loading ? 'Creating account…' : <><span>Create account & download</span><ChevronRight className="w-3.5 h-3.5" /></>}
-              </motion.button>
-            </form>
-          )}
-
-          {/* LOGIN */}
+          {/* ── LOGIN: email + password, one step ── */}
           {mode === 'login' && (
             <form onSubmit={handleLogin} className="space-y-4">
               <h3 className="text-base font-bold text-gray-900 dark:text-white">Log in to download</h3>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">Email</label>
                 <input
@@ -332,10 +309,12 @@ export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDe
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   autoFocus
+                  autoComplete="email"
                   className="w-full rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-3 text-gray-900 dark:text-white bg-white dark:bg-gray-800 focus:ring-2 focus:ring-violet-500 transition-colors"
                   placeholder="you@example.com"
                 />
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">Password</label>
                 <input
@@ -348,7 +327,9 @@ export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDe
                   placeholder="••••••••"
                 />
               </div>
+
               {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-3 py-2 rounded-lg">{error}</p>}
+
               <div className="flex gap-2">
                 <motion.button
                   type="submit"
@@ -358,13 +339,14 @@ export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDe
                 >
                   {loading ? 'Logging in…' : <><span>Log in & download</span><ChevronRight className="w-3.5 h-3.5" /></>}
                 </motion.button>
-                <button type="button" onClick={() => { setMode('choice'); setError(null); }} className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <button type="button" onClick={() => { setMode('choice'); setError(null) }} className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                   Back
                 </button>
               </div>
+
               <p className="text-center text-xs text-gray-500 dark:text-gray-400">
                 No account?{' '}
-                <button type="button" onClick={() => { setMode('signup-email'); setError(null); }} className="text-violet-600 dark:text-violet-400 font-medium hover:underline">
+                <button type="button" onClick={() => { setMode('signup-combo'); setError(null) }} className="text-violet-600 dark:text-violet-400 font-medium hover:underline">
                   Sign up free
                 </button>
               </p>

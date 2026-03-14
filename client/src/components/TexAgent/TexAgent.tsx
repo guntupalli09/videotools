@@ -62,20 +62,27 @@ export default function TexAgent() {
     }
   }, [])
 
-  // Auto-open panel when a job completes so user sees "done in XX seconds" and feedback prompt
+  // Auto-open panel when a job completes — pulse immediately, open after 10s delay
   useEffect(() => {
+    let autoOpenTimer: ReturnType<typeof setTimeout> | null = null
     const unsub = subscribeTexEvents((type: TexEventType) => {
       if (type === 'job_completed') {
-        setOpen(true)
-        setShowPulse(false)
+        setShowPulse(true)
         try {
           sessionStorage.setItem(TEX_FAB_STORAGE_KEY, '1')
         } catch {
           // ignore
         }
+        autoOpenTimer = setTimeout(() => {
+          setOpen(true)
+          setShowPulse(false)
+        }, 10_000)
       }
     })
-    return unsub
+    return () => {
+      unsub()
+      if (autoOpenTimer) clearTimeout(autoOpenTimer)
+    }
   }, [])
 
   function handleOpen() {
