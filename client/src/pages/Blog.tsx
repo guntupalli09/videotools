@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
+import { GENERATED_POSTS } from '../data/generatedPosts'
 
 interface BlogPost {
   slug: string
@@ -414,6 +414,383 @@ Today we are covering subtitle formats.`}
     ),
   },
   {
+    slug: 'best-transcription-software-2026',
+    date: 'March 14, 2026',
+    title: 'Best transcription software in 2026: ranked by speed, accuracy, and price',
+    summary: 'We compared 8 transcription tools across 4 criteria: speed, accuracy, privacy, and pricing. Here is what we found — including which tool wins for which use case.',
+    tag: 'Guide',
+    readTime: '8 min read',
+    content: (
+      <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+        <p>
+          The transcription software market has consolidated around a handful of tools, most of them built on the same underlying AI (Whisper or a derivative). So the real differences come down to workflow, pricing model, privacy policy, and how fast each tool actually processes your files.
+        </p>
+        <p>
+          We tested 8 tools on the same 15-minute interview. Here is the full breakdown.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">How we evaluated</h3>
+        <p>
+          We used 4 criteria: <strong>Speed</strong> (time from upload to transcript), <strong>Accuracy</strong> (word error rate on a hand-corrected reference), <strong>Privacy</strong> (does the tool store your files?), and <strong>Price</strong> (cost per hour of audio, including free tiers).
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">1. VideoText — Best for speed and privacy</h3>
+        <p>
+          <strong>Speed:</strong> ~1.5 min/hr of audio. Fastest in this comparison. Results stream in real time. <strong>Accuracy:</strong> 98.5% on clean audio (Whisper large-v3). <strong>Privacy:</strong> Files deleted immediately after processing — nothing retained. <strong>Price:</strong> Free (3 imports/month), $10–$129/month paid plans. Best overall value if you process more than 5 hours/month.
+        </p>
+        <p>
+          <strong>Best for:</strong> Video creators, agencies, educators, and anyone who processes pre-recorded video or YouTube content and doesn't want their files stored in someone else's cloud. Also the only tool that accepts YouTube URLs directly without download.
+        </p>
+        <p>
+          <strong>Limitations:</strong> No real-time meeting bot (joins live calls). No persistent transcript library. Transcript lost if you close the tab without downloading.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">2. Otter.ai — Best for live meetings in English</h3>
+        <p>
+          <strong>Speed:</strong> Real-time during live calls; 10–15 min/hr for uploaded audio. <strong>Accuracy:</strong> ~90% on pre-recorded video, stronger for live meeting audio. <strong>Privacy:</strong> Stores all transcripts and audio in cloud. <strong>Price:</strong> Free (300 min/month), $16.99/month Pro. No video file upload on any plan.
+        </p>
+        <p>
+          <strong>Best for:</strong> Teams that want an automatic meeting bot joining every Zoom/Meet call and building a searchable transcript library. Speaker diarization is the best in class.
+        </p>
+        <p>
+          <strong>Limitations:</strong> No video file support. No SRT/VTT export. No subtitle translation. Files stored permanently.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">3. Descript — Best for podcast/video editors</h3>
+        <p>
+          <strong>Speed:</strong> 8–12 min/hr. <strong>Accuracy:</strong> ~95%. <strong>Privacy:</strong> Files stored in Descript cloud. <strong>Price:</strong> $24–$40/month. No useful free tier (watermarked, 1 hr total).
+        </p>
+        <p>
+          <strong>Best for:</strong> Podcast editors and video producers who need text-based editing — cutting filler words by deleting text, Overdub voice replacement, multi-track timeline. The only tool where editing the transcript edits the video.
+        </p>
+        <p>
+          <strong>Limitations:</strong> Very slow for pure transcription use cases. Expensive for teams. Complex UI.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">4. Trint — Best for enterprise broadcast</h3>
+        <p>
+          <strong>Speed:</strong> 8–15 min/hr. <strong>Accuracy:</strong> ~93%. <strong>Privacy:</strong> Stored in cloud. <strong>Price:</strong> $80/month minimum; enterprise plans require sales call.
+        </p>
+        <p>
+          <strong>Best for:</strong> Large broadcast and media teams that need formal workflows, collaborative editing, and integrations with newsroom tools. Human review add-on available.
+        </p>
+        <p>
+          <strong>Limitations:</strong> Extremely expensive for individuals. No free tier. Enterprise focus means poor self-serve experience.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">5. Rev — Best for guaranteed accuracy</h3>
+        <p>
+          <strong>Speed:</strong> ~5 min/hr (AI tier); 12+ hours for human. <strong>Accuracy:</strong> AI: Whisper-class (~97%); Human: ~99.9%. <strong>Privacy:</strong> Stored. <strong>Price:</strong> $0.25/min (AI) or $1.99/min (human) — no flat rate.
+        </p>
+        <p>
+          <strong>Best for:</strong> Legal, medical, and formal broadcast content where per-word accuracy is legally required. Only tool with a human-review option at scale.
+        </p>
+        <p>
+          <strong>Limitations:</strong> No flat-rate pricing. $0.25/min adds up fast — 20 hours of audio = $300 vs $49 on VideoText Pro. No subtitle translation.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">6. OpenAI Whisper (local/API)</h3>
+        <p>
+          <strong>Speed:</strong> Depends on hardware; fast on GPU. <strong>Accuracy:</strong> Same model as VideoText (large-v3). <strong>Privacy:</strong> Complete if run locally. <strong>Price:</strong> Free (local) or ~$0.006/min via API.
+        </p>
+        <p>
+          <strong>Best for:</strong> Developers and technical users who want maximum control, custom pipelines, or very high volume at minimal cost.
+        </p>
+        <p>
+          <strong>Limitations:</strong> Requires Python, GPU, and setup. Not practical for non-technical users.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Summary: which tool for which use case</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-gray-200 dark:border-gray-700">
+                <th className="text-left py-2 pr-4 font-semibold">Use case</th>
+                <th className="text-left py-2 font-semibold">Best tool</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              {[
+                ['Video/YouTube transcription', 'VideoText'],
+                ['Subtitle generation + translation', 'VideoText'],
+                ['Privacy-sensitive content', 'VideoText or local Whisper'],
+                ['Live meeting capture + bot', 'Otter.ai'],
+                ['Podcast/video text-editing', 'Descript'],
+                ['Legal/broadcast guaranteed accuracy', 'Rev (human tier)'],
+                ['High-volume developer pipeline', 'Whisper API or VideoText API'],
+                ['Enterprise newsroom', 'Trint'],
+              ].map(([uc, tool]) => (
+                <tr key={uc}>
+                  <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">{uc}</td>
+                  <td className="py-2 font-semibold text-violet-600 dark:text-violet-400">{tool}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ),
+  },
+  {
+    slug: 'best-video-captioning-tools-2026',
+    date: 'March 13, 2026',
+    title: 'Best video captioning tools for content creators in 2026',
+    summary: 'Auto-captions, burned-in subtitles, translated captions — a practical guide to the best tools for adding captions to YouTube, Instagram, TikTok, and Reels.',
+    tag: 'Guide',
+    readTime: '6 min read',
+    content: (
+      <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+        <p>
+          Adding captions to video is no longer optional. Platforms reward captioned content with better reach. Viewers watch significantly more of a video with captions in a no-sound environment. And search engines index caption text for discoverability.
+        </p>
+        <p>
+          Here is a practical guide to the best captioning tools in 2026, broken down by where you publish.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">The two types of captions</h3>
+        <p>
+          Before picking a tool, decide which type you need:
+        </p>
+        <ul className="list-disc pl-5 space-y-2">
+          <li><strong>Soft captions (subtitle file)</strong> — A separate SRT or VTT file. The viewer can toggle them on/off. Best for YouTube, Vimeo, and web players. Better for accessibility (screen readers can interact). Lower video file size.</li>
+          <li><strong>Hard captions (burned in)</strong> — Permanently visible in the video pixels. Can't be toggled off. Best for Instagram, TikTok, Facebook, and any platform where video auto-plays silently. No subtitle file needed by the viewer's player.</li>
+        </ul>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Best tools for YouTube captioning</h3>
+        <p>
+          YouTube accepts SRT file uploads in YouTube Studio. Don't burn captions for YouTube — upload the SRT and let YouTube display them. The AI auto-captions YouTube generates are often inaccurate; an uploaded SRT improves search discoverability and CC quality.
+        </p>
+        <p>
+          <strong>Recommended workflow:</strong> VideoText Video to Subtitles → download SRT → upload to YouTube Studio. The whole process takes about 3–5 minutes for a 10-minute video. VideoText also generates translated SRT files in one step, letting you add multi-language captions to the same YouTube video.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Best tools for Instagram Reels and TikTok</h3>
+        <p>
+          Both platforms have auto-caption features, but they are English-only, not always accurate, and not always displayed by default. For consistent quality, burn in captions before uploading.
+        </p>
+        <p>
+          <strong>Recommended workflow:</strong> VideoText Video to Subtitles (get SRT) → Fix Subtitles (check timing) → Burn Subtitles (embed in video) → upload the MP4. This gives you full control over font size, position, and language.
+        </p>
+        <p>
+          Alternatively: CapCut has a built-in auto-caption feature with style presets. Good for quick clips. Accuracy is lower than Whisper for non-standard speech.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Best tools for multi-language captioning</h3>
+        <p>
+          If you publish in multiple languages: VideoText generates a translated SRT in one step. Workflow: generate English SRT → Translate Subtitles → pick target language → burn translated captions into a localised version. Or upload translated SRT to YouTube to add a multi-language caption track.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Best tools for accessibility compliance (WCAG)</h3>
+        <p>
+          For ADA/WCAG compliance in educational or corporate video, soft captions (uploaded SRT files) are required — not burned-in captions, because assistive technologies interact with subtitle tracks. Soft captions also need to meet timing standards (not too fast, max 3 words per second).
+        </p>
+        <p>
+          Use VideoText Fix Subtitles to auto-enforce timing and line-length standards before uploading to your LMS or website video player.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Quick comparison</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-gray-200 dark:border-gray-700">
+                <th className="text-left py-2 pr-3 font-semibold">Tool</th>
+                <th className="text-left py-2 pr-3 font-semibold">SRT export</th>
+                <th className="text-left py-2 pr-3 font-semibold">Burn in</th>
+                <th className="text-left py-2 font-semibold">Translation</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              {[
+                ['VideoText', '✓', '✓', '✓ 50+ languages'],
+                ['CapCut', '✓', '✓', '✓ limited'],
+                ['Descript', '✓', '✗', '✗'],
+                ['Otter.ai', '✗', '✗', '✗'],
+                ['Rev AI', '✓', '✗', '✗'],
+                ['YouTube auto-captions', 'Download only', 'N/A', 'English only'],
+              ].map(([tool, srt, burn, trans]) => (
+                <tr key={tool}>
+                  <td className="py-2 pr-3 font-semibold text-gray-800 dark:text-gray-200">{tool}</td>
+                  <td className="py-2 pr-3 text-gray-600 dark:text-gray-400">{srt}</td>
+                  <td className="py-2 pr-3 text-gray-600 dark:text-gray-400">{burn}</td>
+                  <td className="py-2 text-gray-600 dark:text-gray-400">{trans}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">How to choose</h3>
+        <ul className="list-disc pl-5 space-y-2">
+          <li><strong>YouTube uploads:</strong> VideoText → SRT → YouTube Studio upload</li>
+          <li><strong>Instagram/TikTok short clips:</strong> VideoText → SRT → Burn Subtitles</li>
+          <li><strong>Multi-language content:</strong> VideoText Translate Subtitles</li>
+          <li><strong>Podcast clips with captions:</strong> VideoText or CapCut (both work well)</li>
+          <li><strong>Corporate/accessibility compliance:</strong> VideoText Fix Subtitles + soft caption upload</li>
+        </ul>
+      </div>
+    ),
+  },
+  {
+    slug: 'how-to-get-youtube-transcript',
+    date: 'March 14, 2026',
+    title: 'How to get a YouTube video transcript (free, any video)',
+    summary: 'Three methods to get a transcript from any YouTube video — using VideoText, YouTube\'s own caption export, or the API. Which works best depends on what you need to do with it.',
+    tag: 'Guide',
+    readTime: '5 min read',
+    content: (
+      <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+        <p>
+          You can get a transcript from almost any YouTube video — free, in minutes. There are three main methods, each with different trade-offs depending on why you need the transcript.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Method 1: VideoText (best for accuracy and export options)</h3>
+        <p>
+          Go to <strong>Video to Transcript</strong>. Paste the YouTube URL (youtube.com/watch?v=... or youtu.be/...). Select the spoken language if known. Click Transcribe.
+        </p>
+        <p>
+          VideoText streams the audio from YouTube and runs it through Whisper AI. You see the transcript build in real time — typically 2–4 minutes for a 30-minute video. No download required. No account needed for the first three imports.
+        </p>
+        <p>
+          After transcribing, you can:
+        </p>
+        <ul className="list-disc pl-5 space-y-2">
+          <li><strong>Copy</strong> the transcript as plain text</li>
+          <li><strong>Translate</strong> it into English, Hindi, Telugu, Spanish, Chinese, or Russian</li>
+          <li><strong>Generate chapters</strong> — AI-segmented sections with timestamps</li>
+          <li><strong>Speakers</strong> — separate who said what in multi-speaker content</li>
+          <li><strong>Summary</strong> — extract key points and action items</li>
+          <li><strong>Export</strong> as JSON, CSV, Markdown, or Notion format (paid plans)</li>
+        </ul>
+        <p>
+          This method gives the highest accuracy and the most export options. It also works for videos without YouTube captions (foreign-language videos, unlisted content, older uploads where auto-captions were never generated).
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Method 2: YouTube's built-in caption export (fastest for English content)</h3>
+        <p>
+          If the video has auto-generated or manually added captions, you can export them directly from YouTube Studio — but only for videos you own.
+        </p>
+        <p>
+          For videos you do not own, YouTube shows a text transcript in the video description area on desktop: click the three-dot menu below the video → "Show transcript". This gives you timestamped text you can copy, but it cannot be downloaded as a file and it is limited to auto-captions (which are often inaccurate for non-English or fast speech).
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Method 3: YouTube Data API (for developers)</h3>
+        <p>
+          YouTube's captions API lets you fetch the caption track for a video programmatically. This requires a Google API key and returns the auto-generated VTT or SRT track. It is the fastest method at scale but requires setup, only works for videos with captions already, and the auto-caption quality varies widely.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Which method should you use?</h3>
+        <ul className="list-disc pl-5 space-y-2">
+          <li><strong>You want the transcript for research or writing:</strong> VideoText (best accuracy, translate, summarise)</li>
+          <li><strong>You want to quickly skim what was said:</strong> YouTube's built-in "Show transcript" panel</li>
+          <li><strong>You're processing many videos automatically:</strong> YouTube Data API (for videos with captions) or VideoText API (for Whisper accuracy at scale)</li>
+          <li><strong>You need subtitles/SRT for re-uploading:</strong> VideoText, then Video to Subtitles</li>
+        </ul>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">What about age-restricted videos or private videos?</h3>
+        <p>
+          VideoText can transcribe age-restricted videos if you provide your YouTube cookies (for logged-in access). Private or unlisted videos can be transcribed if you have the direct URL. Videos that require account login to view cannot be processed without your authentication cookies.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">How accurate is the result?</h3>
+        <p>
+          VideoText uses Whisper large-v3, the same model that powers many commercial transcription tools. On clear speech in a quiet environment, accuracy is approximately 98.5%. Heavy accents, fast speech, or significant background noise will reduce this. Setting the spoken language manually (rather than relying on auto-detect) improves results for non-English content.
+        </p>
+      </div>
+    ),
+  },
+  {
+    slug: 'how-to-transcribe-audio-to-text-free',
+    date: 'March 12, 2026',
+    title: 'How to transcribe audio to text for free in 2026',
+    summary: 'The fastest free methods to convert MP3, M4A, WAV, and other audio recordings to text — step-by-step, with accuracy tips and format options.',
+    tag: 'Guide',
+    readTime: '4 min read',
+    content: (
+      <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+        <p>
+          Transcribing audio to text is now fast and free for most use cases. Here is the direct process using VideoText, plus what to do when audio quality is poor.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Supported formats</h3>
+        <p>
+          VideoText accepts audio embedded in video files: MP4, MOV, AVI, WebM, and MKV. For pure audio files (MP3, M4A, WAV, FLAC), the easiest approach is to wrap the audio in a video container using a free tool like FFmpeg:
+        </p>
+        <pre className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 text-xs font-mono overflow-x-auto">
+          {`ffmpeg -i your-recording.mp3 -c:a copy output.mp4`}
+        </pre>
+        <p>
+          This creates an MP4 with no video track that VideoText processes the same as a video file. Alternatively, upload your audio file directly — many video hosts (Vimeo, YouTube) accept audio-only uploads that produce a static image video, which you can then paste as a URL.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Step-by-step: audio to text</h3>
+        <ol className="list-decimal pl-5 space-y-3">
+          <li>Go to <strong>Video to Transcript</strong> on VideoText</li>
+          <li>Upload your audio file (wrapped in MP4, or upload a video file with audio)</li>
+          <li>Set the <strong>spoken language</strong> — this matters most for non-English content. Auto-detect works but manual is faster and more accurate</li>
+          <li>Click <strong>Transcribe</strong></li>
+          <li>Watch the transcript build in real time</li>
+          <li>Copy, download, or translate when complete</li>
+        </ol>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Getting the best accuracy</h3>
+        <p>
+          Accuracy is highest when:
+        </p>
+        <ul className="list-disc pl-5 space-y-2">
+          <li>The recording is clear mono or stereo — no heavy reverb or background music</li>
+          <li>The spoken language is set manually (not auto-detect)</li>
+          <li>Speech rate is normal — not extremely fast or heavily accented</li>
+          <li>There is no overlapping speech (two people speaking at once)</li>
+        </ul>
+        <p>
+          If your recording has multiple speakers, use the <strong>Speakers</strong> tab after transcribing to separate who said what. For interviews and podcasts this cleanly labels each speaker.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">What about very long recordings?</h3>
+        <p>
+          VideoText processes recordings in streamed segments. A 60-minute audio recording transcribes in approximately 5–8 minutes. You see output appearing within the first 30 seconds — you do not wait for the full job to complete before reading.
+        </p>
+        <p>
+          For recordings longer than 2 hours, the free tier handles the file but the job may be queued behind paid-tier jobs during peak hours. Paid plans (from $19/month) give queue priority.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Free alternatives</h3>
+        <p>
+          <strong>OpenAI Whisper (local)</strong>: The same model, run entirely on your machine. Free and private — but requires Python, a decent GPU, and setup time. Not practical for non-technical users. <strong>Otter.ai free tier</strong>: 300 minutes/month for live meeting recording. Does not accept audio file uploads on any plan. <strong>Google Docs voice typing</strong>: Real-time only, not for pre-recorded audio.
+        </p>
+        <p>
+          For most users, VideoText's free tier (3 imports/month) is the simplest path: no setup, no Python, no credit card.
+        </p>
+      </div>
+    ),
+  },
+  {
+    slug: 'how-to-translate-subtitles',
+    date: 'March 10, 2026',
+    title: 'How to translate subtitles to any language (SRT & VTT)',
+    summary: 'Translate an SRT or VTT subtitle file to Spanish, Arabic, Hindi, French, or 50+ other languages — keeping the original timestamps intact.',
+    tag: 'Guide',
+    readTime: '4 min read',
+    content: (
+      <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+        <p>
+          Translating subtitles is not the same as translating plain text. You have to keep the timestamps accurate and the line lengths short enough to display properly. Here is how to do it in a few minutes.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Step 1: Get your subtitle file</h3>
+        <p>
+          You need an SRT or VTT file first. If you do not have one, generate it: go to <strong>Video to Subtitles</strong>, upload your video, and download the SRT. This takes 1–3 minutes for a 10-minute video.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Step 2: Translate using VideoText</h3>
+        <p>
+          Go to <strong>Translate Subtitles</strong>. Upload your SRT or VTT file. Choose the target language from the dropdown — VideoText supports 50+ languages including:
+        </p>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>Spanish, French, German, Italian, Portuguese</li>
+          <li>Arabic, Hebrew, Persian (Farsi)</li>
+          <li>Hindi, Bengali, Tamil, Telugu, Urdu</li>
+          <li>Chinese (Simplified and Traditional), Japanese, Korean</li>
+          <li>Russian, Ukrainian, Polish, Czech</li>
+          <li>Dutch, Swedish, Norwegian, Danish, Finnish</li>
+        </ul>
+        <p>
+          Click Translate. The translation runs segment by segment to preserve timestamps. Your original SRT structure is maintained — each cue number, start time, and end time stays exactly the same. Only the text changes.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Step 3: Download and use</h3>
+        <p>
+          Download the translated SRT or VTT. The translated file is ready to upload to YouTube, Vimeo, or your video player. You can also burn it into a second copy of the video using <strong>Burn Subtitles</strong> — useful for creating localised social media versions.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Common questions</h3>
+        <p>
+          <strong>Do I need to re-time the subtitles after translating?</strong> No. The timestamps are preserved from the source file. The translated text fits within the same display windows. If the translation produces significantly longer text per line, you may want to run it through <strong>Fix Subtitles</strong> after translating to auto-split long lines.
+        </p>
+        <p>
+          <strong>What if I need to translate from a non-English language?</strong> VideoText handles this — upload a French SRT, translate to Arabic or Japanese. The tool detects the source language automatically.
+        </p>
+        <p>
+          <strong>Can I translate transcript text (not subtitle files)?</strong> Yes. After generating a transcript in <strong>Video to Transcript</strong>, click the Translate button in the transcript view to see the full text in your target language. This produces a plain-text translation without timestamps — useful for reading, summarising, or sharing.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">What about right-to-left languages (Arabic, Hebrew)?</h3>
+        <p>
+          Translated SRT and VTT files for Arabic, Hebrew, and other RTL languages contain the correct translated text. How the text renders in your video player depends on the player's RTL support. Most modern players (YouTube, VLC, video.js) handle RTL subtitle text correctly. If you are burning subtitles into video, test the output to confirm the font renders correctly for your target language.
+        </p>
+      </div>
+    ),
+  },
+  {
     slug: 'batch-subtitles-for-creators',
     date: 'February 20, 2026',
     title: 'Batch subtitles: caption 20 videos at once and download a ZIP',
@@ -451,12 +828,31 @@ Today we are covering subtitle formats.`}
   },
 ]
 
-function PostCard({ post, onSelect }: { post: BlogPost; onSelect: (slug: string) => void }) {
+/** Merge static + AI-generated posts. Generated posts converted to BlogPost shape. */
+const ALL_POSTS: BlogPost[] = [
+  ...GENERATED_POSTS.map((gp) => ({
+    slug: gp.slug,
+    date: gp.date,
+    title: gp.title,
+    summary: gp.summary,
+    tag: gp.tag,
+    readTime: gp.readTime,
+    content: (
+      <div
+        className="space-y-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed blog-generated-content"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: gp.contentHtml }}
+      />
+    ),
+  })),
+  ...POSTS,
+]
+
+function PostCard({ post }: { post: BlogPost }) {
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(post.slug)}
-      className="text-left w-full bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 hover:border-violet-300 dark:hover:border-violet-600 hover:shadow-md transition-all"
+    <Link
+      to={`/blog/${post.slug}`}
+      className="block text-left w-full bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 hover:border-violet-300 dark:hover:border-violet-600 hover:shadow-md transition-all"
     >
       <div className="flex items-center gap-3 mb-3">
         <span className="text-xs font-semibold bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 px-2.5 py-1 rounded-full">
@@ -468,20 +864,19 @@ function PostCard({ post, onSelect }: { post: BlogPost; onSelect: (slug: string)
       <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-2 leading-snug">{post.title}</h2>
       <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{post.summary}</p>
       <span className="mt-4 inline-block text-sm text-violet-600 dark:text-violet-400 font-medium">Read more →</span>
-    </button>
+    </Link>
   )
 }
 
-function PostView({ post, onBack }: { post: BlogPost; onBack: () => void }) {
+function PostView({ post }: { post: BlogPost }) {
   return (
     <div>
-      <button
-        type="button"
-        onClick={onBack}
+      <Link
+        to="/blog"
         className="text-sm text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300 font-medium mb-8 inline-block"
       >
         ← All posts
-      </button>
+      </Link>
 
       <div className="flex items-center gap-3 mb-4">
         <span className="text-xs font-semibold bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 px-2.5 py-1 rounded-full">
@@ -511,8 +906,15 @@ function PostView({ post, onBack }: { post: BlogPost; onBack: () => void }) {
 }
 
 export default function Blog() {
-  const [activeSlug, setActiveSlug] = useState<string | null>(null)
-  const activePost = POSTS.find((p) => p.slug === activeSlug) ?? null
+  const { slug } = useParams<{ slug?: string }>()
+  const navigate = useNavigate()
+  const activePost = slug ? (ALL_POSTS.find((p) => p.slug === slug) ?? null) : null
+
+  // 404 redirect for unknown slugs
+  if (slug && !activePost) {
+    navigate('/blog', { replace: true })
+    return null
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 sm:py-16">
@@ -524,7 +926,7 @@ export default function Blog() {
         )}
 
         {activePost ? (
-          <PostView post={activePost} onBack={() => setActiveSlug(null)} />
+          <PostView post={activePost} />
         ) : (
           <>
             <div className="mb-10">
@@ -538,8 +940,8 @@ export default function Blog() {
             </div>
 
             <div className="space-y-4">
-              {POSTS.map((post) => (
-                <PostCard key={post.slug} post={post} onSelect={setActiveSlug} />
+              {ALL_POSTS.map((post) => (
+                <PostCard key={post.slug} post={post} />
               ))}
             </div>
           </>

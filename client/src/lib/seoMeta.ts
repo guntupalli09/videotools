@@ -81,10 +81,105 @@ const STATIC_ROUTE_SEO: Record<string, { title: string; description: string }> =
     description:
       'The VideoText blog: how the processing pipeline works, why we delete your files, batch subtitles for creators, and how we handle support.',
   },
+  '/blog/how-to-transcribe-zoom-recording': {
+    title: 'How to Transcribe a Zoom Recording: Step-by-Step Guide | VideoText',
+    description:
+      'Zoom saves recordings as MP4. Here is the exact process to get a clean, searchable transcript from any Zoom call — free, no extra software needed.',
+  },
+  '/blog/srt-vs-vtt-subtitle-formats': {
+    title: 'SRT vs VTT: Which Subtitle Format Should You Use? | VideoText',
+    description:
+      'SRT and VTT are both plain-text subtitle formats. The difference comes down to where you upload and what your player supports. Quick guide.',
+  },
+  '/blog/how-to-add-subtitles-to-video-free': {
+    title: 'How to Add Subtitles to Any Video for Free | VideoText',
+    description:
+      'Generate subtitles automatically, fix timing issues, then burn them into the video permanently — all free, no desktop software required.',
+  },
+  '/blog/best-free-transcription-tools-2026': {
+    title: 'Best Free Transcription Tools in 2026: An Honest Comparison | VideoText',
+    description:
+      'We compared Otter.ai, Descript, Whisper, Rev, and VideoText on accuracy, speed, export options, and privacy. Including our own limitations.',
+  },
+  '/blog/how-we-handle-support': {
+    title: 'How We Handle Support: Honest, Fast, No Ticket Queue | VideoText',
+    description:
+      'Every support email is read by the person who built the product. Here is what that means in practice.',
+  },
+  '/blog/why-we-delete-your-files': {
+    title: 'Why We Delete Your Files — And Why That Makes Us Faster | VideoText',
+    description:
+      'Privacy-first design is not just an ethical choice — it is an architectural one that makes everything run leaner and faster.',
+  },
+  '/blog/processing-speed-breakdown': {
+    title: 'How VideoText Processes Video: A Plain-English Pipeline Breakdown | VideoText',
+    description:
+      'What actually happens between "upload complete" and your subtitle file appearing — and why VideoText is faster than most alternatives.',
+  },
+  '/blog/batch-subtitles-for-creators': {
+    title: 'Batch Subtitles: Caption 20 Videos at Once and Download a ZIP | VideoText',
+    description:
+      'The batch tool was built for creators and agencies who need to process a week of content in one session without babysitting each upload.',
+  },
+  '/blog/how-to-get-youtube-transcript': {
+    title: 'How to Get a YouTube Video Transcript (Free, Any Video) | VideoText',
+    description:
+      'Three ways to get a transcript from any YouTube video — using VideoText, YouTube\'s own CC export, or the API. Which method is best for your use case.',
+  },
+  '/blog/how-to-transcribe-audio-to-text-free': {
+    title: 'How to Transcribe Audio to Text for Free in 2026 | VideoText',
+    description:
+      'The fastest free methods to convert audio recordings to text: MP3, M4A, WAV. Step-by-step, including accuracy tips and format options.',
+  },
+  '/blog/how-to-translate-subtitles': {
+    title: 'How to Translate Subtitles to Any Language (SRT & VTT) | VideoText',
+    description:
+      'Translate an SRT or VTT subtitle file to Spanish, Arabic, Hindi, French, or 50+ other languages. Keep the original timestamps intact.',
+  },
   '/changelog': {
     title: 'Changelog — What\'s New | VideoText',
     description:
       'VideoText changelog: new features, performance improvements, and bug fixes. Updated every release. See what has shipped.',
+  },
+  '/compare': {
+    title: 'VideoText vs Descript, Otter.ai & Trint — Full Comparison',
+    description:
+      'Compare VideoText against Descript, Otter.ai, and Trint on speed, accuracy, pricing, and privacy. VideoText is 6x faster, starts free, and deletes your files after processing.',
+  },
+  '/descript-alternative': {
+    title: 'Best Free Descript Alternative for Transcription & Subtitles | VideoText',
+    description:
+      'Looking for a Descript alternative? VideoText transcribes video 6x faster, starts free ($0 vs $24/mo), and deletes your files. No heavy editor required. Try free.',
+  },
+  '/otter-ai-alternative': {
+    title: 'Best Otter.ai Alternative for Video Files & Subtitles | VideoText',
+    description:
+      'Otter.ai doesn\'t support video uploads or SRT export. VideoText does — plus YouTube URL input, subtitle translation, and file deletion. Free tier available.',
+  },
+  '/trint-alternative': {
+    title: 'Cheaper Trint Alternative That Starts Free | VideoText',
+    description:
+      'Trint starts at $80/month. VideoText starts free and scales to $10/month — same Whisper AI accuracy, plus subtitle burning, batch processing, and translation.',
+  },
+  '/rev-alternative': {
+    title: 'Best Rev Alternative with Flat-Rate Pricing | VideoText',
+    description:
+      'Rev AI charges $0.25/minute. VideoText starts free and costs $10/month for 450 minutes. Same AI accuracy, plus subtitle export, translation, and YouTube support.',
+  },
+  '/open': {
+    title: 'Open Stats — Accuracy, Speed & Transparency | VideoText',
+    description:
+      'VideoText publishes real processing stats: 127,000+ videos transcribed, 98.5% word accuracy benchmarks, median processing times, and full tech stack. Updated monthly.',
+  },
+  '/blog/best-transcription-software-2026': {
+    title: 'Best Transcription Software in 2026: Ranked by Speed, Accuracy & Price | VideoText',
+    description:
+      'We tested 8 transcription tools — VideoText, Otter.ai, Descript, Trint, Rev, Whisper, and more. Here is which tool wins for each use case.',
+  },
+  '/blog/best-video-captioning-tools-2026': {
+    title: 'Best Video Captioning Tools for Content Creators in 2026 | VideoText',
+    description:
+      'Auto-captions, burned-in subtitles, translated captions — a practical guide to the best tools for YouTube, Instagram, TikTok, and Reels.',
   },
 }
 
@@ -95,7 +190,26 @@ const STATIC_ROUTE_BREADCRUMB: Record<string, { name: string; path: string }[]> 
   '/guide': [{ name: 'Home', path: '/' }, { name: 'Guide', path: '/guide' }],
   '/privacy': [{ name: 'Home', path: '/' }, { name: 'Privacy', path: '/privacy' }],
   '/terms': [{ name: 'Home', path: '/' }, { name: 'Terms', path: '/terms' }],
+  '/compare': [{ name: 'Home', path: '/' }, { name: 'Compare', path: '/compare' }],
+  '/descript-alternative': [{ name: 'Home', path: '/' }, { name: 'Descript Alternative', path: '/descript-alternative' }],
+  '/otter-ai-alternative': [{ name: 'Home', path: '/' }, { name: 'Otter.ai Alternative', path: '/otter-ai-alternative' }],
+  '/trint-alternative': [{ name: 'Home', path: '/' }, { name: 'Trint Alternative', path: '/trint-alternative' }],
+  '/rev-alternative': [{ name: 'Home', path: '/' }, { name: 'Rev Alternative', path: '/rev-alternative' }],
+  '/open': [{ name: 'Home', path: '/' }, { name: 'Open Stats', path: '/open' }],
+  '/blog/best-transcription-software-2026': [{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }, { name: 'Best Transcription Software 2026', path: '/blog/best-transcription-software-2026' }],
+  '/blog/best-video-captioning-tools-2026': [{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }, { name: 'Best Video Captioning Tools 2026', path: '/blog/best-video-captioning-tools-2026' }],
   '/blog': [{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }],
+  '/blog/how-to-transcribe-zoom-recording': [{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }, { name: 'Transcribe Zoom Recording', path: '/blog/how-to-transcribe-zoom-recording' }],
+  '/blog/srt-vs-vtt-subtitle-formats': [{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }, { name: 'SRT vs VTT', path: '/blog/srt-vs-vtt-subtitle-formats' }],
+  '/blog/how-to-add-subtitles-to-video-free': [{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }, { name: 'Add Subtitles Free', path: '/blog/how-to-add-subtitles-to-video-free' }],
+  '/blog/best-free-transcription-tools-2026': [{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }, { name: 'Best Free Transcription Tools', path: '/blog/best-free-transcription-tools-2026' }],
+  '/blog/how-we-handle-support': [{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }, { name: 'How We Handle Support', path: '/blog/how-we-handle-support' }],
+  '/blog/why-we-delete-your-files': [{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }, { name: 'Why We Delete Your Files', path: '/blog/why-we-delete-your-files' }],
+  '/blog/processing-speed-breakdown': [{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }, { name: 'Processing Speed Breakdown', path: '/blog/processing-speed-breakdown' }],
+  '/blog/batch-subtitles-for-creators': [{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }, { name: 'Batch Subtitles for Creators', path: '/blog/batch-subtitles-for-creators' }],
+  '/blog/how-to-get-youtube-transcript': [{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }, { name: 'Get YouTube Transcript', path: '/blog/how-to-get-youtube-transcript' }],
+  '/blog/how-to-transcribe-audio-to-text-free': [{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }, { name: 'Transcribe Audio to Text Free', path: '/blog/how-to-transcribe-audio-to-text-free' }],
+  '/blog/how-to-translate-subtitles': [{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }, { name: 'How to Translate Subtitles', path: '/blog/how-to-translate-subtitles' }],
   '/changelog': [{ name: 'Home', path: '/' }, { name: 'Changelog', path: '/changelog' }],
   '/video-to-transcript': [{ name: 'Home', path: '/' }, { name: 'Video to Transcript', path: '/video-to-transcript' }],
   '/video-to-subtitles': [{ name: 'Home', path: '/' }, { name: 'Video to Subtitles', path: '/video-to-subtitles' }],
