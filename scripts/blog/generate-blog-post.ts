@@ -258,11 +258,10 @@ function updateSeoMeta(post: GeneratedPost): void {
 
   const breadcrumbEntry = `  '${blogPath}': [{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }, { name: ${JSON.stringify(post.title)}, path: '${blogPath}' }],`
 
-  // Insert meta before the closing of STATIC_ROUTE_SEO
-  // The closing pattern for the static route SEO object is the line just before "/** Static breadcrumb"
+  // Insert meta before the closing } of SEO_META (the unindented } before "/** Static breadcrumb")
   const updatedMeta = content.replace(
-    /(\s*)(\/\*\* Static breadcrumb items)/,
-    `\n${metaEntry}\n$1$2`
+    /^(}\s*\n+)(\/\*\* Static breadcrumb items)/m,
+    `${metaEntry}\n$1$2`
   )
 
   // Insert breadcrumb — find the marker for the first auto-generated breadcrumb
