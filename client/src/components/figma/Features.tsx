@@ -35,21 +35,7 @@ const SPOTLIGHT_TOOLS = [
       { time: '00:21', text: 'Let me walk you through exactly how to set this up...' },
     ],
   },
-  {
-    id: 'youtube-url',
-    badge: 'New',
-    badgeColor: 'bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400',
-    icon: Youtube,
-    name: 'YouTube URL → Transcript',
-    tagline: 'Paste a link. Skip the download.',
-    description: 'No downloads, no extra steps. Paste any YouTube URL and our worker streams the audio directly — transcript ready in seconds.',
-    bullets: ['No file download needed', 'Handles 4-hour videos', 'Works with playlists too'],
-    gradient: 'from-red-500 to-rose-600',
-    glowColor: 'bg-red-500/10 dark:bg-red-500/5',
-    href: '/youtube-to-transcript',
-    outputPreview: null,
-    urlPreview: 'https://youtube.com/watch?v=dQw4w9WgXcQ',
-  },
+  // YouTube URL feature temporarily hidden — coming soon
 ];
 
 // Secondary tools — compact cards
@@ -181,11 +167,11 @@ function SpotlightCard({ tool, index }: { tool: typeof SPOTLIGHT_TOOLS[0]; index
               </div>
             )}
 
-            {tool.urlPreview && (
+            {(tool as { urlPreview?: string }).urlPreview && (
               <div className="rounded-xl border border-gray-100 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02] p-3.5 mb-5 transition-colors duration-500">
                 <div className="flex items-center gap-2">
                   <Youtube className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
-                  <span className="text-[11px] font-mono text-gray-500 dark:text-white/35 truncate transition-colors duration-500">{tool.urlPreview}</span>
+                  <span className="text-[11px] font-mono text-gray-500 dark:text-white/35 truncate transition-colors duration-500">{(tool as { urlPreview?: string }).urlPreview}</span>
                 </div>
                 <div className="mt-2 flex items-center gap-1.5">
                   <motion.div

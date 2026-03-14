@@ -398,23 +398,20 @@ export function Hero() {
             </motion.div>
           )}
 
-          {/* YouTube badge — NEW feature announcement */}
+          {/* Coming soon badge */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15, duration: 0.5 }}
             className="flex justify-center mb-6"
           >
-            <Link to="/video-to-transcript">
-              <div className="group inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-purple-50 to-red-50 dark:from-purple-500/10 dark:to-red-500/10 border border-purple-200/60 dark:border-purple-500/20 hover:border-purple-300 dark:hover:border-purple-400/30 transition-all cursor-pointer">
-                <Sparkles className="w-3 h-3 text-purple-500 dark:text-purple-400" />
-                <span className="text-[11px] text-purple-700 dark:text-purple-300 font-semibold tracking-wide">New</span>
-                <span className="w-px h-3 bg-purple-200 dark:bg-purple-500/30" />
-                <Youtube className="w-3 h-3 text-red-500" />
-                <span className="text-[11px] text-gray-500 dark:text-white/40 transition-colors duration-500">Paste any YouTube URL → instant transcript</span>
-                <ChevronRight className="w-3 h-3 text-gray-400 dark:text-white/25 group-hover:translate-x-0.5 transition-transform" />
-              </div>
-            </Link>
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-purple-50 to-red-50 dark:from-purple-500/10 dark:to-red-500/10 border border-purple-200/60 dark:border-purple-500/20">
+              <Sparkles className="w-3 h-3 text-purple-500 dark:text-purple-400" />
+              <span className="text-[11px] text-purple-700 dark:text-purple-300 font-semibold tracking-wide">Coming soon</span>
+              <span className="w-px h-3 bg-purple-200 dark:bg-purple-500/30" />
+              <Youtube className="w-3 h-3 text-red-500" />
+              <span className="text-[11px] text-gray-500 dark:text-white/40 transition-colors duration-500">YouTube URL → instant transcript</span>
+            </div>
           </motion.div>
 
           {/* H1 */}
@@ -446,7 +443,7 @@ export function Hero() {
             transition={{ delay: 0.5, duration: 0.6 }}
             className="text-center text-[16px] sm:text-[17px] text-gray-500 dark:text-white/45 max-w-xl mx-auto leading-relaxed mb-8 transition-colors duration-500"
           >
-            Paste a YouTube link or upload a file. Get a clean, accurate transcript ready to download — no waiting, no hassle.
+            Upload any video or audio file. Get a clean, accurate transcript ready to download — no waiting, no hassle.
           </motion.p>
 
           {/* CTAs */}
