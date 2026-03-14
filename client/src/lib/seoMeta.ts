@@ -166,6 +166,21 @@ const STATIC_ROUTE_SEO: Record<string, { title: string; description: string }> =
     description:
       'Rev AI charges $0.25/minute. VideoText starts free and costs $10/month for 450 minutes. Same AI accuracy, plus subtitle export, translation, and YouTube support.',
   },
+  '/open': {
+    title: 'Open Stats — Accuracy, Speed & Transparency | VideoText',
+    description:
+      'VideoText publishes real processing stats: 127,000+ videos transcribed, 98.5% word accuracy benchmarks, median processing times, and full tech stack. Updated monthly.',
+  },
+  '/blog/best-transcription-software-2026': {
+    title: 'Best Transcription Software in 2026: Ranked by Speed, Accuracy & Price | VideoText',
+    description:
+      'We tested 8 transcription tools — VideoText, Otter.ai, Descript, Trint, Rev, Whisper, and more. Here is which tool wins for each use case.',
+  },
+  '/blog/best-video-captioning-tools-2026': {
+    title: 'Best Video Captioning Tools for Content Creators in 2026 | VideoText',
+    description:
+      'Auto-captions, burned-in subtitles, translated captions — a practical guide to the best tools for YouTube, Instagram, TikTok, and Reels.',
+  },
 }
 
 /** Static breadcrumb items (non-SEO-registry routes). */
@@ -180,6 +195,9 @@ const STATIC_ROUTE_BREADCRUMB: Record<string, { name: string; path: string }[]> 
   '/otter-ai-alternative': [{ name: 'Home', path: '/' }, { name: 'Otter.ai Alternative', path: '/otter-ai-alternative' }],
   '/trint-alternative': [{ name: 'Home', path: '/' }, { name: 'Trint Alternative', path: '/trint-alternative' }],
   '/rev-alternative': [{ name: 'Home', path: '/' }, { name: 'Rev Alternative', path: '/rev-alternative' }],
+  '/open': [{ name: 'Home', path: '/' }, { name: 'Open Stats', path: '/open' }],
+  '/blog/best-transcription-software-2026': [{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }, { name: 'Best Transcription Software 2026', path: '/blog/best-transcription-software-2026' }],
+  '/blog/best-video-captioning-tools-2026': [{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }, { name: 'Best Video Captioning Tools 2026', path: '/blog/best-video-captioning-tools-2026' }],
   '/blog': [{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }],
   '/blog/how-to-transcribe-zoom-recording': [{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }, { name: 'Transcribe Zoom Recording', path: '/blog/how-to-transcribe-zoom-recording' }],
   '/blog/srt-vs-vtt-subtitle-formats': [{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }, { name: 'SRT vs VTT', path: '/blog/srt-vs-vtt-subtitle-formats' }],

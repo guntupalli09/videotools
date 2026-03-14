@@ -52,12 +52,14 @@ const TOOL_GUIDES: ToolGuide[] = [
     title: 'Video → Transcript',
     shortDesc: 'Extract spoken text from any video. Get a full transcript, then explore summary, chapters, speakers, and more.',
     howTo: [
-      'Upload a video file (MP4, MOV, AVI, WebM).',
-      'Optionally trim the video to transcribe only a portion (saves time and usage).',
-      'Click Start. We transcribe the audio with AI and show progress.',
-      'When done, use the tabs: Transcript, Speakers, Summary, Chapters, Highlights, Keywords, Clean, and Exports.',
-      'Use Translate to view the transcript in English, Hindi, Telugu, Spanish, Chinese, or Russian (in-app; no new file).',
-      'Copy text or download (TXT, SRT, VTT; full exports like JSON/DOCX/PDF may require a paid plan).',
+      'Option A — YouTube URL: Paste any public youtube.com or youtu.be URL into the YouTube tab. No download needed. Works with Shorts, playlists, and most public videos.',
+      'Option B — File upload: Upload a video file (MP4, MOV, AVI, WebM). Max size and duration depend on your plan.',
+      'Optionally trim the video to transcribe only a portion (saves quota and speeds up processing).',
+      'Set the spoken language if you know it — auto-detect works but manual improves accuracy for non-English content.',
+      'Click Start. Transcription streams in real time — you see text within the first 15–30 seconds.',
+      'When done, explore the tabs: Transcript, Speakers, Summary, Chapters, Highlights, Keywords, Clean, and Exports.',
+      'Use Translate to view the transcript in English, Hindi, Telugu, Spanish, Chinese, or Russian (in-app; no new file generated).',
+      'Copy text or download (TXT, SRT, VTT; JSON/DOCX/PDF/CSV/Notion on paid plans).',
     ],
     expected: [
       { label: 'Input', detail: 'Video file (MP4, MOV, AVI, WebM).' },
@@ -228,13 +230,30 @@ export default function Guide() {
           </div>
         </div>
 
-        <p className="text-gray-700 mb-10">
+        <p className="text-gray-700 mb-6">
           This guide is the full &quot;How it works&quot; reference for VideoText. Step-by-step: how each tool works,
-          what inputs we expect, and what you get. All tools use <strong>upload only</strong> (no URL pasting). For billing and limits, see{' '}
+          what inputs we expect, and what you get. The <strong>Video to Transcript</strong> tool also accepts YouTube URLs directly — paste any youtube.com or youtu.be link, no download needed. Other tools require file uploads. For billing and limits, see{' '}
           <Link to="/pricing" className="text-violet-600 hover:text-violet-700 font-medium">Pricing</Link>; for privacy, see our{' '}
           <Link to="/faq" className="text-violet-600 hover:text-violet-700 font-medium">FAQ</Link> and{' '}
           <Link to="/privacy" className="text-violet-600 hover:text-violet-700 font-medium">Privacy Policy</Link>. Ask Tex (bottom-right) for quick answers about any tool or plan.
         </p>
+
+        {/* Quick persona guides */}
+        <div className="mb-10 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {[
+            { who: 'YouTubers', want: 'Transcript + multi-language subtitles burned into video', path: '#video-to-transcript' },
+            { who: 'Podcast editors', want: 'Transcript with speaker labels, chapters, summary', path: '#video-to-transcript' },
+            { who: 'Social media creators', want: 'Subtitles burned in for silent autoplay on Instagram/TikTok', path: '#burn-subtitles' },
+            { who: 'Teams & agencies', want: 'Batch process 20–100 videos in one go, download ZIP', path: '#batch-process' },
+            { who: 'Meeting notes', want: 'Transcribe Zoom/Teams MP4, get speaker-labelled notes', path: '#video-to-transcript' },
+            { who: 'Educators', want: 'Auto-captions with subtitle timing fix for accessibility compliance', path: '#fix-subtitles' },
+          ].map(({ who, want, path }) => (
+            <a key={who} href={path} className="block bg-violet-50/50 border border-violet-100 rounded-lg p-3 hover:bg-violet-50 transition-colors">
+              <span className="text-xs font-bold text-violet-600 uppercase tracking-wide">{who}</span>
+              <p className="text-sm text-gray-700 mt-1">{want}</p>
+            </a>
+          ))}
+        </div>
 
         {/* Suggested workflows for creators */}
         <section className="mb-8 rounded-xl border border-violet-100 bg-violet-50/30 p-4 sm:p-6" aria-labelledby="workflows-heading">
@@ -400,6 +419,20 @@ export default function Guide() {
               </tbody>
             </table>
           </div>
+        </section>
+
+        {/* Cross-links to related pages */}
+        <section className="mt-14 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            { to: '/compare', label: 'Compare vs Descript, Otter, Trint', desc: 'See how VideoText stacks up on speed, price, and privacy.' },
+            { to: '/blog', label: 'Blog & guides', desc: 'How to transcribe Zoom, SRT vs VTT, batch subtitles, and more.' },
+            { to: '/faq', label: 'FAQ', desc: 'Answers about privacy, billing, accuracy, and supported formats.' },
+          ].map(({ to, label, desc }) => (
+            <Link key={to} to={to} className="block bg-white border border-gray-200 rounded-xl p-4 hover:border-violet-300 hover:shadow-sm transition-all">
+              <span className="text-sm font-semibold text-violet-600">{label} →</span>
+              <p className="text-xs text-gray-500 mt-1">{desc}</p>
+            </Link>
+          ))}
         </section>
 
         <div className="mt-10 text-center">

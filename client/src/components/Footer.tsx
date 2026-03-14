@@ -6,7 +6,7 @@ export default function Footer() {
   return (
     <footer className="bg-gray-900 text-gray-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
           {/* Brand */}
           <div>
             <div className="flex items-center space-x-2 mb-4">
@@ -22,41 +22,24 @@ export default function Footer() {
           <div>
             <h3 className="text-white font-semibold mb-4">Links</h3>
             <ul className="space-y-2 text-sm">
-              <li>
-                <Link to="/" className="hover:text-white transition-colors">
-                  All tools
-                </Link>
-              </li>
-              <li>
-                <Link to="/pricing" className="hover:text-white transition-colors">
-                  Pricing
-                </Link>
-              </li>
-              <li>
-                <Link to="/faq" className="hover:text-white transition-colors">
-                  FAQ
-                </Link>
-              </li>
-              <li>
-                <Link to="/guide" className="hover:text-white transition-colors">
-                  Guide
-                </Link>
-              </li>
-              <li>
-                <Link to="/guide" className="hover:text-white transition-colors">
-                  How it works
-                </Link>
-              </li>
-              <li>
-                <Link to="/blog" className="hover:text-white transition-colors">
-                  Blog
-                </Link>
-              </li>
-              <li>
-                <Link to="/changelog" className="hover:text-white transition-colors">
-                  Changelog
-                </Link>
-              </li>
+              <li><Link to="/" className="hover:text-white transition-colors">All tools</Link></li>
+              <li><Link to="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
+              <li><Link to="/faq" className="hover:text-white transition-colors">FAQ</Link></li>
+              <li><Link to="/guide" className="hover:text-white transition-colors">Guide</Link></li>
+              <li><Link to="/blog" className="hover:text-white transition-colors">Blog</Link></li>
+              <li><Link to="/compare" className="hover:text-white transition-colors">Compare tools</Link></li>
+              <li><Link to="/open" className="hover:text-white transition-colors">Open stats</Link></li>
+              <li><Link to="/changelog" className="hover:text-white transition-colors">Changelog</Link></li>
+            </ul>
+          </div>
+          {/* Alternatives */}
+          <div>
+            <h3 className="text-white font-semibold mb-4">Alternatives</h3>
+            <ul className="space-y-2 text-sm">
+              <li><Link to="/descript-alternative" className="hover:text-white transition-colors">Descript alternative</Link></li>
+              <li><Link to="/otter-ai-alternative" className="hover:text-white transition-colors">Otter.ai alternative</Link></li>
+              <li><Link to="/trint-alternative" className="hover:text-white transition-colors">Trint alternative</Link></li>
+              <li><Link to="/rev-alternative" className="hover:text-white transition-colors">Rev alternative</Link></li>
             </ul>
           </div>
           {/* Popular tools: from registry (core + selected SEO paths). */}
