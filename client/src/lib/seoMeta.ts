@@ -181,6 +181,10 @@ const STATIC_ROUTE_SEO: Record<string, { title: string; description: string }> =
     description:
       'Auto-captions, burned-in subtitles, translated captions — a practical guide to the best tools for YouTube, Instagram, TikTok, and Reels.',
   },
+  '/blog/how-to-transcribe-podcast-episode': {
+    title: "How to Transcribe a Podcast Episode (Free, Any Format) | VideoText",
+    description: "How to transcribe a podcast episode from MP3 or M4A in minutes. Free tool, 98.5% accuracy, speaker labels, and show notes export included.",
+  },
 }
 
 /** Static breadcrumb items (non-SEO-registry routes). */

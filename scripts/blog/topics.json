@@ -418,5 +418,14 @@
       "target_intent": "informational"
     }
   ],
-  "used": []
+  "used": [
+    {
+      "slug": "how-to-transcribe-podcast-episode",
+      "keyword": "how to transcribe a podcast episode",
+      "title": "How to Transcribe a Podcast Episode (Free, Any Format)",
+      "angle": "Step-by-step guide for MP3/M4A podcast episodes. Cover VideoText workflow, speaker labelling, exporting show notes. Include actual time estimates.",
+      "tag": "Guide",
+      "target_intent": "informational"
+    }
+  ]
 }
