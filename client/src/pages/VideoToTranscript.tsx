@@ -459,12 +459,11 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
     if (status === 'completed' && selectedFile) workflow.setVideo(selectedFile)
   }, [status, selectedFile])
 
-  // Show auth gate when job completes and user is not logged in
+  // Show auth gate immediately when job completes and user is not logged in.
+  // Users can see live partial transcription during processing but results are gated.
   useEffect(() => {
     if (status === 'completed' && !isLoggedIn()) {
-      // Small delay so the user sees the completion state briefly before the modal
-      const t = setTimeout(() => setShowAuthGate(true), 800)
-      return () => clearTimeout(t)
+      setShowAuthGate(true)
     }
   }, [status])
 
@@ -1607,7 +1606,11 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
         )}
 
         {status === 'completed' && result && (
-          <div className="space-y-6">
+          <div className={`space-y-6 relative ${showAuthGate && !isLoggedIn() ? 'pointer-events-none select-none' : ''}`}>
+            {/* Blur overlay for non-logged-in users — the JobAuthGateModal sits above this */}
+            {showAuthGate && !isLoggedIn() && (
+              <div className="absolute inset-0 z-10 backdrop-blur-sm bg-white/40 dark:bg-gray-950/40 rounded-2xl" aria-hidden="true" />
+            )}
             {/* Result header + primary actions */}
             <TranscriptResult
               fileName={result.fileName ?? selectedFile?.name?.replace(/\.[^/.]+$/, '') + '_transcript.txt'}
@@ -2139,7 +2142,10 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
 
       <JobAuthGateModal
         isOpen={showAuthGate}
-        onClose={() => setShowAuthGate(false)}
+        onClose={() => {
+          // Don't allow dismissal — user must sign in or log in to see results.
+          // Clicking backdrop just focuses the modal (no-op).
+        }}
         jobDescription="Your transcript is ready!"
         onAuthSuccess={() => {
           setShowAuthGate(false)

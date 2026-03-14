@@ -25,9 +25,14 @@ interface JobAuthGateModalProps {
   onAuthSuccess: () => void
   /** Short description of what was processed, e.g. "Your transcript is ready" */
   jobDescription?: string
+  /**
+   * If false (default when blocking results), backdrop click and X button are disabled.
+   * Set true only when the modal is used as a soft prompt (not blocking content).
+   */
+  dismissable?: boolean
 }
 
-export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDescription = 'Your transcript is ready' }: JobAuthGateModalProps) {
+export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDescription = 'Your transcript is ready', dismissable = false }: JobAuthGateModalProps) {
   const [mode, setMode] = useState<Mode>('choice')
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
@@ -127,13 +132,13 @@ export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDe
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        {/* Backdrop */}
+        {/* Backdrop — only clickable when dismissable */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          onClick={handleClose}
+          onClick={dismissable ? handleClose : undefined}
         />
 
         {/* Modal */}
@@ -147,14 +152,16 @@ export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDe
           aria-modal="true"
           aria-labelledby="auth-gate-title"
         >
-          {/* Close */}
-          <button
-            onClick={handleClose}
-            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {/* Close — only shown when dismissable */}
+          {dismissable && (
+            <button
+              onClick={handleClose}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
 
           {/* Success badge */}
           <div className="flex items-center gap-3 mb-5">
@@ -202,6 +209,15 @@ export default function JobAuthGateModal({ isOpen, onClose, onAuthSuccess, jobDe
               <p className="text-center text-[11px] text-gray-400 dark:text-gray-500">
                 No credit card · Files deleted after processing
               </p>
+
+              {!dismissable && (
+                <p className="text-center text-[11px] text-gray-400 dark:text-gray-500 mt-1">
+                  Want to start over?{' '}
+                  <button type="button" onClick={() => { reset(); window.location.reload(); }} className="underline hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                    Process a different file
+                  </button>
+                </p>
+              )}
             </div>
           )}
 
