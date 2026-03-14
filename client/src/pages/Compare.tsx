@@ -35,7 +35,21 @@ const COMPETITORS = [
   },
 ];
 
-const FEATURE_ROWS = [
+type FeatureRow = {
+  label: string
+  videotext: boolean | string
+  descript: boolean | string
+  otter: boolean | string
+  trint: boolean | string
+  highlight?: boolean
+}
+
+type FeatureSection = {
+  category: string
+  features: FeatureRow[]
+}
+
+const FEATURE_ROWS: FeatureSection[] = [
   {
     category: 'Speed',
     features: [
