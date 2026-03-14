@@ -140,7 +140,8 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
 
   // ── YouTube URL input mode ──────────────────────────────────────────────────
   /** 'file' = drag-and-drop upload, 'youtube' = URL paste. Persists while idle. */
-  const [inputMode, setInputMode] = useState<'file' | 'youtube'>(defaultInputModeProp === 'youtube' ? 'youtube' : 'file')
+  // YouTube URL mode is temporarily disabled — always default to file upload
+  const [inputMode, setInputMode] = useState<'file' | 'youtube'>('file')
   /** Raw value of the YouTube URL text field. */
   const [youtubeUrlInput, setYoutubeUrlInput] = useState('')
   /** Metadata returned by the server after enqueueing the job (no extra round-trip). */
@@ -1322,36 +1323,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
       <ToolLayout {...layoutProps}>
         {status === 'idle' && !selectedFile && (
           <div className="space-y-4">
-            {/* ── Input mode tab switcher ── */}
-            <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800/60 rounded-xl w-full max-w-sm">
-              <button
-                type="button"
-                onClick={() => setInputMode('file')}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                  inputMode === 'file'
-                    ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                }`}
-              >
-                <Film className="w-4 h-4 shrink-0" />
-                Upload File
-              </button>
-              <button
-                type="button"
-                onClick={() => setInputMode('youtube')}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                  inputMode === 'youtube'
-                    ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                }`}
-              >
-                <Link className="w-4 h-4 shrink-0" />
-                YouTube URL
-                <span className="ml-1 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-red-500 text-white rounded-full leading-none">
-                  New
-                </span>
-              </button>
-            </div>
+            {/* YouTube URL tab temporarily hidden — feature under development */}
 
             {/* ── File upload tab ── */}
             {inputMode === 'file' && (
