@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { FileText, Users, ListOrdered, BookOpen, Sparkles, Hash, FileCode, Download, Eraser, FileDown, Subtitles, Film, Minimize2, Link, Lock } from 'lucide-react'
+import { FileText, Users, ListOrdered, BookOpen, Sparkles, Hash, FileCode, Download, Eraser, FileDown, Subtitles, Film, Minimize2, Lock } from 'lucide-react'
 import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import WorkflowChainSuggestion from '../components/WorkflowChainSuggestion'
@@ -66,7 +66,7 @@ export type VideoToTranscriptSeoProps = {
 }
 
 export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {}) {
-  const { seoH1, seoIntro, faq = [], defaultInputMode: defaultInputModeProp } = props
+  const { seoH1, seoIntro, faq = [] } = props
   const location = useLocation()
   const navigate = useNavigate()
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -140,8 +140,8 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
 
   // ── YouTube URL input mode ──────────────────────────────────────────────────
   /** 'file' = drag-and-drop upload, 'youtube' = URL paste. Persists while idle. */
-  // YouTube URL mode is temporarily disabled — always default to file upload
-  const [inputMode, setInputMode] = useState<'file' | 'youtube'>('file')
+  // YouTube URL mode is temporarily disabled — always file upload
+  const [inputMode] = useState<'file' | 'youtube'>('file')
   /** Raw value of the YouTube URL text field. */
   const [youtubeUrlInput, setYoutubeUrlInput] = useState('')
   /** Metadata returned by the server after enqueueing the job (no extra round-trip). */

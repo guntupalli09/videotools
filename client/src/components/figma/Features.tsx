@@ -167,11 +167,11 @@ function SpotlightCard({ tool, index }: { tool: typeof SPOTLIGHT_TOOLS[0]; index
               </div>
             )}
 
-            {tool.urlPreview && (
+            {(tool as { urlPreview?: string }).urlPreview && (
               <div className="rounded-xl border border-gray-100 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02] p-3.5 mb-5 transition-colors duration-500">
                 <div className="flex items-center gap-2">
                   <Youtube className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
-                  <span className="text-[11px] font-mono text-gray-500 dark:text-white/35 truncate transition-colors duration-500">{tool.urlPreview}</span>
+                  <span className="text-[11px] font-mono text-gray-500 dark:text-white/35 truncate transition-colors duration-500">{(tool as { urlPreview?: string }).urlPreview}</span>
                 </div>
                 <div className="mt-2 flex items-center gap-1.5">
                   <motion.div
