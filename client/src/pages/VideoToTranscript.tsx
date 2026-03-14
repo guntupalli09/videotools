@@ -96,6 +96,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   const [showPaywall, setShowPaywall] = useState(false)
   const [showAuthGate, setShowAuthGate] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [authModalMode, setAuthModalMode] = useState<'signup-combo' | 'login'>('signup-combo')
   const [availableMinutes, setAvailableMinutes] = useState<number | null>(null)
   const [usedMinutes, setUsedMinutes] = useState<number | null>(null)
   const [queuePosition, setQueuePosition] = useState<number | undefined>(undefined)
@@ -1651,14 +1652,14 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
                     <div className="flex gap-2">
                       <button
                         type="button"
-                        onClick={() => setShowAuthModal(true)}
+                        onClick={() => { setAuthModalMode('signup-combo'); setShowAuthModal(true) }}
                         className="flex-1 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors"
                       >
                         Create free account
                       </button>
                       <button
                         type="button"
-                        onClick={() => setShowAuthModal(true)}
+                        onClick={() => { setAuthModalMode('login'); setShowAuthModal(true) }}
                         className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                       >
                         Log in
@@ -2207,6 +2208,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
       <JobAuthGateModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
+        initialMode={authModalMode}
         jobDescription="Your transcript is ready!"
         onAuthSuccess={async () => {
           const jobId = currentJobId || getPersistedJobId(location.pathname)

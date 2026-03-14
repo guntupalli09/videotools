@@ -8,7 +8,7 @@
  * Flow B (login):  email + password → logged in → onAuthSuccess
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Download, CheckCircle2, ChevronRight } from 'lucide-react'
 import { sendOtp, verifyOtp } from '../lib/api'
@@ -23,6 +23,7 @@ interface JobAuthGateModalProps {
   onAuthSuccess: () => void
   jobDescription?: string
   dismissable?: boolean
+  initialMode?: 'signup-combo' | 'login'
 }
 
 export default function JobAuthGateModal({
@@ -31,8 +32,14 @@ export default function JobAuthGateModal({
   onAuthSuccess,
   jobDescription = 'Your transcript is ready',
   dismissable = false,
+  initialMode = 'signup-combo',
 }: JobAuthGateModalProps) {
-  const [mode, setMode] = useState<Mode>('choice')
+  const [mode, setMode] = useState<Mode>(initialMode)
+
+  // Reset to the right starting mode each time the modal opens
+  useEffect(() => {
+    if (isOpen) setMode(initialMode)
+  }, [isOpen, initialMode])
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
   const [password, setPassword] = useState('')
@@ -40,7 +47,7 @@ export default function JobAuthGateModal({
   const [loading, setLoading] = useState(false)
 
   function reset() {
-    setMode('choice')
+    setMode(initialMode)
     setEmail('')
     setOtp('')
     setPassword('')
@@ -254,8 +261,8 @@ export default function JobAuthGateModal({
                 >
                   {loading ? 'Sending code…' : <><span>Continue</span><ChevronRight className="w-3.5 h-3.5" /></>}
                 </motion.button>
-                <button type="button" onClick={() => { setMode('choice'); setError(null) }} className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                  Back
+                <button type="button" onClick={() => { setMode('login'); setError(null) }} className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                  Log in
                 </button>
               </div>
               <p className="text-center text-[11px] text-gray-400">We'll email a verification code to confirm your address.</p>
@@ -339,8 +346,8 @@ export default function JobAuthGateModal({
                 >
                   {loading ? 'Logging in…' : <><span>Log in & download</span><ChevronRight className="w-3.5 h-3.5" /></>}
                 </motion.button>
-                <button type="button" onClick={() => { setMode('choice'); setError(null) }} className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                  Back
+                <button type="button" onClick={() => { setMode('signup-combo'); setError(null) }} className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                  Sign up
                 </button>
               </div>
 
