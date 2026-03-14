@@ -5,6 +5,8 @@ import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import WorkflowChainSuggestion from '../components/WorkflowChainSuggestion'
 import PaywallModal from '../components/PaywallModal'
+import JobAuthGateModal from '../components/JobAuthGateModal'
+import { isLoggedIn } from '../lib/auth'
 import { ToolLayout } from '../components/figma/ToolLayout'
 import { UploadZone } from '../components/figma/UploadZone'
 import { ProcessingInterface } from '../components/figma/ProcessingInterface'
@@ -92,6 +94,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   const [transcriptEditMode, setTranscriptEditMode] = useState(false)
   const [editableSegments, setEditableSegments] = useState<Segment[] | null>(null)
   const [showPaywall, setShowPaywall] = useState(false)
+  const [showAuthGate, setShowAuthGate] = useState(false)
   const [availableMinutes, setAvailableMinutes] = useState<number | null>(null)
   const [usedMinutes, setUsedMinutes] = useState<number | null>(null)
   const [queuePosition, setQueuePosition] = useState<number | undefined>(undefined)
@@ -455,6 +458,15 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
   useEffect(() => {
     if (status === 'completed' && selectedFile) workflow.setVideo(selectedFile)
   }, [status, selectedFile])
+
+  // Show auth gate when job completes and user is not logged in
+  useEffect(() => {
+    if (status === 'completed' && !isLoggedIn()) {
+      // Small delay so the user sees the completion state briefly before the modal
+      const t = setTimeout(() => setShowAuthGate(true), 800)
+      return () => clearTimeout(t)
+    }
+  }, [status])
 
   const handleFileSelect = (file: File) => {
     try {
@@ -2123,6 +2135,17 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
         onClose={() => setShowPaywall(false)}
         usedMinutes={usedMinutes ?? 0}
         availableMinutes={availableMinutes ?? 0}
+      />
+
+      <JobAuthGateModal
+        isOpen={showAuthGate}
+        onClose={() => setShowAuthGate(false)}
+        jobDescription="Your transcript is ready!"
+        onAuthSuccess={() => {
+          setShowAuthGate(false)
+          // Reload to apply the new auth token and show the result with full download access
+          window.location.reload()
+        }}
       />
 
       {faq.length > 0 && (

@@ -1,7 +1,6 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { ChevronRight, Lock, Zap, CreditCard } from 'lucide-react';
-import { isLoggedIn } from '../../lib/auth';
 
 export function FinalCTA() {
   return (
@@ -54,10 +53,10 @@ export function FinalCTA() {
             className="inline-block mb-8"
           >
             <Link
-              to={isLoggedIn() ? '/video-to-transcript' : '/signup'}
+              to="/video-to-transcript"
               className="group inline-flex items-center gap-2.5 bg-white text-gray-900 px-10 py-4 rounded-xl font-bold text-[16px] shadow-2xl shadow-white/10 hover:shadow-white/20 transition-all"
             >
-              {isLoggedIn() ? 'Go to transcript tool' : 'Get started free'}
+              Transcribe My Video Now
               <ChevronRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
           </motion.div>
@@ -71,7 +70,7 @@ export function FinalCTA() {
             <div className="w-px h-4 bg-white/10 hidden sm:block" />
             <div className="flex items-center gap-1.5">
               <Zap className="w-3.5 h-3.5" />
-              3 free imports
+              Try free — no signup needed to start
             </div>
             <div className="w-px h-4 bg-white/10 hidden sm:block" />
             <div className="flex items-center gap-1.5">

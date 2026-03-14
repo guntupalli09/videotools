@@ -8,6 +8,7 @@ import { Testimonials } from '../components/landing/Testimonials';
 import { UseCases } from '../components/landing/UseCases';
 import { FAQ } from '../components/landing/FAQ';
 import { FinalCTA } from '../components/landing/FinalCTA';
+import { CompetitorSection } from '../components/landing/CompetitorSection';
 
 // Page flow (Descript-inspired conversion order):
 // 1. Hero — hook + product demo
@@ -37,6 +38,9 @@ export default function Home() {
 
       {/* 5 — Testimonials */}
       <Testimonials />
+
+      {/* 5.5 — Competitor comparison / speed piggybacking */}
+      <CompetitorSection />
 
       {/* 6 — Pricing */}
       <section id="pricing" className="bg-gradient-to-br from-purple-700 via-violet-700 to-indigo-800 dark:from-violet-900 dark:via-purple-900 dark:to-indigo-950 py-20 transition-colors duration-500">
