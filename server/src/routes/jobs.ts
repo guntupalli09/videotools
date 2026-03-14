@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express'
 import { getJobById, type JobData } from '../workers/videoProcessor'
 import { getAuthFromRequest, getEffectiveUserId } from '../utils/auth'
+import { getUser, saveUser } from '../models/User'
 import { getJobPartial, trimPartialPayloadForResponse, segmentsToPartialTranscript } from '../utils/jobPartial'
 import { getJobSummary } from '../utils/jobSummary'
 import { getJobStage, type YoutubeJobStage } from '../utils/jobStage'
@@ -249,6 +250,49 @@ router.get('/:jobId', async (req: Request, res: Response) => {
       'Surrogate-Control': 'no-store',
     })
     res.status(500).json({ message: error.message || 'Failed to get job status' })
+  }
+})
+
+/** Claim a guest job — associates it with the authenticated user and increments their importCount. */
+router.post('/:jobId/claim', async (req: Request, res: Response) => {
+  try {
+    const userId = getEffectiveUserId(req)
+    if (!userId || userId.startsWith('guest_')) {
+      return res.status(401).json({ message: 'Authentication required.' })
+    }
+
+    const clientJobToken = (req.body?.jobToken as string)?.trim() || (req.headers['x-job-token'] as string)?.trim()
+    const { jobId } = req.params
+
+    const job = await getJobById(jobId)
+    if (!job) {
+      return res.status(404).json({ message: 'Job not found' })
+    }
+
+    const jobUserId = (job.data as JobData)?.userId
+    const jobToken = (job.data as JobData)?.jobToken
+
+    if (!clientJobToken || !jobToken || clientJobToken !== jobToken) {
+      return res.status(403).json({ message: 'Invalid job token.' })
+    }
+
+    // Only claim jobs that were run by a guest (not already owned by a real user)
+    if (jobUserId && !jobUserId.startsWith('guest_')) {
+      return res.status(409).json({ message: 'Job already claimed.' })
+    }
+
+    // Increment real user's import count to reflect the guest trial job
+    const user = await getUser(userId)
+    if (user) {
+      user.usageThisMonth.importCount = (user.usageThisMonth.importCount ?? 0) + 1
+      user.updatedAt = new Date()
+      await saveUser(user)
+    }
+
+    return res.status(200).json({ ok: true })
+  } catch (error: any) {
+    log.error({ msg: 'Claim job error', error: (error as Error)?.message ?? String(error) })
+    return res.status(500).json({ message: error.message || 'Failed to claim job' })
   }
 })
 

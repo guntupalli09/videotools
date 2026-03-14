@@ -101,10 +101,7 @@ async function getTotalQueueCount(): Promise<number> {
 router.post('/', upload.single('file'), async (req: Request, res: Response) => {
   const uploadStartMs = Date.now()
   try {
-    const userId = getEffectiveUserId(req)
-    if (!userId) {
-      return res.status(401).json({ message: 'Signup required to process videos.' })
-    }
+    const userId = getEffectiveUserId(req) ?? `guest_${uuidv4()}`
 
     const { toolType, url, webhookUrl, ...options } = req.body
 
@@ -433,17 +430,7 @@ router.post('/dual', upload.fields([
   { name: 'subtitles', maxCount: 1 },
 ]), async (req: Request, res: Response) => {
   try {
-    const userId = getEffectiveUserId(req)
-    if (!userId) {
-      const files = req.files as { [fieldname: string]: Express.Multer.File[] }
-      if (files?.video?.[0]) {
-        try { fs.unlinkSync(files.video[0].path) } catch { /* ignore */ }
-      }
-      if (files?.subtitles?.[0]) {
-        try { fs.unlinkSync(files.subtitles[0].path) } catch { /* ignore */ }
-      }
-      return res.status(401).json({ message: 'Signup required to process videos.' })
-    }
+    const userId = getEffectiveUserId(req) ?? `guest_${uuidv4()}`
 
     const { toolType, trimmedStart, trimmedEnd, burnFontSize, burnPosition, burnBackgroundOpacity } = req.body
     const auth = getAuthFromRequest(req)
@@ -656,10 +643,7 @@ router.get('/init', (_req: Request, res: Response) => {
 })
 router.post('/init', async (req: Request, res: Response) => {
   try {
-    const userId = getEffectiveUserId(req)
-    if (!userId) {
-      return res.status(401).json({ message: 'Signup required to process videos.' })
-    }
+    const userId = getEffectiveUserId(req) ?? `guest_${uuidv4()}`
     const auth = getAuthFromRequest(req)
     const rateLimitKey = userId
     let user: User | null = null

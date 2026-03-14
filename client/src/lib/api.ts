@@ -1600,6 +1600,19 @@ export function isYoutubeUrl(url: string): boolean {
 /** Translate transcript text to a target language (English, Hindi, Telugu, Spanish, Chinese, Russian). */
 export const TRANSCRIPT_TRANSLATION_LANGUAGES = ['English', 'Hindi', 'Telugu', 'Spanish', 'Chinese', 'Russian'] as const
 
+/** Claim a guest job after signup/login. Associates the job with the authenticated user and increments their importCount. Best-effort — failures are non-blocking. */
+export async function claimGuestJob(jobId: string, jobToken: string): Promise<void> {
+  try {
+    await api(`/api/jobs/${jobId}/claim`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jobToken }),
+    })
+  } catch {
+    // non-blocking
+  }
+}
+
 export async function translateTranscript(
   text: string,
   targetLanguage: string
