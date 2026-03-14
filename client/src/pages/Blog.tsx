@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 
 interface BlogPost {
   slug: string
@@ -414,6 +413,181 @@ Today we are covering subtitle formats.`}
     ),
   },
   {
+    slug: 'how-to-get-youtube-transcript',
+    date: 'March 14, 2026',
+    title: 'How to get a YouTube video transcript (free, any video)',
+    summary: 'Three methods to get a transcript from any YouTube video — using VideoText, YouTube\'s own caption export, or the API. Which works best depends on what you need to do with it.',
+    tag: 'Guide',
+    readTime: '5 min read',
+    content: (
+      <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+        <p>
+          You can get a transcript from almost any YouTube video — free, in minutes. There are three main methods, each with different trade-offs depending on why you need the transcript.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Method 1: VideoText (best for accuracy and export options)</h3>
+        <p>
+          Go to <strong>Video to Transcript</strong>. Paste the YouTube URL (youtube.com/watch?v=... or youtu.be/...). Select the spoken language if known. Click Transcribe.
+        </p>
+        <p>
+          VideoText streams the audio from YouTube and runs it through Whisper AI. You see the transcript build in real time — typically 2–4 minutes for a 30-minute video. No download required. No account needed for the first three imports.
+        </p>
+        <p>
+          After transcribing, you can:
+        </p>
+        <ul className="list-disc pl-5 space-y-2">
+          <li><strong>Copy</strong> the transcript as plain text</li>
+          <li><strong>Translate</strong> it into English, Hindi, Telugu, Spanish, Chinese, or Russian</li>
+          <li><strong>Generate chapters</strong> — AI-segmented sections with timestamps</li>
+          <li><strong>Speakers</strong> — separate who said what in multi-speaker content</li>
+          <li><strong>Summary</strong> — extract key points and action items</li>
+          <li><strong>Export</strong> as JSON, CSV, Markdown, or Notion format (paid plans)</li>
+        </ul>
+        <p>
+          This method gives the highest accuracy and the most export options. It also works for videos without YouTube captions (foreign-language videos, unlisted content, older uploads where auto-captions were never generated).
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Method 2: YouTube's built-in caption export (fastest for English content)</h3>
+        <p>
+          If the video has auto-generated or manually added captions, you can export them directly from YouTube Studio — but only for videos you own.
+        </p>
+        <p>
+          For videos you do not own, YouTube shows a text transcript in the video description area on desktop: click the three-dot menu below the video → "Show transcript". This gives you timestamped text you can copy, but it cannot be downloaded as a file and it is limited to auto-captions (which are often inaccurate for non-English or fast speech).
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Method 3: YouTube Data API (for developers)</h3>
+        <p>
+          YouTube's captions API lets you fetch the caption track for a video programmatically. This requires a Google API key and returns the auto-generated VTT or SRT track. It is the fastest method at scale but requires setup, only works for videos with captions already, and the auto-caption quality varies widely.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Which method should you use?</h3>
+        <ul className="list-disc pl-5 space-y-2">
+          <li><strong>You want the transcript for research or writing:</strong> VideoText (best accuracy, translate, summarise)</li>
+          <li><strong>You want to quickly skim what was said:</strong> YouTube's built-in "Show transcript" panel</li>
+          <li><strong>You're processing many videos automatically:</strong> YouTube Data API (for videos with captions) or VideoText API (for Whisper accuracy at scale)</li>
+          <li><strong>You need subtitles/SRT for re-uploading:</strong> VideoText, then Video to Subtitles</li>
+        </ul>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">What about age-restricted videos or private videos?</h3>
+        <p>
+          VideoText can transcribe age-restricted videos if you provide your YouTube cookies (for logged-in access). Private or unlisted videos can be transcribed if you have the direct URL. Videos that require account login to view cannot be processed without your authentication cookies.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">How accurate is the result?</h3>
+        <p>
+          VideoText uses Whisper large-v3, the same model that powers many commercial transcription tools. On clear speech in a quiet environment, accuracy is approximately 98.5%. Heavy accents, fast speech, or significant background noise will reduce this. Setting the spoken language manually (rather than relying on auto-detect) improves results for non-English content.
+        </p>
+      </div>
+    ),
+  },
+  {
+    slug: 'how-to-transcribe-audio-to-text-free',
+    date: 'March 12, 2026',
+    title: 'How to transcribe audio to text for free in 2026',
+    summary: 'The fastest free methods to convert MP3, M4A, WAV, and other audio recordings to text — step-by-step, with accuracy tips and format options.',
+    tag: 'Guide',
+    readTime: '4 min read',
+    content: (
+      <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+        <p>
+          Transcribing audio to text is now fast and free for most use cases. Here is the direct process using VideoText, plus what to do when audio quality is poor.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Supported formats</h3>
+        <p>
+          VideoText accepts audio embedded in video files: MP4, MOV, AVI, WebM, and MKV. For pure audio files (MP3, M4A, WAV, FLAC), the easiest approach is to wrap the audio in a video container using a free tool like FFmpeg:
+        </p>
+        <pre className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 text-xs font-mono overflow-x-auto">
+          {`ffmpeg -i your-recording.mp3 -c:a copy output.mp4`}
+        </pre>
+        <p>
+          This creates an MP4 with no video track that VideoText processes the same as a video file. Alternatively, upload your audio file directly — many video hosts (Vimeo, YouTube) accept audio-only uploads that produce a static image video, which you can then paste as a URL.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Step-by-step: audio to text</h3>
+        <ol className="list-decimal pl-5 space-y-3">
+          <li>Go to <strong>Video to Transcript</strong> on VideoText</li>
+          <li>Upload your audio file (wrapped in MP4, or upload a video file with audio)</li>
+          <li>Set the <strong>spoken language</strong> — this matters most for non-English content. Auto-detect works but manual is faster and more accurate</li>
+          <li>Click <strong>Transcribe</strong></li>
+          <li>Watch the transcript build in real time</li>
+          <li>Copy, download, or translate when complete</li>
+        </ol>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Getting the best accuracy</h3>
+        <p>
+          Accuracy is highest when:
+        </p>
+        <ul className="list-disc pl-5 space-y-2">
+          <li>The recording is clear mono or stereo — no heavy reverb or background music</li>
+          <li>The spoken language is set manually (not auto-detect)</li>
+          <li>Speech rate is normal — not extremely fast or heavily accented</li>
+          <li>There is no overlapping speech (two people speaking at once)</li>
+        </ul>
+        <p>
+          If your recording has multiple speakers, use the <strong>Speakers</strong> tab after transcribing to separate who said what. For interviews and podcasts this cleanly labels each speaker.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">What about very long recordings?</h3>
+        <p>
+          VideoText processes recordings in streamed segments. A 60-minute audio recording transcribes in approximately 5–8 minutes. You see output appearing within the first 30 seconds — you do not wait for the full job to complete before reading.
+        </p>
+        <p>
+          For recordings longer than 2 hours, the free tier handles the file but the job may be queued behind paid-tier jobs during peak hours. Paid plans (from $19/month) give queue priority.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Free alternatives</h3>
+        <p>
+          <strong>OpenAI Whisper (local)</strong>: The same model, run entirely on your machine. Free and private — but requires Python, a decent GPU, and setup time. Not practical for non-technical users. <strong>Otter.ai free tier</strong>: 300 minutes/month for live meeting recording. Does not accept audio file uploads on any plan. <strong>Google Docs voice typing</strong>: Real-time only, not for pre-recorded audio.
+        </p>
+        <p>
+          For most users, VideoText's free tier (3 imports/month) is the simplest path: no setup, no Python, no credit card.
+        </p>
+      </div>
+    ),
+  },
+  {
+    slug: 'how-to-translate-subtitles',
+    date: 'March 10, 2026',
+    title: 'How to translate subtitles to any language (SRT & VTT)',
+    summary: 'Translate an SRT or VTT subtitle file to Spanish, Arabic, Hindi, French, or 50+ other languages — keeping the original timestamps intact.',
+    tag: 'Guide',
+    readTime: '4 min read',
+    content: (
+      <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+        <p>
+          Translating subtitles is not the same as translating plain text. You have to keep the timestamps accurate and the line lengths short enough to display properly. Here is how to do it in a few minutes.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Step 1: Get your subtitle file</h3>
+        <p>
+          You need an SRT or VTT file first. If you do not have one, generate it: go to <strong>Video to Subtitles</strong>, upload your video, and download the SRT. This takes 1–3 minutes for a 10-minute video.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Step 2: Translate using VideoText</h3>
+        <p>
+          Go to <strong>Translate Subtitles</strong>. Upload your SRT or VTT file. Choose the target language from the dropdown — VideoText supports 50+ languages including:
+        </p>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>Spanish, French, German, Italian, Portuguese</li>
+          <li>Arabic, Hebrew, Persian (Farsi)</li>
+          <li>Hindi, Bengali, Tamil, Telugu, Urdu</li>
+          <li>Chinese (Simplified and Traditional), Japanese, Korean</li>
+          <li>Russian, Ukrainian, Polish, Czech</li>
+          <li>Dutch, Swedish, Norwegian, Danish, Finnish</li>
+        </ul>
+        <p>
+          Click Translate. The translation runs segment by segment to preserve timestamps. Your original SRT structure is maintained — each cue number, start time, and end time stays exactly the same. Only the text changes.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Step 3: Download and use</h3>
+        <p>
+          Download the translated SRT or VTT. The translated file is ready to upload to YouTube, Vimeo, or your video player. You can also burn it into a second copy of the video using <strong>Burn Subtitles</strong> — useful for creating localised social media versions.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">Common questions</h3>
+        <p>
+          <strong>Do I need to re-time the subtitles after translating?</strong> No. The timestamps are preserved from the source file. The translated text fits within the same display windows. If the translation produces significantly longer text per line, you may want to run it through <strong>Fix Subtitles</strong> after translating to auto-split long lines.
+        </p>
+        <p>
+          <strong>What if I need to translate from a non-English language?</strong> VideoText handles this — upload a French SRT, translate to Arabic or Japanese. The tool detects the source language automatically.
+        </p>
+        <p>
+          <strong>Can I translate transcript text (not subtitle files)?</strong> Yes. After generating a transcript in <strong>Video to Transcript</strong>, click the Translate button in the transcript view to see the full text in your target language. This produces a plain-text translation without timestamps — useful for reading, summarising, or sharing.
+        </p>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-6">What about right-to-left languages (Arabic, Hebrew)?</h3>
+        <p>
+          Translated SRT and VTT files for Arabic, Hebrew, and other RTL languages contain the correct translated text. How the text renders in your video player depends on the player's RTL support. Most modern players (YouTube, VLC, video.js) handle RTL subtitle text correctly. If you are burning subtitles into video, test the output to confirm the font renders correctly for your target language.
+        </p>
+      </div>
+    ),
+  },
+  {
     slug: 'batch-subtitles-for-creators',
     date: 'February 20, 2026',
     title: 'Batch subtitles: caption 20 videos at once and download a ZIP',
@@ -451,12 +625,11 @@ Today we are covering subtitle formats.`}
   },
 ]
 
-function PostCard({ post, onSelect }: { post: BlogPost; onSelect: (slug: string) => void }) {
+function PostCard({ post }: { post: BlogPost }) {
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(post.slug)}
-      className="text-left w-full bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 hover:border-violet-300 dark:hover:border-violet-600 hover:shadow-md transition-all"
+    <Link
+      to={`/blog/${post.slug}`}
+      className="block text-left w-full bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 hover:border-violet-300 dark:hover:border-violet-600 hover:shadow-md transition-all"
     >
       <div className="flex items-center gap-3 mb-3">
         <span className="text-xs font-semibold bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 px-2.5 py-1 rounded-full">
@@ -468,20 +641,19 @@ function PostCard({ post, onSelect }: { post: BlogPost; onSelect: (slug: string)
       <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-2 leading-snug">{post.title}</h2>
       <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{post.summary}</p>
       <span className="mt-4 inline-block text-sm text-violet-600 dark:text-violet-400 font-medium">Read more →</span>
-    </button>
+    </Link>
   )
 }
 
-function PostView({ post, onBack }: { post: BlogPost; onBack: () => void }) {
+function PostView({ post }: { post: BlogPost }) {
   return (
     <div>
-      <button
-        type="button"
-        onClick={onBack}
+      <Link
+        to="/blog"
         className="text-sm text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300 font-medium mb-8 inline-block"
       >
         ← All posts
-      </button>
+      </Link>
 
       <div className="flex items-center gap-3 mb-4">
         <span className="text-xs font-semibold bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 px-2.5 py-1 rounded-full">
@@ -511,8 +683,15 @@ function PostView({ post, onBack }: { post: BlogPost; onBack: () => void }) {
 }
 
 export default function Blog() {
-  const [activeSlug, setActiveSlug] = useState<string | null>(null)
-  const activePost = POSTS.find((p) => p.slug === activeSlug) ?? null
+  const { slug } = useParams<{ slug?: string }>()
+  const navigate = useNavigate()
+  const activePost = slug ? (POSTS.find((p) => p.slug === slug) ?? null) : null
+
+  // 404 redirect for unknown slugs
+  if (slug && !activePost) {
+    navigate('/blog', { replace: true })
+    return null
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 sm:py-16">
@@ -524,7 +703,7 @@ export default function Blog() {
         )}
 
         {activePost ? (
-          <PostView post={activePost} onBack={() => setActiveSlug(null)} />
+          <PostView post={activePost} />
         ) : (
           <>
             <div className="mb-10">
@@ -539,7 +718,7 @@ export default function Blog() {
 
             <div className="space-y-4">
               {POSTS.map((post) => (
-                <PostCard key={post.slug} post={post} onSelect={setActiveSlug} />
+                <PostCard key={post.slug} post={post} />
               ))}
             </div>
           </>

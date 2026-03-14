@@ -43,6 +43,10 @@ const FounderDashboard = lazy(() => import('./pages/founder/FounderDashboard'))
 const Changelog = lazy(() => import('./pages/Changelog'))
 const Blog = lazy(() => import('./pages/Blog'))
 const Compare = lazy(() => import('./pages/Compare'))
+const DescriptAlternative = lazy(() => import('./pages/seo/DescriptAlternativePage'))
+const OtterAiAlternative = lazy(() => import('./pages/seo/OtterAiAlternativePage'))
+const TrintAlternative = lazy(() => import('./pages/seo/TrintAlternativePage'))
+const RevAlternative = lazy(() => import('./pages/seo/RevAlternativePage'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
 /** Minimal loading fallback for route chunks — fast, accessible, no layout shift. */
@@ -312,7 +316,12 @@ function App() {
             <Route path="/terms" element={<Terms />} />
             <Route path="/changelog" element={<Changelog />} />
             <Route path="/blog" element={<Blog />} />
+            <Route path="/blog/:slug" element={<Blog />} />
             <Route path="/compare" element={<Compare />} />
+            <Route path="/descript-alternative" element={<DescriptAlternative />} />
+            <Route path="/otter-ai-alternative" element={<OtterAiAlternative />} />
+            <Route path="/trint-alternative" element={<TrintAlternative />} />
+            <Route path="/rev-alternative" element={<RevAlternative />} />
             <Route path="/video-to-transcript" element={<VideoToTranscript />} />
             <Route path="/video-to-subtitles" element={<VideoToSubtitles />} />
             <Route path="/batch-process" element={<BatchProcess />} />
