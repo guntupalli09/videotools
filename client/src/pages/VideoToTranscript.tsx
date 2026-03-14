@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { FileText, Users, ListOrdered, BookOpen, Sparkles, Hash, FileCode, Download, Eraser, FileDown, Subtitles, Film, Minimize2, Link } from 'lucide-react'
+import { FileText, Users, ListOrdered, BookOpen, Sparkles, Hash, FileCode, Download, Eraser, FileDown, Subtitles, Film, Minimize2, Link, Lock } from 'lucide-react'
 import FailedState from '../components/FailedState'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import WorkflowChainSuggestion from '../components/WorkflowChainSuggestion'
@@ -1606,10 +1606,55 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
         )}
 
         {status === 'completed' && result && (
+          <>
+            {/* ── Teaser preview card (non-logged-in) ── */}
+            {showAuthGate && !isLoggedIn() && (
+              <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 overflow-hidden select-none pointer-events-none mb-2">
+                {/* header row */}
+                <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" aria-hidden />
+                    <span className="text-sm font-semibold text-gray-800 dark:text-white">Transcript ready</span>
+                    {lastProcessingMs != null && (
+                      <span className="text-xs text-gray-400">· {(lastProcessingMs / 1000).toFixed(1)}s</span>
+                    )}
+                  </div>
+                  <span className="text-xs text-gray-400">
+                    {[
+                      result.segments?.length ? `${result.segments.length} segments` : '',
+                      (displayTranscript || fullTranscript || transcriptPreview)
+                        ? `~${Math.round((displayTranscript || fullTranscript || transcriptPreview || '').trim().split(/\s+/).length)} words`
+                        : '',
+                    ].filter(Boolean).join(' · ')}
+                  </span>
+                </div>
+                {/* transcript snippet — first ~280 chars, faded at bottom */}
+                <div className="relative px-5 py-4">
+                  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                    {(displayTranscript || fullTranscript || transcriptPreview || '').slice(0, 280)}
+                    {(displayTranscript || fullTranscript || transcriptPreview || '').length > 280 && '…'}
+                  </p>
+                  <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-white dark:from-gray-900 to-transparent" aria-hidden />
+                </div>
+                {/* locked features */}
+                <div className="px-5 pb-4 pt-1">
+                  <p className="text-[11px] text-gray-400 mb-2 font-medium">Sign up to unlock:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(['Full transcript', 'Summary', 'Speaker labels', 'Chapters', 'SRT / VTT / PDF'] as const).map((feat) => (
+                      <span key={feat} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-[11px] text-gray-400 dark:text-gray-500">
+                        <Lock className="w-2.5 h-2.5" aria-hidden />
+                        {feat}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
           <div className={`space-y-6 relative ${showAuthGate && !isLoggedIn() ? 'pointer-events-none select-none' : ''}`}>
             {/* Blur overlay for non-logged-in users — the JobAuthGateModal sits above this */}
             {showAuthGate && !isLoggedIn() && (
-              <div className="absolute inset-0 z-10 backdrop-blur-sm bg-white/40 dark:bg-gray-950/40 rounded-2xl" aria-hidden="true" />
+              <div className="absolute inset-0 z-10 backdrop-blur-md bg-white/80 dark:bg-gray-950/80 rounded-2xl" aria-hidden="true" />
             )}
             {/* Result header + primary actions */}
             <TranscriptResult
@@ -2120,6 +2165,7 @@ export default function VideoToTranscript(props: VideoToTranscriptSeoProps = {})
               ]}
             />
           </div>
+          </>
         )}
 
         {status === 'failed' && (
