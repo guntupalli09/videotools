@@ -1207,10 +1207,7 @@ router.post('/complete', async (req: Request, res: Response) => {
 router.post('/youtube', async (req: Request, res: Response) => {
   const ytStartMs = Date.now()
   try {
-    const userId = getEffectiveUserId(req)
-    if (!userId) {
-      return res.status(401).json({ message: 'Signup required to process videos.' })
-    }
+    const userId = getEffectiveUserId(req) ?? `guest_${uuidv4()}`
 
     const { youtubeUrl, toolType: rawToolType, webhookUrl, ...options } = req.body
 
