@@ -34,6 +34,19 @@ import path from 'path'
 import { getLogger } from '../lib/logger'
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg'
 import fs from 'fs'
+import { fetch as undiciFetch, ProxyAgent } from 'undici'
+
+/**
+ * fetch() routed through YOUTUBE_PROXY when configured.
+ * All YouTube HTTP requests use this — timedtext, player API, caption CDN — so
+ * the datacenter IP is never exposed to YouTube regardless of endpoint.
+ */
+function proxyFetch(url: string, options?: Parameters<typeof fetch>[1]): Promise<Response> {
+  const proxyUrl = process.env.YOUTUBE_PROXY?.trim()
+  if (!proxyUrl) return fetch(url, options)
+  const dispatcher = new ProxyAgent(proxyUrl)
+  return undiciFetch(url, { ...options, dispatcher } as Parameters<typeof undiciFetch>[1]) as Promise<Response>
+}
 
 const log = getLogger('worker')
 
@@ -485,7 +498,7 @@ async function fetchTimedtextCaptions(
 ): Promise<YoutubeCaptionResult | null> {
   try {
     const url = `https://www.youtube.com/api/timedtext?v=${encodeURIComponent(videoId)}&lang=${encodeURIComponent(language)}&fmt=vtt`
-    const res = await fetch(url, { signal: AbortSignal.timeout(8_000) })
+    const res = await proxyFetch(url, { signal: AbortSignal.timeout(8_000) })
     if (!res.ok) return null
     const content = await res.text()
     if (!content.includes('WEBVTT')) return null
@@ -527,7 +540,7 @@ async function fetchCaptionsViaPlayerApiClient(
 ): Promise<YoutubeCaptionResult | null> {
   const client = YT_CLIENTS[clientName]
   try {
-    const playerRes = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+    const playerRes = await proxyFetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -596,7 +609,7 @@ async function fetchCaptionsViaPlayerApiClient(
       ? track.baseUrl.replace(/fmt=[^&]+/, 'fmt=vtt')
       : `${track.baseUrl}&fmt=vtt`
 
-    const captionRes = await fetch(captionUrl, { signal: AbortSignal.timeout(10_000) })
+    const captionRes = await proxyFetch(captionUrl, { signal: AbortSignal.timeout(10_000) })
     if (!captionRes.ok) return null
 
     const content = await captionRes.text()
