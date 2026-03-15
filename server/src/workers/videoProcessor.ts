@@ -335,7 +335,24 @@ const CAPTION_CONCURRENCY = Math.max(20, parseInt(process.env.CAPTION_CONCURRENC
 const AUDIO_CONCURRENCY = Math.max(1, Math.min(5, parseInt(process.env.AUDIO_CONCURRENCY || '4', 10)))
 const TRANSCRIPTION_CONCURRENCY = Math.max(1, Math.min(2, parseInt(process.env.TRANSCRIPTION_CONCURRENCY || '2', 10)))
 
+// Hard ceiling for the caption-fetch stage — must be well under lockDuration (600 s)
+// so the job fails with a clear error rather than silently stalling and consuming a
+// concurrency slot for the full 10-minute lock window.
+const CAPTION_JOB_TIMEOUT_MS = 4 * 60 * 1000 // 4 minutes
+
 async function processCaptionJob(job: import('bull').Job<JobData>): Promise<unknown> {
+  return Promise.race([
+    _processCaptionJob(job),
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`caption_job_timeout: exceeded ${CAPTION_JOB_TIMEOUT_MS / 1000}s`)),
+        CAPTION_JOB_TIMEOUT_MS,
+      ),
+    ),
+  ])
+}
+
+async function _processCaptionJob(job: import('bull').Job<JobData>): Promise<unknown> {
   const data = job.data as JobData
   const log = withJobContext(job.id, data.requestId)
   log.info({ msg: 'caption_job_claimed', jobId: String(job.id), youtubeUrl: data.youtubeUrl?.slice(0, 60) })

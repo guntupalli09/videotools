@@ -58,6 +58,19 @@ async function acquireYoutubeSlot(): Promise<void> {
   }
 }
 
+// Singleton ProxyAgent — reuse one connection pool across all proxyFetch calls.
+// Creating a new ProxyAgent per request (the previous behaviour) opened a fresh
+// connection pool on every call.  With 20 concurrent caption jobs × 6-10 requests
+// each, that meant 120-200 simultaneous proxy connection pools to DataImpulse,
+// hitting per-user connection limits and causing connections to hang silently
+// (proxy accepts the TCP handshake but never sends a response).  A single shared
+// agent reuses keep-alive connections and respects the provider's concurrency cap.
+let _proxyAgent: ProxyAgent | null = null
+function getProxyAgent(proxyUrl: string): ProxyAgent {
+  if (!_proxyAgent) _proxyAgent = new ProxyAgent(proxyUrl)
+  return _proxyAgent
+}
+
 /**
  * fetch() routed through YOUTUBE_PROXY when configured.
  * All YouTube HTTP requests use this — timedtext, player API, caption CDN — so
@@ -70,7 +83,7 @@ async function proxyFetch(url: string, options?: Parameters<typeof fetch>[1]): P
   }
   const proxyUrl = process.env.YOUTUBE_PROXY?.trim()
   const res = proxyUrl
-    ? await (undiciFetch(url, { ...options, dispatcher: new ProxyAgent(proxyUrl) } as Parameters<typeof undiciFetch>[1]) as Promise<Response>)
+    ? await (undiciFetch(url, { ...options, dispatcher: getProxyAgent(proxyUrl) } as Parameters<typeof undiciFetch>[1]) as Promise<Response>)
     : await fetch(url, options)
   if (res.status === 429 || res.status === 403) {
     log.warn({ msg: 'yt_proxy_rate_limited', status: res.status, url: url.slice(0, 100) })
