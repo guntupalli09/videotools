@@ -12,6 +12,7 @@ import { fileQueue, priorityQueue } from '../workers/videoProcessor'
 import { pushLogEntry } from '../lib/logRing'
 import type { PlanType } from '../models/User'
 import { getLogger } from '../lib/logger'
+import { incrementResendCounter } from '../lib/apiCreditsCache'
 
 const log = getLogger('api')
 const router = express.Router()
@@ -109,7 +110,11 @@ async function sendEmail(to: string, subject: string, html: string): Promise<voi
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
     body: JSON.stringify({ from, to: [to], subject, html }),
   })
-  if (!res.ok) log.error({ msg: 'alert-email Resend error', status: res.status, body: await res.text() })
+  if (!res.ok) {
+    log.error({ msg: 'alert-email Resend error', status: res.status, body: await res.text() })
+  } else {
+    incrementResendCounter()
+  }
 }
 
 // ── Fix-instruction snippets per alert type ───────────────────────────────────

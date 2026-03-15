@@ -13,6 +13,7 @@ import { fileQueue, priorityQueue } from '../workers/videoProcessor'
 import { runRecompute } from '../services/recomputeMetrics'
 import { readLogRing } from '../lib/logRing'
 import { getLogger } from '../lib/logger'
+import { getApiCredits, refreshApiCredits } from '../lib/apiCreditsCache'
 
 const log = getLogger('api')
 const adminDashboardRouter = express.Router()
@@ -170,6 +171,7 @@ adminDashboardRouter.get('/dashboard', async (req: Request, res: Response): Prom
       feedbackByTool,
       starDistribution,
       toolPerf,
+      costMetrics,
     ] = await Promise.all([
       prisma.dailyMetrics.findFirst({ orderBy: { date: 'desc' } }),
       prisma.monthlyMetrics.findMany({ orderBy: { monthStart: 'desc' }, take: 12 }),
@@ -325,6 +327,23 @@ adminDashboardRouter.get('/dashboard', async (req: Request, res: Response): Prom
         GROUP BY "toolType"
         ORDER BY count DESC
       `,
+      // Cost metrics (30d completed jobs with cost data)
+      prisma.$queryRaw<[{
+        jobCount: bigint
+        avgWhisperMicros: number | null
+        totalWhisperMicros: bigint | null
+        avgDurationSec: number | null
+      }]>`
+        SELECT
+          COUNT(*)::bigint as "jobCount",
+          AVG("whisperCostMicros")::double precision as "avgWhisperMicros",
+          SUM("whisperCostMicros")::bigint as "totalWhisperMicros",
+          AVG("videoDurationSec")::double precision as "avgDurationSec"
+        FROM "Job"
+        WHERE status = 'completed'
+          AND "completedAt" >= ${thirtyDaysAgo}
+          AND "whisperCostMicros" IS NOT NULL
+      `,
     ])
 
     let snapshot: Record<string, unknown>
@@ -477,6 +496,20 @@ adminDashboardRouter.get('/dashboard', async (req: Request, res: Response): Prom
         avgDurationSec: t.avgDurationSec != null ? Math.round(t.avgDurationSec) : null,
         totalMinutes: t.totalMinutes != null ? Math.round(t.totalMinutes) : null,
       })),
+      costMetrics: (() => {
+        const cm = costMetrics?.[0]
+        if (!cm || !Number(cm.jobCount)) return null
+        // avgWhisperMicros is micro-dollars; convert to USD: /1_000_000
+        const avgWhisperUsd = cm.avgWhisperMicros != null ? cm.avgWhisperMicros / 1_000_000 : null
+        const totalWhisperUsd = cm.totalWhisperMicros != null ? Number(cm.totalWhisperMicros) / 1_000_000 : null
+        const jobsWithCost = Number(cm.jobCount)
+        return {
+          jobsWithCost,
+          avgWhisperCostUsd: avgWhisperUsd != null ? Math.round(avgWhisperUsd * 10000) / 10000 : null,
+          totalWhisperCostUsd: totalWhisperUsd != null ? Math.round(totalWhisperUsd * 100) / 100 : null,
+          avgDurationSec: cm.avgDurationSec != null ? Math.round(cm.avgDurationSec) : null,
+        }
+      })(),
     }
     cachedDashboard = response
     cacheTimestamp = Date.now()
@@ -508,6 +541,25 @@ adminDashboardRouter.get('/logs', async (req: Request, res: Response): Promise<R
     return res.json({ entries: filtered, total: filtered.length })
   } catch (err) {
     log.error({ msg: '[admin/logs]', error: String(err) })
+    return res.status(500).json({ message: 'Internal server error' })
+  }
+})
+
+/**
+ * GET /api/admin/api-credits — Returns OpenAI credit balance and Resend email usage.
+ * Served from Redis cache (3-hour TTL). Use ?refresh=1 to force an immediate refresh.
+ */
+adminDashboardRouter.get('/api-credits', async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const userId = await requireFounder(req, res)
+    if (!userId) return res as Response
+
+    const forceRefresh = req.query.refresh === '1'
+    const data = forceRefresh ? await refreshApiCredits() : await getApiCredits()
+
+    return res.json(data)
+  } catch (err) {
+    log.error({ msg: '[admin/api-credits]', error: String(err) })
     return res.status(500).json({ message: 'Internal server error' })
   }
 })

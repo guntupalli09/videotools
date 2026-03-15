@@ -55,6 +55,11 @@ model Job {
   failureReason    String?
   planAtRun        String?
 
+  // AI cost tracking (stored in micro-dollars, i.e. 1 = $0.000001, so $0.006/min = 6000 per minute)
+  // Using cents (1 = $0.01) for simplicity: whisper $0.006/min → 1 cent per ~1.67 min
+  whisperCostMicros   Int?  // cost in micro-dollars ($1 = 1,000,000)
+  totalAiCostMicros   Int?  // total AI cost (whisper + any LLM) in micro-dollars
+
   createdAt        DateTime @default(now())
 
   @@index([userId])

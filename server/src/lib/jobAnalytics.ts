@@ -80,3 +80,36 @@ export async function updateJobFailed(
     log.warn({ err, jobId, msg: 'job_analytics_update_failed_failed' })
   }
 }
+
+/**
+ * Whisper pricing: $0.006 per minute (billed per second).
+ * Returns cost in micro-dollars (1 USD = 1,000,000).
+ * $0.006/min = $0.0001/sec = 100 micro-dollars per second.
+ */
+export function calcWhisperCostMicros(videoDurationSec: number): number {
+  return Math.ceil(videoDurationSec * 100)
+}
+
+/**
+ * Store video duration and AI cost on the Job record (fire-and-forget).
+ * Called from videoProcessor right after transcription finishes.
+ */
+export async function updateJobDurationAndCosts(
+  jobId: string,
+  videoDurationSec: number,
+  whisperCostMicros: number,
+  totalAiCostMicros?: number
+): Promise<void> {
+  try {
+    await prisma.job.updateMany({
+      where: { id: jobId },
+      data: {
+        videoDurationSec: Math.round(videoDurationSec),
+        whisperCostMicros,
+        totalAiCostMicros: totalAiCostMicros ?? whisperCostMicros,
+      },
+    })
+  } catch (err) {
+    log.warn({ err, jobId, msg: 'job_analytics_update_costs_failed' })
+  }
+}

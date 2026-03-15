@@ -29,6 +29,7 @@ import adminSupportRoutes, { runAlertChecks, maybeSendDailyDigest } from './rout
 import { runRecompute } from './services/recomputeMetrics'
 import { pushLogEntry } from './lib/logRing'
 import { purgeOldStripeEvents } from './models/StripeEventLog'
+import { refreshApiCredits } from './lib/apiCreditsCache'
 
 const log = getLogger('api')
 
@@ -286,6 +287,17 @@ const server = app.listen(PORT, () => {
       .then(() => log.info({ msg: 'Nightly stripe event log purge done' }))
       .catch((err) => log.warn({ msg: 'Stripe event log purge failed', error: (err as Error)?.message }))
   }, 60 * 1000)
+
+  // API credits: refresh OpenAI balance + Resend usage every 3 hours
+  // Initial fetch on startup (non-blocking), then every 3h
+  refreshApiCredits()
+    .then(() => log.info({ msg: 'API credits initial fetch done' }))
+    .catch((err) => log.warn({ msg: 'API credits initial fetch failed', error: (err as Error)?.message }))
+  setInterval(() => {
+    refreshApiCredits()
+      .then(() => log.info({ msg: 'API credits 3h refresh done' }))
+      .catch((err) => log.warn({ msg: 'API credits refresh failed', error: (err as Error)?.message }))
+  }, 3 * 60 * 60 * 1000)
 
   // Optional heap memory monitoring — set MEMORY_DEBUG=1 to enable
   if (process.env.MEMORY_DEBUG === '1') {

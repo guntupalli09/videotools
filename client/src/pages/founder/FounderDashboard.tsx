@@ -18,6 +18,9 @@ import SupportPanel from './SupportPanel'
 import DigestConfig from './DigestConfig'
 import LogViewer from './LogViewer'
 import PerToolMetrics from './PerToolMetrics'
+import ApiCreditsPanel from './ApiCreditsPanel'
+import EmailUsagePanel from './EmailUsagePanel'
+import CostMetrics from './CostMetrics'
 
 const PLAN_COLORS: Record<string, string> = {
   free: 'text-zinc-400',
@@ -200,6 +203,16 @@ export default function FounderDashboard() {
         <section>
           <SectionTitle id="logs">Logs</SectionTitle>
           <LogViewer />
+        </section>
+
+        {/* API Credits & Costs */}
+        <section>
+          <SectionTitle id="api-costs">API Credits & Costs</SectionTitle>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <ApiCreditsPanel />
+            <EmailUsagePanel />
+            <CostMetrics costMetrics={data.costMetrics ?? null} snapshot={snapshot} />
+          </div>
         </section>
 
         {/* Revenue */}

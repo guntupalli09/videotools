@@ -9,6 +9,7 @@ import { signAuthToken, signEmailVerificationToken, verifyEmailVerificationToken
 import { getPlanAndEmailForStripeCustomer } from '../services/stripe'
 import { getPlanLimits } from '../utils/limits'
 import { getLogger } from '../lib/logger'
+import { incrementResendCounter } from '../lib/apiCreditsCache'
 
 const log = getLogger('api')
 
@@ -94,6 +95,7 @@ async function sendOTPEmail(email: string, code: string): Promise<void> {
       // ignore
     }
     log.info({ msg: 'OTP sent via Resend', email, id: data.id || 'n/a' })
+    incrementResendCounter()
   } else {
     log.info({ msg: 'OTP code (RESEND_API_KEY not set)', email, code })
   }
@@ -123,6 +125,7 @@ async function sendPasswordResetEmail(email: string, resetLink: string): Promise
       throw new Error(`Failed to send email: ${body || res.statusText}`)
     }
     log.info({ msg: 'Password reset email sent', email })
+    incrementResendCounter()
   } else {
     log.info({ msg: 'Password reset link (RESEND_API_KEY not set)', email, resetLink })
   }
