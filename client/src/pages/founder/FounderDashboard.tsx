@@ -108,7 +108,7 @@ export default function FounderDashboard() {
   if (fetchStatus === 'error') return (
     <div className="flex min-h-[40vh] items-center justify-center flex-col gap-4">
       <p className="text-red-400 font-medium">Failed to load dashboard</p>
-      <button onClick={load} className="text-sm text-zinc-400 border border-zinc-700 rounded-lg px-4 py-2 hover:border-zinc-500 transition-colors">
+      <button onClick={() => load()} className="text-sm text-zinc-400 border border-zinc-700 rounded-lg px-4 py-2 hover:border-zinc-500 transition-colors">
         Retry
       </button>
     </div>
@@ -143,7 +143,7 @@ export default function FounderDashboard() {
               <span className="text-xs text-zinc-600">Updated {lastRefreshed.toLocaleTimeString()}</span>
             )}
             <button
-              onClick={load}
+              onClick={() => load()}
               disabled={loading}
               className="text-xs border border-zinc-700 rounded-lg px-3 py-1.5 text-zinc-400 hover:border-zinc-500 hover:text-white transition-colors disabled:opacity-40"
             >
