@@ -48,7 +48,8 @@ import {
 import { withJobContext, getLogger } from '../lib/logger'
 import { initSentry, captureJobError } from '../lib/sentry'
 import { pushLogEntry } from '../lib/logRing'
-import { streamYoutubeAudioToFile, fetchYoutubeCaptions, validateCaptionQuality } from '../services/youtube'
+import { streamYoutubeAudioToFile, fetchYoutubeCaptions, validateCaptionQuality, extractYoutubeVideoId } from '../services/youtube'
+import { getCachedTranscript, setCachedTranscript } from '../utils/youtubeTranscriptCache'
 import { v4 as uuidv4 } from 'uuid'
 
 /** Inline stage helpers — write directly to Redis so no cross-file import is required. */
@@ -344,8 +345,23 @@ async function processCaptionJob(job: import('bull').Job<JobData>): Promise<unkn
   const redis = (job as any).queue?.client as import('ioredis').Redis | undefined
   if (redis) await setJobStage(redis, job.id, 'fetching_captions')
   const options = data.options
-  log.info({ msg: 'caption_fetch_start', jobId: String(job.id) })
-  const captions = await fetchYoutubeCaptions(data.youtubeUrl!, tempDir, options?.language as string | undefined, data.youtubeDurationSec ?? undefined, data.youtubeDefaultLanguage)
+  const lang = (options?.language as string | undefined) ?? 'en'
+  const defaultLang = data.youtubeDefaultLanguage ?? 'none'
+  const videoId = extractYoutubeVideoId(data.youtubeUrl!)
+
+  // Cache check: skip YouTube entirely if we already fetched this video+language
+  let captions = redis && videoId
+    ? await getCachedTranscript(redis, videoId, lang, defaultLang)
+    : null
+
+  if (!captions) {
+    log.info({ msg: 'caption_fetch_start', jobId: String(job.id) })
+    captions = await fetchYoutubeCaptions(data.youtubeUrl!, tempDir, options?.language as string | undefined, data.youtubeDurationSec ?? undefined, data.youtubeDefaultLanguage)
+    // Store in cache for future jobs referencing the same video
+    if (captions && redis && videoId) {
+      await setCachedTranscript(redis, videoId, lang, defaultLang, captions)
+    }
+  }
   log.info({ msg: 'caption_fetch_done', jobId: String(job.id), hasCaptions: !!captions, segmentCount: captions?.segments?.length ?? 0 })
   const minCoverage = Number(process.env.YOUTUBE_CAPTION_MIN_COVERAGE) || 0.7
   const validation = captions ? validateCaptionQuality(captions.segments, data.youtubeDurationSec ?? 0) : null

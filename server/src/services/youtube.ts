@@ -36,19 +36,47 @@ import ffmpegInstaller from '@ffmpeg-installer/ffmpeg'
 import fs from 'fs'
 import { fetch as undiciFetch, ProxyAgent } from 'undici'
 
+const log = getLogger('worker')
+
+// ─── Outbound request rate limiter ───────────────────────────────────────────
+// Caps all proxyFetch calls to youtube.com to YOUTUBE_FETCH_RPS per second
+// (default 3). With caption concurrency of 20, without this each worker burst
+// could fire 60+ simultaneous requests through the proxy — enough to trigger
+// IP-level rate limiting even on residential proxies.
+
+const YT_FETCH_RPS = Math.max(1, Number(process.env.YOUTUBE_FETCH_RPS) || 3)
+let _ytTokens = YT_FETCH_RPS
+let _ytLastRefill = Date.now()
+
+async function acquireYoutubeSlot(): Promise<void> {
+  while (true) {
+    const now = Date.now()
+    _ytTokens = Math.min(YT_FETCH_RPS, _ytTokens + ((now - _ytLastRefill) / 1000) * YT_FETCH_RPS)
+    _ytLastRefill = now
+    if (_ytTokens >= 1) { _ytTokens -= 1; return }
+    await new Promise<void>((r) => setTimeout(r, Math.ceil(((1 - _ytTokens) / YT_FETCH_RPS) * 1000)))
+  }
+}
+
 /**
  * fetch() routed through YOUTUBE_PROXY when configured.
  * All YouTube HTTP requests use this — timedtext, player API, caption CDN — so
  * the datacenter IP is never exposed to YouTube regardless of endpoint.
+ * Rate-limited to YOUTUBE_FETCH_RPS requests/second for youtube.com URLs.
  */
-function proxyFetch(url: string, options?: Parameters<typeof fetch>[1]): Promise<Response> {
+async function proxyFetch(url: string, options?: Parameters<typeof fetch>[1]): Promise<Response> {
+  if (url.includes('youtube.com') || url.includes('googlevideo.com')) {
+    await acquireYoutubeSlot()
+  }
   const proxyUrl = process.env.YOUTUBE_PROXY?.trim()
-  if (!proxyUrl) return fetch(url, options)
-  const dispatcher = new ProxyAgent(proxyUrl)
-  return undiciFetch(url, { ...options, dispatcher } as Parameters<typeof undiciFetch>[1]) as Promise<Response>
+  const res = proxyUrl
+    ? await (undiciFetch(url, { ...options, dispatcher: new ProxyAgent(proxyUrl) } as Parameters<typeof undiciFetch>[1]) as Promise<Response>)
+    : await fetch(url, options)
+  if (res.status === 429 || res.status === 403) {
+    log.warn({ msg: 'yt_proxy_rate_limited', status: res.status, url: url.slice(0, 100) })
+  }
+  return res
 }
-
-const log = getLogger('worker')
 
 /** Resolve FFmpeg binary: prefer FFMPEG_PATH env (Docker-installed binary), else npm installer. */
 export const FFMPEG_BIN: string = (() => {
@@ -498,7 +526,15 @@ async function fetchTimedtextCaptions(
 ): Promise<YoutubeCaptionResult | null> {
   try {
     const url = `https://www.youtube.com/api/timedtext?v=${encodeURIComponent(videoId)}&lang=${encodeURIComponent(language)}&fmt=vtt`
-    const res = await proxyFetch(url, { signal: AbortSignal.timeout(8_000) })
+    const res = await proxyFetch(url, {
+      signal: AbortSignal.timeout(8_000),
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Origin': 'https://www.youtube.com',
+        'Referer': `https://www.youtube.com/watch?v=${videoId}`,
+      },
+    })
     if (!res.ok) return null
     const content = await res.text()
     if (!content.includes('WEBVTT')) return null
@@ -609,7 +645,15 @@ async function fetchCaptionsViaPlayerApiClient(
       ? track.baseUrl.replace(/fmt=[^&]+/, 'fmt=vtt')
       : `${track.baseUrl}&fmt=vtt`
 
-    const captionRes = await proxyFetch(captionUrl, { signal: AbortSignal.timeout(10_000) })
+    const captionRes = await proxyFetch(captionUrl, {
+      signal: AbortSignal.timeout(10_000),
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Origin': 'https://www.youtube.com',
+        'Referer': `https://www.youtube.com/watch?v=${videoId}`,
+      },
+    })
     if (!captionRes.ok) return null
 
     const content = await captionRes.text()
