@@ -41,10 +41,10 @@ export default function ApiCreditsPanel({ data, onRefresh }: Props) {
         <p className="text-xs text-zinc-500">
           {openai?.error === 'post_paid_billing'
             ? 'Post-paid billing — no prepaid credit balance.'
-            : openai?.error === 'OPENAI_API_KEY not set'
-            ? 'OPENAI_API_KEY not configured.'
+            : openai?.error === 'no_key'
+            ? 'Set OPENAI_BILLING_KEY or OPENAI_API_KEY in your .env.'
             : openai?.error === 'HTTP 403'
-            ? 'Project-scoped API key — billing endpoint requires an org-level key.'
+            ? 'Project-scoped key (sk-proj-…) cannot access billing. Add OPENAI_BILLING_KEY with an org-level key.'
             : openai?.error
             ? `Unavailable: ${openai.error}`
             : 'Credit balance unavailable.'}

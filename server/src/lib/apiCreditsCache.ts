@@ -65,9 +65,12 @@ export interface ApiCreditsData {
 // ── OpenAI fetch ─────────────────────────────────────────────────────────────
 
 async function fetchOpenAiCredits(): Promise<OpenAiCredits> {
-  const apiKey = process.env.OPENAI_API_KEY
+  // Prefer OPENAI_BILLING_KEY (org-level key) for billing endpoint.
+  // Project-scoped keys (sk-proj-...) return 403 on credit_grants.
+  // Falls back to OPENAI_API_KEY so no extra config is needed to get started.
+  const apiKey = process.env.OPENAI_BILLING_KEY || process.env.OPENAI_API_KEY
   if (!apiKey) {
-    return { totalGrantedUsd: null, totalUsedUsd: null, totalAvailableUsd: null, error: 'OPENAI_API_KEY not set' }
+    return { totalGrantedUsd: null, totalUsedUsd: null, totalAvailableUsd: null, error: 'no_key' }
   }
 
   try {
