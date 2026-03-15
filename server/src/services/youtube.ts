@@ -789,36 +789,25 @@ export async function streamYoutubeAudioToFile(
   const cleanUrl = normalizeYoutubeUrl(url)
   const skipCookies = process.env.YOUTUBE_SKIP_COOKIES === 'true' || process.env.YOUTUBE_SKIP_COOKIES === '1'
   const cookiesFile = process.env.YOUTUBE_COOKIES_FILE
-  const hasCookies = !!(cookiesFile && fs.existsSync(cookiesFile))
+  const hasCookies = !!(cookiesFile && fs.existsSync(cookiesFile)) && !skipCookies
   const hasProxy = !!(process.env.YOUTUBE_PROXY?.trim())
 
+  // Playbook: proxy + cookies = the combination that reliably works from datacenter IPs.
+  // Start with it immediately — trying without proxy first wastes 10 min on a guaranteed failure.
+  if (hasProxy) {
+    log.info({ msg: 'yt_stream_proxy', url: cleanUrl.slice(0, 50) })
+    await doStreamYoutubeAudio(cleanUrl, outputPath, hasCookies, true)
+    return
+  }
+
+  // No proxy configured: try direct (works in dev / residential environments).
   try {
     await doStreamYoutubeAudio(cleanUrl, outputPath, false, false)
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
-    if (!isRetryableWithCookiesError(msg)) throw err
-    if (hasCookies && !skipCookies) {
-      try {
-        log.info({ msg: 'yt_retry_with_cookies', url: cleanUrl.slice(0, 50) })
-        await doStreamYoutubeAudio(cleanUrl, outputPath, true, false)
-        return
-      } catch {
-    if (hasProxy) {
-      log.info({ msg: 'yt_retry_with_proxy', url: cleanUrl.slice(0, 50) })
-      log.info({ msg: 'yt_proxy_used', url: cleanUrl.slice(0, 50) })
-      await doStreamYoutubeAudio(cleanUrl, outputPath, true, true)
-          return
-        }
-        throw err
-      }
-    }
-    if (hasProxy) {
-      log.info({ msg: 'yt_retry_with_proxy', url: cleanUrl.slice(0, 50) })
-      log.info({ msg: 'yt_proxy_used', url: cleanUrl.slice(0, 50) })
-      await doStreamYoutubeAudio(cleanUrl, outputPath, false, true)
-      return
-    }
-    throw err
+    if (!isRetryableWithCookiesError(msg) || !hasCookies) throw err
+    log.info({ msg: 'yt_retry_with_cookies', url: cleanUrl.slice(0, 50) })
+    await doStreamYoutubeAudio(cleanUrl, outputPath, true, false)
   }
 }
 
