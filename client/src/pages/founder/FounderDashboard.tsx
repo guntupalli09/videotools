@@ -72,9 +72,11 @@ export default function FounderDashboard() {
   const [fetchStatus, setFetchStatus] = useState<'idle' | 401 | 403 | 'error'>('idle')
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null)
 
-  const load = useCallback(() => {
+  const load = useCallback((opts?: { silent?: boolean }) => {
     if (!isLoggedIn()) return
-    setLoading(true)
+    // Only show the full-page spinner on the very first load (no data yet).
+    // Background auto-refreshes update data in-place — no spinner, no scroll-to-top.
+    if (!opts?.silent) setLoading(true)
     fetchFounderDashboard()
       .then((result) => {
         if (result.ok) {
@@ -83,19 +85,18 @@ export default function FounderDashboard() {
           setLastRefreshed(new Date())
         } else {
           setFetchStatus(result.status)
-          setData(null)
+          if (!opts?.silent) setData(null)
         }
       })
-      .catch(() => setFetchStatus('error'))
-      .finally(() => setLoading(false))
+      .catch(() => { if (!opts?.silent) setFetchStatus('error') })
+      .finally(() => { if (!opts?.silent) setLoading(false) })
   }, [])
 
   useEffect(() => { load() }, [load])
 
-  // Auto-refresh every 30s so recent jobs, new signups, and feedback appear without manual refresh.
-  // 30s matches the server-side cache TTL so each poll fetches genuinely fresh data.
+  // Auto-refresh every 30s — silent so the page never blinks or scrolls to top.
   useEffect(() => {
-    const id = setInterval(load, 30_000)
+    const id = setInterval(() => load({ silent: true }), 30_000)
     return () => clearInterval(id)
   }, [load])
 
