@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react'
 import { fetchApiCredits, type ApiCreditsData } from '../../lib/founderDashboard'
 
-function ProgressBar({ pct, color = 'bg-violet-500' }: { pct: number; color?: string }) {
+function ProgressBar({ pct }: { pct: number }) {
   const filled = Math.round(Math.min(100, Math.max(0, pct)) / 5)  // blocks out of 20
   const empty = 20 - filled
   return (

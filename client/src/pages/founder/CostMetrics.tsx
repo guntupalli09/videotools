@@ -9,8 +9,6 @@ import type { DashboardCostMetrics, DashboardSnapshot } from '../../lib/founderD
 interface Props {
   costMetrics: DashboardCostMetrics | null
   snapshot: DashboardSnapshot
-  /** MRR in cents — used to estimate revenue per job */
-  recentJobsCount?: number
 }
 
 function MetricRow({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: boolean }) {
@@ -25,7 +23,7 @@ function MetricRow({ label, value, sub, accent }: { label: string; value: string
   )
 }
 
-export default function CostMetrics({ costMetrics, snapshot, recentJobsCount }: Props) {
+export default function CostMetrics({ costMetrics, snapshot }: Props) {
   if (!costMetrics || costMetrics.jobsWithCost === 0) {
     return (
       <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
