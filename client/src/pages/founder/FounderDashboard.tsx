@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Navigate } from 'react-router-dom'
 import { isLoggedIn } from '../../lib/auth'
-import { fetchFounderDashboard, type DashboardData } from '../../lib/founderDashboard'
+import { fetchFounderDashboard, fetchApiCredits, type DashboardData, type ApiCreditsData } from '../../lib/founderDashboard'
 import { useFounderStatus } from '../../hooks/useFounderStatus'
 import DailyTrendCharts from './DailyTrendCharts'
 import PlanDistribution from './PlanDistribution'
@@ -68,6 +68,7 @@ function SectionTitle({ children, id }: { children: React.ReactNode; id?: string
 export default function FounderDashboard() {
   const { isFounder, loading: statusLoading } = useFounderStatus()
   const [data, setData] = useState<DashboardData | null>(null)
+  const [apiCredits, setApiCredits] = useState<ApiCreditsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetchStatus, setFetchStatus] = useState<'idle' | 401 | 403 | 'error'>('idle')
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null)
@@ -77,8 +78,8 @@ export default function FounderDashboard() {
     // Only show the full-page spinner on the very first load (no data yet).
     // Background auto-refreshes update data in-place — no spinner, no scroll-to-top.
     if (!opts?.silent) setLoading(true)
-    fetchFounderDashboard()
-      .then((result) => {
+    Promise.all([fetchFounderDashboard(), fetchApiCredits()])
+      .then(([result, credits]) => {
         if (result.ok) {
           setData(result.data)
           setFetchStatus('idle')
@@ -87,6 +88,7 @@ export default function FounderDashboard() {
           setFetchStatus(result.status)
           if (!opts?.silent) setData(null)
         }
+        setApiCredits(credits)
       })
       .catch(() => { if (!opts?.silent) setFetchStatus('error') })
       .finally(() => { if (!opts?.silent) setLoading(false) })
@@ -210,8 +212,8 @@ export default function FounderDashboard() {
         <section>
           <SectionTitle id="api-costs">API Credits & Costs</SectionTitle>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <ApiCreditsPanel />
-            <EmailUsagePanel />
+            <ApiCreditsPanel data={apiCredits} onRefresh={() => fetchApiCredits(true).then(setApiCredits)} />
+            <EmailUsagePanel data={apiCredits} onRefresh={() => fetchApiCredits(true).then(setApiCredits)} />
             <CostMetrics costMetrics={data.costMetrics ?? null} snapshot={snapshot} />
           </div>
         </section>
