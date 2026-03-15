@@ -64,14 +64,21 @@ async function deleteJobStage(redis: import('ioredis').Redis, id: string | numbe
 
 const workerLog = getLogger('worker')
 
-/** Lock settings: 10-minute lock (covers long YouTube audio downloads) with 15s renewal intervals. */
+/**
+ * PRODUCER-ONLY queue options (stalledInterval: 0 = stall checker disabled).
+ * These are used for exported queue instances imported by API routes. Multiple API
+ * processes importing videoProcessor.ts would otherwise run competing stall checkers
+ * against the worker's own stall checker, causing "job stalled more than allowable
+ * limit" failures with attemptsMade: 0. Only the worker creates instances with the
+ * stall checker enabled (see startWorker()).
+ */
 const QUEUE_SETTINGS = {
   createClient: createRedisClient,
   settings: {
     lockDuration: 600000,   // 10 minutes — covers yt-dlp + Whisper for long videos
     lockRenewTime: 15000,   // renew every 15s (well before 600s expiry)
-    maxStalledCount: 3,     // allow 3 stalls before marking permanently failed
-    stalledInterval: 30000, // check for stalled jobs every 30s
+    maxStalledCount: 3,
+    stalledInterval: 0,     // disabled: stall detection runs only on worker-side instances
   },
 }
 
@@ -80,24 +87,15 @@ export const fileQueue = new Queue('file-processing', QUEUE_SETTINGS)
 /** Phase 2.5: Pro/Agency jobs when queue > 50 get 1 dedicated worker; remaining 2 serve all tiers. */
 export const priorityQueue = new Queue('file-processing-priority', QUEUE_SETTINGS)
 
-/** Phase 8: YouTube pipeline separation. Bull default lockDuration (30s) causes "job stalled" on caption fetch.
- *  lockDuration 10min, lockRenewTime 15s = lock renewed every 15s during processing.
- *  Verify deployed worker has these settings — rebuild image if stalling persists. */
+/** Producer-only instances for YouTube queues (stalledInterval: 0 — no stall checker).
+ *  Worker-side instances with full stall-checker settings are created inside startWorker(). */
 const YT_QUEUE_OPTS = {
   createClient: createRedisClient,
-  settings: {
-    lockDuration: 600000,
-    lockRenewTime: 15000,
-    maxStalledCount: 3,
-    stalledInterval: 60000,
-  },
+  settings: { stalledInterval: 0 },
 }
 export const captionQueue = new Queue('youtube-caption-v2', YT_QUEUE_OPTS)
 export const audioQueue = new Queue('youtube-audio-v2', YT_QUEUE_OPTS)
-export const transcriptionQueue = new Queue('youtube-transcription-v2', {
-  createClient: createRedisClient,
-  settings: { lockDuration: 1800000, lockRenewTime: 60000, maxStalledCount: 3, stalledInterval: 60000 },
-})
+export const transcriptionQueue = new Queue('youtube-transcription-v2', YT_QUEUE_OPTS)
 
 export async function getTotalQueueCount(): Promise<number> {
   const queues = [fileQueue, priorityQueue, ...(YOUTUBE_QUEUE_SEPARATION ? [captionQueue, audioQueue, transcriptionQueue] : [])]
@@ -1610,13 +1608,36 @@ function startHeartbeat() {
 }
 
 export function startWorker() {
-  fileQueue.process(NORMAL_CONCURRENCY, processJob)
-  priorityQueue.process(PRIORITY_CONCURRENCY, processJob)
-  attachQueueEvents(fileQueue)
-  attachQueueEvents(priorityQueue)
+  // Worker-side queue instances: stall checker enabled (stalledInterval > 0).
+  // These are private to startWorker() — exported instances above have stalledInterval: 0
+  // to prevent API processes from running competing stall checkers.
+  const fileWorkerSettings = {
+    createClient: createRedisClient,
+    settings: { lockDuration: 600000, lockRenewTime: 15000, maxStalledCount: 3, stalledInterval: 30000 },
+  }
+  const fileWorkerQueue = new Queue('file-processing', fileWorkerSettings)
+  const priorityWorkerQueue = new Queue('file-processing-priority', fileWorkerSettings)
+
+  fileWorkerQueue.process(NORMAL_CONCURRENCY, processJob)
+  priorityWorkerQueue.process(PRIORITY_CONCURRENCY, processJob)
+  attachQueueEvents(fileWorkerQueue)
+  attachQueueEvents(priorityWorkerQueue)
+
   if (YOUTUBE_QUEUE_SEPARATION) {
+    const captionWorkerQueue = new Queue('youtube-caption-v2', {
+      createClient: createRedisClient,
+      settings: { lockDuration: 600000, lockRenewTime: 15000, maxStalledCount: 3, stalledInterval: 60000 },
+    })
+    const audioWorkerQueue = new Queue('youtube-audio-v2', {
+      createClient: createRedisClient,
+      settings: { lockDuration: 600000, lockRenewTime: 15000, maxStalledCount: 3, stalledInterval: 60000 },
+    })
+    const transcriptionWorkerQueue = new Queue('youtube-transcription-v2', {
+      createClient: createRedisClient,
+      settings: { lockDuration: 1800000, lockRenewTime: 60000, maxStalledCount: 3, stalledInterval: 60000 },
+    })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Bull internal settings
-    const captionSettings = (captionQueue as any).settings
+    const captionSettings = (captionWorkerQueue as any).settings
     workerLog.info({
       msg: 'youtube_queues_registered',
       captionConcurrency: CAPTION_CONCURRENCY,
@@ -1625,12 +1646,12 @@ export function startWorker() {
       captionLockDurationMs: captionSettings?.lockDuration,
       captionLockRenewMs: captionSettings?.lockRenewTime,
     })
-    captionQueue.process(CAPTION_CONCURRENCY, processCaptionJob)
-    audioQueue.process(AUDIO_CONCURRENCY, processAudioJob)
-    transcriptionQueue.process(TRANSCRIPTION_CONCURRENCY, processTranscriptionJob)
-    attachQueueEvents(captionQueue)
-    attachQueueEvents(audioQueue)
-    attachQueueEvents(transcriptionQueue)
+    captionWorkerQueue.process(CAPTION_CONCURRENCY, processCaptionJob)
+    audioWorkerQueue.process(AUDIO_CONCURRENCY, processAudioJob)
+    transcriptionWorkerQueue.process(TRANSCRIPTION_CONCURRENCY, processTranscriptionJob)
+    attachQueueEvents(captionWorkerQueue)
+    attachQueueEvents(audioWorkerQueue)
+    attachQueueEvents(transcriptionWorkerQueue)
   } else {
     workerLog.info({ msg: 'youtube_queue_separation_disabled' })
   }
