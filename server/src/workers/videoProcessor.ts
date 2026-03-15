@@ -44,6 +44,8 @@ import {
   updateJobStarted,
   updateJobCompleted,
   updateJobFailed,
+  updateJobDurationAndCosts,
+  calcWhisperCostMicros,
 } from '../lib/jobAnalytics'
 import { withJobContext, getLogger } from '../lib/logger'
 import { initSentry, captureJobError } from '../lib/sentry'
@@ -868,6 +870,15 @@ async function processJob(job: import('bull').Job<JobData>) {
             }
           }
 
+          // Fire-and-forget: record video duration + Whisper cost on the Job row
+          if (processedSeconds > 0) {
+            updateJobDurationAndCosts(
+              String(jobId),
+              processedSeconds,
+              calcWhisperCostMicros(processedSeconds)
+            ).catch(() => {})
+          }
+
           if (firstPartialEmittedAt && totalVideoDurationSec != null) {
             const ttfwMs = firstPartialEmittedAt - processingStartMs
             log.info({
@@ -1088,6 +1099,15 @@ async function processJob(job: import('bull').Job<JobData>) {
               } else {
                 await incrementUserUsage(userId, { totalMinutes: minutes, videoCount: 1 })
               }
+            }
+
+            // Fire-and-forget: record video duration + Whisper cost on the Job row
+            if (processedSecondsSub > 0) {
+              updateJobDurationAndCosts(
+                String(jobId),
+                processedSecondsSub,
+                calcWhisperCostMicros(processedSecondsSub)
+              ).catch(() => {})
             }
 
             if (partialWriter && redis) {

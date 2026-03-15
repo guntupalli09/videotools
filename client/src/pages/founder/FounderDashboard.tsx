@@ -18,6 +18,9 @@ import SupportPanel from './SupportPanel'
 import DigestConfig from './DigestConfig'
 import LogViewer from './LogViewer'
 import PerToolMetrics from './PerToolMetrics'
+import ApiCreditsPanel from './ApiCreditsPanel'
+import EmailUsagePanel from './EmailUsagePanel'
+import CostMetrics from './CostMetrics'
 
 const PLAN_COLORS: Record<string, string> = {
   free: 'text-zinc-400',
@@ -69,9 +72,11 @@ export default function FounderDashboard() {
   const [fetchStatus, setFetchStatus] = useState<'idle' | 401 | 403 | 'error'>('idle')
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null)
 
-  const load = useCallback(() => {
+  const load = useCallback((opts?: { silent?: boolean }) => {
     if (!isLoggedIn()) return
-    setLoading(true)
+    // Only show the full-page spinner on the very first load (no data yet).
+    // Background auto-refreshes update data in-place — no spinner, no scroll-to-top.
+    if (!opts?.silent) setLoading(true)
     fetchFounderDashboard()
       .then((result) => {
         if (result.ok) {
@@ -80,19 +85,18 @@ export default function FounderDashboard() {
           setLastRefreshed(new Date())
         } else {
           setFetchStatus(result.status)
-          setData(null)
+          if (!opts?.silent) setData(null)
         }
       })
-      .catch(() => setFetchStatus('error'))
-      .finally(() => setLoading(false))
+      .catch(() => { if (!opts?.silent) setFetchStatus('error') })
+      .finally(() => { if (!opts?.silent) setLoading(false) })
   }, [])
 
   useEffect(() => { load() }, [load])
 
-  // Auto-refresh every 30s so recent jobs, new signups, and feedback appear without manual refresh.
-  // 30s matches the server-side cache TTL so each poll fetches genuinely fresh data.
+  // Auto-refresh every 30s — silent so the page never blinks or scrolls to top.
   useEffect(() => {
-    const id = setInterval(load, 30_000)
+    const id = setInterval(() => load({ silent: true }), 30_000)
     return () => clearInterval(id)
   }, [load])
 
@@ -104,7 +108,7 @@ export default function FounderDashboard() {
   if (fetchStatus === 'error') return (
     <div className="flex min-h-[40vh] items-center justify-center flex-col gap-4">
       <p className="text-red-400 font-medium">Failed to load dashboard</p>
-      <button onClick={load} className="text-sm text-zinc-400 border border-zinc-700 rounded-lg px-4 py-2 hover:border-zinc-500 transition-colors">
+      <button onClick={() => load()} className="text-sm text-zinc-400 border border-zinc-700 rounded-lg px-4 py-2 hover:border-zinc-500 transition-colors">
         Retry
       </button>
     </div>
@@ -139,7 +143,7 @@ export default function FounderDashboard() {
               <span className="text-xs text-zinc-600">Updated {lastRefreshed.toLocaleTimeString()}</span>
             )}
             <button
-              onClick={load}
+              onClick={() => load()}
               disabled={loading}
               className="text-xs border border-zinc-700 rounded-lg px-3 py-1.5 text-zinc-400 hover:border-zinc-500 hover:text-white transition-colors disabled:opacity-40"
             >
@@ -200,6 +204,16 @@ export default function FounderDashboard() {
         <section>
           <SectionTitle id="logs">Logs</SectionTitle>
           <LogViewer />
+        </section>
+
+        {/* API Credits & Costs */}
+        <section>
+          <SectionTitle id="api-costs">API Credits & Costs</SectionTitle>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <ApiCreditsPanel />
+            <EmailUsagePanel />
+            <CostMetrics costMetrics={data.costMetrics ?? null} snapshot={snapshot} />
+          </div>
         </section>
 
         {/* Revenue */}
