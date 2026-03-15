@@ -735,9 +735,9 @@ export async function fetchYoutubeCaptions(
 
   if (!videoId) return fetchCaptionsViaYtDlp(cleanUrl, outputDir, language, defaultLanguage)
 
-  // Fast path: timedtext first — single HTTP GET, typically 1–3s when captions exist
-  for (const lang of langOrder) {
-    const result = await fetchTimedtextCaptions(videoId, lang)
+  // Fast path: timedtext in parallel — fire all language requests at once (was sequential: 3 × 8s)
+  const timedtextResults = await Promise.all(langOrder.map((lang) => fetchTimedtextCaptions(videoId, lang)))
+  for (const result of timedtextResults) {
     if (!result) continue
     const validation = validateCaptionQuality(result.segments, duration)
     if (validation.valid || (validation.coverage >= minCoverage && validation.segmentCount >= 10)) {
