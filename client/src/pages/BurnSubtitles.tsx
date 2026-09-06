@@ -19,7 +19,7 @@ import { TranslateResult } from '../components/figma/TranslateResult'
 import { Select } from '../components/figma/FormControls'
 import { getFilePreview, formatDuration, type FilePreviewData } from '../lib/filePreview'
 import { incrementUsage } from '../lib/usage'
-import { uploadDualFilesWithProgress, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError, claimGuestJob } from '../lib/api'
+import { uploadDualFilesWithProgress, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError, claimGuestJob, getAuthToken } from '../lib/api'
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
 import { persistJobId, clearPersistedJobId, getPersistedJobId, getPersistedJobToken } from '../lib/jobSession'
@@ -277,6 +277,19 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
     }
   }
 
+  /** Fetch a download URL with the required auth header and trigger a real file save (a plain <a> click can't carry the Bearer token, so it 401s). */
+  const downloadAuthedUrl = async (url: string, filename: string) => {
+    const token = getAuthToken()
+    const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    if (!res.ok) throw new Error(`Download failed (${res.status})`)
+    const blob = await res.blob()
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+
   const breadcrumbs = [{ label: 'Burn Subtitles', href: '/burn-subtitles' }]
   const layoutProps = {
     breadcrumbs,
@@ -487,13 +500,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
                         return
                       }
                       try {
-                        const res = await fetch(getDownloadUrl())
-                        const blob = await res.blob()
-                        const a = document.createElement('a')
-                        a.href = URL.createObjectURL(blob)
-                        a.download = result?.fileName || fallbackBurnName
-                        a.click()
-                        URL.revokeObjectURL(a.href)
+                        await downloadAuthedUrl(getDownloadUrl(), result?.fileName || fallbackBurnName)
                         try { trackEvent('result_downloaded', { tool: 'burn-subtitles', plan: 'free' }) } catch { /* non-blocking */ }
                         setFreeExportsUsed((prev) => prev + 1)
                         toast.success('Download started')
@@ -501,12 +508,13 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
                         toast.error('Download failed')
                       }
                     }
-                  : () => {
-                      const a = document.createElement('a')
-                      a.href = getDownloadUrl()
-                      a.download = result?.fileName || fallbackBurnName
-                      a.click()
-                      try { trackEvent('result_downloaded', { tool: 'burn-subtitles', plan: 'paid' }) } catch { /* non-blocking */ }
+                  : async () => {
+                      try {
+                        await downloadAuthedUrl(getDownloadUrl(), result?.fileName || fallbackBurnName)
+                        try { trackEvent('result_downloaded', { tool: 'burn-subtitles', plan: 'paid' }) } catch { /* non-blocking */ }
+                      } catch {
+                        toast.error('Download failed')
+                      }
                     }
               )}
               onProcessAnother={handleProcessAnother}
