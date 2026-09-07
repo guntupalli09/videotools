@@ -49,7 +49,7 @@ export function ProcessingInterface({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="tool-stack">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -61,10 +61,10 @@ export function ProcessingInterface({
               <FileVideo className="h-3.5 w-3.5" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="truncate text-[13px] font-medium text-gray-900 dark:text-white">
+              <h3 className="truncate text-sm font-medium text-gray-900 dark:text-white">
                 {file.name}
               </h3>
-              <div className="font-mono text-[11px] text-gray-500 dark:text-gray-400">
+              <div className="font-mono text-xs text-gray-500 dark:text-gray-400">
                 <span>{file.size}</span>
                 {file.duration != null && <span> · {file.duration}</span>}
               </div>

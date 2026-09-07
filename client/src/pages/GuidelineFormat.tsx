@@ -1265,7 +1265,7 @@ export default function GuidelineFormat() {
                       />
                     </div>
                     <span
-                      className={`mt-1 text-[11px] ${active ? "text-blue-600 dark:text-blue-400" : "text-gray-400 dark:text-gray-500"}`}
+                      className={`mt-1 text-xs ${active ? "text-blue-600 dark:text-blue-400" : "text-gray-400 dark:text-gray-500"}`}
                     >
                       {step}
                     </span>
@@ -1293,10 +1293,10 @@ export default function GuidelineFormat() {
             {/* Left — transcript */}
             <section className="space-y-3 bg-white dark:bg-gray-900">
               <div className="flex h-9 items-center justify-between gap-3 border-b border-gray-100 px-3 dark:border-gray-800">
-                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400">
+                <p className="text-xs font-medium uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400">
                   Transcript
                 </p>
-                <div className="flex min-w-0 items-center gap-2 text-[11px] font-mono text-gray-400 dark:text-gray-500">
+                <div className="flex min-w-0 items-center gap-2 text-xs font-mono text-gray-400 dark:text-gray-500">
                   {wordCount > 0 && (
                     <span>{wordCount.toLocaleString()} words</span>
                   )}
@@ -1327,7 +1327,7 @@ export default function GuidelineFormat() {
                     }}
                   />
                 </div>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   Allowed formats:{" "}
                   <span className="font-medium text-gray-600 dark:text-gray-300">
                     .txt
@@ -1346,7 +1346,7 @@ export default function GuidelineFormat() {
                   </span>
                 </p>
                 <p
-                  className="rounded-md border border-dashed border-gray-200 px-3 py-1.5 text-[11px] text-gray-500 dark:border-gray-700 dark:text-gray-400"
+                  className="rounded-md border border-dashed border-gray-200 px-3 py-1.5 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400"
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => {
                     e.preventDefault();
@@ -1366,14 +1366,14 @@ export default function GuidelineFormat() {
                   </label>
                   {transcriptLoadedFromFile && (
                     <span
-                      className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300"
+                      className="text-xs font-medium text-emerald-700 dark:text-emerald-300"
                       title="You can edit this text before formatting"
                     >
                       From file: {transcriptLoadedFromFile}
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   Everything we format is taken from this box — upload fills it
                   for you; you can edit before running Step 3.
                 </p>
@@ -1384,15 +1384,15 @@ export default function GuidelineFormat() {
                   onChange={(e) => setTranscript(e.target.value)}
                   placeholder="Paste, type, or upload a file — the full text appears here…"
                   spellCheck={false}
-                  className="w-full min-h-[min(24rem,50vh)] max-h-[min(32rem,60vh)] rounded-lg border border-gray-300 bg-white px-3 py-3 font-mono text-[13px] leading-[1.6] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-950 dark:text-white overflow-y-auto"
+                  className="w-full min-h-[min(24rem,50vh)] max-h-[min(32rem,60vh)] rounded-lg border border-gray-300 bg-white px-3 py-3 font-mono text-sm leading-[1.6] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-950 dark:text-white overflow-y-auto"
                 />
               </div>
             </section>
 
             {/* Right — guidelines */}
-            <section className="space-y-4 border-t border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 lg:border-l lg:border-t-0">
+            <section className="space-y-component-sm border-t border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 lg:border-l lg:border-t-0">
               <div className="flex h-9 items-center border-b border-gray-100 px-3 dark:border-gray-800">
-                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400">
+                <p className="text-xs font-medium uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400">
                   Style guide
                 </p>
               </div>
@@ -1400,7 +1400,7 @@ export default function GuidelineFormat() {
               <div className="px-3">
                 <label
                   htmlFor="guideline-preset"
-                  className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400"
+                  className="mb-1.5 block text-xs font-medium uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400"
                 >
                   Guideline preset
                 </label>
@@ -1508,14 +1508,14 @@ export default function GuidelineFormat() {
                                 <ChevronRight size={10} />
                               )}
                             </span>
-                            <span className="text-[13px] font-medium text-gray-800 dark:text-gray-200">
+                            <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
                               {cat}{" "}
-                              <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[10px] text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                              <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-400">
                                 ({list.length} rules)
                               </span>
                             </span>
                           </div>
-                          <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
                             {isOpen ? "Hide" : "Show"}
                           </span>
                         </button>
@@ -1535,7 +1535,7 @@ export default function GuidelineFormat() {
                                   </label>
                                   {rule.isEdited && (
                                     <div className="flex items-center gap-2 shrink-0">
-                                      <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded">
+                                      <span className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded">
                                         Edited{" "}
                                         <span
                                           aria-hidden
@@ -1556,7 +1556,7 @@ export default function GuidelineFormat() {
                                   {selectedPreset === "custom" &&
                                     rule.extractionConfidence && (
                                       <span
-                                        className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${
+                                        className={`text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${
                                           rule.extractionConfidence === "high"
                                             ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200"
                                             : rule.extractionConfidence ===
@@ -1587,7 +1587,7 @@ export default function GuidelineFormat() {
                                         </p>
                                       )}
                                       {rule.sourceQuote && (
-                                        <p className="text-[11px] text-gray-500 dark:text-gray-400 border-l-2 border-gray-200 dark:border-gray-700 pl-2">
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 border-l-2 border-gray-200 dark:border-gray-700 pl-2">
                                           “{rule.sourceQuote}”
                                         </p>
                                       )}
@@ -1673,7 +1673,7 @@ export default function GuidelineFormat() {
           <div className="rounded-xl border border-blue-200/60 dark:border-blue-900/40 bg-white/70 dark:bg-gray-900/30 p-5 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="space-y-1">
-                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400">
+                <p className="text-xs font-medium uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400">
                   Step 3
                 </p>
                 <p className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -1701,7 +1701,7 @@ export default function GuidelineFormat() {
             showProcessingMessage ||
             submitError ||
             jobStatus) && (
-            <div className="rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/60 dark:bg-blue-950/25 p-6 space-y-4">
+            <div className="rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/60 dark:bg-blue-950/25 p-component space-y-component-sm">
               {showLoadingMessage && (
                 <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed">
                   Applying style guide rules to your transcript… This takes
@@ -1715,7 +1715,7 @@ export default function GuidelineFormat() {
                       {stageLabel ?? "Formatting in progress…"}
                     </p>
                     {jobStatus?.stage && (
-                      <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
                         Stage: {jobStatus.stage}
                       </span>
                     )}
@@ -1751,7 +1751,7 @@ export default function GuidelineFormat() {
                         >
                           <div className="flex items-center justify-between gap-2">
                             <span className="font-semibold">{s.label}</span>
-                            <span className="text-[10px] font-semibold uppercase tracking-wide opacity-80">
+                            <span className="text-xs font-semibold uppercase tracking-wide opacity-80">
                               {done ? "✓" : active ? "…" : ""}
                             </span>
                           </div>
@@ -1795,7 +1795,7 @@ export default function GuidelineFormat() {
               )}
               {jobStatus?.status === "failed" && !submitError && (
                 <div className="space-y-3">
-                  <p className="text-[13px] text-gray-800 dark:text-gray-100">
+                  <p className="text-sm text-gray-800 dark:text-gray-100">
                     Formatting failed. Please try again.
                   </p>
                   <button
@@ -1810,7 +1810,7 @@ export default function GuidelineFormat() {
               {jobStatus?.status === "completed" &&
                 !submitError &&
                 (showAuthGate && !isLoggedIn() ? (
-                  <div className="rounded-xl border border-blue-200/80 dark:border-blue-900/50 bg-white/85 dark:bg-gray-900/60 p-6 shadow-sm space-y-4">
+                  <div className="rounded-xl border border-blue-200/80 dark:border-blue-900/50 bg-white/85 dark:bg-gray-900/60 p-component shadow-sm space-y-component-sm">
                     <div className="flex items-start gap-3">
                       <span className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
                         <Lock className="h-4 w-4" aria-hidden />
@@ -1850,7 +1850,7 @@ export default function GuidelineFormat() {
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-6">
+                  <div className="space-y-component">
                     <ResultHeader
                       title="Format ready"
                       onAction={resetJobUi}
@@ -1861,7 +1861,7 @@ export default function GuidelineFormat() {
                       <div className="rounded-xl border border-gray-200 bg-white/80 p-2.5 shadow-sm dark:border-gray-700 dark:bg-gray-900/50">
                         <div className="flex flex-wrap items-start justify-between gap-2.5">
                           <div className="space-y-1">
-                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400">
+                            <p className="text-xs font-medium uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400">
                               System health
                             </p>
                             <p className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -1869,7 +1869,7 @@ export default function GuidelineFormat() {
                             </p>
                           </div>
                           <div className="flex items-baseline gap-2 text-right">
-                            <span className="text-[13px] text-gray-500 dark:text-gray-400">
+                            <span className="text-sm text-gray-500 dark:text-gray-400">
                               validation confidence
                             </span>
                             <span className="text-gray-400">·</span>
@@ -1977,11 +1977,11 @@ export default function GuidelineFormat() {
                                 %
                               </span>
                             </p>
-                            <p className="text-[11px] text-gray-600 dark:text-gray-300 mt-1">
+                            <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">
                               Based on automated cleanup signals + verification
                               coverage — an estimate, not a guarantee.
                             </p>
-                            <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-gray-700 dark:text-gray-300">
+                            <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-700 dark:text-gray-300">
                               <span className="rounded-[3px] border border-gray-200 bg-white/60 px-1.5 py-0.5 font-mono dark:border-gray-700 dark:bg-gray-950/20">
                                 ✓{" "}
                                 {jobStatus.validationReport.summary.verified
@@ -2059,12 +2059,12 @@ export default function GuidelineFormat() {
                                         >
                                           {prefix} {c.label}
                                           {canJump ? (
-                                            <span className="ml-2 text-[10px] font-semibold opacity-80">
+                                            <span className="ml-2 text-xs font-semibold opacity-80">
                                               (Segment {c.segmentIndex})
                                             </span>
                                           ) : null}
                                         </button>
-                                        <span className="text-[10px] font-semibold uppercase tracking-wide opacity-80">
+                                        <span className="text-xs font-semibold uppercase tracking-wide opacity-80">
                                           {c.bucket === "verified"
                                             ? "Verified"
                                             : c.bucket === "likely_compliant"
@@ -2078,7 +2078,7 @@ export default function GuidelineFormat() {
                                         </p>
                                       )}
                                       {c.snippet && (
-                                        <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400 border-l-2 border-gray-200 dark:border-gray-700 pl-2">
+                                        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 border-l-2 border-gray-200 dark:border-gray-700 pl-2">
                                           “{c.snippet}”
                                         </p>
                                       )}
@@ -2142,7 +2142,7 @@ export default function GuidelineFormat() {
                     </div>
 
                     {resultMode === "review" && (
-                      <div className="space-y-4">
+                      <div className="space-y-component-sm">
                         {flaggedList.length === 0 ? (
                           <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/40 p-2.5">
                             <p className="text-sm text-gray-800 dark:text-gray-100">
@@ -2225,12 +2225,12 @@ export default function GuidelineFormat() {
                                 );
                               };
                               return (
-                                <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/40 p-5 space-y-4">
+                                <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/40 p-5 space-y-component-sm">
                                   <div className="flex flex-wrap items-start justify-between gap-3">
                                     <div className="space-y-1">
                                       <div className="flex flex-wrap items-center gap-2">
                                         <span
-                                          className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${badgeClass}`}
+                                          className={`text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${badgeClass}`}
                                         >
                                           {seg?.confidence || "medium"}
                                         </span>
@@ -2278,7 +2278,7 @@ export default function GuidelineFormat() {
 
                                   <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
                                     <div className="lg:col-span-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/40 dark:bg-gray-950/20 p-2.5">
-                                      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
                                         Original
                                       </p>
                                       <div className="font-mono text-xs leading-[1.5] text-gray-700 dark:text-gray-200 whitespace-pre-wrap opacity-75">
@@ -2287,10 +2287,10 @@ export default function GuidelineFormat() {
                                     </div>
                                     <div className="lg:col-span-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/10 p-2.5">
                                       <div className="flex items-center justify-between gap-3 mb-2">
-                                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400">
+                                        <p className="text-xs font-medium uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400">
                                           Formatted
                                         </p>
-                                        <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                                        <span className="text-xs text-gray-500 dark:text-gray-400">
                                           {issueIdx in reviewEdits
                                             ? "Edited"
                                             : "Suggested"}
@@ -2490,20 +2490,20 @@ export default function GuidelineFormat() {
                                 return (
                                   <div
                                     key={i}
-                                    className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/40 p-5 space-y-4"
+                                    className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/40 p-5 space-y-component-sm"
                                   >
                                     <div className="flex flex-wrap items-start justify-between gap-3">
                                       <div className="space-y-1">
                                         <div className="flex flex-wrap items-center gap-2">
                                           <span
-                                            className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${badgeClass}`}
+                                            className={`text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${badgeClass}`}
                                           >
                                             {seg.confidence || "medium"}
                                           </span>
                                           <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
                                             {seg.ruleApplied}
                                           </span>
-                                          <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                                          <span className="text-xs text-gray-500 dark:text-gray-400">
                                             Issue {i + 1} of{" "}
                                             {flaggedList.length}
                                           </span>
@@ -2566,7 +2566,7 @@ export default function GuidelineFormat() {
 
                                     <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
                                       <div className="lg:col-span-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/40 dark:bg-gray-950/20 p-2.5">
-                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
                                           Original
                                         </p>
                                         {context.length ? (
@@ -2576,7 +2576,7 @@ export default function GuidelineFormat() {
                                                 key={idx}
                                                 className="rounded-lg border border-gray-200/60 dark:border-gray-700/60 bg-white/60 dark:bg-gray-950/20 px-3 py-2"
                                               >
-                                                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                                                   Segment {idx + 1}
                                                 </p>
                                                 <div className="mt-1 text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap leading-relaxed opacity-75">
@@ -2593,10 +2593,10 @@ export default function GuidelineFormat() {
                                       </div>
                                       <div className="lg:col-span-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/10 p-2.5">
                                         <div className="flex items-center justify-between gap-3 mb-2">
-                                          <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400">
+                                          <p className="text-xs font-medium uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400">
                                             Formatted
                                           </p>
-                                          <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                                          <span className="text-xs text-gray-500 dark:text-gray-400">
                                             {i in reviewEdits
                                               ? "Edited"
                                               : "Suggested"}
@@ -2623,7 +2623,7 @@ export default function GuidelineFormat() {
                         ) : (
                           <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
                             <div className="lg:col-span-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-900/30 p-2.5">
-                              <h3 className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                              <h3 className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
                                 Original
                               </h3>
                               <div
@@ -2647,7 +2647,7 @@ export default function GuidelineFormat() {
                                           }`}
                                         >
                                           <div className="flex items-center justify-between mb-1">
-                                            <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                                               Segment {n}
                                             </span>
                                           </div>
@@ -2667,7 +2667,7 @@ export default function GuidelineFormat() {
                             </div>
 
                             <div className="lg:col-span-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/40 p-2.5 shadow-sm">
-                              <h3 className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                              <h3 className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
                                 Formatted
                               </h3>
                               <div
@@ -2756,7 +2756,7 @@ export default function GuidelineFormat() {
                             type="button"
                             onClick={handler as () => void}
                             disabled={disabled as boolean}
-                            className="rounded-[3px] border border-gray-300 bg-transparent px-2 py-[3px] font-mono text-[10px] text-gray-500 transition-colors hover:text-gray-900 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:text-gray-100"
+                            className="rounded-[3px] border border-gray-300 bg-transparent px-2 py-[3px] font-mono text-xs text-gray-500 transition-colors hover:text-gray-900 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:text-gray-100"
                           >
                             {label as string}
                           </button>
@@ -2767,7 +2767,7 @@ export default function GuidelineFormat() {
                               type="button"
                               onClick={downloadFormattedSrt}
                               disabled={!jobStatus.outputText}
-                              className="rounded-[3px] border border-gray-300 bg-transparent px-2 py-[3px] font-mono text-[10px] text-gray-500 transition-colors hover:text-gray-900 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:text-gray-100"
+                              className="rounded-[3px] border border-gray-300 bg-transparent px-2 py-[3px] font-mono text-xs text-gray-500 transition-colors hover:text-gray-900 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:text-gray-100"
                             >
                               SRT
                             </button>
@@ -2775,7 +2775,7 @@ export default function GuidelineFormat() {
                               type="button"
                               onClick={downloadFormattedVtt}
                               disabled={!jobStatus.outputText}
-                              className="rounded-[3px] border border-gray-300 bg-transparent px-2 py-[3px] font-mono text-[10px] text-gray-500 transition-colors hover:text-gray-900 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:text-gray-100"
+                              className="rounded-[3px] border border-gray-300 bg-transparent px-2 py-[3px] font-mono text-xs text-gray-500 transition-colors hover:text-gray-900 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:text-gray-100"
                             >
                               VTT
                             </button>
@@ -2820,13 +2820,13 @@ export default function GuidelineFormat() {
 
       {/* SEO FAQ section — crawlable content for Google and LLM citations */}
       <section
-        className="mx-auto mt-8 max-w-3xl border-t border-white/[0.08] px-4 pt-8 pb-12 sm:px-6 sm:pb-16 lg:px-8"
+        className="mx-auto mt-8 max-w-3xl border-t border-white/[0.08] px-4 pt-8 pb-12 sm:px-component sm:pb-16 lg:px-8"
         aria-label="Frequently asked questions"
       >
-        <h2 className="text-xl sm:text-2xl font-medium text-gray-900 dark:text-white mb-6">
+        <h2 className="text-xl sm:text-2xl font-medium text-gray-900 dark:text-white mb-component">
           Transcript Style Guide FAQ
         </h2>
-        <dl className="space-y-6">
+        <dl className="space-y-component">
           {[
             {
               q: "What transcription style guides does this tool support?",
@@ -2874,7 +2874,7 @@ export default function GuidelineFormat() {
 
       {/* ── QA Workflow Section ── */}
       <section
-        className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16 border-t border-gray-100 dark:border-gray-800"
+        className="mx-auto max-w-3xl px-4 sm:px-component lg:px-8 py-12 sm:py-16 border-t border-gray-100 dark:border-gray-800"
         aria-label="Transcription QA workflow"
       >
         <h2 className="text-xl sm:text-2xl font-medium text-gray-900 dark:text-white mb-3">
@@ -2970,7 +2970,7 @@ export default function GuidelineFormat() {
                     {title}
                   </h3>
                   <span
-                    className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${blue ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300" : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"}`}
+                    className={`text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${blue ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300" : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"}`}
                   >
                     {label}
                   </span>
@@ -2986,13 +2986,13 @@ export default function GuidelineFormat() {
 
       {/* ── Before / After Format Examples ── */}
       <section
-        className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16 border-t border-gray-100 dark:border-gray-800"
+        className="mx-auto max-w-3xl px-4 sm:px-component lg:px-8 py-12 sm:py-16 border-t border-gray-100 dark:border-gray-800"
         aria-label="Transcript formatting examples"
       >
         <h2 className="text-xl sm:text-2xl font-medium text-gray-900 dark:text-white mb-3">
           Raw → Formatted → Client-Ready: What the Formatter Actually Does
         </h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-section leading-relaxed">
           These are realistic examples of what a raw AI-generated transcript
           looks like, what it looks like after formatting, and what the final
           client-ready output contains. Every transformation shown here is
@@ -3006,7 +3006,7 @@ export default function GuidelineFormat() {
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">
                   Raw AI output
                 </p>
                 <pre className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap font-mono">{`spk_0: um so like the the thing that we uh found was that you know the results were uh really quite significant i mean we we ran it three times
@@ -3014,7 +3014,7 @@ export default function GuidelineFormat() {
 spk_1: yeah yeah and and the second run was i think more more compelling right`}</pre>
               </div>
               <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 p-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-500 dark:text-amber-400 mb-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-amber-500 dark:text-amber-400 mb-2">
                   After formatting pass
                 </p>
                 <pre className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap font-mono">{`[Speaker 1]: The thing that we found was that the results were really quite significant. We ran it three times.
@@ -3022,13 +3022,13 @@ spk_1: yeah yeah and and the second run was i think more more compelling right`}
 [Speaker 2]: Yeah, and the second run was more compelling, right?`}</pre>
               </div>
               <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 p-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-500 dark:text-emerald-400 mb-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-500 dark:text-emerald-400 mb-2">
                   Client-ready (Rev spec)
                 </p>
                 <pre className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap font-mono">{`[Speaker 1]: The thing we found was that the results were really quite significant. We ran it three times.
 
 [Speaker 2]: Yeah, and the second run was more compelling, right?`}</pre>
-                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-2">
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2">
                   ✓ Fillers removed ✓ Labels formatted ✓ False starts cleaned
                 </p>
               </div>
@@ -3042,7 +3042,7 @@ spk_1: yeah yeah and and the second run was i think more more compelling right`}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">
                   Raw AI output
                 </p>
                 <pre className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap font-mono">{`Speaker 1: so we launched in Q3 and uh the response was better than we thought
@@ -3052,7 +3052,7 @@ spk_1: yeah yeah and and the second run was i think more more compelling right`}
 Speaker 1: the first 30 days we had 4,000 signups which is uh which is above projections`}</pre>
               </div>
               <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 p-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-500 dark:text-amber-400 mb-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-amber-500 dark:text-amber-400 mb-2">
                   After formatting pass
                 </p>
                 <pre className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap font-mono">{`Speaker 1: We launched in Q3 and the response was better than we thought.
@@ -3062,7 +3062,7 @@ Speaker 1: the first 30 days we had 4,000 signups which is uh which is above pro
 Speaker 1: The first 30 days we had 4,000 signups, which is above projections.`}</pre>
               </div>
               <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 p-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-500 dark:text-emerald-400 mb-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-500 dark:text-emerald-400 mb-2">
                   Client-ready (GoTranscript spec)
                 </p>
                 <pre className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap font-mono">{`Speaker 1: We launched in Q3 and the response was better than we thought.
@@ -3070,7 +3070,7 @@ Speaker 1: The first 30 days we had 4,000 signups, which is above projections.`}
 [00:02:14]
 
 Speaker 1: The first 30 days we had 4,000 signups, which is above projections.`}</pre>
-                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-2">
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2">
                   ✓ Fillers removed ✓ Timestamps validated ✓ Numerals correct
                 </p>
               </div>
@@ -3084,17 +3084,17 @@ Speaker 1: The first 30 days we had 4,000 signups, which is above projections.`}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">
                   Raw AI output
                 </p>
                 <pre className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap font-mono">{`spk_0: I- I wasn't at the location on that date. I mean, uh, I was definitely not there.`}</pre>
               </div>
               <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 p-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-500 dark:text-emerald-400 mb-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-500 dark:text-emerald-400 mb-2">
                   Full verbatim output
                 </p>
                 <pre className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap font-mono">{`WITNESS: I-- I wasn't at the location on that date. I mean, uh, I was definitely not there.`}</pre>
-                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-2">
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2">
                   ✓ Fillers retained ✓ False starts formatted ✓ Label normalized
                 </p>
               </div>
@@ -3105,13 +3105,13 @@ Speaker 1: The first 30 days we had 4,000 signups, which is above projections.`}
 
       {/* ── Style Guide Comparison Table ── */}
       <section
-        className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16 border-t border-gray-100 dark:border-gray-800"
+        className="mx-auto max-w-4xl px-4 sm:px-component lg:px-8 py-12 sm:py-16 border-t border-gray-100 dark:border-gray-800"
         aria-label="Transcription platform style guide comparison"
       >
         <h2 className="text-xl sm:text-2xl font-medium text-gray-900 dark:text-white mb-3">
           Style Guide Comparison: Rev, GoTranscript, TranscribeMe, Scribie
         </h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-section leading-relaxed">
           Every platform has a distinct style guide. Submitting to the wrong
           format is the leading cause of transcript rejection and reduced QA
           scores. This table documents the key formatting rules for each
@@ -3261,19 +3261,19 @@ Speaker 1: The first 30 days we had 4,000 signups, which is above projections.`}
 
       {/* ── Technical Validation Section ── */}
       <section
-        className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16 border-t border-gray-100 dark:border-gray-800"
+        className="mx-auto max-w-3xl px-4 sm:px-component lg:px-8 py-12 sm:py-16 border-t border-gray-100 dark:border-gray-800"
         aria-label="How transcript format validation works"
       >
         <h2 className="text-xl sm:text-2xl font-medium text-gray-900 dark:text-white mb-3">
           How the Format Validation Engine Works
         </h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-section leading-relaxed">
           The QA compliance score is not a spell-checker. It runs a structured
           checklist against the selected style guide, detects specific rule
           violations, and surfaces exactly which segments need manual review —
           not the entire document.
         </p>
-        <div className="space-y-4">
+        <div className="space-y-component-sm">
           {[
             {
               title: "Speaker label consistency detection",
@@ -3317,18 +3317,18 @@ Speaker 1: The first 30 days we had 4,000 signups, which is above projections.`}
 
       {/* ── Professional Transcriptionist Section ── */}
       <section
-        className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16 border-t border-gray-100 dark:border-gray-800"
+        className="mx-auto max-w-3xl px-4 sm:px-component lg:px-8 py-12 sm:py-16 border-t border-gray-100 dark:border-gray-800"
         aria-label="For professional transcriptionists"
       >
         <h2 className="text-xl sm:text-2xl font-medium text-gray-900 dark:text-white mb-3">
           Built for Professional Transcriptionists, Not Just Beginners
         </h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-section leading-relaxed">
           If you work on Rev, GoTranscript, TranscribeMe, or Scribie — or
           deliver transcripts for agencies and direct clients — this tool was
           designed around your specific workflow problems.
         </p>
-        <div className="space-y-6">
+        <div className="space-y-component">
           {[
             {
               heading: "The repetitive formatting problem",
@@ -3368,7 +3368,7 @@ Speaker 1: The first 30 days we had 4,000 signups, which is above projections.`}
 
       {/* Brand-specific guideline pages hub */}
       <section
-        className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16 border-t border-gray-100 dark:border-gray-800"
+        className="mx-auto max-w-4xl px-4 sm:px-component lg:px-8 py-12 sm:py-16 border-t border-gray-100 dark:border-gray-800"
         aria-label="Transcription service style guides"
       >
         <div className="flex items-center gap-3 mb-2">
@@ -3576,7 +3576,7 @@ Speaker 1: The first 30 days we had 4,000 signups, which is above projections.`}
             ],
           },
         ].map(({ brand, links }) => (
-          <div key={brand} className="mb-6">
+          <div key={brand} className="mb-component">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
               <FileText className="w-3.5 h-3.5 text-blue-400" />
               {brand}

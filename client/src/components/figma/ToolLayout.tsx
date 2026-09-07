@@ -37,7 +37,7 @@ export function ToolLayout({
 }: ToolLayoutProps) {
   return (
     <div
-      className={`min-h-screen w-full max-w-full ${compactToolHeader ? "pt-4 sm:pt-5" : "pt-12 sm:pt-14"} pb-8 sm:pb-10 px-4 sm:px-6 lg:px-12 xl:px-16 bg-white dark:bg-gray-950 transition-colors duration-500 flex flex-col box-border`}
+      className={`min-h-screen w-full max-w-full ${compactToolHeader ? "pt-component-sm" : "pt-12 sm:pt-14"} pb-section px-4 sm:px-6 lg:px-12 xl:px-16 bg-white dark:bg-gray-950 transition-colors duration-500 flex flex-col box-border`}
     >
       <div className="w-full max-w-full flex-1 min-w-0 box-border">
         {!compactToolHeader && (
@@ -45,7 +45,7 @@ export function ToolLayout({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm mb-3 sm:mb-5 flex-wrap min-w-0"
+            className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm mb-component-sm sm:mb-component flex-wrap min-w-0"
             aria-label="Breadcrumb"
           >
             <Link
@@ -80,34 +80,34 @@ export function ToolLayout({
           initial={{ opacity: 0, y: compactToolHeader ? 6 : 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.05 }}
-          className={compactToolHeader ? "mb-3" : "mb-5 sm:mb-7"}
+          className={compactToolHeader ? "mb-component-sm" : "mb-component sm:mb-section"}
         >
           {compactToolHeader ? (
             <>
-            <div className="flex h-10 items-center justify-between gap-3 border-b border-white/[0.08] dark:border-white/[0.08] border-gray-200/80">
+            <div className="flex h-10 items-center justify-between gap-component-sm border-b border-white/[0.08] dark:border-white/[0.08] border-gray-200/80">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="inline-flex h-4 w-4 items-center justify-center [&>svg]:h-4 [&>svg]:w-4">
                   {icon}
                 </span>
-                <h1 className="truncate text-[14px] font-medium text-gray-900 dark:text-white">
+                <h1 className="tool-title-compact">
                   {title}
                 </h1>
-                <span className="text-[13px] text-gray-400">·</span>
-                <span className="truncate text-[13px] text-gray-500 dark:text-gray-400">
+                <span className="tool-meta text-gray-400">·</span>
+                <span className="tool-meta truncate">
                   {currentStepLabel}
                 </span>
               </div>
               {coreToolPath ? (
                 <a
                   href="#how-this-tool-works"
-                  className="shrink-0 text-[13px] text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+                  className="tool-meta shrink-0 hover:text-blue-600 dark:hover:text-blue-400"
                 >
                   How it works
                 </a>
               ) : (
                 <Link
                   to={breadcrumbs[0]?.href || "#"}
-                  className="shrink-0 text-[13px] text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+                  className="tool-meta shrink-0 hover:text-blue-600 dark:hover:text-blue-400"
                 >
                   How it works
                 </Link>
@@ -116,7 +116,7 @@ export function ToolLayout({
             </>
           ) : (
             <>
-              <div className="flex items-center gap-3 sm:gap-4 mb-4">
+              <div className="flex items-center gap-3 sm:gap-component-sm mb-component-sm">
                 <motion.div
                   initial={{ scale: 0, rotate: -180 }}
                   animate={{ scale: 1, rotate: 0 }}
@@ -133,7 +133,7 @@ export function ToolLayout({
                     {icon}
                   </div>
                 </motion.div>
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-medium text-gray-900 dark:text-white leading-tight tracking-tight">
+                <h1 className="tool-title text-2xl sm:text-3xl md:text-4xl leading-tight">
                   {title}
                 </h1>
               </div>
@@ -148,7 +148,7 @@ export function ToolLayout({
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: 0.3 }}
-                  className="flex flex-wrap gap-1.5 sm:gap-2 mt-4"
+                  className="flex flex-wrap gap-1.5 sm:gap-2 mt-component-sm"
                 >
                   {tags.map((tag, index) => (
                     <motion.span
@@ -168,7 +168,7 @@ export function ToolLayout({
         </motion.div>
 
         <div
-          className={`grid w-full max-w-full gap-4 sm:gap-6 ${sidebar ? "grid-cols-1 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1.3fr)]" : "grid-cols-1"}`}
+          className={`grid w-full max-w-full gap-component-sm sm:gap-component ${sidebar ? "grid-cols-1 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1.3fr)]" : "grid-cols-1"}`}
         >
           <motion.div
             initial={{ opacity: 0, y: 20 }}

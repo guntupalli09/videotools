@@ -906,7 +906,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
       <ToolLayout {...layoutProps}>
         <UpgradeBanner variant="watermark" tool="video-to-subtitles" />
         {status === 'idle' && !selectedFile && (
-          <div className="space-y-4">
+          <div className="space-y-component-sm">
             <UploadZone
               immediateSelect
               onFileSelect={handleFileSelect}
@@ -955,7 +955,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             videoSrc={videoPreviewUrl ?? undefined}
             durationSeconds={filePreview?.durationSeconds}
           >
-            <div className="space-y-6">
+            <div className="space-y-component">
               <RadioGroup
                 label="Subtitle Format"
                 options={
@@ -1014,7 +1014,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
 
         {status === 'processing' && (
           <ProcessingStateShell>
-            <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+            <div className="mb-component-sm text-sm text-gray-600 dark:text-gray-400">
               {selectedFile?.name} • {filePreview?.durationSeconds != null ? formatDuration(filePreview.durationSeconds) : '—'}
             </div>
             <ProcessingProgress
@@ -1060,7 +1060,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
         )}
 
         {status === 'completed' && result && (
-          <div className="space-y-4">
+          <div className="space-y-component-sm">
             {/* Teaser card for guests */}
             {showAuthGate && !isLoggedIn() && (
               <div className="rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 overflow-hidden select-none">
@@ -1074,10 +1074,10 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                   }
                 />
                 <div className="px-5 py-4">
-                  <p className="text-[11px] text-gray-400 mb-2 font-medium">Sign up to unlock:</p>
-                  <div className="flex flex-wrap gap-1.5 mb-4">
+                  <p className="text-xs text-gray-400 mb-2 font-medium">Sign up to unlock:</p>
+                  <div className="flex flex-wrap gap-1.5 mb-component-sm">
                     {([`Download ${format.toUpperCase()} file`, '2 free exports', 'Edit subtitles'] as const).map((feat) => (
-                      <span key={feat} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-[11px] text-gray-400 dark:text-gray-500">
+                      <span key={feat} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-xs text-gray-400 dark:text-gray-500">
                         <Lock className="w-2.5 h-2.5" />
                         {feat}
                       </span>
@@ -1104,7 +1104,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             )}
 
             {(!showAuthGate || isLoggedIn()) && (
-              <div className="space-y-4">
+              <div className="space-y-component-sm">
                 <ResultHeader
                   title="Subtitles ready"
                   processingTime={
@@ -1148,7 +1148,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                 })()}
 
                 {/* ── Two-column layout: left = editor, right = exports ─────── */}
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_320px] items-start">
+                <div className="grid grid-cols-1 gap-component-sm lg:grid-cols-[minmax(0,1fr)_320px] items-start">
 
                   {/* ── Left column: toggle + QA editor ────────────────────── */}
                   <div className="space-y-3 min-w-0">
@@ -1251,15 +1251,15 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                           Exports
                         </h3>
                         {plan === 'free' && (
-                          <span className="text-[11px] text-gray-400 dark:text-gray-500">{freeExportsUsed}/2 free</span>
+                          <span className="text-xs text-gray-400 dark:text-gray-500">{freeExportsUsed}/2 free</span>
                         )}
                       </div>
 
-                      <div className="p-3 space-y-4">
+                      <div className="p-3 space-y-component-sm">
                         {plan === 'free' ? (
                           /* Free plan: single download with watermark */
                           <div className="space-y-2">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400">Original</p>
+                            <p className="text-xs font-semibold uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400">Original</p>
                             <button
                               onClick={async () => {
                                 if (freeExportsUsed >= 2) {
@@ -1292,7 +1292,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                               <span className="text-blue-200 font-normal">· watermark</span>
                             </button>
                             <div className="flex items-center justify-center gap-1 pt-1">
-                              <Link to="/pricing" className="text-[11px] font-medium text-blue-600 hover:text-blue-700 transition-colors">
+                              <Link to="/pricing" className="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors">
                                 Upgrade for VTT + translated exports →
                               </Link>
                             </div>
@@ -1302,7 +1302,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                           <>
                             {/* Original */}
                             <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400 mb-2">Original</p>
+                              <p className="text-xs font-semibold uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400 mb-2">Original</p>
                               <div className="grid grid-cols-2 gap-2">
                                 <button
                                   onClick={() => handleDownloadSubtitles(
@@ -1310,7 +1310,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                                     'srt',
                                     `original_${langCodeForFile(language || undefined)}`
                                   )}
-                                  className="rounded-lg border border-gray-200 dark:border-gray-700 px-2 py-2 text-[11px] font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                  className="rounded-lg border border-gray-200 dark:border-gray-700 px-2 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                                 >
                                   SRT
                                 </button>
@@ -1320,7 +1320,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                                     'vtt',
                                     `original_${langCodeForFile(language || undefined)}`
                                   )}
-                                  className="rounded-lg border border-gray-200 dark:border-gray-700 px-2 py-2 text-[11px] font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                  className="rounded-lg border border-gray-200 dark:border-gray-700 px-2 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                                 >
                                   VTT
                                 </button>
@@ -1330,11 +1330,11 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                             {/* Translated — shown when ready or loading */}
                             {translationLanguage && (
                               <div>
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400 mb-2">
+                                <p className="text-xs font-semibold uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400 mb-2">
                                   {translationLanguage}
                                 </p>
                                 {isTranslating ? (
-                                  <div className="flex items-center gap-2 px-2 py-2 text-[11px] text-blue-500">
+                                  <div className="flex items-center gap-2 px-2 py-2 text-xs text-blue-500">
                                     <span className="w-3 h-3 rounded-full border-2 border-blue-500 border-t-transparent animate-spin shrink-0" />
                                     Translating…
                                   </div>
@@ -1346,7 +1346,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                                         'srt',
                                         targetLangFileSlug(translationLanguage)
                                       )}
-                                      className="rounded-lg border border-gray-200 dark:border-gray-700 px-2 py-2 text-[11px] font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                      className="rounded-lg border border-gray-200 dark:border-gray-700 px-2 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                                     >
                                       SRT
                                     </button>
@@ -1356,7 +1356,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                                         'vtt',
                                         targetLangFileSlug(translationLanguage)
                                       )}
-                                      className="rounded-lg border border-gray-200 dark:border-gray-700 px-2 py-2 text-[11px] font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                      className="rounded-lg border border-gray-200 dark:border-gray-700 px-2 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                                     >
                                       VTT
                                     </button>
@@ -1367,7 +1367,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
 
                             {/* TXT conversion for paid plans */}
                             <div className="pt-3 border-t border-gray-100 dark:border-gray-800">
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400 mb-2">Convert format</p>
+                              <p className="text-xs font-semibold uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400 mb-2">Convert format</p>
                               <div className="flex flex-wrap items-center gap-2">
                                 <select
                                   value={convertTargetFormat}
@@ -1388,8 +1388,8 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                               </div>
                               {convertPreview !== null && (
                                 <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg max-h-32 overflow-y-auto border border-gray-100 dark:border-gray-800">
-                                  <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-1">Preview</p>
-                                  <pre className="text-[10px] text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono">{convertPreview}</pre>
+                                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-1">Preview</p>
+                                  <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono">{convertPreview}</pre>
                                 </div>
                               )}
                             </div>
@@ -1470,11 +1470,11 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
       />
 
       {(seoTutorial?.steps?.length || seoTutorial?.formatExample?.length || seoTutorial?.commonMistakes?.length) && (
-        <section className="mt-12 pt-8 border-t border-gray-100/70 dark:border-gray-700/50 max-w-4xl mx-auto px-4 space-y-6" aria-label="Tutorial">
+        <section className="mt-12 pt-8 border-t border-gray-100/70 dark:border-gray-700/50 max-w-4xl mx-auto px-4 space-y-component" aria-label="Tutorial">
           {seoTutorial?.steps?.length && (
             <div>
-              <h2 className="text-2xl font-medium text-gray-800 dark:text-gray-100 mb-4">Step-by-step tutorial</h2>
-              <ol className="space-y-4">
+              <h2 className="text-2xl font-medium text-gray-800 dark:text-gray-100 mb-component-sm">Step-by-step tutorial</h2>
+              <ol className="space-y-component-sm">
                 {seoTutorial.steps.map((step, i) => (
                   <li key={i}>
                     <h3 className="font-medium text-gray-800 dark:text-gray-200">{step.title}</h3>
@@ -1544,8 +1544,8 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
 
       {effectiveFaq.length > 0 && (
         <section className="mt-12 pt-8 border-t border-gray-100/70 dark:border-gray-700/50 max-w-4xl mx-auto px-4" aria-label="FAQ">
-          <h2 className="text-2xl font-medium text-gray-800 dark:text-gray-100 mb-4">Frequently asked questions</h2>
-          <dl className="space-y-4">
+          <h2 className="text-2xl font-medium text-gray-800 dark:text-gray-100 mb-component-sm">Frequently asked questions</h2>
+          <dl className="space-y-component-sm">
             {effectiveFaq.map((item, i) => (
               <div key={i}>
                 <dt className="font-medium text-gray-800 dark:text-gray-200">{item.q}</dt>

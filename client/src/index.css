@@ -71,6 +71,28 @@
     transform: translateY(1px);
   }
 
+  /* Tool workspace typography — display font on titles only; body stays Inter */
+  .tool-title {
+    @apply font-display font-medium tracking-tight text-gray-900 dark:text-white;
+  }
+  .tool-title-compact {
+    @apply tool-title truncate text-sm;
+  }
+  .tool-meta {
+    @apply text-sm text-gray-500 dark:text-gray-400;
+  }
+  .tool-label {
+    @apply text-xs font-semibold uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400;
+  }
+
+  /* Spacing rhythm helpers (see tailwind spacing tokens) */
+  .tool-stack {
+    @apply space-y-component;
+  }
+  .tool-stack-sm {
+    @apply space-y-component-sm;
+  }
+
   /* Page section heading for tool pages: stronger hierarchy */
   .page-heading {
     @apply font-display font-medium text-gray-900 dark:text-white tracking-tight text-2xl sm:text-3xl;

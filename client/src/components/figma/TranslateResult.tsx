@@ -41,7 +41,7 @@ export function TranslateResult({
   hideDownload = false,
 }: TranslateResultProps) {
   return (
-    <div className="space-y-6">
+    <div className="tool-stack">
       <ResultHeader
         title={title.replace(/!$/, '')}
         processingTime={processingTime}
@@ -54,7 +54,7 @@ export function TranslateResult({
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm"
+          className="bg-white dark:bg-gray-900 rounded-xl p-component border border-gray-200 dark:border-gray-800 shadow-sm"
         >
           <p className="text-sm text-gray-600 dark:text-gray-400">{fileSize}</p>
         </motion.div>
@@ -79,14 +79,14 @@ export function TranslateResult({
 
       {relatedTools.length > 0 && (
         <div>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Next step</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-component-sm">Next step</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-component-sm">
             {relatedTools.map((tool) => (
               <Link
                 key={tool.path}
                 to={tool.path}
                 state={tool.path === '/burn-subtitles' ? { useWorkflowVideo: true } : undefined}
-                className="block p-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-700 shadow-sm hover:shadow-md transition-all text-left group"
+                className="block p-component bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-700 shadow-sm hover:shadow-md transition-all text-left group"
               >
                 <h4 className="font-medium text-gray-900 dark:text-white mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                   {tool.name}

@@ -110,7 +110,7 @@ export default function FreePlanNudge({ tool, resultKey, placement = 'result' }:
           <button type="button" onClick={upgrade} disabled={loading} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:opacity-70">
             {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}{loading ? 'Opening checkout…' : cta}
           </button>
-          <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">{pricing.annualNote}</p>
+          <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">{pricing.annualNote}</p>
           {error && <p className="mt-2 text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>}
         </div>
       </div>

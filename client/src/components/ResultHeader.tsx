@@ -51,7 +51,7 @@ export default function ResultHeader({
         <button
           type="button"
           onClick={onAction}
-          className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-blue-300 bg-blue-600 px-3 py-2 text-[13px] font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
+          className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-blue-300 bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
         >
           <ActionIcon className="h-4 w-4" aria-hidden />
           {actionLabel}

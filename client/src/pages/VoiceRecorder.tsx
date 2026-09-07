@@ -1048,7 +1048,7 @@ export default function VoiceRecorder() {
                         animate={{ opacity: [1, 0.2, 1] }}
                         transition={{ duration: 1, repeat: Infinity }}
                       />
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-red-500">
+                      <span className="text-xs font-bold uppercase tracking-wider text-red-500">
                         Live
                       </span>
                     </div>
@@ -1074,9 +1074,9 @@ export default function VoiceRecorder() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="p-6 sm:p-8"
+                className="p-component sm:p-8"
               >
-                <ProcessingStateShell className="!p-6 sm:!p-8">
+                <ProcessingStateShell className="!p-component sm:!p-8">
                   <ProcessingProgress
                     steps={[
                       { label: 'Uploading', status: phase === 'uploading' ? 'active' : 'completed' },
@@ -1099,7 +1099,7 @@ export default function VoiceRecorder() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.25 }}
-                className="p-6 sm:p-8 space-y-5"
+                className="p-component sm:p-8 space-y-5"
               >
                 {/* Teaser card for guests */}
                 {showAuthGate && !isLoggedIn() && (
@@ -1110,13 +1110,13 @@ export default function VoiceRecorder() {
                       meta={`${wordCount.toLocaleString()} words · ${formatTime(recSecs)} recorded`}
                     />
                     <div className="px-5 py-4">
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-component-sm">
                         Create a free account to view, copy, and download your transcript.
                       </p>
-                      <p className="text-[11px] text-gray-400 mb-2 font-medium">Sign up to unlock:</p>
-                      <div className="flex flex-wrap gap-1.5 mb-4">
+                      <p className="text-xs text-gray-400 mb-2 font-medium">Sign up to unlock:</p>
+                      <div className="flex flex-wrap gap-1.5 mb-component-sm">
                         {(['Full transcript', 'Download TXT', 'Copy text'] as const).map((feat) => (
-                          <span key={feat} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-[11px] text-gray-400 dark:text-gray-500">
+                          <span key={feat} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-xs text-gray-400 dark:text-gray-500">
                             <Lock className="w-2.5 h-2.5" />
                             {feat}
                           </span>
@@ -1268,7 +1268,7 @@ export default function VoiceRecorder() {
                     <div className="flex items-center gap-2">
                       <Languages className="w-4 h-4 text-blue-500 shrink-0" />
                       <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Translate</span>
-                      <span className="ml-auto text-[10px] font-semibold text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-full">Pro</span>
+                      <span className="ml-auto text-xs font-semibold text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-full">Pro</span>
                     </div>
                     <div className="flex gap-2">
                       <select
@@ -1350,7 +1350,7 @@ export default function VoiceRecorder() {
                           <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 leading-tight">
                             {label}
                           </span>
-                          <span className="text-[11px] text-gray-400 dark:text-gray-500 leading-tight">
+                          <span className="text-xs text-gray-400 dark:text-gray-500 leading-tight">
                             {desc}
                           </span>
                         </button>
@@ -1405,7 +1405,7 @@ export default function VoiceRecorder() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="p-8 sm:p-10 flex flex-col items-center gap-6 text-center"
+                className="p-8 sm:p-10 flex flex-col items-center gap-component text-center"
               >
                 <div className="w-[76px] h-[76px] rounded-full bg-red-50 dark:bg-red-900/30 flex items-center justify-center">
                   <AlertCircle className="w-9 h-9 text-red-500" />
@@ -1435,7 +1435,7 @@ export default function VoiceRecorder() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.25, delay: 0.15 }}
-              className="flex items-center justify-center gap-6 flex-wrap"
+              className="flex items-center justify-center gap-component flex-wrap"
             >
               {[
                 'Works best in quiet environments',
