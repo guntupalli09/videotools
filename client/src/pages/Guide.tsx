@@ -535,7 +535,7 @@ export default function Guide() {
         </section>
 
         {/* Pro Tips */}
-        <section className="mt-14 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl border border-amber-200/30 dark:border-amber-500/20 p-8">
+        <section className="mt-14 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-950/20 rounded-xl border border-blue-200/30 dark:border-blue-500/20 p-8">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-6">Pro tips for best results</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[

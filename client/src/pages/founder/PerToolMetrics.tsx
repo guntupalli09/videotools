@@ -25,7 +25,7 @@ const TOOL_COLOR: Record<string, string> = {
   'video-to-subtitles': 'text-blue-400',
   'translate-subtitles': 'text-pink-400',
   'fix-subtitles': 'text-emerald-400',
-  'burn-subtitles': 'text-orange-400',
+  'burn-subtitles': 'text-blue-400',
   'compress-video': 'text-cyan-400',
   'batch-process': 'text-blue-400',
 }

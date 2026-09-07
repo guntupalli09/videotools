@@ -20,7 +20,7 @@ const SPOTLIGHT_TOOLS = [
   {
     id: "guideline-format",
     badge: "Core workflow",
-    badgeColor: "bg-amber-500/15 text-amber-300 border border-amber-500/25",
+    badgeColor: "bg-blue-600/15 text-blue-300 border border-blue-500/20",
     icon: ClipboardCheck,
     name: "Apply Formatting Guidelines",
     tagline: "Stop spending 45 minutes on cleanup you could automate.",
@@ -33,7 +33,7 @@ const SPOTLIGHT_TOOLS = [
       "Export QA-ready transcripts on first pass",
     ],
     gradient: "from-blue-600 to-blue-700",
-    glowColor: "rgba(37,99,235,0.09)",
+    glowColor: "rgba(99,102,241,0.08)",
     href: "/guideline-format",
     cta: "Format transcript →",
     outputPreview: [
@@ -67,7 +67,7 @@ const SPOTLIGHT_TOOLS = [
       "99 languages · Translation to 70+",
     ],
     gradient: "from-blue-600 to-blue-700",
-    glowColor: "rgba(139,92,246,0.08)",
+    glowColor: "rgba(99,102,241,0.08)",
     href: "/video-to-transcript",
     cta: "Upload a video, get transcript",
     outputPreview: [
@@ -88,7 +88,7 @@ const SPOTLIGHT_TOOLS = [
   {
     id: "translate-subtitles",
     badge: "70+ languages",
-    badgeColor: "bg-pink-500/15 text-pink-300 border border-pink-500/20",
+    badgeColor: "bg-blue-600/15 text-blue-300 border border-blue-500/20",
     icon: Languages,
     name: "Translate",
     tagline: "Translate subtitles and docs — keep formatting.",
@@ -100,8 +100,8 @@ const SPOTLIGHT_TOOLS = [
       "Fast turnaround",
       "Export in common formats",
     ],
-    gradient: "from-pink-500 to-blue-700",
-    glowColor: "rgba(236,72,153,0.07)",
+    gradient: "from-blue-600 to-blue-700",
+    glowColor: "rgba(99,102,241,0.07)",
     href: "/translate-subtitles",
     cta: "Translate your file",
     outputPreview: [
@@ -175,8 +175,8 @@ const SECONDARY_TOOLS = [
     name: "Burn Subtitles",
     description:
       "Hardcode captions permanently into your video file. Great for social media reach.",
-    gradient: "from-orange-500 to-red-500",
-    accent: "text-orange-400",
+    gradient: "from-blue-600 to-blue-800",
+    accent: "text-blue-400",
     href: "/burn-subtitles",
   },
   {
@@ -184,8 +184,8 @@ const SECONDARY_TOOLS = [
     name: "Compress Video",
     description:
       "Reduce file size by up to 80% while keeping quality high. Web, mobile, archive presets.",
-    gradient: "from-cyan-500 to-blue-600",
-    accent: "text-cyan-400",
+    gradient: "from-blue-600 to-blue-700",
+    accent: "text-blue-400",
     href: "/compress-video",
   },
 ];

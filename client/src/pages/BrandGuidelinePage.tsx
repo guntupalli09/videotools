@@ -31,7 +31,7 @@ function VerbatimBadge({ style }: { style: BrandData['verbatimStyle'] }) {
   const labels = {
     clean: { label: 'Clean Verbatim', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
     intelligent: { label: 'Intelligent Verbatim', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
-    strict: { label: 'Strict / Full Verbatim', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
+    strict: { label: 'Strict / Full Verbatim', color: 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' },
   }
   const { label, color } = labels[style]
   return (

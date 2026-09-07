@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VideoText — Color Palette Comparison</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Inter, system-ui, sans-serif;
+      background: #111;
+      color: #fff;
+      padding: 32px;
+      min-width: 1400px;
+    }
+    .page-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .page-header h1 {
+      font-family: 'Plus Jakarta Sans', Inter, sans-serif;
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+    .page-header p {
+      color: rgba(255,255,255,0.55);
+      font-size: 15px;
+      max-width: 720px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      max-width: 1360px;
+      margin: 0 auto;
+    }
+    .panel {
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .panel-label {
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .panel-label h2 {
+      font-family: 'Plus Jakarta Sans', Inter, sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .panel-label span {
+      font-size: 12px;
+      opacity: 0.5;
+      font-weight: 500;
+    }
+    .panel-body { padding: 0; }
+
+    /* Shared mockup structure */
+    .mock-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      font-size: 13px;
+    }
+    .mock-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: -0.02em;
+    }
+    .mock-logo-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+    }
+    .mock-nav-links {
+      display: flex;
+      gap: 20px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .mock-nav-cta {
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      border: none;
+      cursor: default;
+    }
+
+    .mock-hero {
+      padding: 28px 24px 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    .mock-hero h3 {
+      font-family: 'Plus Jakarta Sans', Inter, sans-serif;
+      font-size: 26px;
+      font-weight: 500;
+      line-height: 1.12;
+      letter-spacing: -0.03em;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .mock-hero p.sub {
+      text-align: center;
+      font-size: 13px;
+      line-height: 1.55;
+      max-width: 420px;
+      margin: 0 auto 18px;
+    }
+    .mock-ctas {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .mock-cta-primary, .mock-cta-secondary, .mock-cta-ghost {
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      border: none;
+      cursor: default;
+      white-space: nowrap;
+    }
+    .mock-cta-secondary, .mock-cta-ghost {
+      background: transparent;
+    }
+
+    .mock-tool-section {
+      padding: 16px 20px 20px;
+    }
+    .mock-tool-section h4 {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 10px;
+      opacity: 0.45;
+    }
+    .mock-card {
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .mock-card-title {
+      font-family: 'Plus Jakarta Sans', Inter, sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      letter-spacing: -0.01em;
+    }
+    .mock-card-desc {
+      font-size: 12px;
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+    .mock-card-btn {
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      border: none;
+      cursor: default;
+    }
+
+    .swatches {
+      display: flex;
+      gap: 8px;
+      padding: 14px 20px 18px;
+      flex-wrap: wrap;
+    }
+    .swatch {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .swatch-color {
+      width: 44px;
+      height: 28px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .swatch-label {
+      font-size: 9px;
+      font-family: ui-monospace, monospace;
+      opacity: 0.55;
+    }
+
+    /* ── CURRENT ── */
+    .current .panel-label { background: #1a1a1a; }
+    .current .mock-nav { background: #030712; color: rgba(255,255,255,0.7); }
+    .current .mock-logo { color: #fff; }
+    .current .mock-logo-icon { background: linear-gradient(135deg, #2563EB, #60A5FA); }
+    .current .mock-nav-cta { background: #2563EB; color: #fff; }
+    .current .mock-hero {
+      background: #030712;
+      background-image: radial-gradient(circle at 1px 1px, rgba(139,92,246,0.18) 1px, transparent 0);
+      background-size: 32px 32px;
+    }
+    .current .mock-hero::before {
+      content: '';
+      position: absolute;
+      top: -80px; left: 50%; transform: translateX(-50%);
+      width: 400px; height: 300px;
+      background: rgba(37,99,235,0.13);
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+    }
+    .current .mock-hero h3 { color: #fff; position: relative; }
+    .current .mock-hero h3 .accent {
+      background: linear-gradient(90deg, #f0abfc, #93c5fd, #93c5fd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .current .mock-hero p.sub { color: rgba(255,255,255,0.6); position: relative; }
+    .current .mock-cta-primary {
+      background: #f97316;
+      color: #030712;
+      box-shadow: 0 8px 24px rgba(249,115,22,0.28);
+    }
+    .current .mock-cta-secondary {
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      background: rgba(255,255,255,0.07);
+    }
+    .current .mock-cta-ghost {
+      border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.75);
+    }
+    .current .mock-tool-section { background: #f9fafb; }
+    .current .mock-tool-section h4 { color: #6b7280; }
+    .current .mock-card {
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      border: 1px solid #e5e7eb;
+    }
+    .current .mock-card-title { color: #111827; }
+    .current .mock-card-desc { color: #6b7280; }
+    .current .mock-card-btn { background: #2563EB; color: #fff; }
+    .current .swatches { background: #111827; }
+
+    /* ── STUDIO PRO ── */
+    .studio .panel-label { background: #141416; }
+    .studio .mock-nav { background: #0A0A0B; color: rgba(255,255,255,0.55); border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .studio .mock-logo { color: #fafafa; }
+    .studio .mock-logo-icon { background: #6366F1; }
+    .studio .mock-nav-cta { background: #6366F1; color: #fff; }
+    .studio .mock-hero {
+      background: #0A0A0B;
+    }
+    .studio .mock-hero::before {
+      content: '';
+      position: absolute;
+      top: -60px; right: -40px;
+      width: 280px; height: 280px;
+      background: rgba(99,102,241,0.08);
+      border-radius: 50%;
+      filter: blur(60px);
+      pointer-events: none;
+    }
+    .studio .mock-hero h3 { color: #fafafa; position: relative; }
+    .studio .mock-hero h3 .accent { color: #a5b4fc; }
+    .studio .mock-hero p.sub { color: rgba(255,255,255,0.45); position: relative; }
+    .studio .mock-cta-primary {
+      background: #6366F1;
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(99,102,241,0.35);
+    }
+    .studio .mock-cta-secondary {
+      border: 1px solid rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.85);
+      background: rgba(255,255,255,0.04);
+    }
+    .studio .mock-cta-ghost {
+      border: 1px solid rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.5);
+    }
+    .studio .mock-tool-section { background: #111113; }
+    .studio .mock-tool-section h4 { color: rgba(255,255,255,0.35); }
+    .studio .mock-card {
+      background: #18181B;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .studio .mock-card-title { color: #fafafa; }
+    .studio .mock-card-desc { color: rgba(255,255,255,0.45); }
+    .studio .mock-card-btn { background: #6366F1; color: #fff; }
+    .studio .swatches { background: #0A0A0B; }
+
+    /* ── PAPER & INK ── */
+    .paper .panel-label { background: #f5f5f4; color: #1C1917; }
+    .paper .panel-label span { color: #78716c; }
+    .paper .mock-nav { background: #FAFAF9; color: #57534e; border-bottom: 1px solid #e7e5e4; }
+    .paper .mock-logo { color: #1C1917; }
+    .paper .mock-logo-icon { background: #1D4ED8; }
+    .paper .mock-nav-cta { background: #1D4ED8; color: #fff; }
+    .paper .mock-hero {
+      background: #FAFAF9;
+    }
+    .paper .mock-hero h3 { color: #1C1917; position: relative; }
+    .paper .mock-hero h3 .accent { color: #1D4ED8; }
+    .paper .mock-hero p.sub { color: #57534e; position: relative; }
+    .paper .mock-cta-primary {
+      background: #1D4ED8;
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(29,78,216,0.22);
+    }
+    .paper .mock-cta-secondary {
+      border: 1px solid #d6d3d1;
+      color: #1C1917;
+      background: #fff;
+    }
+    .paper .mock-cta-ghost {
+      border: 1px solid #e7e5e4;
+      color: #78716c;
+      background: transparent;
+    }
+    .paper .mock-tool-section { background: #fff; border-top: 1px solid #e7e5e4; }
+    .paper .mock-tool-section h4 { color: #a8a29e; }
+    .paper .mock-card {
+      background: #FAFAF9;
+      border: 1px solid #e7e5e4;
+      box-shadow: 0 1px 2px rgba(28,25,23,0.04);
+    }
+    .paper .mock-card-title { color: #1C1917; }
+    .paper .mock-card-desc { color: #78716c; }
+    .paper .mock-card-btn { background: #1D4ED8; color: #fff; }
+    .paper .swatches { background: #f5f5f4; }
+    .paper .swatch-color { border-color: rgba(28,25,23,0.1); }
+    .paper .swatch-label { color: #78716c; }
+
+    /* ── SIGNAL ── */
+    .signal .panel-label { background: #171717; }
+    .signal .mock-nav { background: #000; color: rgba(255,255,255,0.5); border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .signal .mock-logo { color: #fff; }
+    .signal .mock-logo-icon { background: #fff; }
+    .signal .mock-nav-cta { background: #fff; color: #000; }
+    .signal .mock-hero {
+      background: #000;
+    }
+    .signal .mock-hero h3 { color: #fff; position: relative; }
+    .signal .mock-hero h3 .accent { color: #D97706; }
+    .signal .mock-hero p.sub { color: rgba(255,255,255,0.5); position: relative; }
+    .signal .mock-cta-primary {
+      background: #fff;
+      color: #000;
+    }
+    .signal .mock-cta-secondary {
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      background: transparent;
+    }
+    .signal .mock-cta-ghost {
+      border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.5);
+    }
+    .signal .mock-tool-section { background: #fafafa; }
+    .signal .mock-tool-section h4 { color: #737373; }
+    .signal .mock-card {
+      background: #fff;
+      border: 1px solid #e5e5e5;
+    }
+    .signal .mock-card-title { color: #000; }
+    .signal .mock-card-desc { color: #737373; }
+    .signal .mock-card-btn { background: #000; color: #fff; }
+    .signal .swatch-accent .swatch-color { border: 2px solid #D97706; }
+    .signal .swatches { background: #171717; }
+
+    .legend {
+      max-width: 1360px;
+      margin: 24px auto 0;
+      padding: 16px 20px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+      font-size: 13px;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.6;
+    }
+    .legend strong { color: rgba(255,255,255,0.85); }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <h1>VideoText — Color Palette Comparison</h1>
+    <p>Same hero copy, nav, and tool card — four palettes side by side. Current (top-left) vs three recommended directions.</p>
+  </div>
+
+  <div class="grid">
+    <!-- CURRENT -->
+    <div class="panel current">
+      <div class="panel-label">
+        <h2>Current</h2>
+        <span>Blue primary · Orange CTA · Fuchsia gradient</span>
+      </div>
+      <div class="panel-body">
+        <div class="mock-nav">
+          <div class="mock-logo"><div class="mock-logo-icon"></div> VideoText</div>
+          <div class="mock-nav-links"><span>Tools</span><span>Pricing</span></div>
+          <button class="mock-nav-cta">Start free</button>
+        </div>
+        <div class="mock-hero">
+          <h3>Faster transcripts. Cleaner output. <span class="accent">Client-ready.</span></h3>
+          <p class="sub">Upload a video or audio file. Get formatted transcripts and SRT/VTT your client can approve on the first pass.</p>
+          <div class="mock-ctas">
+            <button class="mock-cta-primary">Get client-ready transcript</button>
+            <button class="mock-cta-secondary">Create clean subtitles</button>
+            <button class="mock-cta-ghost">Format for client delivery</button>
+          </div>
+        </div>
+        <div class="mock-tool-section">
+          <h4>Tool workspace</h4>
+          <div class="mock-card">
+            <div class="mock-card-title">Video to Transcript</div>
+            <div class="mock-card-desc">Upload MP4, MOV, or audio. Download a formatted transcript with speaker labels and timestamps.</div>
+            <button class="mock-card-btn">Upload file</button>
+          </div>
+        </div>
+        <div class="swatches">
+          <div class="swatch"><div class="swatch-color" style="background:#030712"></div><span class="swatch-label">#030712</span></div>
+          <div class="swatch"><div class="swatch-color" style="background:#2563EB"></div><span class="swatch-label">#2563EB</span></div>
+          <div class="swatch"><div class="swatch-color" style="background:#f97316"></div><span class="swatch-label">#F97316</span></div>
+          <div class="swatch"><div class="swatch-color" style="background:linear-gradient(90deg,#f0abfc,#93c5fd)"></div><span class="swatch-label">gradient</span></div>
+          <div class="swatch"><div class="swatch-color" style="background:#8B5CF6"></div><span class="swatch-label">#8B5CF6</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STUDIO PRO -->
+    <div class="panel studio">
+      <div class="panel-label">
+        <h2>Studio Pro</h2>
+        <span>Linear-like · Indigo accent · Restrained glow</span>
+      </div>
+      <div class="panel-body">
+        <div class="mock-nav">
+          <div class="mock-logo"><div class="mock-logo-icon"></div> VideoText</div>
+          <div class="mock-nav-links"><span>Tools</span><span>Pricing</span></div>
+          <button class="mock-nav-cta">Start free</button>
+        </div>
+        <div class="mock-hero">
+          <h3>Faster transcripts. Cleaner output. <span class="accent">Client-ready.</span></h3>
+          <p class="sub">Upload a video or audio file. Get formatted transcripts and SRT/VTT your client can approve on the first pass.</p>
+          <div class="mock-ctas">
+            <button class="mock-cta-primary">Get client-ready transcript</button>
+            <button class="mock-cta-secondary">Create clean subtitles</button>
+            <button class="mock-cta-ghost">Format for client delivery</button>
+          </div>
+        </div>
+        <div class="mock-tool-section">
+          <h4>Tool workspace</h4>
+          <div class="mock-card">
+            <div class="mock-card-title">Video to Transcript</div>
+            <div class="mock-card-desc">Upload MP4, MOV, or audio. Download a formatted transcript with speaker labels and timestamps.</div>
+            <button class="mock-card-btn">Upload file</button>
+          </div>
+        </div>
+        <div class="swatches">
+          <div class="swatch"><div class="swatch-color" style="background:#0A0A0B"></div><span class="swatch-label">#0A0A0B</span></div>
+          <div class="swatch"><div class="swatch-color" style="background:#6366F1"></div><span class="swatch-label">#6366F1</span></div>
+          <div class="swatch"><div class="swatch-color" style="background:#18181B"></div><span class="swatch-label">#18181B</span></div>
+          <div class="swatch"><div class="swatch-color" style="background:#a5b4fc"></div><span class="swatch-label">#A5B4FC</span></div>
+          <div class="swatch"><div class="swatch-color" style="background:#fafafa"></div><span class="swatch-label">#FAFAFA</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAPER & INK -->
+    <div class="panel paper">
+      <div class="panel-label">
+        <h2>Paper &amp; Ink</h2>
+        <span>Apple-like · Warm white · Deep ink blue</span>
+      </div>
+      <div class="panel-body">
+        <div class="mock-nav">
+          <div class="mock-logo"><div class="mock-logo-icon"></div> VideoText</div>
+          <div class="mock-nav-links"><span>Tools</span><span>Pricing</span></div>
+          <button class="mock-nav-cta">Start free</button>
+        </div>
+        <div class="mock-hero">
+          <h3>Faster transcripts. Cleaner output. <span class="accent">Client-ready.</span></h3>
+          <p class="sub">Upload a video or audio file. Get formatted transcripts and SRT/VTT your client can approve on the first pass.</p>
+          <div class="mock-ctas">
+            <button class="mock-cta-primary">Get client-ready transcript</button>
+            <button class="mock-cta-secondary">Create clean subtitles</button>
+            <button class="mock-cta-ghost">Format for client delivery</button>
+          </div>
+        </div>
+        <div class="mock-tool-section">
+          <h4>Tool workspace</h4>
+          <div class="mock-card">
+            <div class="mock-card-title">Video to Transcript</div>
+            <div class="mock-card-desc">Upload MP4, MOV, or audio. Download a formatted transcript with speaker labels and timestamps.</div>
+            <button class="mock-card-btn">Upload file</button>
+          </div>
+        </div>
+        <div class="swatches">
+          <div class="swatch"><div class="swatch-color" style="background:#FAFAF9"></div><span class="swatch-label">#FAFAF9</span></div>
+          <div class="swatch"><div class="swatch-color" style="background:#1C1917"></div><span class="swatch-label">#1C1917</span></div>
+          <div class="swatch"><div class="swatch-color" style="background:#1D4ED8"></div><span class="swatch-label">#1D4ED8</span></div>
+          <div class="swatch"><div class="swatch-color" style="background:#78716c"></div><span class="swatch-label">#78716C</span></div>
+          <div class="swatch"><div class="swatch-color" style="background:#e7e5e4"></div><span class="swatch-label">#E7E5E4</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIGNAL -->
+    <div class="panel signal">
+      <div class="panel-label">
+        <h2>Signal</h2>
+        <span>Vercel-like · Strict B&amp;W · Amber accent</span>
+      </div>
+      <div class="panel-body">
+        <div class="mock-nav">
+          <div class="mock-logo"><div class="mock-logo-icon"></div> VideoText</div>
+          <div class="mock-nav-links"><span>Tools</span><span>Pricing</span></div>
+          <button class="mock-nav-cta">Start free</button>
+        </div>
+        <div class="mock-hero">
+          <h3>Faster transcripts. Cleaner output. <span class="accent">Client-ready.</span></h3>
+          <p class="sub">Upload a video or audio file. Get formatted transcripts and SRT/VTT your client can approve on the first pass.</p>
+          <div class="mock-ctas">
+            <button class="mock-cta-primary">Get client-ready transcript</button>
+            <button class="mock-cta-secondary">Create clean subtitles</button>
+            <button class="mock-cta-ghost">Format for client delivery</button>
+          </div>
+        </div>
+        <div class="mock-tool-section">
+          <h4>Tool workspace</h4>
+          <div class="mock-card">
+            <div class="mock-card-title">Video to Transcript</div>
+            <div class="mock-card-desc">Upload MP4, MOV, or audio. Download a formatted transcript with speaker labels and timestamps.</div>
+            <button class="mock-card-btn">Upload file</button>
+          </div>
+        </div>
+        <div class="swatches">
+          <div class="swatch"><div class="swatch-color" style="background:#000"></div><span class="swatch-label">#000000</span></div>
+          <div class="swatch"><div class="swatch-color" style="background:#fff"></div><span class="swatch-label">#FFFFFF</span></div>
+          <div class="swatch swatch-accent"><div class="swatch-color" style="background:#D97706"></div><span class="swatch-label">#D97706</span></div>
+          <div class="swatch"><div class="swatch-color" style="background:#737373"></div><span class="swatch-label">#737373</span></div>
+          <div class="swatch"><div class="swatch-color" style="background:#fafafa"></div><span class="swatch-label">#FAFAFA</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <strong>What to look for:</strong>
+    Current mixes blue + orange + fuchsia + purple dot grid — high energy but less cohesive.
+    <strong>Studio Pro</strong> feels premium/pro-tool (Linear, Raycast).
+    <strong>Paper &amp; Ink</strong> feels trustworthy and editorial (Apple, Notion light).
+    <strong>Signal</strong> feels confident and minimal (Vercel, Stripe) — amber accent only on key words, not buttons.
+  </div>
+</body>
+</html>

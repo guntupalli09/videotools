@@ -43,7 +43,7 @@ export default function SpeakerSegmentsPanel(props: {
     'border-emerald-400 bg-emerald-50 dark:border-emerald-600 dark:bg-emerald-950/30',
     'border-rose-400 bg-rose-50 dark:border-rose-600 dark:bg-rose-950/30',
     'border-amber-400 bg-amber-50 dark:border-amber-600 dark:bg-amber-950/30',
-    'border-fuchsia-400 bg-fuchsia-50 dark:border-fuchsia-600 dark:bg-fuchsia-950/30',
+    'border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-blue-950/30',
   ]
   const speakerTextColors: string[] = [
     'text-blue-600 dark:text-blue-400',
@@ -51,7 +51,7 @@ export default function SpeakerSegmentsPanel(props: {
     'text-emerald-600 dark:text-emerald-400',
     'text-rose-600 dark:text-rose-400',
     'text-amber-600 dark:text-amber-400',
-    'text-fuchsia-600 dark:text-fuchsia-400',
+    'text-blue-600 dark:text-blue-400',
   ]
 
   // Deduplicated list of unique speakers (stable order = first appearance)

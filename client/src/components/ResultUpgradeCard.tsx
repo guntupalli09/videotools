@@ -82,7 +82,7 @@ export default function ResultUpgradeCard({ tool, resultKey, wordCount }: Props)
 
   return (
     <section
-      className="mb-4 overflow-hidden rounded-xl border-2 border-blue-500/40 bg-gradient-to-br from-blue-600/10 via-indigo-600/5 to-violet-600/10 dark:from-blue-950/50 dark:via-indigo-950/30 dark:to-violet-950/20 shadow-sm"
+      className="mb-4 overflow-hidden rounded-xl border-2 border-blue-500/40 bg-gradient-to-br from-blue-600/10 via-blue-600/5 to-blue-700/10 dark:from-blue-950/50 dark:via-blue-950/30 dark:to-blue-950/20 shadow-sm"
       aria-label="Upgrade to Pro"
     >
       <div className="px-4 py-4 sm:px-5 sm:py-5">

@@ -80,7 +80,7 @@ Today we'll cover subtitle formats.`,
               {
                 name: 'TTML / DFXP (.ttml / .xml)',
                 badge: 'Broadcast',
-                badgeColor: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400',
+                badgeColor: 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
                 desc: 'Timed Text Markup Language is an XML-based format used by broadcast workflows and streaming platforms for their internal delivery pipelines. Netflix requires TTML for certain localization workflows. DFXP (Distribution Format Exchange Profile) is a subset profile of TTML.',
                 points: [
                   'XML-based, verbose but structured for broadcast pipelines',

@@ -46,7 +46,7 @@ function HeroActions() {
       <div className="flex w-full max-w-3xl flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
         <Link
           to="/video-to-transcript"
-          className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-orange-500 px-6 py-3 text-sm font-bold text-gray-950 shadow-[0_12px_35px_rgba(249,115,22,0.28)] transition hover:bg-orange-400 hover:shadow-[0_14px_40px_rgba(249,115,22,0.4)]"
+          className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-accent transition hover:bg-blue-700 hover:shadow-accent-hover"
         >
           Get client-ready transcript
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -76,21 +76,9 @@ export function Hero() {
 
   return (
     <section className="relative flex flex-col items-center overflow-hidden bg-gray-950">
-      {/* Dot grid background */}
-      <div
-        className="absolute inset-0 z-0"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at 1px 1px, rgba(139,92,246,0.18) 1px, transparent 0)",
-          backgroundSize: "32px 32px",
-        }}
-      />
-
-      {/* Ambient glow */}
+      {/* Restrained indigo ambient glow */}
       <div className="absolute inset-0 z-[1] pointer-events-none overflow-hidden">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[700px] bg-blue-600/[0.13] rounded-full blur-[160px]" />
-        <div className="absolute top-[20%] left-[5%] w-[450px] h-[450px] bg-blue-700/[0.08] rounded-full blur-[120px]" />
-        <div className="absolute top-[35%] right-[5%] w-[350px] h-[350px] bg-blue-700/[0.07] rounded-full blur-[100px]" />
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[700px] bg-blue-600/[0.08] rounded-full blur-[160px]" />
       </div>
 
       <div className="relative z-10 w-full max-w-5xl mx-auto px-6 pt-3 sm:pt-4 pb-8">
@@ -103,7 +91,7 @@ export function Hero() {
           style={{ fontSize: "clamp(2rem, 4.6vw, 3.75rem)" }}
         >
           <span className="text-white">Faster transcripts. Cleaner output. </span>
-          <span className="bg-gradient-to-r from-fuchsia-300 via-blue-300 to-blue-300 bg-clip-text text-transparent">Client-ready.</span>
+          <span className="brand-moment">Client-ready.</span>
         </h1>
 
         {/* Sub-headline */}
@@ -156,7 +144,7 @@ export function Hero() {
                 {[1, 2, 3, 4, 5].map((i) => (
                   <svg
                     key={i}
-                    className="w-3.5 h-3.5 text-amber-400"
+                    className="w-3.5 h-3.5 text-blue-400"
                     fill="currentColor"
                     viewBox="0 0 20 20"
                     aria-hidden

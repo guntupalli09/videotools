@@ -203,7 +203,7 @@ export default function ApiKeysSettings() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium text-gray-900 dark:text-white truncate">{k.name}</p>
                           {k.clientType === 'zapier' && (
-                            <span className="text-[10px] font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/40 px-2 py-0.5 rounded-full">
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-950/40 px-2 py-0.5 rounded-full">
                               Zapier
                             </span>
                           )}
