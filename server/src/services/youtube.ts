@@ -37,6 +37,7 @@ import fs from 'fs'
 import { randomUUID } from 'crypto'
 import { acquireGlobalYtDlpPermit, applyYtRequestPacingSeeded } from '../utils/youtubeGlobalControl'
 import { isProxyPoolDegraded, recordYoutubeProxyResult, selectYoutubeProxy } from '../utils/youtubeProxyPool'
+import { recordYoutubeCookieResult, selectYoutubeCookieCandidate, validateCookieFile } from '../utils/youtubeCookiePool'
 
 const log = getLogger('worker')
 
@@ -47,6 +48,7 @@ export type YoutubeErrorCode =
   | 'AUTH_REQUIRED'
   | 'GEO_BLOCKED'
   | 'RATE_LIMITED'
+  | 'FORMAT_MISSING'
   | 'QUEUE_TIMEOUT'
   | 'STREAM_ERROR'
   | 'UNKNOWN'
@@ -58,6 +60,8 @@ export interface YoutubeAttemptRecord {
   success: boolean
   latencyMs: number
   proxyId?: string
+  cookieId?: string
+  playerClient?: string
   errorCode?: YoutubeErrorCode
 }
 
@@ -68,7 +72,7 @@ export interface YoutubeAttemptCollector {
 }
 
 export interface YoutubeResolutionResult {
-  resolutionPath: 'caption' | 'caption_patch' | 'audio_cookies' | 'audio_proxy' | 'failed'
+  resolutionPath: 'caption' | 'caption_patch' | 'audio_cookies' | 'audio_nocookie' | 'audio_proxy' | 'failed'
   errorCode: YoutubeErrorCode | null
   fallbackHistory: string[]
   confidence: number
@@ -293,6 +297,12 @@ function classifyYoutubeFailure(msg: string): YoutubeErrorCode {
   if (m.includes('sign in') || m.includes('confirm you\'re not a bot') || m.includes('login')) return 'AUTH_REQUIRED'
   if (m.includes('region') || m.includes('geo') || m.includes('country')) return 'GEO_BLOCKED'
   if (m.includes('http error 429') || m.includes('too many requests') || m.includes('rate limit')) return 'RATE_LIMITED'
+  if (
+    m.includes('requested format is not available') ||
+    m.includes('no video formats found') ||
+    m.includes('unable to extract player') ||
+    m.includes('format not available')
+  ) return 'FORMAT_MISSING'
   if (m.includes('queue timeout') || m.includes('semaphore acquire timeout')) return 'QUEUE_TIMEOUT'
   if (
     m.includes('timed out') ||
@@ -300,10 +310,7 @@ function classifyYoutubeFailure(msg: string): YoutubeErrorCode {
     m.includes('connection reset') ||
     m.includes('network is unreachable') ||
     m.includes('http error 403') ||
-    m.includes('unable to extract player') ||
     m.includes('signature') ||
-    m.includes('no video formats found') ||
-    m.includes('requested format is not available') ||
     m.includes('forbidden')
   ) return 'STREAM_ERROR'
   return 'UNKNOWN'
@@ -321,6 +328,7 @@ function recordAttempt(
 function estimateYoutubePathCost(path: YoutubeResolutionResult['resolutionPath']): number {
   if (path === 'caption') return 0
   if (path === 'audio_cookies') return 1
+  if (path === 'audio_nocookie') return 1
   if (path === 'audio_proxy') return 2
   return 3
 }
@@ -333,27 +341,36 @@ function estimateYoutubePathCost(path: YoutubeResolutionResult['resolutionPath']
  */
 function ytDlpArgs(
   extra: string[],
-  useCookiesOverride?: boolean,
+  cookieFileOverride?: string | null,
+  playerClientOverride?: string,
   useProxyOverride?: boolean,
   proxyUrlOverride?: string
 ): string[] {
   const skipCookies = process.env.YOUTUBE_SKIP_COOKIES === 'true' || process.env.YOUTUBE_SKIP_COOKIES === '1'
-  const cookiesFile = process.env.YOUTUBE_COOKIES_FILE
-  const useCookies = useCookiesOverride ?? !skipCookies
-  const cookiesArgs = useCookies && cookiesFile && fs.existsSync(cookiesFile)
-    ? ['--cookies', cookiesFile]
+  const resolvedCookieFile = cookieFileOverride === undefined
+    ? process.env.YOUTUBE_COOKIES_FILE
+    : cookieFileOverride
+  const cookiesArgs = !skipCookies && resolvedCookieFile && fs.existsSync(resolvedCookieFile)
+    ? ['--cookies', resolvedCookieFile]
     : []
   const proxyUrl = proxyUrlOverride ?? process.env.YOUTUBE_PROXY?.trim()
   const useProxy = useProxyOverride ?? true
   const proxyArgs = proxyUrl && useProxy ? ['--proxy', proxyUrl] : []
   // Only pass --js-runtimes if Deno is actually installed — avoids "deno not found" yt-dlp errors
   const jsRuntime = DENO_BIN ? ['--js-runtimes', 'deno'] : []
-  const playerClient = process.env.YOUTUBE_PLAYER_CLIENT
+  const playerClient = playerClientOverride ?? process.env.YOUTUBE_PLAYER_CLIENT
   const extractorArgs = playerClient !== ''
-    ? ['--extractor-args', `youtube:player_client=${playerClient || 'android,web'}`]
+    ? ['--extractor-args', `youtube:player_client=${playerClient || 'web,android,tv_embedded'}`]
     : []
   const userAgent = ['--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36']
   return [...proxyArgs, ...cookiesArgs, ...jsRuntime, ...extractorArgs, ...userAgent, ...extra]
+}
+
+const YT_CLIENT_FALLBACK = ['web', 'android', 'tv_embedded'] as const
+type YtDlpClient = typeof YT_CLIENT_FALLBACK[number]
+
+function clientForAttempt(index: number): YtDlpClient {
+  return YT_CLIENT_FALLBACK[index % YT_CLIENT_FALLBACK.length]
 }
 
 // ─── yt-dlp metadata fallback ─────────────────────────────────────────────────
@@ -362,27 +379,45 @@ async function getMetadataViaYtDlp(url: string): Promise<YoutubeMetadata> {
   const cleanUrl = normalizeYoutubeUrl(url)
   const permit = await acquireGlobalYtDlpPermit({ context: 'metadata', expectedDurationMs: 90_000, jobId: cleanUrl.slice(-16) })
   await applyYtRequestPacingSeeded(`metadata:${cleanUrl}`)
-  const raw = await new Promise<string>((resolve, reject) => {
-    let stdout = ''
-    let stderr = ''
-    const proc = spawn(YT_DLP_BIN, ytDlpArgs([
-      '--dump-json',
-      '--no-playlist',
-      '--no-warnings',
-      '--socket-timeout', '15',
-      cleanUrl,
-    ]))
-    proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString() })
-    proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
-    proc.on('error', (err) => reject(new Error(`yt-dlp spawn error: ${err.message}`)))
-    proc.on('close', (code) => {
-      if (code !== 0 && code !== null) {
-        reject(new Error(extractYtDlpErrorMessage(stderr, code)))
-      } else {
-        resolve(stdout)
+  const maxClientAttempts = Math.max(3, parseInt(process.env.YT_METADATA_CLIENT_ATTEMPTS || '3', 10))
+  let finalError = new Error('yt-dlp metadata failed')
+  const raw = await (async () => {
+    try {
+      for (let i = 0; i < maxClientAttempts; i++) {
+        const client = clientForAttempt(i)
+        const cookieCandidate = await selectYoutubeCookieCandidate(`metadata:${cleanUrl}:${i}`)
+        const cookieFile = cookieCandidate && validateCookieFile(cookieCandidate.filePath).valid ? cookieCandidate.filePath : null
+        try {
+          const out = await new Promise<string>((resolve, reject) => {
+            let stdout = ''
+            let stderr = ''
+            const proc = spawn(YT_DLP_BIN, ytDlpArgs([
+              '--dump-json',
+              '--no-playlist',
+              '--no-warnings',
+              '--socket-timeout', '15',
+              cleanUrl,
+            ], cookieFile, client, false))
+            proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString() })
+            proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
+            proc.on('error', (err) => reject(new Error(`yt-dlp spawn error: ${err.message}`)))
+            proc.on('close', (code) => {
+              if (code !== 0 && code !== null) reject(new Error(extractYtDlpErrorMessage(stderr, code)))
+              else resolve(stdout)
+            })
+          })
+          if (cookieFile) await recordYoutubeCookieResult(cookieFile, true).catch(() => {})
+          return out
+        } catch (err) {
+          finalError = err as Error
+          if (cookieFile) await recordYoutubeCookieResult(cookieFile, false, classifyYoutubeFailure(finalError.message)).catch(() => {})
+        }
       }
-    })
-  }).finally(() => permit.release())
+      throw finalError
+    } finally {
+      await permit.release()
+    }
+  })()
 
   let info: Record<string, any>
   try { info = JSON.parse(raw) } catch { throw new Error('Failed to parse yt-dlp metadata output.') }
@@ -889,6 +924,45 @@ export async function fetchYoutubeCaptions(
 /** Hard timeout for the full YouTube stream + FFmpeg encode (10 minutes). */
 const STREAM_TIMEOUT_MS = 10 * 60 * 1000
 
+async function detectImmediateProxyNeed(url: string): Promise<YoutubeErrorCode | null> {
+  const probeTimeoutMs = Math.max(5_000, parseInt(process.env.YT_PROXY_PROBE_TIMEOUT_MS || '8000', 10))
+  return new Promise<YoutubeErrorCode | null>((resolve) => {
+    let stderr = ''
+    let done = false
+    const timer = setTimeout(() => {
+      if (done) return
+      done = true
+      try { proc.kill('SIGKILL') } catch { /* ignore */ }
+      resolve(null)
+    }, probeTimeoutMs)
+    const proc = spawn(YT_DLP_BIN, ytDlpArgs([
+      '--simulate',
+      '--skip-download',
+      '--no-playlist',
+      '--no-warnings',
+      '--socket-timeout', '10',
+      url,
+    ], null, 'web', false))
+    proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
+    proc.on('close', (code) => {
+      if (done) return
+      done = true
+      clearTimeout(timer)
+      if (code === 0) return resolve(null)
+      const msg = extractYtDlpErrorMessage(stderr, code ?? -1)
+      const errCode = classifyYoutubeFailure(msg)
+      if (errCode === 'AUTH_REQUIRED' || errCode === 'GEO_BLOCKED') return resolve(errCode)
+      resolve(null)
+    })
+    proc.on('error', () => {
+      if (done) return
+      done = true
+      clearTimeout(timer)
+      resolve(null)
+    })
+  })
+}
+
 /**
  * Stream YouTube audio directly into FFmpeg and write a 16 kHz mono WAV to outputPath.
  *
@@ -903,110 +977,188 @@ export async function streamYoutubeAudioToFile(
 ): Promise<YoutubeResolutionResult> {
   const cleanUrl = normalizeYoutubeUrl(url)
   const skipCookies = process.env.YOUTUBE_SKIP_COOKIES === 'true' || process.env.YOUTUBE_SKIP_COOKIES === '1'
-  const cookiesFile = process.env.YOUTUBE_COOKIES_FILE
-  const hasCookies = !!(cookiesFile && fs.existsSync(cookiesFile))
   const hasProxy = !!(process.env.YOUTUBE_PROXY?.trim() || process.env.YOUTUBE_PROXY_POOL?.trim())
   const startedAt = Date.now()
-  const fallbackHistory: string[] = ['caption:fallback', 'audio:cookies']
-  const useCookies = hasCookies && !skipCookies
+  const fallbackHistory: string[] = ['caption:fallback', 'audio:resilient']
   let degradedExecution = false
 
-  log.info({ msg: 'yt_path_transition', from: 'caption', to: 'audio_cookies', hasCookies })
-  const cookiesAttemptStarted = Date.now()
-  try {
-    degradedExecution = await doStreamYoutubeAudio(cleanUrl, outputPath, useCookies, false)
-    recordAttempt(collector, {
-      stage: 'audio',
-      type: 'cookies',
-      result: 'success',
-      success: true,
-      latencyMs: Date.now() - cookiesAttemptStarted,
-    })
-    const costEstimate = estimateYoutubePathCost('audio_cookies')
-    log.info({ msg: 'yt_resolution_metrics', path_used: 'audio_cookies', fallback_depth: fallbackHistory.length, proxy_used: false, error_code: null, degraded_execution: degradedExecution, cost_estimate: costEstimate, latency_ms: Date.now() - startedAt })
-    return { resolutionPath: 'audio_cookies', errorCode: null, fallbackHistory, confidence: 0.72, degradedExecution, costEstimate }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    const errorCode = classifyYoutubeFailure(msg)
-    recordAttempt(collector, {
-      stage: 'audio',
-      type: 'cookies',
-      result: 'fail',
-      success: false,
-      latencyMs: Date.now() - cookiesAttemptStarted,
-      errorCode,
-    })
+  log.info({ msg: 'yt_path_transition', from: 'caption', to: 'audio_resilient' })
+  const maxClientAttempts = Math.max(3, parseInt(process.env.YT_CLIENT_MAX_ATTEMPTS || '3', 10))
+  let attempts = 0
+  let streamErrors = 0
+  let formatErrors = 0
+  let usedProxy = false
+  let finalErrorCode: YoutubeErrorCode = 'UNKNOWN'
+  let forcedProxyReason: YoutubeErrorCode | null = null
 
-    if (errorCode !== 'AUTH_REQUIRED' && errorCode !== 'GEO_BLOCKED') {
-      if (errorCode === 'STREAM_ERROR') log.warn({ msg: 'yt_stream_stderr', scope: 'cookies', error: msg.slice(0, 500) })
-      log.info({ msg: 'yt_resolution_metrics', path_used: 'failed', fallback_depth: fallbackHistory.length, proxy_used: false, error_code: errorCode, degraded_execution: degradedExecution, cost_estimate: estimateYoutubePathCost('failed'), latency_ms: Date.now() - startedAt })
-      throw new Error(`YouTube audio extraction failed [${errorCode}]`)
-    }
-
-    if (!hasProxy) {
-      if (errorCode === 'AUTH_REQUIRED') log.error({ msg: 'AUTH_REQUIRED', stage: 'audio_cookies_final' })
-      log.info({ msg: 'yt_resolution_metrics', path_used: 'failed', fallback_depth: fallbackHistory.length, proxy_used: false, error_code: errorCode, degraded_execution: degradedExecution, cost_estimate: estimateYoutubePathCost('failed'), latency_ms: Date.now() - startedAt })
-      throw new Error(`YouTube audio extraction failed [${errorCode}]`)
-    }
-
-    fallbackHistory.push('audio:proxy')
-    log.info({ msg: 'yt_path_transition', from: 'audio_cookies', to: 'audio_proxy', reason: errorCode })
-    const proxyAttemptStarted = Date.now()
-    const proxyMode = useCookies ? 'cookie_proxy' : 'proxy_only'
-    log.info({ msg: 'yt_proxy_mode_selected', proxy_mode: proxyMode })
-    const selectedProxy = await selectYoutubeProxy()
-    if (!selectedProxy) {
-      if (await isProxyPoolDegraded()) log.warn({ msg: 'yt_proxy_pool_degraded', stage: 'audio_proxy' })
-      log.error({ msg: 'PROXY_FAILED', reason: 'proxy_unavailable' })
-      log.info({ msg: 'yt_resolution_metrics', path_used: 'failed', fallback_depth: fallbackHistory.length, proxy_used: true, error_code: 'STREAM_ERROR', degraded_execution: degradedExecution, cost_estimate: estimateYoutubePathCost('failed'), latency_ms: Date.now() - startedAt })
-      throw new Error('YouTube audio extraction failed [STREAM_ERROR]')
-    }
-
-    try {
-      degradedExecution = await doStreamYoutubeAudio(cleanUrl, outputPath, useCookies, true, selectedProxy.url)
-      recordAttempt(collector, {
-        stage: 'audio',
-        type: 'proxy',
-        result: 'success',
-        success: true,
-        latencyMs: Date.now() - proxyAttemptStarted,
-        proxyId: selectedProxy.id,
-      })
-      if (collector) {
-        collector.proxyUsed = true
-        collector.proxyId = selectedProxy.id
-      }
-      recordYoutubeProxyResult(selectedProxy.id, true).catch(() => {})
-      const costEstimate = estimateYoutubePathCost('audio_proxy')
-      log.info({ msg: 'yt_resolution_metrics', path_used: 'audio_proxy', fallback_depth: fallbackHistory.length, proxy_used: true, error_code: null, degraded_execution: degradedExecution, cost_estimate: costEstimate, latency_ms: Date.now() - startedAt })
-      return { resolutionPath: 'audio_proxy', errorCode: null, fallbackHistory, confidence: 0.64, degradedExecution, costEstimate }
-    } catch (proxyErr) {
-      const proxyMsg = proxyErr instanceof Error ? proxyErr.message : String(proxyErr)
-      const proxyCode = classifyYoutubeFailure(proxyMsg)
-      recordAttempt(collector, {
-        stage: 'audio',
-        type: 'proxy',
-        result: 'fail',
-        success: false,
-        latencyMs: Date.now() - proxyAttemptStarted,
-        proxyId: selectedProxy.id,
-        errorCode: proxyCode,
-      })
-      recordYoutubeProxyResult(selectedProxy.id, false).catch(() => {})
-      log.error({ msg: 'PROXY_FAILED', reason: proxyCode, proxyId: selectedProxy.id })
-      if (proxyCode === 'AUTH_REQUIRED') log.error({ msg: 'AUTH_REQUIRED', stage: 'audio_proxy_final', proxyId: selectedProxy.id })
-      log.info({ msg: 'yt_resolution_metrics', path_used: 'failed', fallback_depth: fallbackHistory.length, proxy_used: true, error_code: proxyCode, degraded_execution: degradedExecution, cost_estimate: estimateYoutubePathCost('failed'), latency_ms: Date.now() - startedAt })
-      throw new Error(`YouTube audio extraction failed [${proxyCode}]`)
+  if (hasProxy) {
+    forcedProxyReason = await detectImmediateProxyNeed(cleanUrl).catch(() => null)
+    if (forcedProxyReason) {
+      fallbackHistory.push(`audio:proxy_immediate:${forcedProxyReason}`)
+      log.info({ msg: 'yt_proxy_immediate_escalation', reason: forcedProxyReason })
     }
   }
+
+  const runAttempt = async (
+    stage: 'cookie' | 'nocookie' | 'proxy',
+    proxyUrl?: string,
+    proxyId?: string
+  ): Promise<YoutubeResolutionResult | null> => {
+    const attemptStarted = Date.now()
+    const client = clientForAttempt(attempts)
+    attempts += 1
+    const cookieCandidate = stage === 'cookie' && !skipCookies ? await selectYoutubeCookieCandidate(`${cleanUrl}:${attempts}`) : null
+    const cookieValidation = cookieCandidate ? validateCookieFile(cookieCandidate.filePath) : null
+    const cookieFile = cookieCandidate && cookieValidation?.valid ? cookieCandidate.filePath : null
+    const attemptType: YoutubeAttemptType = proxyUrl ? 'proxy' : (stage === 'nocookie' ? 'direct' : 'cookies')
+    try {
+      degradedExecution = await doStreamYoutubeAudio(cleanUrl, outputPath, {
+        cookieFile,
+        playerClient: client,
+        useProxy: !!proxyUrl,
+        proxyUrl,
+      })
+      recordAttempt(collector, {
+        stage: 'audio',
+        type: attemptType,
+        result: 'success',
+        success: true,
+        latencyMs: Date.now() - attemptStarted,
+        playerClient: client,
+        cookieId: cookieCandidate?.id,
+        ...(proxyId && { proxyId }),
+      })
+      if (cookieFile) {
+        await recordYoutubeCookieResult(cookieFile, true).catch(() => {})
+      }
+      if (proxyId) {
+        await recordYoutubeProxyResult(proxyId, true).catch(() => {})
+        if (collector) {
+          collector.proxyUsed = true
+          collector.proxyId = proxyId
+        }
+      }
+      const resolutionPath = proxyUrl ? 'audio_proxy' : (stage === 'nocookie' ? 'audio_nocookie' : 'audio_cookies')
+      const costEstimate = estimateYoutubePathCost(resolutionPath)
+      log.info({
+        msg: 'yt_resolution_metrics',
+        path_used: resolutionPath,
+        fallback_depth: fallbackHistory.length,
+        proxy_used: !!proxyUrl,
+        error_code: null,
+        degraded_execution: degradedExecution,
+        cost_estimate: costEstimate,
+        latency_ms: Date.now() - startedAt,
+        player_client: client,
+        cookie_id: cookieCandidate?.id,
+      })
+      return { resolutionPath, errorCode: null, fallbackHistory, confidence: proxyUrl ? 0.64 : 0.72, degradedExecution, costEstimate }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      const code = classifyYoutubeFailure(msg)
+      finalErrorCode = code
+      if (code === 'STREAM_ERROR') streamErrors += 1
+      if (code === 'FORMAT_MISSING') formatErrors += 1
+      if (cookieFile) {
+        await recordYoutubeCookieResult(cookieFile, false, code).catch(() => {})
+      }
+      if (proxyId) {
+        await recordYoutubeProxyResult(proxyId, false).catch(() => {})
+      }
+      recordAttempt(collector, {
+        stage: 'audio',
+        type: attemptType,
+        result: 'fail',
+        success: false,
+        latencyMs: Date.now() - attemptStarted,
+        playerClient: client,
+        cookieId: cookieCandidate?.id,
+        errorCode: code,
+        ...(proxyId && { proxyId }),
+      })
+      log.warn({
+        msg: 'yt_attempt_failed',
+        error_code: code,
+        player_client: client,
+        proxy_used: !!proxyUrl,
+        proxy_id: proxyId,
+        cookie_id: cookieCandidate?.id,
+      })
+      return null
+    }
+  }
+
+  if (!forcedProxyReason) {
+    for (let i = 0; i < maxClientAttempts; i++) {
+      const success = await runAttempt('cookie')
+      if (success) return success
+      fallbackHistory.push(`audio:cookie_client_switch:${clientForAttempt(i)}`)
+    }
+
+    for (let i = 0; i < maxClientAttempts; i++) {
+      const success = await runAttempt('nocookie')
+      if (success) return success
+      fallbackHistory.push(`audio:nocookie_client_switch:${clientForAttempt(i)}`)
+    }
+  }
+
+  const shouldUseProxy = hasProxy && (
+    !!forcedProxyReason ||
+    (['AUTH_REQUIRED', 'GEO_BLOCKED', 'RATE_LIMITED'] as YoutubeErrorCode[]).includes(finalErrorCode) ||
+    streamErrors >= 2 ||
+    formatErrors >= 1 ||
+    attempts >= maxClientAttempts
+  )
+  if (!shouldUseProxy) {
+    log.info({
+      msg: 'yt_resolution_metrics',
+      path_used: 'failed',
+      fallback_depth: fallbackHistory.length,
+      proxy_used: false,
+      error_code: finalErrorCode,
+      degraded_execution: degradedExecution,
+      cost_estimate: estimateYoutubePathCost('failed'),
+      latency_ms: Date.now() - startedAt,
+    })
+    throw new Error(`YouTube audio extraction failed [${finalErrorCode}]`)
+  }
+
+  fallbackHistory.push('audio:proxy')
+  const selectedProxy = await selectYoutubeProxy()
+  if (!selectedProxy) {
+    if (await isProxyPoolDegraded()) log.warn({ msg: 'yt_proxy_pool_degraded', stage: 'audio_proxy' })
+    throw new Error(`YouTube audio extraction failed [${finalErrorCode}]`)
+  }
+
+  usedProxy = true
+  for (let i = 0; i < maxClientAttempts; i++) {
+    const success = await runAttempt('proxy', selectedProxy.url, selectedProxy.id)
+    if (success) return success
+    fallbackHistory.push(`audio:proxy_client_switch:${clientForAttempt(i)}`)
+  }
+
+  log.info({
+    msg: 'yt_resolution_metrics',
+    path_used: 'failed',
+    fallback_depth: fallbackHistory.length,
+    proxy_used: usedProxy,
+    error_code: finalErrorCode,
+    degraded_execution: degradedExecution,
+    cost_estimate: estimateYoutubePathCost('failed'),
+    latency_ms: Date.now() - startedAt,
+  })
+  throw new Error(`YouTube audio extraction failed [${finalErrorCode}]`)
 }
 
 function doStreamYoutubeAudio(
   url: string,
   outputPath: string,
-  useCookies: boolean,
-  useProxy: boolean,
-  proxyUrl?: string
+  options: {
+    cookieFile?: string | null
+    playerClient: YtDlpClient
+    useProxy: boolean
+    proxyUrl?: string
+  }
 ): Promise<boolean> {
   return new Promise((resolve, reject) => {
     let settled = false
@@ -1116,9 +1268,10 @@ function doStreamYoutubeAudio(
             '--socket-timeout', '30',
             url,
           ],
-          useCookies,
-          useProxy,
-          proxyUrl
+          options.cookieFile,
+          options.playerClient,
+          options.useProxy,
+          options.proxyUrl
         ),
         { stdio: ['ignore', 'pipe', 'pipe'] }
       )

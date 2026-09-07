@@ -122,6 +122,9 @@ services:
       # Cookies are optional but volume-backed so ops can drop/update youtube.txt manually.
       YOUTUBE_SKIP_COOKIES: "false"
       YOUTUBE_COOKIES_FILE: /cookies/youtube.txt
+      # Optional cookie pool for resilient rotation/cooldown. Override in .env:
+      # YOUTUBE_COOKIE_FILES=/cookies/youtube_1.txt,/cookies/youtube_2.txt,/cookies/youtube_3.txt
+      YOUTUBE_COOKIE_FILES: ${YOUTUBE_COOKIE_FILES:-}
       # Residential proxy for yt-dlp caption/audio fallback (and metadata if no API key).
       # Set in .env: YOUTUBE_PROXY=http://user:pass@gw.dataimpulse.com:823
       YOUTUBE_PROXY: ${YOUTUBE_PROXY:-}

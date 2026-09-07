@@ -314,11 +314,11 @@ export interface JobData {
   youtubeCaptionSource?: 'timedtext' | 'player_api' | 'ytdlp'
   youtubeCaptionSourceDetail?: string
   /** Final YouTube resolution path for observability and client trust. */
-  youtubeResolutionPath?: 'caption' | 'caption_patch' | 'audio_cookies' | 'audio_proxy' | 'failed'
+  youtubeResolutionPath?: 'caption' | 'caption_patch' | 'audio_cookies' | 'audio_nocookie' | 'audio_proxy' | 'failed'
   /** Missing windows to patch via gap-only ASR when caption decision is PATCH. */
   captionPatchWindows?: CaptionPatchWindow[]
   /** Failure taxonomy and fallback chain for YouTube ingest observability. */
-  youtubeErrorCode?: 'NO_CAPTIONS' | 'AUTH_REQUIRED' | 'GEO_BLOCKED' | 'RATE_LIMITED' | 'QUEUE_TIMEOUT' | 'STREAM_ERROR' | 'UNKNOWN'
+  youtubeErrorCode?: 'NO_CAPTIONS' | 'AUTH_REQUIRED' | 'GEO_BLOCKED' | 'RATE_LIMITED' | 'FORMAT_MISSING' | 'QUEUE_TIMEOUT' | 'STREAM_ERROR' | 'UNKNOWN'
   fallbackHistory?: string[]
   youtubeAttempts?: YoutubeAttemptRecord[]
   youtubeProxyUsed?: boolean
@@ -329,6 +329,7 @@ export interface JobData {
   costEstimate?: number
   highCost?: boolean
   queueTimeoutRetryCount?: number
+  youtubeAdaptiveRetryCount?: number
   /** Pre-computed transcript from YouTube captions; skips Whisper. */
   precomputedTranscript?: { fullText: string; segments: { start: number; end: number; text: string }[] }
   /** Set to true after usage is counted; persisted to Redis via job.update() to prevent double-counting on retry. */
@@ -550,7 +551,7 @@ async function recordYoutubeResolutionMetric(
   const source = data.youtubeCaptionSource || 'none'
   const errorCode = data.youtubeErrorCode || 'none'
   const patch = path === 'caption_patch' ? 1 : 0
-  const fallback = path === 'audio_cookies' ? 1 : 0
+  const fallback = (path === 'audio_cookies' || path === 'audio_nocookie') ? 1 : 0
   const attempts = data.youtubeAttempts || []
   const proxyUsed = attempts.some((a) => a.type === 'proxy' && a.result === 'success') ? 1 : 0
   const failedAfterProxy = attempts.some((a) => a.type === 'proxy' && a.result === 'fail') ? 1 : 0
@@ -589,6 +590,9 @@ async function recordYoutubeResolutionMetric(
 
     if (attempts.length > 0) {
       const perProxy = new Map<string, { success: number; fail: number }>()
+      const perClient = new Map<string, { success: number; fail: number }>()
+      const perCookie = new Map<string, { success: number; fail: number }>()
+      const perCombo = new Map<string, { success: number; fail: number }>()
       for (const attempt of attempts) {
         if (attempt.type !== 'proxy' || !attempt.proxyId) continue
         const current = perProxy.get(attempt.proxyId) || { success: 0, fail: 0 }
@@ -596,11 +600,47 @@ async function recordYoutubeResolutionMetric(
         else current.fail += 1
         perProxy.set(attempt.proxyId, current)
       }
-      if (perProxy.size > 0) {
+      for (const attempt of attempts) {
+        if (attempt.playerClient) {
+          const current = perClient.get(attempt.playerClient) || { success: 0, fail: 0 }
+          if (attempt.success) current.success += 1
+          else current.fail += 1
+          perClient.set(attempt.playerClient, current)
+        }
+        if (attempt.cookieId) {
+          const current = perCookie.get(attempt.cookieId) || { success: 0, fail: 0 }
+          if (attempt.success) current.success += 1
+          else current.fail += 1
+          perCookie.set(attempt.cookieId, current)
+        }
+        const comboKey = [
+          attempt.type,
+          attempt.playerClient || 'none',
+          attempt.cookieId || 'none',
+          attempt.proxyId ? 'proxy' : 'direct',
+        ].join('|')
+        const combo = perCombo.get(comboKey) || { success: 0, fail: 0 }
+        if (attempt.success) combo.success += 1
+        else combo.fail += 1
+        perCombo.set(comboKey, combo)
+      }
+      if (perProxy.size > 0 || perClient.size > 0 || perCookie.size > 0 || perCombo.size > 0) {
         const metrics = redis.multi()
         for (const [proxyId, v] of perProxy) {
           metrics.hincrby(key, `proxy:${proxyId}:success`, v.success)
           metrics.hincrby(key, `proxy:${proxyId}:fail`, v.fail)
+        }
+        for (const [client, v] of perClient) {
+          metrics.hincrby(key, `client:${client}:success`, v.success)
+          metrics.hincrby(key, `client:${client}:fail`, v.fail)
+        }
+        for (const [cookieId, v] of perCookie) {
+          metrics.hincrby(key, `cookie:${cookieId}:success`, v.success)
+          metrics.hincrby(key, `cookie:${cookieId}:fail`, v.fail)
+        }
+        for (const [combo, v] of perCombo) {
+          metrics.hincrby(key, `combo:${combo}:success`, v.success)
+          metrics.hincrby(key, `combo:${combo}:fail`, v.fail)
         }
         await metrics.exec()
       }
@@ -653,6 +693,7 @@ const classifyYoutubeErrorCode = (msg: string): JobData['youtubeErrorCode'] => {
   if (m.includes('sign in') || m.includes('bot') || m.includes('login')) return 'AUTH_REQUIRED'
   if (m.includes('region') || m.includes('geo')) return 'GEO_BLOCKED'
   if (m.includes('429') || m.includes('rate limit') || m.includes('too many requests')) return 'RATE_LIMITED'
+  if (m.includes('requested format is not available') || m.includes('no video formats found') || m.includes('format not available')) return 'FORMAT_MISSING'
   if (m.includes('queue_timeout') || m.includes('queue timeout') || m.includes('semaphore acquire timeout')) return 'QUEUE_TIMEOUT'
   if (m.includes('private') || m.includes('unavailable') || m.includes('removed')) return 'STREAM_ERROR'
   if (m.includes('timed out') || m.includes('timeout')) return 'STREAM_ERROR'
@@ -664,7 +705,7 @@ const classifyYoutubeErrorCode = (msg: string): JobData['youtubeErrorCode'] => {
 const deriveAttemptErrorCode = (attempts?: YoutubeAttemptRecord[]): JobData['youtubeErrorCode'] | undefined => {
   const lastFailure = [...(attempts || [])].reverse().find((a) => a.result === 'fail' && a.errorCode)
   if (!lastFailure?.errorCode) return undefined
-  if (lastFailure.errorCode === 'UNKNOWN' || lastFailure.errorCode === 'NO_CAPTIONS' || lastFailure.errorCode === 'AUTH_REQUIRED' || lastFailure.errorCode === 'GEO_BLOCKED' || lastFailure.errorCode === 'RATE_LIMITED' || lastFailure.errorCode === 'QUEUE_TIMEOUT' || lastFailure.errorCode === 'STREAM_ERROR') {
+  if (lastFailure.errorCode === 'UNKNOWN' || lastFailure.errorCode === 'NO_CAPTIONS' || lastFailure.errorCode === 'AUTH_REQUIRED' || lastFailure.errorCode === 'GEO_BLOCKED' || lastFailure.errorCode === 'RATE_LIMITED' || lastFailure.errorCode === 'FORMAT_MISSING' || lastFailure.errorCode === 'QUEUE_TIMEOUT' || lastFailure.errorCode === 'STREAM_ERROR') {
     return lastFailure.errorCode as JobData['youtubeErrorCode']
   }
   return undefined
@@ -816,6 +857,40 @@ async function requeueOnQueueTimeout(
       .catch(() => {})
   }
   log.warn({ msg: 'queue_retry_scheduled', jobId: String(job.id), retryCount: currentRetries + 1, delayMs, pressureScore, queue_timeout_rate: queueTimeoutRate, retry_success_rate: retrySuccessRate, maxRetries })
+  return true
+}
+
+async function requeueOnAdaptiveFailure(
+  job: import('bull').Job<JobData>,
+  data: JobData,
+  errorCode: JobData['youtubeErrorCode'],
+  log: ReturnType<typeof withJobContext>
+): Promise<boolean> {
+  if (!errorCode) return false
+  const retriable = errorCode === 'STREAM_ERROR' || errorCode === 'FORMAT_MISSING' || errorCode === 'UNKNOWN' || errorCode === 'RATE_LIMITED'
+  if (!retriable) return false
+  const current = data.youtubeAdaptiveRetryCount || 0
+  const maxAdaptiveRetries = Math.max(1, parseInt(process.env.YT_ADAPTIVE_RETRY_MAX || '2', 10))
+  if (current >= maxAdaptiveRetries) return false
+  const baseDelay = Math.max(5000, parseInt(process.env.YT_ADAPTIVE_RETRY_BASE_DELAY_MS || '7000', 10))
+  const delayMs = Math.min(45000, Math.round(baseDelay * Math.pow(1.8, current) + Math.random() * 2500))
+  const nextData: JobData = {
+    ...data,
+    youtubeAdaptiveRetryCount: current + 1,
+    youtubeErrorCode: errorCode,
+    fallbackHistory: [...(data.fallbackHistory || []), `adaptive_retry:${errorCode}:${current + 1}`],
+  }
+  await audioQueue.add(nextData, {
+    jobId: `${data.jobToken ?? String(job.id)}:adaptive:${errorCode}:${current + 1}:${Date.now()}`,
+    delay: delayMs,
+    attempts: 1,
+    removeOnComplete: true,
+    removeOnFail: true,
+    priority: typeof (job.opts as any)?.priority === 'number'
+      ? Math.max(1, Number((job.opts as any).priority) - 1)
+      : undefined,
+  })
+  log.warn({ msg: 'adaptive_retry_scheduled', jobId: String(job.id), errorCode, retryCount: current + 1, delayMs, maxAdaptiveRetries })
   return true
 }
 
@@ -971,6 +1046,8 @@ async function processAudioJob(job: import('bull').Job<JobData>): Promise<unknow
       const requeued = await requeueOnQueueTimeout(job, data, log)
       if (requeued) return HANDED_OFF
     }
+    const adaptiveRequeued = await requeueOnAdaptiveFailure(job, data, data.youtubeErrorCode, log)
+    if (adaptiveRequeued) return HANDED_OFF
     throw new Error(`YouTube audio extraction failed: ${err.message}`)
   }
   const nextData: JobData = {
@@ -1072,6 +1149,7 @@ async function processJob(job: import('bull').Job<JobData>) {
   ): number => {
     if (resolutionPath === 'caption' && !usedTranscription) return 0
     if (resolutionPath === 'audio_cookies') return usedTranscription ? 3 : 1
+    if (resolutionPath === 'audio_nocookie') return usedTranscription ? 3 : 1
     if (resolutionPath === 'audio_proxy') return usedTranscription ? 4 : 2
     if (resolutionPath === 'caption_patch') return 4
     return usedTranscription ? 4 : 2

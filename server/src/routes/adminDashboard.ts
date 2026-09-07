@@ -42,6 +42,9 @@ type YoutubeResolutionMetrics = {
   byPath: Array<{ path: string; count: number }>
   bySource: Array<{ source: string; count: number }>
   byError: Array<{ error: string; count: number }>
+  byClient: Array<{ client: string; success: number; fail: number }>
+  byCookie: Array<{ cookie: string; success: number; fail: number }>
+  byCombo: Array<{ combo: string; success: number; fail: number }>
 }
 
 function ytMetricDayKeys(days = 30): string[] {
@@ -64,6 +67,9 @@ async function getYoutubeResolutionMetrics(redis: import('ioredis').Redis): Prom
   const byPath = new Map<string, number>()
   const bySource = new Map<string, number>()
   const byError = new Map<string, number>()
+  const byClient = new Map<string, { success: number; fail: number }>()
+  const byCookie = new Map<string, { success: number; fail: number }>()
+  const byCombo = new Map<string, { success: number; fail: number }>()
   let total = 0
   let confidenceSumScaled = 0
   let degradedExecutionCount = 0
@@ -82,12 +88,48 @@ async function getYoutubeResolutionMetrics(redis: import('ioredis').Redis): Prom
       if (k.startsWith('path:')) byPath.set(k.slice(5), (byPath.get(k.slice(5)) || 0) + n)
       if (k.startsWith('source:')) bySource.set(k.slice(7), (bySource.get(k.slice(7)) || 0) + n)
       if (k.startsWith('error:')) byError.set(k.slice(6), (byError.get(k.slice(6)) || 0) + n)
+      if (k.startsWith('client:')) {
+        const rest = k.slice(7)
+        const idx = rest.lastIndexOf(':')
+        if (idx > 0) {
+          const name = rest.slice(0, idx)
+          const metric = rest.slice(idx + 1)
+          const current = byClient.get(name) || { success: 0, fail: 0 }
+          if (metric === 'success') current.success += n
+          if (metric === 'fail') current.fail += n
+          byClient.set(name, current)
+        }
+      }
+      if (k.startsWith('cookie:')) {
+        const rest = k.slice(7)
+        const idx = rest.lastIndexOf(':')
+        if (idx > 0) {
+          const name = rest.slice(0, idx)
+          const metric = rest.slice(idx + 1)
+          const current = byCookie.get(name) || { success: 0, fail: 0 }
+          if (metric === 'success') current.success += n
+          if (metric === 'fail') current.fail += n
+          byCookie.set(name, current)
+        }
+      }
+      if (k.startsWith('combo:')) {
+        const rest = k.slice(6)
+        const idx = rest.lastIndexOf(':')
+        if (idx > 0) {
+          const name = rest.slice(0, idx)
+          const metric = rest.slice(idx + 1)
+          const current = byCombo.get(name) || { success: 0, fail: 0 }
+          if (metric === 'success') current.success += n
+          if (metric === 'fail') current.fail += n
+          byCombo.set(name, current)
+        }
+      }
     }
   }
 
   const captions = byPath.get('caption') || 0
   const patch = byPath.get('caption_patch') || 0
-  const fallback = (byPath.get('audio_cookies') || 0) + (byPath.get('audio_proxy') || 0) + (byPath.get('failed') || 0)
+  const fallback = (byPath.get('audio_cookies') || 0) + (byPath.get('audio_nocookie') || 0) + (byPath.get('audio_proxy') || 0) + (byPath.get('failed') || 0)
   const retryCount = Number(await redis.get('metrics:yt:retry:count').catch(() => '0') || 0)
   const retrySuccess = Number(await redis.get('metrics:yt:retry:success').catch(() => '0') || 0)
   const retryDelaySum = Number(await redis.get('metrics:yt:retry:delay_sum_ms').catch(() => '0') || 0)
@@ -110,6 +152,9 @@ async function getYoutubeResolutionMetrics(redis: import('ioredis').Redis): Prom
     byPath: [...byPath.entries()].map(([path, count]) => ({ path, count })).sort((a, b) => b.count - a.count),
     bySource: [...bySource.entries()].map(([source, count]) => ({ source, count })).sort((a, b) => b.count - a.count),
     byError: [...byError.entries()].map(([error, count]) => ({ error, count })).sort((a, b) => b.count - a.count),
+    byClient: [...byClient.entries()].map(([client, v]) => ({ client, success: v.success, fail: v.fail })).sort((a, b) => (b.success + b.fail) - (a.success + a.fail)),
+    byCookie: [...byCookie.entries()].map(([cookie, v]) => ({ cookie, success: v.success, fail: v.fail })).sort((a, b) => (b.success + b.fail) - (a.success + a.fail)),
+    byCombo: [...byCombo.entries()].map(([combo, v]) => ({ combo, success: v.success, fail: v.fail })).sort((a, b) => (b.success + b.fail) - (a.success + a.fail)).slice(0, 100),
   }
 }
 
