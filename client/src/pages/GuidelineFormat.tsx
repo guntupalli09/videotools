@@ -5,7 +5,6 @@ import {
   ChevronRight,
   FileText,
   BookOpen,
-  Lock,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { ToolLayout } from "../components/figma/ToolLayout";
@@ -1796,43 +1795,35 @@ export default function GuidelineFormat() {
               {jobStatus?.status === "completed" &&
                 !submitError &&
                 (showAuthGate && !isLoggedIn() ? (
-                  <div className="rounded-xl border border-blue-200/80 dark:border-blue-900/50 bg-white/85 dark:bg-gray-900/60 p-component shadow-sm space-y-component-sm">
-                    <div className="flex items-start gap-3">
-                      <span className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
-                        <Lock className="h-4 w-4" aria-hidden />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                          Your formatted transcript is ready
-                        </p>
-                        <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                          We finished processing your style guide. Create a free
-                          account or log in to unlock the formatted transcript,
-                          validation report, review queue, and exports.
-                        </p>
+                  <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                    <ResultHeader embedded title="Your formatted transcript is ready" />
+                    <div className="space-y-component-sm px-5 py-4">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Create a free account or log in to unlock the formatted transcript,
+                        validation report, review queue, and exports.
+                      </p>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAuthModalMode("signup-combo");
+                            setShowAuthModal(true);
+                          }}
+                          className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-blue-700"
+                        >
+                          Create free account
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAuthModalMode("login");
+                            setShowAuthModal(true);
+                          }}
+                          className="rounded-xl border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-800 transition-colors hover:bg-white/80 dark:border-gray-600 dark:text-gray-100 dark:hover:bg-gray-900/60"
+                        >
+                          Log in
+                        </button>
                       </div>
-                    </div>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAuthModalMode("signup-combo");
-                          setShowAuthModal(true);
-                        }}
-                        className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-3 text-sm shadow-md transition-colors"
-                      >
-                        Create free account
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAuthModalMode("login");
-                          setShowAuthModal(true);
-                        }}
-                        className="rounded-xl border border-gray-300 dark:border-gray-600 px-5 py-3 text-sm font-semibold text-gray-800 dark:text-gray-100 hover:bg-white/80 dark:hover:bg-gray-900/60"
-                      >
-                        Log in
-                      </button>
                     </div>
                   </div>
                 ) : (

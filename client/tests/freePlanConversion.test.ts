@@ -119,6 +119,7 @@ test('P4 audit fixes: unified guest headers, exports panel, checkout links, proc
   const guideline = readFileSync(resolve(process.cwd(), 'src/pages/GuidelineFormat.tsx'), 'utf8')
   assert.match(guideline, /ProcessingStateShell/)
   assert.match(guideline, /ProcessingProgress/)
+  assert.match(guideline, /<ResultHeader embedded title="Your formatted transcript is ready"/)
 })
 
 test('PaywallModal owns its impression and has no competing navigation callback', () => {
