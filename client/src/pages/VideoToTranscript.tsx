@@ -97,7 +97,10 @@ import { trackEvent, trackFirstOutputSeen } from "../lib/analytics";
 import {
   formatTimestamp,
   type Segment,
+  segmentsToSrt,
+  segmentsToVtt,
 } from "../lib/srtExport";
+import { WATERMARK_DOC_FOOTER, watermarkTextExport, watermarkClipboardText } from "../lib/watermark";
 import { addAnchorTimecode } from "../lib/smpteTimecode";
 import {
   type SpeakerNameMap,
@@ -996,7 +999,12 @@ export default function VideoToTranscript(
           terminalRef.current = true;
           setPartialSegments([]);
           setStatus("completed");
-          setResult(jobStatus.result ?? null);
+          if (isLoggedIn() && !jobStatus.requiresAuth) {
+            setResult(jobStatus.result ?? null);
+          } else {
+            setShowAuthGate(true);
+            setResult({ downloadUrl: "" });
+          }
           trackAppEvent("transcription_completed", {
             toolId: "video-to-transcript",
           });
@@ -1046,6 +1054,7 @@ export default function VideoToTranscript(
           return;
         }
         if (
+          isLoggedIn() &&
           jobStatus.status === "processing" &&
           jobStatus.partialSegments?.length
         ) {
@@ -1086,7 +1095,12 @@ export default function VideoToTranscript(
               rehydratePollRef.current = null;
               setPartialSegments([]);
               setStatus("completed");
-              setResult(s.result ?? null);
+              if (isLoggedIn() && !s.requiresAuth) {
+                setResult(s.result ?? null);
+              } else {
+                setShowAuthGate(true);
+                setResult({ downloadUrl: "" });
+              }
               trackAppEvent("transcription_completed", {
                 toolId: "video-to-transcript",
               });
@@ -1131,7 +1145,7 @@ export default function VideoToTranscript(
               setStatus("failed");
               toast.error("Processing failed. Please try again.");
               clearPersistedJobId(pathname, navigate);
-            } else if (s.status === "processing" && s.partialSegments?.length) {
+            } else if (isLoggedIn() && s.status === "processing" && s.partialSegments?.length) {
               const version = s.partialVersion ?? 0;
               if (
                 version > lastPartialVersionRef.current ||
@@ -1656,7 +1670,12 @@ export default function VideoToTranscript(
             minStreamDelayTimeoutRef.current = null;
             setPartialSegments([]);
             setStatus("completed");
-            setResult(jobStatus.result ?? null);
+            if (isLoggedIn() && !jobStatus.requiresAuth) {
+              setResult(jobStatus.result ?? null);
+            } else {
+              setShowAuthGate(true);
+              setResult({ downloadUrl: "" });
+            }
             trackAppEvent("transcription_completed", {
               toolId: "video-to-transcript",
             });
@@ -1781,6 +1800,7 @@ export default function VideoToTranscript(
           }
           toast.error("Processing failed. Please try again.");
         } else if (
+          isLoggedIn() &&
           jobStatus.status === "processing" &&
           jobStatus.partialVersion != null &&
           jobStatus.partialVersion > lastPartialVersionRef.current
@@ -2071,7 +2091,12 @@ export default function VideoToTranscript(
             minStreamDelayTimeoutRef.current = null;
             setPartialSegments([]);
             setStatus("completed");
-            setResult(jobStatus.result ?? null);
+            if (isLoggedIn() && !jobStatus.requiresAuth) {
+              setResult(jobStatus.result ?? null);
+            } else {
+              setShowAuthGate(true);
+              setResult({ downloadUrl: "" });
+            }
             trackAppEvent("transcription_completed", {
               toolId: "video-to-transcript",
             });
@@ -2176,6 +2201,7 @@ export default function VideoToTranscript(
               : "Processing failed. Please try again.",
           );
         } else if (
+          isLoggedIn() &&
           jobStatus.status === "processing" &&
           jobStatus.partialVersion != null &&
           jobStatus.partialVersion > lastPartialVersionRef.current
@@ -2259,10 +2285,7 @@ export default function VideoToTranscript(
       return;
     }
     // Gate 2: 3 free copies per session for free-plan users
-    const _isCopyPaid =
-      typeof window !== "undefined" &&
-      (localStorage.getItem("plan") || "free").toLowerCase() !== "free";
-    if (!_isCopyPaid && freeCopiesUsed >= 3) {
+    if (!isPaidPlan && freeCopiesUsed >= 3) {
       trackEvent("copy_gate_limit", {
         tool: "video-to-transcript",
         copies_used: freeCopiesUsed,
@@ -2281,32 +2304,33 @@ export default function VideoToTranscript(
               .trim()
           : (fullTranscript || "").trim();
     if (!textToCopy) return;
+    const payload = isPaidPlan ? textToCopy : watermarkClipboardText(textToCopy);
     try {
-      await navigator.clipboard.writeText(textToCopy);
-      toast.success("Copied to clipboard!");
+      await navigator.clipboard.writeText(payload);
+      toast.success(isPaidPlan ? "Copied to clipboard!" : "Copied (with watermark)");
     } catch {
       // Fallback for environments where clipboard API is restricted
       try {
         const textArea = document.createElement("textarea");
-        textArea.value = textToCopy;
+        textArea.value = payload;
         textArea.style.position = "fixed";
         textArea.style.opacity = "0";
         document.body.appendChild(textArea);
         textArea.select();
         document.execCommand("copy");
         document.body.removeChild(textArea);
-        toast.success("Copied to clipboard!");
+        toast.success(isPaidPlan ? "Copied to clipboard!" : "Copied (with watermark)");
       } catch {
         toast.error("Failed to copy to clipboard");
         return;
       }
     }
     trackEvent("transcript_copied", {
-      plan: _isCopyPaid ? "paid" : "free",
+      plan: isPaidPlan ? "paid" : "free",
       copies_used: freeCopiesUsed + 1,
     });
     // Increment counter for free users after successful copy
-    if (!_isCopyPaid) setFreeCopiesUsed((n) => n + 1);
+    if (!isPaidPlan) setFreeCopiesUsed((n) => n + 1);
   };
 
   const handleProcessAnother = () => {
@@ -2738,9 +2762,7 @@ export default function VideoToTranscript(
       );
       return;
     }
-    const watermark = isPaidPlan
-      ? undefined
-      : "Exported from VideoText (Free Plan) · videotext.io";
+    const watermark = isPaidPlan ? undefined : WATERMARK_DOC_FOOTER;
     const filename = joinExportFilename(
       exportFileStem(selectedFile?.name, "video"),
       `transcript_original_${langCodeForFile(exportSourceLangCode)}`,
@@ -2800,9 +2822,7 @@ export default function VideoToTranscript(
       );
       return;
     }
-    const watermark = isPaidPlan
-      ? undefined
-      : "Exported from VideoText (Free Plan) · videotext.io";
+    const watermark = isPaidPlan ? undefined : WATERMARK_DOC_FOOTER;
     const filename = joinExportFilename(
       exportFileStem(selectedFile?.name, "video"),
       `transcript_original_${langCodeForFile(exportSourceLangCode)}`,
@@ -2858,9 +2878,7 @@ export default function VideoToTranscript(
       );
       return;
     }
-    const watermark = isPaidPlan
-      ? undefined
-      : "Exported from VideoText (Free Plan) · videotext.io";
+    const watermark = isPaidPlan ? undefined : WATERMARK_DOC_FOOTER;
     const slug = translationLanguage
       ? targetLangFileSlug(translationLanguage)
       : "translated";
@@ -2918,9 +2936,7 @@ export default function VideoToTranscript(
       );
       return;
     }
-    const watermark = isPaidPlan
-      ? undefined
-      : "Exported from VideoText (Free Plan) · videotext.io";
+    const watermark = isPaidPlan ? undefined : WATERMARK_DOC_FOOTER;
     const slug = translationLanguage
       ? targetLangFileSlug(translationLanguage)
       : "translated";
@@ -2982,9 +2998,7 @@ export default function VideoToTranscript(
       );
       return;
     }
-    const watermark = isPaidPlan
-      ? undefined
-      : "Exported from VideoText (Free Plan) · videotext.io";
+    const watermark = isPaidPlan ? undefined : WATERMARK_DOC_FOOTER;
     const filename = joinExportFilename(
       exportFileStem(selectedFile?.name, "video"),
       `transcript_3col_${langCodeForFile(exportSourceLangCode)}`,
@@ -3044,9 +3058,7 @@ export default function VideoToTranscript(
       );
       return;
     }
-    const watermark = isPaidPlan
-      ? undefined
-      : "Exported from VideoText (Free Plan) · videotext.io";
+    const watermark = isPaidPlan ? undefined : WATERMARK_DOC_FOOTER;
     const filename = joinExportFilename(
       exportFileStem(selectedFile?.name, "video"),
       `transcript_3col_${langCodeForFile(exportSourceLangCode)}`,
@@ -3089,6 +3101,67 @@ export default function VideoToTranscript(
     exportSourceLangCode,
     verbatimMode,
   ]);
+
+  const downloadSubtitleExport = useCallback(
+    (format: "srt" | "vtt") => {
+      const segs =
+        (editableSegments && editableSegments.length > 0
+          ? editableSegments
+          : result?.segments) ?? null;
+      if (!segs?.length) {
+        toast.error("Nothing to export");
+        return;
+      }
+      if (!isPaidPlan && freeExportsUsed >= 2) {
+        toast(
+          "You've used your 2 free exports. Unlock continued downloads with Pro — $7.99/mo.",
+        );
+        return;
+      }
+      const resolved = withResolvedSpeakers(segs, speakerNameMap);
+      let content =
+        format === "srt"
+          ? segmentsToSrt(resolved)
+          : segmentsToVtt(resolved);
+      if (!isPaidPlan) {
+        content = watermarkTextExport(content, format);
+        setFreeExportsUsed((n) => n + 1);
+      }
+      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = joinExportFilename(
+        exportFileStem(selectedFile?.name, "video"),
+        `subtitles_original_${langCodeForFile(exportSourceLangCode)}`,
+        format === "srt" ? ".srt" : ".vtt",
+      );
+      a.click();
+      URL.revokeObjectURL(a.href);
+      try {
+        trackEvent("result_downloaded", {
+          tool: "video-to-transcript",
+          format,
+          plan: isPaidPlan ? "paid" : "free",
+        });
+      } catch {
+        /* non-blocking */
+      }
+      toast.success(
+        isPaidPlan
+          ? "Download started"
+          : "Download started (with watermark)",
+      );
+    },
+    [
+      editableSegments,
+      result?.segments,
+      speakerNameMap,
+      isPaidPlan,
+      freeExportsUsed,
+      selectedFile?.name,
+      exportSourceLangCode,
+    ],
+  );
 
   /** Translate a pasted plain-text transcript (no video/audio upload required). */
   const handleTextTranslate = useCallback(async () => {
@@ -4524,7 +4597,11 @@ export default function VideoToTranscript(
                   ? `${queuePosition} jobs ahead of you`
                   : undefined
               }
-              liveTranscript={partialSegments.map((s) => s.text).join("\n")}
+              liveTranscript={
+                isLoggedIn()
+                  ? partialSegments.map((s) => s.text).join("\n")
+                  : undefined
+              }
               onCancel={handleCancelUpload}
             />
             <ResultSkeleton variant="transcript" />
@@ -4536,25 +4613,8 @@ export default function VideoToTranscript(
             {/* ── Teaser preview card (non-logged-in) — first 10% of real content ── */}
             {showAuthGate &&
               !isLoggedIn() &&
-              (() => {
-                const fullText =
-                  displayTranscript ||
-                  fullTranscript ||
-                  transcriptPreview ||
-                  "";
-                const previewSegs = result.segments?.length
-                  ? result.segments.slice(
-                      0,
-                      Math.max(3, Math.ceil(result.segments.length * 0.25)),
-                    )
-                  : null;
-                const previewText = fullText.slice(
-                  0,
-                  Math.max(400, Math.ceil(fullText.length * 0.25)),
-                );
-                return (
+              (
                   <div className="rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 overflow-hidden select-none mb-2">
-                    {/* preview banner */}
                     <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-emerald-50/80 via-cyan-50/70 to-blue-50/70 dark:from-emerald-950/30 dark:via-cyan-950/20 dark:to-blue-950/20">
                       <div className="flex items-center gap-2">
                         <span
@@ -4562,7 +4622,7 @@ export default function VideoToTranscript(
                           aria-hidden
                         />
                         <span className="text-sm font-semibold text-gray-800 dark:text-white">
-                          Transcript preview
+                          Transcript ready
                         </span>
                         {lastProcessingMs != null && (
                           <span className="text-xs text-gray-400">
@@ -4570,57 +4630,12 @@ export default function VideoToTranscript(
                           </span>
                         )}
                       </div>
-                      <span className="text-xs text-gray-400">
-                        {[
-                          result.segments?.length
-                            ? `${result.segments.length} segments`
-                            : "",
-                          fullText
-                            ? `~${Math.round(fullText.trim().split(/\s+/).length)} words`
-                            : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </span>
                     </div>
 
-                    {/* 10% preview — real segments or text, fades out at bottom */}
-                    <div
-                      className="relative overflow-hidden"
-                      style={{ maxHeight: "18rem" }}
-                    >
-                      <div className="px-5 py-4 space-y-2">
-                        {previewSegs ? (
-                          previewSegs.map((seg, i) => {
-                            const mins = Math.floor(seg.start / 60);
-                            const secs = Math.floor(seg.start % 60);
-                            const ts = `${mins}:${String(secs).padStart(2, "0")}`;
-                            return (
-                              <div key={i} className="flex gap-3 items-start">
-                                <span className="shrink-0 text-[11px] text-gray-400 dark:text-gray-500 font-mono mt-0.5 w-8">
-                                  {ts}
-                                </span>
-                                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                                  {seg.text}
-                                </p>
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                            {previewText}
-                          </p>
-                        )}
-                      </div>
-                      {/* strong gradient fade — covers bottom ~55% to make it feel "cut off" */}
-                      <div
-                        className="absolute bottom-0 left-0 right-0 h-40 pointer-events-none bg-gradient-to-t from-white dark:from-gray-900 via-white/60 dark:via-gray-900/60 to-transparent"
-                        aria-hidden
-                      />
-                    </div>
-
-                    {/* locked features + CTA */}
-                    <div className="px-5 pb-5 pt-2 pointer-events-auto">
+                    <div className="px-5 pb-5 pt-4 pointer-events-auto">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        Create a free account to view, copy, and download your full transcript.
+                      </p>
                       <p className="text-[11px] text-gray-400 mb-2 font-medium">
                         Sign up to unlock:
                       </p>
@@ -4667,8 +4682,7 @@ export default function VideoToTranscript(
                       </div>
                     </div>
                   </div>
-                );
-              })()}
+                )}
 
             <div
               className={`space-y-6 ${audioObjectUrl ? "pb-24 sm:pb-28" : ""}`}
@@ -5508,6 +5522,26 @@ export default function VideoToTranscript(
                               </div>
                               <div>
                                 <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-gray-500">
+                                  Subtitles
+                                </p>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {(["srt", "vtt"] as const).map((format) => (
+                                    <button
+                                      key={format}
+                                      type="button"
+                                      onClick={() => downloadSubtitleExport(format)}
+                                      className="rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 px-2 py-2 text-[11px] font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                    >
+                                      {format.toUpperCase()}
+                                      {!isPaidPlan && (
+                                        <span className="text-gray-400 font-normal"> · wm</span>
+                                      )}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <div>
+                                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-gray-500">
                                   Documents
                                 </p>
                                 <div className="grid grid-cols-3 gap-2">
@@ -5536,8 +5570,6 @@ export default function VideoToTranscript(
                                             smpteFps,
                                           },
                                         );
-                                        const FREE_EXPORT_WATERMARK =
-                                          "\n\n---\nExported from VideoText (Free Plan) · videotext.io\n";
                                         const freeCanDownload =
                                           !isPaidPlan && freeExportsUsed < 2;
                                         const freeUsedAll =
@@ -5565,7 +5597,7 @@ export default function VideoToTranscript(
                                           return;
                                         }
                                         const blob = new Blob(
-                                          [content + FREE_EXPORT_WATERMARK],
+                                          [watermarkTextExport(content, "txt")],
                                           { type: "text/plain" },
                                         );
                                         setFreeExportsUsed((prev) => prev + 1);
@@ -5662,45 +5694,52 @@ export default function VideoToTranscript(
                                                     smpteFps,
                                                   },
                                                 );
-                                      const FREE_EXPORT_WATERMARK =
-                                        "\n\n---\nExported from VideoText (Free Plan) · videotext.io\n";
-                                      const freeCanDownload =
-                                        !isPaidPlan && freeExportsUsed < 2;
-                                      const freeUsedAll =
-                                        !isPaidPlan && freeExportsUsed >= 2;
-                                      const mimeType =
-                                        format === "json"
-                                          ? "application/json"
-                                          : "text/plain";
-                                      const canClick =
-                                        isPaidPlan || freeCanDownload;
-                                      const handleDownload = () => {
-                                        if (isPaidPlan) {
-                                          const blob = new Blob([content], {
-                                            type: mimeType,
-                                          });
-                                          const a = document.createElement("a");
-                                          a.href = URL.createObjectURL(blob);
-                                          a.download = transcriptExportName(
-                                            selectedFile?.name,
-                                            format,
-                                            exportSourceLangCode,
+                                        const freeCanDownload =
+                                          !isPaidPlan && freeExportsUsed < 2;
+                                        const freeUsedAll =
+                                          !isPaidPlan && freeExportsUsed >= 2;
+                                        const mimeType =
+                                          format === "json"
+                                            ? "application/json"
+                                            : "text/plain";
+                                        const canClick =
+                                          isPaidPlan || freeCanDownload;
+                                        const handleDownload = () => {
+                                          if (isPaidPlan) {
+                                            const blob = new Blob([content], {
+                                              type: mimeType,
+                                            });
+                                            const a = document.createElement("a");
+                                            a.href = URL.createObjectURL(blob);
+                                            a.download = transcriptExportName(
+                                              selectedFile?.name,
+                                              format,
+                                              exportSourceLangCode,
+                                            );
+                                            a.click();
+                                            URL.revokeObjectURL(a.href);
+                                            toast.success("Download started");
+                                            return;
+                                          }
+                                          if (freeUsedAll) {
+                                            toast(
+                                              "You've used your 2 free exports. Unlock continued downloads with Pro — $7.99/mo.",
+                                            );
+                                            return;
+                                          }
+                                          const blob = new Blob(
+                                            [
+                                              watermarkTextExport(
+                                                content,
+                                                format === "json"
+                                                  ? "json"
+                                                  : format === "csv"
+                                                    ? "csv"
+                                                    : "notion",
+                                              ),
+                                            ],
+                                            { type: mimeType },
                                           );
-                                          a.click();
-                                          URL.revokeObjectURL(a.href);
-                                          toast.success("Download started");
-                                          return;
-                                        }
-                                        if (freeUsedAll) {
-                                          toast(
-                                            "You've used your 2 free exports. Unlock continued downloads with Pro — $7.99/mo.",
-                                          );
-                                          return;
-                                        }
-                                        const blob = new Blob(
-                                          [content + FREE_EXPORT_WATERMARK],
-                                          { type: mimeType },
-                                        );
                                         setFreeExportsUsed((prev) => prev + 1);
                                         const a = document.createElement("a");
                                         a.href = URL.createObjectURL(blob);
@@ -5769,8 +5808,6 @@ export default function VideoToTranscript(
                                     selectedFile?.name,
                                     "video",
                                   );
-                                  const FREE_EXPORT_WATERMARK =
-                                    "\n\n---\nExported from VideoText (Free Plan) · videotext.io\n";
                                   const freeCanDownload =
                                     !isPaidPlan && freeExportsUsed < 2;
                                   const freeUsedAll =
@@ -5848,7 +5885,7 @@ export default function VideoToTranscript(
                                             : ".txt";
                                       const payload = isPaidPlan
                                         ? content
-                                        : content + FREE_EXPORT_WATERMARK;
+                                        : watermarkTextExport(content, format);
                                       if (!isPaidPlan)
                                         setFreeExportsUsed((n) => n + 1);
                                       const blob = new Blob([payload], {

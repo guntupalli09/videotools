@@ -1,16 +1,16 @@
-/** Keep in sync with server/src/utils/watermark.ts */
+/** Keep in sync with client/src/lib/watermark.ts */
 
 export const WATERMARK_LINE1 = 'Fast AI transcription by VideoText.io — Free Plan'
 export const WATERMARK_LINE2 = 'Upgrade to Pro at videotext.io/pricing to remove this watermark'
 export const WATERMARK_SEPARATOR = '=================================================================================='
 export const WATERMARK_UPGRADE_URL = 'videotext.io/pricing'
 
-/** PDF/DOCX footer — full upgrade message. */
-export const WATERMARK_DOC_FOOTER = WATERMARK_LINE2
-
-export const WATERMARK_DOC_HEADER = WATERMARK_LINE1
+/** Shorter line for PDF/DOCX footers and UI copy. */
+export const WATERMARK_DOC_FOOTER = `${WATERMARK_LINE1} · ${WATERMARK_UPGRADE_URL}`
 
 export const WATERMARK_CLIPBOARD_SUFFIX = `\n\n---\n${WATERMARK_LINE1}\n${WATERMARK_LINE2}\n`
+
+export const TEXT_EXTENSIONS = new Set(['.srt', '.vtt', '.txt', '.json', '.csv'])
 
 const SRT_WATERMARK_CUE = [
   '1',
@@ -69,17 +69,6 @@ function maxSrtEndMs(content: string): number {
   return max
 }
 
-function countSrtCues(content: string): number {
-  let count = 0
-  const lines = content.split('\n')
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i]?.trim() ?? ''
-    const next = lines[i + 1]?.trim() ?? ''
-    if (/^\d+$/.test(trimmed) && next.includes('-->')) count++
-  }
-  return count
-}
-
 function trailingSrtWatermarkCue(content: string, startIndex: number): string {
   const endMs = maxSrtEndMs(content)
   const start = formatSrtTime(endMs + 500)
@@ -91,6 +80,17 @@ function trailingSrtWatermarkCue(content: string, startIndex: number): string {
     WATERMARK_LINE2,
     '',
   ].join('\n')
+}
+
+function countSrtCues(content: string): number {
+  let count = 0
+  const lines = content.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i]?.trim() ?? ''
+    const next = lines[i + 1]?.trim() ?? ''
+    if (/^\d+$/.test(trimmed) && next.includes('-->')) count++
+  }
+  return count
 }
 
 export function applyWatermarkToSrt(content: string): string {
@@ -173,62 +173,67 @@ export function applyWatermarkToJson(content: string): string {
   return applyWatermarkToTxt(content)
 }
 
-/** ASS/SSA: comment header + opening dialogue cue with upgrade message. */
-export function applyWatermarkToAss(content: string): string {
-  const header = `; ${WATERMARK_LINE1}\n; ${WATERMARK_LINE2}\n`
-  const cue = `Dialogue: 0,0:00:00.00,0:00:08.00,Default,,0,0,0,,${WATERMARK_LINE1}\\N${WATERMARK_LINE2}\n`
-  const trimmed = content.trimStart()
-  if (trimmed.startsWith('[Script Info]')) {
-    const scriptEnd = trimmed.indexOf('\n\n', trimmed.indexOf('[Script Info]'))
-    const insertAt = scriptEnd >= 0 ? scriptEnd + 2 : trimmed.indexOf('\n') + 1
-    return trimmed.slice(0, insertAt) + header + trimmed.slice(insertAt) + '\n' + cue
-  }
-  return header + trimmed + '\n' + cue
+/** Re-apply even if partially stripped (idempotent enough for enforcement). */
+export function contentLooksWatermarked(content: string): boolean {
+  return content.includes(WATERMARK_LINE1) || content.includes(WATERMARK_UPGRADE_URL)
 }
 
-export type WatermarkTextFormat = 'txt' | 'csv' | 'json' | 'notion' | 'srt' | 'vtt' | 'ass'
-
-export function watermarkTextExport(content: string, format: WatermarkTextFormat): string {
-  switch (format) {
-    case 'srt':
-      return applyWatermarkToSrt(content)
-    case 'vtt':
-      return applyWatermarkToVtt(content)
-    case 'ass':
-      return applyWatermarkToAss(content)
-    case 'json':
-    case 'notion':
-      return applyWatermarkToJson(content)
-    case 'csv':
-      return applyWatermarkToCsv(content)
+/**
+ * Apply watermark to text export content by file extension.
+ */
+export function applyWatermark(content: string, ext: string): string {
+  if (contentLooksWatermarked(content)) {
+    // Still run through to restore full multi-block watermark if user stripped one layer
+  }
+  switch (ext) {
+    case '.srt':
+      return applyWatermarkToSrt(contentLooksWatermarked(content) ? stripKnownWatermarkLayers(content, 'srt') : content)
+    case '.vtt':
+      return applyWatermarkToVtt(contentLooksWatermarked(content) ? stripKnownWatermarkLayers(content, 'vtt') : content)
+    case '.json':
+      return applyWatermarkToJson(stripJsonWatermarkFields(content))
+    case '.csv':
+      return applyWatermarkToCsv(stripCsvWatermarkComments(content))
     default:
-      return applyWatermarkToTxt(content)
+      return applyWatermarkToTxt(stripTxtWatermarkBlocks(content))
   }
 }
 
-export function watermarkClipboardText(text: string): string {
-  return applyWatermarkToTxt(text.trim())
-}
-
-/** Draw prominent diagonal + footer watermark on every PDF page (jsPDF). */
-export function drawPdfFreePlanWatermark(doc: import('jspdf').jsPDF): void {
-  const totalPages = doc.getNumberOfPages()
-  for (let p = 1; p <= totalPages; p++) {
-    doc.setPage(p)
-    const pageW = doc.internal.pageSize.getWidth()
-    const pageH = doc.internal.pageSize.getHeight()
-    doc.setFontSize(28)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(220)
-    doc.text('VideoText Free', pageW / 2, pageH / 2, { angle: 35, align: 'center' })
-    doc.setFontSize(7)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(140)
-    doc.text(WATERMARK_LINE1, 15, pageH - 14)
-    doc.text(WATERMARK_LINE2, 15, pageH - 9)
-    doc.setTextColor(0)
+function stripJsonWatermarkFields(content: string): string {
+  try {
+    const obj = JSON.parse(content) as Record<string, unknown>
+    if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) return content
+    const { _watermark, _upgrade, _watermark_locked, ...rest } = obj
+    void _watermark
+    void _upgrade
+    void _watermark_locked
+    if (typeof rest.fullTranscript === 'string') {
+      rest.fullTranscript = rest.fullTranscript
+        .replace(new RegExp(`\\[${WATERMARK_LINE1.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\][^\\n]*`, 'g'), '')
+        .trim()
+    }
+    return JSON.stringify(rest, null, 2)
+  } catch {
+    return content
   }
 }
 
-/** @deprecated Use watermarkTextExport or WATERMARK_DOC_FOOTER */
-export const FREE_EXPORT_WATERMARK = WATERMARK_CLIPBOARD_SUFFIX
+function stripCsvWatermarkComments(content: string): string {
+  return content
+    .split('\n')
+    .filter((line) => !line.startsWith('#'))
+    .join('\n')
+    .trim()
+}
+
+function stripTxtWatermarkBlocks(content: string): string {
+  const parts = content.split(WATERMARK_SEPARATOR)
+  return parts.filter((p) => !p.includes(WATERMARK_LINE1)).join('\n\n').trim()
+}
+
+function stripKnownWatermarkLayers(content: string, kind: 'srt' | 'vtt'): string {
+  if (kind === 'srt') {
+    return content.replace(/^1\n00:00:00,000 --> 00:00:08,000[\s\S]*?\n\n/, '')
+  }
+  return content.replace(/\n00:00:00\.000 --> 00:00:08\.000[\s\S]*?\n\n/, '\n')
+}

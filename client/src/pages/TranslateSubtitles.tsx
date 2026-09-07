@@ -22,6 +22,7 @@ import { incrementUsage } from '../lib/usage'
 import { uploadFileWithProgress, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError, getAuthToken } from '../lib/api'
 import { isLoggedIn } from '../lib/auth'
 import { isPaidPlan as hasPaidPlan } from '../lib/plans'
+import { watermarkTextExport, watermarkClipboardText, applyWatermarkToVtt, applyWatermarkToAss, drawPdfFreePlanWatermark, WATERMARK_DOC_FOOTER, WATERMARK_DOC_HEADER } from '../lib/watermark'
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl, getApiBase } from '../lib/apiBase'
 import { persistJobId, clearPersistedJobId, getPersistedJobId, getPersistedJobToken } from '../lib/jobSession'
@@ -77,7 +78,7 @@ function srtTimeToAss(t: string): string {
   return stripped.replace(/(\.\d{2})\d*$/, '$1')
 }
 
-function generateStyledVtt(rows: SubtitleRow[], styles: SubStyles, baseFilename: string): void {
+function generateStyledVtt(rows: SubtitleRow[], styles: SubStyles, baseFilename: string, isPaidPlan: boolean): void {
   const { fontFamily, fontSize, color, bgColor, bgOpacity, bold, italic, position } = styles
   const linePos = position === 'top' ? ' line:5%' : position === 'center' ? ' line:50%' : ' line:90%'
   let vtt = `WEBVTT\n\nSTYLE\n::cue {\n`
@@ -91,10 +92,11 @@ function generateStyledVtt(rows: SubtitleRow[], styles: SubStyles, baseFilename:
   for (let i = 0; i < rows.length; i++) {
     vtt += `${i + 1}\n${rows[i].startTime} --> ${rows[i].endTime}${linePos}\n${rows[i].text}\n\n`
   }
+  if (!isPaidPlan) vtt = applyWatermarkToVtt(vtt)
   downloadBlob(vtt, 'text/vtt', `${baseFilename}_styled.vtt`)
 }
 
-function generateAssFile(rows: SubtitleRow[], styles: SubStyles, baseFilename: string): void {
+function generateAssFile(rows: SubtitleRow[], styles: SubStyles, baseFilename: string, isPaidPlan: boolean): void {
   const { fontFamily, fontSize, color, bgColor, bgOpacity, bold, italic, position } = styles
   const alignment = position === 'top' ? 6 : position === 'center' ? 10 : 2
   const primaryColor = hexToAssColor(color)
@@ -111,6 +113,7 @@ function generateAssFile(rows: SubtitleRow[], styles: SubStyles, baseFilename: s
     const text = row.text.replace(/\n/g, '\\N')
     ass += `Dialogue: 0,${start},${end},Default,,0,0,0,,${text}\n`
   }
+  if (!isPaidPlan) ass = applyWatermarkToAss(ass)
   downloadBlob(ass, 'text/plain', `${baseFilename}.ass`)
 }
 
@@ -217,6 +220,27 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
   const [paywallReason, setPaywallReason] = useState<PaywallReason>('FREE_DAILY_LIMIT_REACHED')
   const [showAuthGate, setShowAuthGate] = useState(false)
   const pendingDownloadRef = useRef<(() => void) | null>(null)
+  const pendingCopyRef = useRef<(() => void) | null>(null)
+
+  /** Gate any download action behind authentication. */
+  function requireAuthForDownload(action: () => void) {
+    if (isLoggedIn()) {
+      action()
+    } else {
+      pendingDownloadRef.current = action
+      setShowAuthGate(true)
+    }
+  }
+
+  /** Gate copy-to-clipboard behind authentication. */
+  function requireAuthForCopy(action: () => void) {
+    if (isLoggedIn()) {
+      action()
+    } else {
+      pendingCopyRef.current = action
+      setShowAuthGate(true)
+    }
+  }
 
   // ── Subtitles (job queue) ──────────────────────────────────────────────────
   const [status, setStatus] = useState<'idle' | 'processing' | 'completed' | 'failed'>('idle')
@@ -250,6 +274,18 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
   const [docTranslated, setDocTranslated] = useState<string | null>(null)
   const [docLoading, setDocLoading] = useState(false)
 
+  useEffect(() => {
+    if (status === 'completed' && !isLoggedIn()) {
+      setShowAuthGate(true)
+    }
+  }, [status])
+
+  useEffect(() => {
+    if (docTranslated && !isLoggedIn()) {
+      setShowAuthGate(true)
+    }
+  }, [docTranslated])
+
   const plan = (localStorage.getItem('plan') || 'free').toLowerCase()
   const isPaidPlan = hasPaidPlan(plan)
   const canEdit = hasPaidPlan(plan)
@@ -266,16 +302,6 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
     )
 
   const subtitleBaseName = (result?.fileName ?? fallbackTranslatedName('.srt')).replace(/\.\w+$/, '')
-
-  /** Gate any download action behind authentication. */
-  function requireAuthForDownload(action: () => void) {
-    if (isLoggedIn()) {
-      action()
-    } else {
-      pendingDownloadRef.current = action
-      setShowAuthGate(true)
-    }
-  }
 
   useEffect(() => {
     const fromQuery = searchParams.get('to')
@@ -296,6 +322,11 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
         const transition = getJobLifecycleTransition(jobStatus)
         if (transition !== 'completed') return
         setStatus('completed')
+        if (jobStatus.requiresAuth || !isLoggedIn()) {
+          setShowAuthGate(true)
+          setResult(jobStatus.result?.fileName ? { downloadUrl: '', fileName: jobStatus.result.fileName } : { downloadUrl: '' })
+          return
+        }
         setResult(jobStatus.result ?? null)
         if (jobStatus.result?.downloadUrl) {
           try {
@@ -361,12 +392,27 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
     }
   }
 
-  const downloadDocAsDocx = async (text: string, filename: string) => {
+  const downloadDocAsDocx = async (text: string, filename: string, isPaid: boolean) => {
     const { Document, Paragraph, TextRun, Packer } = await import('docx')
-    const paragraphs = text.split('\n').map((line) =>
-      new Paragraph({ children: [new TextRun({ text: line || ' ' })] })
+    const children = []
+    if (!isPaid) {
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: WATERMARK_DOC_HEADER, bold: true, color: '666666', size: 20 })],
+          spacing: { after: 80 },
+        }),
+        new Paragraph({
+          children: [new TextRun({ text: WATERMARK_DOC_FOOTER, italics: true, color: '888888', size: 18 })],
+          spacing: { after: 200 },
+        }),
+      )
+    }
+    children.push(
+      ...text.split('\n').map((line) =>
+        new Paragraph({ children: [new TextRun({ text: line || ' ' })] }),
+      ),
     )
-    const doc = new Document({ sections: [{ children: paragraphs }] })
+    const doc = new Document({ sections: [{ children }] })
     const blob = await Packer.toBlob(doc)
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -376,16 +422,27 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
     URL.revokeObjectURL(url)
   }
 
-  const downloadDocAsPdf = async (text: string, filename: string) => {
+  const downloadDocAsPdf = async (text: string, filename: string, isPaid: boolean) => {
     const { default: jsPDF } = await import('jspdf')
     const doc = new jsPDF()
-    const lines = doc.splitTextToSize(text, 180) as string[]
     let y = 15
+    if (!isPaid) {
+      doc.setFontSize(9)
+      doc.setTextColor(120)
+      doc.text(WATERMARK_DOC_HEADER, 15, y)
+      y += 6
+      doc.text(WATERMARK_DOC_FOOTER, 15, y)
+      y += 12
+      doc.setTextColor(0)
+      doc.setFontSize(11)
+    }
+    const lines = doc.splitTextToSize(text, 180) as string[]
     for (const line of lines) {
       if (y > 280) { doc.addPage(); y = 15 }
       doc.text(line, 15, y)
       y += 6
     }
+    if (!isPaid) drawPdfFreePlanWatermark(doc)
     doc.save(filename)
   }
 
@@ -465,24 +522,32 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
             const started = processingStartedAtRef.current ?? Date.now()
             setLastProcessingMs(Date.now() - started)
             setStatus('completed')
-            setResult(jobStatus.result ?? null)
             trackAppEvent('transcription_completed', { toolId: 'translate-subtitles' })
 
-            if (jobStatus.result?.downloadUrl) {
-              try {
-                const res = await fetch(getAbsoluteDownloadUrl(jobStatus.result.downloadUrl))
-                const txt = await res.text()
-                const isTxt = (jobStatus.result.fileName ?? '').toLowerCase().endsWith('.txt')
-                if (isTxt) {
-                  setPlainTextResult(txt)
-                } else {
-                  setSubtitleRows(parseSubtitlesToRows(txt))
+            if (jobStatus.requiresAuth || !isLoggedIn()) {
+              setShowAuthGate(true)
+              setResult(jobStatus.result?.fileName ? { downloadUrl: '', fileName: jobStatus.result.fileName } : { downloadUrl: '' })
+            } else {
+              setResult(jobStatus.result ?? null)
+              if (jobStatus.result?.downloadUrl) {
+                try {
+                  const token = getAuthToken()
+                  const res = await fetch(getAbsoluteDownloadUrl(jobStatus.result.downloadUrl), {
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                  })
+                  const txt = await res.text()
+                  const isTxt = (jobStatus.result.fileName ?? '').toLowerCase().endsWith('.txt')
+                  if (isTxt) {
+                    setPlainTextResult(txt)
+                  } else {
+                    setSubtitleRows(parseSubtitlesToRows(txt))
+                  }
+                } catch {
+                  // ignore
                 }
-              } catch {
-                // ignore
               }
+              incrementUsage('translate-subtitles')
             }
-            incrementUsage('translate-subtitles')
           } else if (transition === 'failed') {
             clearInterval(pollIntervalRef.current)
             setStatus('failed')
@@ -521,12 +586,15 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
   const getDownloadUrl = () => result?.downloadUrl ? getAbsoluteDownloadUrl(result.downloadUrl) : ''
 
   const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopied(true)
-      toast.success('Copied!')
-      setTimeout(() => setCopied(false), 2000)
-    } catch { toast.error('Copy failed') }
+    requireAuthForCopy(async () => {
+      try {
+        const payload = isPaidPlan ? text : watermarkClipboardText(text)
+        await navigator.clipboard.writeText(payload)
+        setCopied(true)
+        toast.success(isPaidPlan ? 'Copied!' : 'Copied (with watermark)')
+        setTimeout(() => setCopied(false), 2000)
+      } catch { toast.error('Copy failed') }
+    })
   }
 
   const switchKind = (k: InputKind) => {
@@ -677,13 +745,13 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
       {/* Export buttons */}
       <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
         <button
-          onClick={() => requireAuthForDownload(() => generateStyledVtt(subtitleRows, subStyles, subtitleBaseName))}
+          onClick={() => requireAuthForDownload(() => generateStyledVtt(subtitleRows, subStyles, subtitleBaseName, isPaidPlan))}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
         >
           <Download className="w-3.5 h-3.5" /> Styled VTT
         </button>
         <button
-          onClick={() => requireAuthForDownload(() => generateAssFile(subtitleRows, subStyles, subtitleBaseName))}
+          onClick={() => requireAuthForDownload(() => generateAssFile(subtitleRows, subStyles, subtitleBaseName, isPaidPlan))}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
         >
           <Download className="w-3.5 h-3.5" /> ASS / SSA
@@ -821,8 +889,37 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
               </div>
             )}
 
-            {/* Completed */}
-            {status === 'completed' && result && (
+            {/* Completed — guests see signup only */}
+            {status === 'completed' && result && !isLoggedIn() && (
+              <div className="rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 overflow-hidden select-none">
+                <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                    <span className="text-sm font-semibold text-gray-800 dark:text-white">Translation complete!</span>
+                    {lastProcessingMs != null && (
+                      <span className="text-xs text-gray-400">· {(lastProcessingMs / 1000).toFixed(1)}s</span>
+                    )}
+                  </div>
+                </div>
+                <div className="px-5 py-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Create a free account to view, copy, and download your translation.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAuthGate(true)}
+                      className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
+                    >
+                      Create free account
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Completed — full result for signed-in users */}
+            {status === 'completed' && result && isLoggedIn() && (
               <div className="space-y-6">
                 <TranslateResult
                   title="Translation complete!"
@@ -835,7 +932,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                           if (freeExportsUsed >= 2) { toast('You\'ve used your 2 free downloads. Upgrade for more.'); return }
                           try {
                             const token = getAuthToken()
-                            const res = await fetch(getDownloadUrl() + '?wm=1', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+                            const res = await fetch(getDownloadUrl(), { headers: token ? { Authorization: `Bearer ${token}` } : {} })
                             const blob = await res.blob()
                             const a = document.createElement('a')
                             a.href = URL.createObjectURL(blob)
@@ -915,7 +1012,8 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                       <button
                         disabled={!canEdit}
                         onClick={() => {
-                          const content = rowsToSrt(subtitleRows)
+                          let content = rowsToSrt(subtitleRows)
+                          if (!isPaidPlan) content = watermarkTextExport(content, 'srt')
                           downloadBlob(content, 'text/plain', (result.fileName || fallbackTranslatedName('.srt')).replace(/\.vtt$/i, '.srt'))
                         }}
                         className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
@@ -1035,8 +1133,24 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
               </div>
             )}
 
-            {/* Result */}
-            {docTranslated && (
+            {/* Result — signed-in only */}
+            {docTranslated && !isLoggedIn() && (
+              <div className="rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 text-center space-y-4">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">Translation complete!</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Create a free account to view, copy, and download your translated document.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowAuthGate(true)}
+                  className="w-full max-w-xs mx-auto py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
+                >
+                  Create free account
+                </button>
+              </div>
+            )}
+
+            {docTranslated && isLoggedIn() && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
@@ -1056,19 +1170,23 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => requireAuthForDownload(() => downloadBlob(docTranslated, 'text/plain', `${docBaseName}.txt`))}
+                    onClick={() => requireAuthForDownload(() => downloadBlob(
+                      isPaidPlan ? docTranslated : watermarkTextExport(docTranslated, 'txt'),
+                      'text/plain',
+                      `${docBaseName}.txt`,
+                    ))}
                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                   >
                     <Download className="w-3.5 h-3.5" /> Download TXT
                   </button>
                   <button
-                    onClick={() => requireAuthForDownload(() => downloadDocAsDocx(docTranslated, `${docBaseName}.docx`))}
+                    onClick={() => requireAuthForDownload(() => downloadDocAsDocx(docTranslated, `${docBaseName}.docx`, isPaidPlan))}
                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                   >
                     <Download className="w-3.5 h-3.5" /> Download DOCX
                   </button>
                   <button
-                    onClick={() => requireAuthForDownload(() => downloadDocAsPdf(docTranslated, `${docBaseName}.pdf`))}
+                    onClick={() => requireAuthForDownload(() => downloadDocAsPdf(docTranslated, `${docBaseName}.pdf`, isPaidPlan))}
                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                   >
                     <Download className="w-3.5 h-3.5" /> Download PDF
@@ -1096,13 +1214,16 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
 
       <JobAuthGateModal
         isOpen={showAuthGate}
-        onClose={() => { setShowAuthGate(false); pendingDownloadRef.current = null }}
-        dismissable
-        jobDescription="Sign up to download your translation"
+        onClose={() => { setShowAuthGate(false); pendingDownloadRef.current = null; pendingCopyRef.current = null }}
+        dismissable={false}
+        jobDescription="Sign up to view and download your translation"
         onAuthSuccess={() => {
           setShowAuthGate(false)
           pendingDownloadRef.current?.()
           pendingDownloadRef.current = null
+          pendingCopyRef.current?.()
+          pendingCopyRef.current = null
+          window.location.reload()
         }}
       />
 

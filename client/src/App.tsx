@@ -624,7 +624,7 @@ function App() {
                 },
                 {
                   q: 'Can I transcribe video online for free?',
-                  a: 'Yes. The free plan includes 3 imports per month, no credit card, and no watermark. Paid plans are Basic $19, Pro $49, and Agency $129 per month.',
+                  a: 'Yes. The free plan includes 3 imports per month, no credit card, with a watermark on exports. Upgrade for watermark-free downloads. Paid plans are Basic $19, Pro $49, and Agency $129 per month.',
                 },
                 {
                   q: 'How long does it take to transcribe a video?',

@@ -43,6 +43,7 @@ import PinnedAudioPlayerBar from '../components/transcript/PinnedAudioPlayerBar'
 import { LANGUAGES } from '../lib/languages'
 import { exportFileStem, joinExportFilename, targetLangFileSlug } from '../lib/exportFileNames'
 import { trackEvent } from '../lib/analytics'
+import { applyWatermarkToTxt, WATERMARK_CLIPBOARD_SUFFIX } from '../lib/watermark'
 import toast from 'react-hot-toast'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -705,9 +706,13 @@ export default function VoiceRecorder() {
 
   // ── Actions ────────────────────────────────────────────────────────────────
   async function copyTranscript() {
+    if (!isLoggedIn()) {
+      setAuthModalMode('signup-combo')
+      setShowAuthModal(true)
+      return
+    }
     const displayText = transcriptView === 'translated' && translatedText ? translatedText : transcript
-    const WM = '\n\n---\nTranscribed by VideoText.io (Free Plan) · videotext.io/pricing'
-    const textToCopy = isPaidPlan ? displayText : displayText + WM
+    const textToCopy = isPaidPlan ? displayText : displayText + WATERMARK_CLIPBOARD_SUFFIX
     try {
       await navigator.clipboard.writeText(textToCopy)
       setCopied(true)
@@ -746,12 +751,7 @@ export default function VoiceRecorder() {
   function downloadTranscript(which: 'original' | 'translated' = 'original') {
     const useTranslated = which === 'translated' && translatedText
     const baseText = useTranslated ? translatedText! : transcript
-    const WM_SEP   = '=================================================================================='
-    const WM_LINE1 = 'Fast AI transcription by VideoText.io — Free Plan'
-    const WM_LINE2 = '⚠  Remove this watermark with Pro: videotext.io/pricing  |  $7.99/mo'
-    const content = isPaidPlan
-      ? baseText
-      : `${WM_SEP}\n${WM_LINE1}\n${WM_LINE2}\n${WM_SEP}\n\n${baseText}\n\n${WM_SEP}\n${WM_LINE1}\n${WM_LINE2}\n${WM_SEP}`
+    const content = isPaidPlan ? baseText : applyWatermarkToTxt(baseText)
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -1060,8 +1060,8 @@ export default function VoiceRecorder() {
                   </div>
                 )}
 
-                {/* Partial transcript preview */}
-                {phase === 'processing' && partial && (
+                {/* Partial transcript preview — signed-in only */}
+                {phase === 'processing' && partial && isLoggedIn() && (
                   <motion.div
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1096,14 +1096,9 @@ export default function VoiceRecorder() {
                       <span className="text-xs text-gray-400">{wordCount.toLocaleString()} words · {formatTime(recSecs)} recorded</span>
                     </div>
                     <div className="px-5 py-4">
-                      {transcript && (
-                        <div className="relative overflow-hidden mb-4" style={{ maxHeight: '8rem' }}>
-                          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                            {transcript.slice(0, Math.max(300, Math.ceil(transcript.length * 0.25)))}
-                          </p>
-                          <div className="absolute bottom-0 left-0 right-0 h-12 pointer-events-none bg-gradient-to-t from-white dark:from-gray-900 to-transparent" />
-                        </div>
-                      )}
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        Create a free account to view, copy, and download your transcript.
+                      </p>
                       <p className="text-[11px] text-gray-400 mb-2 font-medium">Sign up to unlock:</p>
                       <div className="flex flex-wrap gap-1.5 mb-4">
                         {(['Full transcript', 'Download TXT', 'Copy text'] as const).map((feat) => (
