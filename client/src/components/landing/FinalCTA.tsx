@@ -4,7 +4,7 @@ import { ChevronRight, Zap, Shield, Globe, CheckCircle2 } from 'lucide-react';
 
 export function FinalCTA() {
   return (
-    <section className="relative py-16 overflow-hidden bg-gray-950">
+    <section className="relative py-section-lg overflow-hidden bg-gray-950">
       {/* Background */}
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-950/80 via-gray-950 to-blue-950/80" />
@@ -30,13 +30,13 @@ export function FinalCTA() {
           transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
         >
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.07] border border-white/[0.1] mb-8">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.07] border border-white/[0.1] mb-component">
             <motion.span
               className="w-1.5 h-1.5 rounded-full bg-blue-600"
               animate={{ opacity: [1, 0.3, 1] }}
               transition={{ duration: 1.4, repeat: Infinity }}
             />
-            <span className="text-[12px] text-white/60 font-medium">
+            <span className="text-sm text-white/60 font-medium">
               Whisper AI · 98.5% accurate · Zero data retention
             </span>
           </div>
@@ -58,18 +58,18 @@ export function FinalCTA() {
           <motion.div
             whileHover={{ scale: 1.03, y: -2 }}
             whileTap={{ scale: 0.97 }}
-            className="inline-block mb-8"
+            className="inline-block mb-component"
           >
             <Link
               to="/video-to-transcript"
-              className="group inline-flex items-center gap-2.5 bg-white text-gray-900 px-10 py-4 rounded-xl font-extrabold text-[16px] shadow-2xl shadow-white/10 hover:shadow-white/25 transition-all"
+              className="group inline-flex items-center gap-2.5 bg-white text-gray-900 px-10 py-4 rounded-xl font-extrabold text-base shadow-2xl shadow-white/10 hover:shadow-white/25 transition-all"
             >
               Start Free — No Card Needed
               <ChevronRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
           </motion.div>
 
-          <p className="text-sm text-white/45 max-w-lg mx-auto mb-8">
+          <p className="text-sm text-white/45 max-w-lg mx-auto mb-component">
             <Link
               to="/guideline-format"
               className="font-semibold text-blue-300 hover:text-blue-200 underline-offset-4 hover:underline"
@@ -79,7 +79,7 @@ export function FinalCTA() {
           </p>
 
           {/* Trust signals */}
-          <div className="flex flex-wrap items-center justify-center gap-5 text-[13px] text-white/35">
+          <div className="flex flex-wrap items-center justify-center gap-5 text-sm text-white/35">
             <div className="flex items-center gap-1.5">
               <Shield className="w-3.5 h-3.5 text-emerald-500" />
               Files deleted immediately

@@ -75,7 +75,7 @@ const FEATURE_COMPARISON = [
 function BoolCell({ val }: { val: boolean | string }) {
   if (typeof val === 'string') {
     return (
-      <span className="text-[12px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-600/10 px-2 py-0.5 rounded-full">
+      <span className="text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-600/10 px-2 py-0.5 rounded-full">
         {val}
       </span>
     );
@@ -91,8 +91,8 @@ export function CompetitorSection() {
   const speedMultiple = Math.round(COMPETITORS[0].slowMinutes / VIDEOTEXT_MINUTES);
 
   return (
-    <section className="py-12 bg-gray-50 dark:bg-gray-900 transition-colors duration-500 overflow-hidden">
-      <div className="max-w-6xl mx-auto px-6">
+    <section className="py-section bg-gray-50 dark:bg-gray-900 transition-colors duration-500 overflow-hidden">
+      <div className="max-w-5xl mx-auto px-6">
 
         {/* Header */}
         <motion.div
@@ -100,11 +100,11 @@ export function CompetitorSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-section"
         >
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-50 dark:bg-red-500/10 border border-red-200/60 dark:border-red-500/20 mb-6">
             <TrendingDown className="w-3.5 h-3.5 text-red-500" />
-            <span className="text-[12px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wide">
+            <span className="text-sm font-bold text-red-600 dark:text-red-400 uppercase tracking-wide">
               Speed comparison
             </span>
           </div>
@@ -135,7 +135,7 @@ export function CompetitorSection() {
             </span>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-component-sm">
             {COMPARISON_BARS.map((bar, i) => {
               const pct = (bar.minutes / MAX_MINUTES) * 100;
               return (
@@ -178,7 +178,7 @@ export function CompetitorSection() {
                       {bar.minutes} min
                     </span>
                     {bar.isUs && (
-                      <span className="text-[9px] font-bold bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                      <span className="text-xs font-bold bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded-full whitespace-nowrap">
                         {speedMultiple}× faster
                       </span>
                     )}
@@ -204,7 +204,7 @@ export function CompetitorSection() {
                 <p className="text-sm font-bold text-gray-800 dark:text-white/80">
                   Save {COMPETITORS[0].slowMinutes - VIDEOTEXT_MINUTES}+ minutes per video
                 </p>
-                <p className="text-[12px] text-gray-500 dark:text-white/40">
+                <p className="text-sm text-gray-500 dark:text-white/40">
                   That's {Math.round(((COMPETITORS[0].slowMinutes - VIDEOTEXT_MINUTES) / COMPETITORS[0].slowMinutes) * 100)}% faster — on every single job
                 </p>
               </div>
@@ -234,13 +234,13 @@ export function CompetitorSection() {
             <div className="grid grid-cols-5 gap-2 mb-3 px-4">
               <div />
               <div className="text-center">
-                <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wide bg-blue-50 dark:bg-blue-600/10 px-2.5 py-1 rounded-full">
+                <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wide bg-blue-50 dark:bg-blue-600/10 px-2.5 py-1 rounded-full">
                   VideoText ✓
                 </span>
               </div>
               {COMPETITORS.map((c) => (
                 <div key={c.name} className="text-center">
-                  <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">
+                  <span className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">
                     {c.name}
                   </span>
                 </div>
@@ -267,7 +267,7 @@ export function CompetitorSection() {
                   <div className="text-sm text-gray-700 dark:text-white/60 font-medium">
                     {row.feature}
                     {row.highlight && (
-                      <span className="ml-2 text-[9px] bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-full font-bold">
+                      <span className="ml-2 text-xs bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-full font-bold">
                         KEY
                       </span>
                     )}

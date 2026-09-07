@@ -236,7 +236,7 @@ function SpotlightCard({
                 <Icon className="h-4 w-4 text-white" />
               </div>
               <span
-                className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${tool.badgeColor}`}
+                className={`text-xs font-bold px-2.5 py-1 rounded-full ${tool.badgeColor}`}
               >
                 {tool.badge}
               </span>
@@ -247,16 +247,16 @@ function SpotlightCard({
               {tool.name}
             </h3>
             <p
-              className={`mb-3 text-[13px] font-medium bg-gradient-to-r ${tool.gradient} bg-clip-text text-transparent`}
+              className={`mb-3 text-sm font-medium bg-gradient-to-r ${tool.gradient} bg-clip-text text-transparent`}
             >
               {tool.tagline}
             </p>
-            <p className="mb-4 text-[13px] leading-[1.55] text-gray-500 transition-colors duration-500 dark:text-white/45">
+            <p className="mb-4 text-sm leading-[1.55] text-gray-500 transition-colors duration-500 dark:text-white/45">
               {tool.description}
             </p>
 
             {/* Bullet points */}
-            <ul className="space-y-2 mb-6">
+            <ul className="space-y-micro mb-6">
               {tool.bullets.map((b) => (
                 <li
                   key={b}
@@ -272,17 +272,17 @@ function SpotlightCard({
             <div className="rounded-xl border border-gray-100 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02] p-3.5 mb-6 transition-colors duration-500">
               <div className="flex items-center gap-1.5 mb-2.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                <span className="text-[9px] text-emerald-600 dark:text-emerald-400/80 font-semibold uppercase tracking-wide">
+                <span className="text-xs text-emerald-600 dark:text-emerald-400/80 font-semibold uppercase tracking-wide">
                   Sample output
                 </span>
               </div>
               <div className="space-y-1.5">
                 {tool.outputPreview.map((line) => (
                   <div key={line.time} className="flex gap-2.5 items-start">
-                    <span className="text-[9px] font-mono text-blue-400/50 shrink-0 w-8 pt-0.5">
+                    <span className="text-xs font-mono text-blue-400/50 shrink-0 w-8 pt-0.5">
                       {line.time}
                     </span>
-                    <p className="text-[11px] text-gray-600 dark:text-white/50 leading-snug transition-colors duration-500">
+                    <p className="text-xs text-gray-600 dark:text-white/50 leading-snug transition-colors duration-500">
                       {line.text}
                     </p>
                   </div>
@@ -330,14 +330,14 @@ function HeroSpotlightCard({ tool }: { tool: (typeof SPOTLIGHT_TOOLS)[0] }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:gap-8 p-6 md:p-8">
             {/* Left: info */}
             <div>
-              <div className="flex items-start justify-between mb-5">
+              <div className="flex items-start justify-between mb-component-sm">
                 <div
                   className={`w-11 h-11 rounded-xl bg-gradient-to-br ${tool.gradient} flex items-center justify-center shadow-lg`}
                 >
                   <Icon className="h-5 w-5 text-white" />
                 </div>
                 <span
-                  className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${tool.badgeColor}`}
+                  className={`text-xs font-bold px-2.5 py-1 rounded-full ${tool.badgeColor}`}
                 >
                   {tool.badge}
                 </span>
@@ -346,14 +346,14 @@ function HeroSpotlightCard({ tool }: { tool: (typeof SPOTLIGHT_TOOLS)[0] }) {
                 {tool.name}
               </h3>
               <p
-                className={`text-[15px] font-medium bg-gradient-to-r ${tool.gradient} bg-clip-text text-transparent mb-3`}
+                className={`text-base font-medium bg-gradient-to-r ${tool.gradient} bg-clip-text text-transparent mb-3`}
               >
                 {tool.tagline}
               </p>
-              <p className="text-[14px] leading-relaxed text-gray-500 dark:text-white/45 mb-5 transition-colors">
+              <p className="text-sm leading-relaxed text-gray-500 dark:text-white/45 mb-component-sm transition-colors">
                 {tool.description}
               </p>
-              <ul className="space-y-2.5 mb-6">
+              <ul className="space-y-micro mb-6">
                 {tool.bullets.map((b) => (
                   <li
                     key={b}
@@ -375,15 +375,15 @@ function HeroSpotlightCard({ tool }: { tool: (typeof SPOTLIGHT_TOOLS)[0] }) {
               <div className="rounded-xl border border-gray-100 dark:border-white/[0.06] bg-gray-50 dark:bg-white/[0.025] p-4 transition-colors">
                 <div className="flex items-center gap-1.5 mb-3">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  <span className="text-[9px] text-emerald-600 dark:text-emerald-400/80 font-semibold uppercase tracking-wide">
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400/80 font-semibold uppercase tracking-wide">
                     Sample output
                   </span>
                 </div>
-                <div className="space-y-2.5">
+                <div className="space-y-micro">
                   {tool.outputPreview.map((line) => (
                     <div key={line.time} className="flex gap-3 items-start">
                       <span
-                        className={`text-[9px] font-mono font-bold shrink-0 w-10 pt-0.5 ${
+                        className={`text-xs font-mono font-bold shrink-0 w-10 pt-0.5 ${
                           line.time === "FAIL"
                             ? "text-red-400"
                             : line.time === "FIX"
@@ -395,7 +395,7 @@ function HeroSpotlightCard({ tool }: { tool: (typeof SPOTLIGHT_TOOLS)[0] }) {
                       >
                         {line.time}
                       </span>
-                      <p className="text-[12px] text-gray-600 dark:text-white/50 leading-snug transition-colors">
+                      <p className="text-sm text-gray-600 dark:text-white/50 leading-snug transition-colors">
                         {line.text}
                       </p>
                     </div>
@@ -444,10 +444,10 @@ function SecondaryCard({
           <h3 className="mb-1.5 text-sm font-medium text-gray-900 transition-colors group-hover:text-blue-700 dark:text-white dark:group-hover:text-blue-400">
             {tool.name}
           </h3>
-          <p className="text-[13px] text-gray-500 dark:text-white/40 leading-relaxed mb-3 transition-colors duration-500">
+          <p className="text-sm text-gray-500 dark:text-white/40 leading-relaxed mb-3 transition-colors duration-500">
             {tool.description}
           </p>
-          <div className="flex items-center gap-1 text-[12px] font-medium text-gray-500 transition-all group-hover:gap-2 group-hover:text-gray-900 dark:text-white/45 dark:group-hover:text-white">
+          <div className="flex items-center gap-1 text-sm font-medium text-gray-500 transition-all group-hover:gap-2 group-hover:text-gray-900 dark:text-white/45 dark:group-hover:text-white">
             Try now <ChevronRight className="w-3 h-3" />
           </div>
         </motion.div>
@@ -460,9 +460,9 @@ export function Features() {
   return (
     <section
       id="tools"
-      className="py-12 bg-white dark:bg-gray-950 transition-colors duration-500"
+      className="py-section bg-white dark:bg-gray-950 transition-colors duration-500"
     >
-      <div className="max-w-7xl mx-auto px-6">
+      <div className="max-w-5xl mx-auto px-6">
         {/* Section header */}
         <motion.div
           initial={{ opacity: 0, y: 22 }}
@@ -491,7 +491,7 @@ export function Features() {
         <HeroSpotlightCard tool={SPOTLIGHT_TOOLS[0]} />
 
         {/* Secondary spotlight tools — 2-col grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-component">
           {SPOTLIGHT_TOOLS.slice(1).map((tool, i) => (
             <SpotlightCard key={tool.id} tool={tool} index={i + 1} />
           ))}

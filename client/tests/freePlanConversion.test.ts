@@ -122,6 +122,39 @@ test('P4 audit fixes: unified guest headers, exports panel, checkout links, proc
   assert.match(guideline, /<ResultHeader embedded title="Your formatted transcript is ready"/)
 })
 
+test('home page: checkout-first pricing, type scale, collapsed SEO grids', () => {
+  const home = readFileSync(resolve(process.cwd(), 'src/pages/Home.tsx'), 'utf8')
+  assert.match(home, /startCheckout/)
+  assert.match(home, /useProPricing/)
+  assert.match(home, /pro_cta_clicked/)
+  assert.match(home, /pricing_page_view/)
+  assert.doesNotMatch(home, /to="\/pricing"[^>]*>[\s\S]*Unlock Pro/)
+  assert.doesNotMatch(home, /\$49/)
+  assert.match(home, /<CompetitorSection/)
+  assert.match(home, /<details/)
+
+  const landingFiles = [
+    'src/pages/Home.tsx',
+    'src/components/figma/Hero.tsx',
+    'src/components/figma/Features.tsx',
+    'src/components/figma/HowItWorks.tsx',
+    'src/components/landing/FAQ.tsx',
+    'src/components/landing/FinalCTA.tsx',
+    'src/components/landing/FoundingTeamCTA.tsx',
+    'src/components/landing/UseCases.tsx',
+    'src/components/landing/Testimonials.tsx',
+    'src/components/landing/CompetitorSection.tsx',
+  ]
+  for (const file of landingFiles) {
+    const source = readFileSync(resolve(process.cwd(), file), 'utf8')
+    assert.doesNotMatch(source, /text-\[(7|9|10|11|12|13|14|15|16|17)px\]/, file)
+  }
+
+  const useCases = readFileSync(resolve(process.cwd(), 'src/components/landing/UseCases.tsx'), 'utf8')
+  assert.match(useCases, /podcast-transcription-tool/)
+  assert.doesNotMatch(useCases, /\/podcast-transcription'/)
+})
+
 test('PaywallModal owns its impression and has no competing navigation callback', () => {
   const modal = readFileSync(resolve(process.cwd(), 'src/components/PaywallModal.tsx'), 'utf8')
   assert.equal((modal.match(/trackEvent\('paywall_shown'/g) || []).length, 1)

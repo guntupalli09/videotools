@@ -32,7 +32,7 @@ const USE_CASES = [
       'Batch entire seasons — download as ZIP',
     ],
     cta: 'Try podcast transcription',
-    href: '/podcast-transcription',
+    href: '/podcast-transcription-tool',
     gradient: 'from-blue-600 to-blue-700',
     bgGlow: 'from-blue-600/10 via-transparent to-transparent dark:from-blue-600/5',
     borderHover: 'hover:border-blue-200 dark:hover:border-blue-500/20',
@@ -59,7 +59,7 @@ const USE_CASES = [
 export function UseCases() {
   return (
     <section className="py-12 bg-gray-50 dark:bg-gray-900 transition-colors duration-500">
-      <div className="max-w-7xl mx-auto px-6">
+      <div className="max-w-5xl mx-auto px-6">
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -71,7 +71,7 @@ export function UseCases() {
           <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-3 transition-colors duration-500">
             Built for your workflow
           </p>
-          <h2 className="text-4xl md:text-5xl font-medium text-gray-900 dark:text-white mb-4 transition-colors duration-500">
+          <h2 className="tool-title mb-4 text-4xl text-gray-900 transition-colors duration-500 md:text-5xl dark:text-white">
             Built for every professional
             <span className="block text-gray-400 dark:text-white/30 transition-colors duration-500">transcript workflow.</span>
           </h2>
@@ -99,7 +99,7 @@ export function UseCases() {
                   <div className="p-6 flex flex-col h-full">
                     {/* Label + icon */}
                     <div className="flex items-center justify-between mb-5">
-                      <span className="text-[11px] font-bold text-gray-500 dark:text-white/35 uppercase tracking-widest transition-colors duration-500">
+                      <span className="text-xs font-bold uppercase tracking-widest text-gray-500 transition-colors duration-500 dark:text-white/35">
                         {uc.label}
                       </span>
                       <div className={`w-9 h-9 rounded-xl ${uc.iconBg} flex items-center justify-center shadow-md`}>

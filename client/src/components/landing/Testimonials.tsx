@@ -58,15 +58,15 @@ function StarRating({ count = 5 }: { count?: number }) {
 
 export function Testimonials() {
   return (
-    <section className="py-12 bg-white dark:bg-gray-950 transition-colors duration-500">
-      <div className="max-w-7xl mx-auto px-6">
+    <section className="py-section bg-white dark:bg-gray-950 transition-colors duration-500">
+      <div className="max-w-5xl mx-auto px-6">
 
         <motion.div
           initial={{ opacity: 0, y: 22 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-section"
         >
           <p className="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-3 transition-colors duration-500">
             Real results
@@ -100,19 +100,19 @@ export function Testimonials() {
                   <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r ${t.accentColor}`} />
 
                   {/* Stars + platform */}
-                  <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center justify-between mb-component-sm">
                     <StarRating />
                     <Platform className={`w-4 h-4 ${t.platformColor}`} />
                   </div>
 
                   {/* Quote */}
-                  <blockquote className="text-[15px] text-gray-700 dark:text-white/65 leading-relaxed flex-1 mb-5 transition-colors duration-500">
+                  <blockquote className="text-base text-gray-700 dark:text-white/65 leading-relaxed flex-1 mb-component-sm transition-colors duration-500">
                     "{t.quote}"
                   </blockquote>
 
                   {/* Result badge */}
                   <div className="mb-4">
-                    <span className={`inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-full ${t.resultBg}`}>
+                    <span className={`inline-flex items-center text-xs font-bold px-2.5 py-1 rounded-full ${t.resultBg}`}>
                       {t.result}
                     </span>
                   </div>
@@ -130,7 +130,7 @@ export function Testimonials() {
                       <p className="text-sm font-bold text-gray-900 dark:text-white transition-colors duration-500">
                         {t.name}
                       </p>
-                      <p className="text-[12px] text-gray-500 dark:text-white/35 truncate transition-colors duration-500">
+                      <p className="text-sm text-gray-500 dark:text-white/35 truncate transition-colors duration-500">
                         {t.role} · {t.meta}
                       </p>
                     </div>
