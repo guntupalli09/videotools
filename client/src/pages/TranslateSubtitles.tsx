@@ -22,7 +22,7 @@ import { incrementUsage } from '../lib/usage'
 import { uploadFileWithProgress, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError, getAuthToken } from '../lib/api'
 import { isLoggedIn } from '../lib/auth'
 import { isPaidPlan as hasPaidPlan } from '../lib/plans'
-import { watermarkTextExport } from '../lib/watermark'
+import { watermarkTextExport, watermarkClipboardText } from '../lib/watermark'
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl, getApiBase } from '../lib/apiBase'
 import { persistJobId, clearPersistedJobId, getPersistedJobId, getPersistedJobToken } from '../lib/jobSession'
@@ -523,9 +523,10 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
 
   const copyToClipboard = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(text)
+      const payload = isPaidPlan ? text : watermarkClipboardText(text)
+      await navigator.clipboard.writeText(payload)
       setCopied(true)
-      toast.success('Copied!')
+      toast.success(isPaidPlan ? 'Copied!' : 'Copied (with watermark)')
       setTimeout(() => setCopied(false), 2000)
     } catch { toast.error('Copy failed') }
   }

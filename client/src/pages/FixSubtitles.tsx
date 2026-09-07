@@ -11,7 +11,7 @@ import CoreToolSeoDepth from '../components/CoreToolSeoDepth'
 import FreePlanNudge from '../components/FreePlanNudge'
 import PaywallModal, { type PaywallReason } from '../components/PaywallModal'
 import { isPaidPlan } from '../lib/plans'
-import { WATERMARK_DOC_FOOTER, watermarkTextExport } from '../lib/watermark'
+import { WATERMARK_DOC_FOOTER, WATERMARK_DOC_HEADER, watermarkTextExport, drawPdfFreePlanWatermark } from '../lib/watermark'
 import SamplesModule from '../components/SamplesModule'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import { ToolLayout } from '../components/figma/ToolLayout'
@@ -258,6 +258,8 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
       y += lineH * bodyLines.length + lineH * 0.8
     }
 
+    if (watermark) drawPdfFreePlanWatermark(doc)
+
     doc.save(filename)
   }
 
@@ -267,10 +269,16 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
       new Paragraph({ text: 'Subtitle Script', heading: HeadingLevel.HEADING_1 }),
     ]
     if (watermark) {
-      children.push(new Paragraph({
-        children: [new TextRun({ text: watermark, italics: true, color: '888888', size: 18 })],
-        spacing: { after: 200 },
-      }))
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: WATERMARK_DOC_HEADER, bold: true, color: '666666', size: 20 })],
+          spacing: { after: 80 },
+        }),
+        new Paragraph({
+          children: [new TextRun({ text: WATERMARK_DOC_FOOTER, italics: true, color: '888888', size: 18 })],
+          spacing: { after: 200 },
+        }),
+      )
     }
     for (const row of rows) {
       children.push(

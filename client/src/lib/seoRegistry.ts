@@ -2772,7 +2772,7 @@ const MANUAL_REGISTRY: SeoRegistryEntry[] = [
     faq: [
       { q: 'How does VideoText compare to Kapwing for subtitles?', a: 'Kapwing is a full video editor with subtitle features included. VideoText is purpose-built for transcription and subtitle generation — faster subtitle output, no editing overhead, and SRT/VTT export without requiring you to export a new video file.' },
       { q: 'Why do people look for Kapwing alternatives?', a: 'Common reasons: Kapwing adds a watermark on free tier exports, users only need subtitle files (not video editing), the editor is slower for simple subtitle tasks, or users want bulk subtitle processing rather than one-by-one video editing.' },
-      { q: 'Does VideoText add a watermark?', a: 'Transcript exports (TXT, SRT, VTT) are available without a watermark on the free tier. Subtitle-burned video exports include a watermark on the free tier — upgrade to remove it.' },
+      { q: 'Does VideoText add a watermark?', a: 'Yes on the free plan. Transcript and subtitle exports (TXT, SRT, VTT, PDF, JSON, CSV) include a watermark with an upgrade link. Upgrade to Pro for watermark-free exports.' },
       { q: 'Is VideoText free?', a: 'Yes. Free tier includes 3 imports per month. Sign up for free to try.' },
     ],
   },

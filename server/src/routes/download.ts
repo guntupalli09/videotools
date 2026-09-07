@@ -1,10 +1,11 @@
 import express, { Request, Response } from 'express'
 import path from 'path'
 import fs from 'fs'
-import { getEffectivePlan } from '../utils/subscriptionGuard'
+import { enforceSubscriptionState, getEffectivePlan, hasPaidAccess } from '../utils/subscriptionGuard'
 import { getEffectiveUserId } from '../utils/auth'
 import { findJobByResultFilename } from '../lib/jobAnalytics'
 import { getBatchById } from '../models/BatchJob'
+import { getUser } from '../models/User'
 import { getLogger } from '../lib/logger'
 import { applyWatermark, TEXT_EXTENSIONS } from '../utils/watermark'
 
@@ -86,6 +87,21 @@ async function authorizeDownload(
   return { allowed: true }
 }
 
+/** Watermark when requester is free, or guest token for a free-plan job owner. */
+async function shouldApplyFreeWatermark(req: Request, filename: string): Promise<boolean> {
+  const requestingUserId = getEffectiveUserId(req)
+  if (requestingUserId) {
+    const { plan } = await getEffectivePlan(req)
+    return plan === 'free'
+  }
+  const job = await findJobByResultFilename(filename)
+  if (!job?.userId) return true
+  const owner = await getUser(job.userId)
+  if (!owner) return true
+  await enforceSubscriptionState(owner)
+  return !hasPaidAccess(owner)
+}
+
 router.get('/:filename', async (req: Request, res: Response) => {
   try {
     const { filename } = req.params
@@ -114,16 +130,13 @@ router.get('/:filename', async (req: Request, res: Response) => {
 
     const ext = path.extname(filename).toLowerCase()
 
-    // Free plan: always watermark text exports (SRT/VTT/TXT/JSON/CSV). Paid: clean file.
-    if (TEXT_EXTENSIONS.has(ext)) {
-      const { plan } = await getEffectivePlan(req)
-      if (plan === 'free') {
-        const content = fs.readFileSync(filePath, 'utf-8')
-        const watermarked = applyWatermark(content, ext)
-        res.setHeader('Content-Disposition', `attachment; filename="${asciiSafe}"`)
-        res.setHeader('Content-Type', 'text/plain; charset=utf-8')
-        return res.send(watermarked)
-      }
+    // Free plan (or guest of free owner): always watermark text exports — no bypass.
+    if (TEXT_EXTENSIONS.has(ext) && (await shouldApplyFreeWatermark(req, filename))) {
+      const content = fs.readFileSync(filePath, 'utf-8')
+      const watermarked = applyWatermark(content, ext)
+      res.setHeader('Content-Disposition', `attachment; filename="${asciiSafe}"`)
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+      return res.send(watermarked)
     }
 
     // Paid plan or non-text file: stream directly with optional Range support

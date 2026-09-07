@@ -100,7 +100,7 @@ import {
   segmentsToSrt,
   segmentsToVtt,
 } from "../lib/srtExport";
-import { WATERMARK_DOC_FOOTER, watermarkTextExport } from "../lib/watermark";
+import { WATERMARK_DOC_FOOTER, watermarkTextExport, watermarkClipboardText } from "../lib/watermark";
 import { addAnchorTimecode } from "../lib/smpteTimecode";
 import {
   type SpeakerNameMap,
@@ -2262,10 +2262,7 @@ export default function VideoToTranscript(
       return;
     }
     // Gate 2: 3 free copies per session for free-plan users
-    const _isCopyPaid =
-      typeof window !== "undefined" &&
-      (localStorage.getItem("plan") || "free").toLowerCase() !== "free";
-    if (!_isCopyPaid && freeCopiesUsed >= 3) {
+    if (!isPaidPlan && freeCopiesUsed >= 3) {
       trackEvent("copy_gate_limit", {
         tool: "video-to-transcript",
         copies_used: freeCopiesUsed,
@@ -2284,32 +2281,33 @@ export default function VideoToTranscript(
               .trim()
           : (fullTranscript || "").trim();
     if (!textToCopy) return;
+    const payload = isPaidPlan ? textToCopy : watermarkClipboardText(textToCopy);
     try {
-      await navigator.clipboard.writeText(textToCopy);
-      toast.success("Copied to clipboard!");
+      await navigator.clipboard.writeText(payload);
+      toast.success(isPaidPlan ? "Copied to clipboard!" : "Copied (with watermark)");
     } catch {
       // Fallback for environments where clipboard API is restricted
       try {
         const textArea = document.createElement("textarea");
-        textArea.value = textToCopy;
+        textArea.value = payload;
         textArea.style.position = "fixed";
         textArea.style.opacity = "0";
         document.body.appendChild(textArea);
         textArea.select();
         document.execCommand("copy");
         document.body.removeChild(textArea);
-        toast.success("Copied to clipboard!");
+        toast.success(isPaidPlan ? "Copied to clipboard!" : "Copied (with watermark)");
       } catch {
         toast.error("Failed to copy to clipboard");
         return;
       }
     }
     trackEvent("transcript_copied", {
-      plan: _isCopyPaid ? "paid" : "free",
+      plan: isPaidPlan ? "paid" : "free",
       copies_used: freeCopiesUsed + 1,
     });
     // Increment counter for free users after successful copy
-    if (!_isCopyPaid) setFreeCopiesUsed((n) => n + 1);
+    if (!isPaidPlan) setFreeCopiesUsed((n) => n + 1);
   };
 
   const handleProcessAnother = () => {
