@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { MessageSquare, FileDown, Lock, AlertTriangle, RefreshCw } from 'lucide-react'
 import FailedState from '../components/FailedState'
 import CoreToolSeoDepth from '../components/CoreToolSeoDepth'
+import CollapsibleFaqSection from '../components/CollapsibleFaqSection'
 import SamplesModule from '../components/SamplesModule'
 import TranscriptSharePanel from '../components/TranscriptSharePanel'
 import PaywallModal, { type PaywallReason } from '../components/PaywallModal'
@@ -1526,22 +1527,11 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
         <CoreToolSeoDepth
           path="/video-to-subtitles"
           hideFaq={effectiveFaq.length > 0}
-          defaultCollapsed={status === 'completed'}
         />
       )}
 
       {effectiveFaq.length > 0 && (
-        <section className="mt-12 pt-8 border-t border-gray-100/70 dark:border-gray-700/50 max-w-4xl mx-auto px-4" aria-label="FAQ">
-          <h2 className="text-2xl font-medium text-gray-800 dark:text-gray-100 mb-component-sm">Frequently asked questions</h2>
-          <dl className="space-y-component-sm">
-            {effectiveFaq.map((item, i) => (
-              <div key={i}>
-                <dt className="font-medium text-gray-800 dark:text-gray-200">{item.q}</dt>
-                <dd className="mt-1 text-gray-600 dark:text-gray-400">{item.a}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
+        <CollapsibleFaqSection items={effectiveFaq} />
       )}
     </>
   )

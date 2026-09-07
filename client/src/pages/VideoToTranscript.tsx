@@ -23,6 +23,7 @@ import {
 import ProCheckoutLink from "../components/ProCheckoutLink";
 import FailedState from "../components/FailedState";
 import CoreToolSeoDepth from "../components/CoreToolSeoDepth";
+import CollapsibleFaqSection from "../components/CollapsibleFaqSection";
 import { MakeClientReadyTranscriptButton } from "../components/SuccessState";
 import SamplesModule from "../components/SamplesModule";
 // import WorkflowChainSuggestion from '../components/WorkflowChainSuggestion'
@@ -6312,7 +6313,7 @@ export default function VideoToTranscript(
       />
 
       {location.pathname === "/video-to-transcript" && (
-        <CoreToolSeoDepth path="/video-to-transcript" defaultCollapsed={status === "completed"} />
+        <CoreToolSeoDepth path="/video-to-transcript" />
       )}
 
       {(hasDeepContent || faq.length > 0) && (
@@ -6727,40 +6728,10 @@ export default function VideoToTranscript(
       )}
 
       {faq.length > 0 && (
-        <section
-          className="py-16 px-4 sm:px-6 max-w-5xl mx-auto"
-          aria-label="Frequently asked questions"
-        >
-          <div className="mb-10">
-            <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-2">
-              Got questions?
-            </p>
-            <h2 className="text-2xl sm:text-3xl font-medium text-gray-900 dark:text-gray-100">
-              Frequently asked questions
-            </h2>
-          </div>
-          <dl className="space-y-micro">
-            {faq.map((item, i) => (
-              <details
-                key={i}
-                className="group rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/50 overflow-hidden shadow-sm"
-              >
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-component-sm px-6 py-5 [&::-webkit-details-marker]:hidden">
-                  <dt className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    {item.q}
-                  </dt>
-                  <ChevronRight
-                    className="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200 group-open:rotate-90"
-                    aria-hidden
-                  />
-                </summary>
-                <dd className="px-6 pb-5 text-sm text-gray-600 dark:text-gray-300 leading-relaxed border-t border-gray-100 dark:border-gray-800 pt-4">
-                  {item.a}
-                </dd>
-              </details>
-            ))}
-          </dl>
-        </section>
+        <CollapsibleFaqSection
+          items={faq}
+          className="max-w-5xl py-16 sm:px-6"
+        />
       )}
     </>
   );

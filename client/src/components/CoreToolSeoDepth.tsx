@@ -8,7 +8,7 @@ type Props = {
   hideFaq?: boolean
   /** @deprecated Lead content now lives in the bottom `full` section only. */
   variant?: 'full' | 'lead'
-  /** When true, SEO depth starts collapsed (e.g. on completed result views). */
+  /** When false, SEO depth starts expanded. Defaults to collapsed on all core tools. */
   defaultCollapsed?: boolean
 }
 
@@ -16,7 +16,7 @@ export default function CoreToolSeoDepth({
   path,
   hideFaq = false,
   variant = 'full',
-  defaultCollapsed = false,
+  defaultCollapsed = true,
 }: Props) {
   const data = getCoreToolSeoDepth(path)
   if (!data) return null
