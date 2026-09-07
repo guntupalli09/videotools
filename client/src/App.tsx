@@ -13,6 +13,7 @@ import { getCanonicalPathForRoute } from './lib/primaryUrls'
 import { getSeoEntry, getAllSeoPaths } from './lib/seoRegistry'
 import SessionErrorBoundary from './components/SessionErrorBoundary'
 import OfflineBanner from './components/OfflineBanner'
+import ReferralWelcomeBanner from './components/ReferralWelcomeBanner'
 // import { WorkflowProvider } from './contexts/WorkflowContext'
 // import { WorkflowTracker } from './components/workflow/WorkflowTracker'
 // import { TexAgent } from './components/TexAgent'
@@ -516,6 +517,7 @@ function App() {
       <div className="min-h-screen flex flex-col overflow-x-hidden">
         <Navigation />
         <OfflineBanner />
+        <ReferralWelcomeBanner />
         <main id="main" className="flex-grow w-full min-w-0" role="main">
           <SessionErrorBoundary>
             <Suspense fallback={<RouteFallback />}>

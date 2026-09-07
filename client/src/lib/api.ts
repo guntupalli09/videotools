@@ -1598,6 +1598,7 @@ export async function completeSignup(verificationToken: string, password: string
     userId: data.userId,
     plan: data.plan,
     email: data.email || data.userId,
+    referralApplied: !!data.referralApplied,
   }
 }
 
@@ -1609,6 +1610,7 @@ export async function loginWithGoogle(credential: string, referralCode?: string 
   plan: string
   email: string
   isNewUser: boolean
+  referralApplied?: boolean
 }> {
   const response = await api('/api/auth/google', {
     method: 'POST',
@@ -1626,7 +1628,14 @@ export async function loginWithGoogle(credential: string, referralCode?: string 
   if (!data.token || !data.userId || data.plan == null) {
     throw new Error('Invalid Google login response')
   }
-  return { token: data.token, userId: data.userId, plan: data.plan, email: data.email || '', isNewUser: !!data.isNewUser }
+  return {
+    token: data.token,
+    userId: data.userId,
+    plan: data.plan,
+    email: data.email || '',
+    isNewUser: !!data.isNewUser,
+    referralApplied: !!data.referralApplied,
+  }
 }
 
 // Usage APIs
@@ -1639,6 +1648,10 @@ export interface UsageData {
   used?: number
   limit?: number
   remaining?: number
+  /** Free plan: imports left today before bonus pool. */
+  dailyRemaining?: number
+  /** Free plan: referral bonus uploads (used after daily 3). */
+  bonusImportCredits?: number
   limits: {
     minutesPerMonth: number
     maxLanguages: number
@@ -1951,6 +1964,13 @@ export type ReferralStatsResponse = {
   bonusImportCredits: number
   referralSignupCount: number
   bonusPerSignup: number
+}
+
+export async function validateReferralCode(code: string): Promise<{ valid: boolean; code?: string }> {
+  const response = await api(`/api/referral/validate?code=${encodeURIComponent(code.trim())}`, { timeout: 10000 })
+  const data = (await response.json().catch(() => ({}))) as { valid?: boolean; code?: string; message?: string }
+  if (!response.ok) throw new Error(data.message || 'Could not validate referral code.')
+  return { valid: !!data.valid, code: data.code }
 }
 
 export async function fetchReferralStats(): Promise<ReferralStatsResponse> {

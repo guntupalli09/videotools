@@ -10,6 +10,8 @@ function useUsage(refreshTrigger?: string | number) {
     quotaType: 'imports' | 'minutes' | 'unlimited'
     softCapActive?: boolean
     remaining: number
+    dailyRemaining: number
+    bonusImportCredits: number
     totalPlanMinutes: number
     usedPercent: number
     limit: number
@@ -26,6 +28,8 @@ function useUsage(refreshTrigger?: string | number) {
             quotaType: 'unlimited',
             softCapActive: data.softCapActive ?? false,
             remaining: 0,
+            dailyRemaining: 0,
+            bonusImportCredits: 0,
             totalPlanMinutes: 0,
             usedPercent: 0,
             limit: 0,
@@ -34,9 +38,21 @@ function useUsage(refreshTrigger?: string | number) {
         } else if (quotaType === 'imports') {
           const used = data.used ?? data.usage?.importCountToday ?? data.usage?.importCount ?? 0
           const limit = data.limit ?? 3
-          const remaining = Math.max(0, (data.remaining ?? limit - used))
+          const dailyRemaining = data.dailyRemaining ?? Math.max(0, limit - used)
+          const bonusImportCredits = data.bonusImportCredits ?? 0
+          const remaining = Math.max(0, data.remaining ?? dailyRemaining + bonusImportCredits)
           const usedPercent = limit === 0 ? 0 : Math.min(100, Math.round((used / limit) * 100))
-          setUsage({ quotaType, remaining, totalPlanMinutes: limit, usedPercent, limit, used, resetDate: data.resetDate })
+          setUsage({
+            quotaType,
+            remaining,
+            dailyRemaining,
+            bonusImportCredits,
+            totalPlanMinutes: limit,
+            usedPercent,
+            limit,
+            used,
+            resetDate: data.resetDate,
+          })
         } else {
           const totalPlanMinutes = data.limits.minutesPerMonth + data.overages.minutes
           const remaining = data.usage.remaining
@@ -47,6 +63,8 @@ function useUsage(refreshTrigger?: string | number) {
           setUsage({
             quotaType: 'minutes',
             remaining,
+            dailyRemaining: 0,
+            bonusImportCredits: 0,
             totalPlanMinutes,
             usedPercent,
             limit: totalPlanMinutes,
@@ -98,7 +116,7 @@ export default function UsageCounter({ refreshTrigger }: { refreshTrigger?: stri
 
   if (!usage || isDemo()) return null
 
-  const { quotaType, remaining, used, limit, usedPercent } = usage
+  const { quotaType, remaining, dailyRemaining, bonusImportCredits, used, limit, usedPercent } = usage
 
   // Pro/Business without a daily import cap — no bar unless degraded
   if (quotaType === 'unlimited') {
@@ -157,26 +175,31 @@ export default function UsageCounter({ refreshTrigger }: { refreshTrigger?: stri
   }
 
   // Free tier — daily imports bar
-  const isExhausted = remaining === 0
+  const dailyExhausted = dailyRemaining === 0
+  const totalExhausted = remaining === 0
   const filledDots = Math.min(used, limit)
   const resetLabel = usage.resetDate
     ? new Date(usage.resetDate).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
     : 'midnight'
 
+  const statusLine = totalExhausted
+    ? `All imports used — daily resets at ${resetLabel}`
+    : dailyExhausted && bonusImportCredits > 0
+      ? `Daily imports used — ${bonusImportCredits} bonus upload${bonusImportCredits === 1 ? '' : 's'} left`
+      : `${used} of ${limit} daily imports used`
+
   return (
     <div className={`rounded-xl border transition-colors overflow-hidden ${
-      isExhausted
+      totalExhausted
         ? 'bg-red-50 dark:bg-red-500/[0.08] border-red-200 dark:border-red-500/20'
         : 'bg-gray-900 dark:bg-gray-900 border-gray-700 dark:border-gray-700'
     }`}>
       <div className="px-4 pt-3.5 pb-2">
         <div className="flex items-center justify-between mb-2.5">
           <p className={`text-sm font-semibold ${
-            isExhausted ? 'text-red-700 dark:text-red-400' : 'text-gray-300'
+            totalExhausted ? 'text-red-700 dark:text-red-400' : 'text-gray-300'
           }`}>
-            {isExhausted
-              ? `All 3 free imports used today — resets at ${resetLabel}`
-              : `${used} of ${limit} daily imports used`}
+            {statusLine}
           </p>
           <div className="flex gap-1.5">
             {Array.from({ length: limit }).map((_, i) => (
@@ -184,7 +207,7 @@ export default function UsageCounter({ refreshTrigger }: { refreshTrigger?: stri
                 key={i}
                 className={`w-2.5 h-2.5 rounded-full transition-colors ${
                   i < filledDots
-                    ? isExhausted ? 'bg-red-400' : 'bg-blue-600'
+                    ? totalExhausted ? 'bg-red-400' : 'bg-blue-600'
                     : 'bg-gray-600'
                 }`}
               />
@@ -195,11 +218,17 @@ export default function UsageCounter({ refreshTrigger }: { refreshTrigger?: stri
         <div className="w-full h-1.5 rounded-full bg-gray-700 overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-500 ${
-              isExhausted ? 'bg-red-500' : 'bg-gradient-to-r from-blue-600 to-blue-400'
+              totalExhausted ? 'bg-red-500' : 'bg-gradient-to-r from-blue-600 to-blue-400'
             }`}
             style={{ width: `${usedPercent}%` }}
           />
         </div>
+
+        {bonusImportCredits > 0 && (
+          <p className="text-xs text-emerald-400/90 mt-2">
+            + {bonusImportCredits} referral bonus upload{bonusImportCredits === 1 ? '' : 's'} (used after daily imports)
+          </p>
+        )}
       </div>
 
       <Link

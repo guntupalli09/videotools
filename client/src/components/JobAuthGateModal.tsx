@@ -18,6 +18,7 @@ import { X, Download, CheckCircle2, ChevronRight, Lock, Zap } from 'lucide-react
 import { sendOtp, verifyOtp, loginWithGoogle } from '../lib/api'
 import { completeSignup, login, storeLoginResult } from '../lib/auth'
 import { getStoredReferralCode, clearStoredReferralCode } from '../lib/referral'
+import { celebrateReferralReward } from '../lib/referralReward'
 import { identifyUser } from '../lib/analytics'
 import GoogleSignInButton, { GOOGLE_CLIENT_ID } from './GoogleSignInButton'
 
@@ -60,7 +61,14 @@ export default function JobAuthGateModal({
     try {
       const result = await loginWithGoogle(credential, getStoredReferralCode())
       storeLoginResult(result)
-      if (result.isNewUser) clearStoredReferralCode()
+      if (result.isNewUser) {
+        if (result.referralApplied) {
+          clearStoredReferralCode()
+          celebrateReferralReward()
+        } else {
+          clearStoredReferralCode()
+        }
+      }
       try { localStorage.setItem('videotext:guestJobUsed', '1') } catch { /* ignore */ }
       try { identifyUser(result.userId, { plan: result.plan, email: result.email }) } catch { /* ignore */ }
       window.dispatchEvent(new CustomEvent('videotext:plan-updated'))
@@ -109,7 +117,10 @@ export default function JobAuthGateModal({
       const { token } = await verifyOtp(email.trim().toLowerCase(), otp)
       const result = await completeSignup(token, password, getStoredReferralCode())
       storeLoginResult(result)
-      if (result.referralApplied) clearStoredReferralCode()
+      if (result.referralApplied) {
+        clearStoredReferralCode()
+        celebrateReferralReward()
+      }
       try { localStorage.setItem('videotext:guestJobUsed', '1') } catch { /* ignore */ }
       try { identifyUser(result.userId, { plan: result.plan, email: result.email }) } catch { /* ignore */ }
       window.dispatchEvent(new CustomEvent('videotext:plan-updated'))

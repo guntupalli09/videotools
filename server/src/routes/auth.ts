@@ -686,11 +686,24 @@ router.post('/google', googleAuthLimit, async (req: Request, res: Response) => {
       await saveUser(newUser)
       user = newUser
       log.info({ msg: 'Google OAuth new user created', email })
+      let referralApplied = false
       try {
-        await applyReferralOnSignup(user.id, referralCode)
+        const refResult = await applyReferralOnSignup(user.id, referralCode)
+        referralApplied = refResult.applied
       } catch {
         // non-blocking
       }
+      trackGoogleAuthCompleted({ user_id: user.id, plan: user.plan, is_new_user: isNewUser })
+      const token = signAuthToken(user)
+      return res.json({
+        token,
+        userId: user.id,
+        plan: user.plan,
+        email: user.email,
+        name: user.name ?? null,
+        isNewUser,
+        referralApplied,
+      })
     } else {
       // Update name if we now have one and the user didn't have one stored
       if (googleName && !user.name) {
