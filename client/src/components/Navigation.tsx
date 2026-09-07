@@ -24,6 +24,7 @@ const FREE_TOOLS = [
 export default function Navigation() {
   const { isFounder, loading } = useFounderStatus();
   const location = useLocation();
+  if (location.pathname.startsWith('/embed/')) return null;
   const toolMode = location.pathname !== "/";
   const toolLabel =
     location.pathname === "/guideline-format"

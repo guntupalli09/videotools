@@ -281,7 +281,12 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           terminalRef.current = true
           setPartialSegments([])
           setStatus('completed')
-          setResult(jobStatus.result ?? null)
+          if (isLoggedIn() && !jobStatus.requiresAuth) {
+            setResult(jobStatus.result ?? null)
+          } else {
+            setShowAuthGate(true)
+            setResult({ downloadUrl: '' })
+          }
           trackAppEvent('transcription_completed', { toolId: 'video-to-subtitles' })
           // emitToolCompleted({ toolId: 'video-to-subtitles', pathname: '/video-to-subtitles' })
           setUploadPhase('processing')
@@ -310,7 +315,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
         }
         if (jobStatus.status === 'processing' && jobStatus.partialVersion != null && jobStatus.partialVersion > lastPartialVersionRef.current) {
           lastPartialVersionRef.current = jobStatus.partialVersion
-          if (jobStatus.partialSegments?.length) setPartialSegments(jobStatus.partialSegments)
+          if (isLoggedIn() && jobStatus.partialSegments?.length) setPartialSegments(jobStatus.partialSegments)
         }
         setStatus('processing')
         setUploadPhase('processing')
@@ -332,7 +337,12 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               if (rehydratePollRef.current) clearInterval(rehydratePollRef.current)
               rehydratePollRef.current = null
               setStatus('completed')
-              setResult(s.result ?? null)
+              if (isLoggedIn() && !s.requiresAuth) {
+                setResult(s.result ?? null)
+              } else {
+                setShowAuthGate(true)
+                setResult({ downloadUrl: '' })
+              }
               trackAppEvent('transcription_completed', { toolId: 'video-to-subtitles' })
               // emitToolCompleted({ toolId: 'video-to-subtitles', pathname: '/video-to-subtitles' })
               if (isLoggedIn() && s.result?.downloadUrl) {
@@ -355,7 +365,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               setStatus('failed')
               toast.error('Processing failed. Please try again.')
               clearPersistedJobId(pathname, navigate)
-            } else if (s.status === 'processing' && s.partialVersion != null && s.partialVersion > lastPartialVersionRef.current) {
+            } else if (isLoggedIn() && s.status === 'processing' && s.partialVersion != null && s.partialVersion > lastPartialVersionRef.current) {
               lastPartialVersionRef.current = s.partialVersion
               if (s.partialSegments?.length) setPartialSegments(s.partialSegments)
             }
@@ -623,7 +633,12 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           }
           jobStartedTrackedRef.current = null
           setStatus('completed')
-          setResult(jobStatus.result ?? null)
+          if (isLoggedIn() && !jobStatus.requiresAuth) {
+            setResult(jobStatus.result ?? null)
+          } else {
+            setShowAuthGate(true)
+            setResult({ downloadUrl: '' })
+          }
           trackAppEvent('transcription_completed', { toolId: 'video-to-subtitles' })
           const started = processingStartedAtRef.current ?? Date.now()
           const processingMs = Date.now() - started
@@ -1252,7 +1267,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                                 }
                                 try {
                                   const token = getAuthToken()
-                                  const res = await fetch(getDownloadUrl() + '?wm=1', {
+                                  const res = await fetch(getDownloadUrl(), {
                                     headers: token ? { Authorization: `Bearer ${token}` } : {},
                                   })
                                   const blob = await res.blob()

@@ -17,6 +17,7 @@ import {
   FREE_MONTHLY_IMPORT_QUOTA_MESSAGE,
   sumBatchVideoDurationsSeconds,
 } from '../utils/limits'
+import { assertCanImport, freeImportBlockedMessage } from '../utils/importQuota'
 import { resetDailyImportIfNeeded, resetDailyMinutesIfNeeded, resetUserUsageIfNeeded } from '../utils/usageReset'
 import { addJobToQueue, getTotalQueueCount } from '../workers/videoProcessor'
 import { insertJobRecord } from '../lib/jobAnalytics'
@@ -234,16 +235,24 @@ router.post(
       }
 
       // Free plan: 3 imports per calendar month (batch not available for free anyway)
+      const batchImportGate = assertCanImport(user)
+      if (!batchImportGate.ok) {
+        for (const v of videoMeta) fs.unlinkSync(v.path)
+        return res.status(403).json({ message: batchImportGate.message })
+      }
+      const importCount = user.usageThisMonth.importCount ?? 0
       const batchMonthlyCap = getMaxMonthlyImports(user.plan)
+      const bonus = user.bonusImportCredits ?? 0
       if (batchMonthlyCap !== null) {
-        const importCount = user.usageThisMonth.importCount ?? 0
-        if (importCount >= batchMonthlyCap) {
+        const monthlySlots = Math.max(0, batchMonthlyCap - importCount)
+        const totalSlots = monthlySlots + bonus
+        if (videoMeta.length > totalSlots) {
           for (const v of videoMeta) fs.unlinkSync(v.path)
-          return res.status(403).json({ message: FREE_MONTHLY_IMPORT_QUOTA_MESSAGE })
-        }
-        if (importCount + videoMeta.length > batchMonthlyCap) {
-          for (const v of videoMeta) fs.unlinkSync(v.path)
-          return res.status(403).json({ message: FREE_MONTHLY_IMPORT_QUOTA_MESSAGE })
+          return res.status(403).json({
+            message: totalSlots === 0
+              ? freeImportBlockedMessage()
+              : `Batch exceeds available imports (${totalSlots} remaining this month, including bonus credits).`,
+          })
         }
       }
 

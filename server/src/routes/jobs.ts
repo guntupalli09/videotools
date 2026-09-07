@@ -1,7 +1,8 @@
 import express, { Request, Response } from 'express'
 import { getJobById, type JobData } from '../workers/videoProcessor'
 import { getAuthFromRequest, getEffectiveUserId } from '../utils/auth'
-import { incrementUserUsage } from '../models/User'
+import { getUser, incrementUserUsage, saveUser } from '../models/User'
+import { recordFreePlanImport } from '../utils/importQuota'
 import { getJobPartial, trimPartialPayloadForResponse, segmentsToPartialTranscript } from '../utils/jobPartial'
 import { getJobSummary } from '../utils/jobSummary'
 import { getJobStage, type YoutubeJobStage } from '../utils/jobStage'
@@ -23,10 +24,14 @@ async function getQueuePosition(job: import('bull').Job): Promise<number> {
 }
 
 /** Build the same payload shape as GET /:jobId for SSE or JSON. */
-async function buildJobStatusPayload(job: import('bull').Job): Promise<{
+async function buildJobStatusPayload(
+  job: import('bull').Job,
+  options?: { revealResults?: boolean }
+): Promise<{
   status: string
   progress: number
   result?: unknown
+  requiresAuth?: boolean
   queuePosition?: number
   jobToken?: string
   youtubeStage?: YoutubeJobStage
@@ -34,6 +39,7 @@ async function buildJobStatusPayload(job: import('bull').Job): Promise<{
   partialSegments?: { start: number; end: number; text: string; speaker?: string }[]
   partialTranscript?: string
 }> {
+  const revealResults = options?.revealResults !== false
   const state = await job.getState()
   const progress = job.progress() || 0
   let status: 'queued' | 'processing' | 'completed' | 'failed' = 'queued'
@@ -62,16 +68,24 @@ async function buildJobStatusPayload(job: import('bull').Job): Promise<{
     status: string
     progress: number
     result?: unknown
+    requiresAuth?: boolean
     queuePosition?: number
     jobToken?: string
     youtubeStage?: YoutubeJobStage
     partialVersion?: number
     partialSegments?: { start: number; end: number; text: string; speaker?: string }[]
     partialTranscript?: string
-  } = { status, progress, result, queuePosition }
+  } = revealResults
+    ? { status, progress, result, queuePosition }
+    : {
+        status,
+        progress,
+        queuePosition,
+        ...(status === 'completed' ? { requiresAuth: true } : {}),
+      }
   if (jobToken) payload.jobToken = jobToken
 
-  if (state === 'active') {
+  if (revealResults && state === 'active') {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- undocumented Bull internals
       const redis = (job as any).queue?.client
@@ -110,6 +124,10 @@ router.get('/:jobId/summary', async (req: Request, res: Response) => {
     const allowedByToken = clientJobToken && jobToken && clientJobToken === jobToken
     if (!allowedByUser && !allowedByToken) {
       return res.status(403).json({ message: 'Access denied. Provide Authorization, API key, or jobToken (query or x-job-token header).' })
+    }
+    if (!allowedByUser) {
+      res.set({ 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache', 'Expires': '0' })
+      return res.status(200).json({ requiresAuth: true })
     }
     const redis = (job as any).queue?.client
     if (!redis) {
@@ -168,7 +186,9 @@ router.get('/:jobId/stream', async (req: Request, res: Response) => {
         send({ status: 'failed', progress: 0 })
         return true
       }
-      const payload = await buildJobStatusPayload(jobCurrent)
+      const payload = await buildJobStatusPayload(jobCurrent, {
+        revealResults: allowedByUser,
+      })
       send(payload)
       if (payload.status === 'completed' || payload.status === 'failed') {
         return true
@@ -233,7 +253,9 @@ router.get('/:jobId', async (req: Request, res: Response) => {
       return res.status(403).json({ message: 'Access denied. Provide Authorization, API key, or jobToken (query or x-job-token header).' })
     }
 
-    const payload = await buildJobStatusPayload(job)
+    const payload = await buildJobStatusPayload(job, {
+      revealResults: allowedByUser,
+    })
 
     res.set({
       'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
@@ -309,7 +331,12 @@ router.post('/:jobId/claim', async (req: Request, res: Response) => {
     // Increment real user's import counts to reflect the guest trial job.
     // Must update both importCount and importCountToday — the free-plan UI
     // reads importCountToday, so missing it leaves the counter stuck at 3/3.
-    await incrementUserUsage(userId, { importCount: 1, importCountToday: 1 })
+    const claimedUser = await getUser(userId)
+    if (claimedUser?.plan === 'free') {
+      await recordFreePlanImport(userId)
+    } else {
+      await incrementUserUsage(userId, { importCount: 1, importCountToday: 1 })
+    }
 
     return res.status(200).json({ ok: true })
   } catch (error: any) {

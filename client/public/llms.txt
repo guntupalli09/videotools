@@ -42,7 +42,7 @@ Machine-readable full reference: https://videotext.io/llms-full.txt
 
 | Plan | Price | What you get |
 |---|---|---|
-| Free | $0 | 3 imports/month, no credit card, no watermark |
+| Free | $0 | 3 imports/month, no credit card, watermark on free exports |
 | Basic | $19/month | 450 minutes/month |
 | Pro | $49/month | 1,200 minutes/month, batch processing |
 | Agency | $129/month | 3,000 minutes/month, batch, multi-seat |

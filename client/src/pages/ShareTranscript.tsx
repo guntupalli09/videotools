@@ -2,8 +2,11 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { FileText, Mic, Film, AlertCircle } from 'lucide-react'
 import Seo from '../components/Seo'
+import SharePoweredByFooter from '../components/SharePoweredByFooter'
+import TranscriptEmbedPanel from '../components/TranscriptEmbedPanel'
 import { fetchPublicTranscriptShare, type PublicTranscriptShareResponse } from '../lib/api'
 import { formatTimestamp } from '../lib/srtExport'
+import { buildShareSignupUrl } from '../lib/shareBranding'
 
 export default function ShareTranscript() {
   const { slug } = useParams<{ slug: string }>()
@@ -43,6 +46,10 @@ export default function ShareTranscript() {
     data?.sourceTool === 'voice-to-text' ? Mic :
     data?.sourceTool === 'video-to-subtitles' ? Film :
     FileText
+
+  const signupUrl = data
+    ? (data.signupUrl || buildShareSignupUrl(data.slug, data.showProminentBranding ?? false))
+    : buildShareSignupUrl(slug || 'share', true)
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900">
@@ -167,14 +174,13 @@ export default function ShareTranscript() {
               </div>
             </section>
 
-            <footer className="text-center text-xs text-gray-400 dark:text-gray-500 pt-4">
-              <p>
-                Transcribed with{' '}
-                <Link to="/" className="text-blue-600 dark:text-blue-400 font-medium hover:underline">
-                  VideoText
-                </Link>
-              </p>
-            </footer>
+            <TranscriptEmbedPanel slug={data.slug} />
+
+            <SharePoweredByFooter
+              slug={data.slug}
+              signupUrl={signupUrl}
+              prominent={data.showProminentBranding ?? false}
+            />
           </article>
         )}
       </div>

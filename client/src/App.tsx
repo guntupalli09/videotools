@@ -15,6 +15,7 @@ import { getCanonicalPathForRoute } from './lib/primaryUrls'
 import { getSeoEntry, getAllSeoPaths } from './lib/seoRegistry'
 import SessionErrorBoundary from './components/SessionErrorBoundary'
 import OfflineBanner from './components/OfflineBanner'
+import ReferralWelcomeBanner from './components/ReferralWelcomeBanner'
 // import { WorkflowProvider } from './contexts/WorkflowContext'
 // import { WorkflowTracker } from './components/workflow/WorkflowTracker'
 // import { TexAgent } from './components/TexAgent'
@@ -22,6 +23,7 @@ import OfflineBanner from './components/OfflineBanner'
 import FeedbackOrchestrator from './components/feedbackSystem/FeedbackOrchestrator'
 import { trackAppEvent } from './lib/feedbackEvents'
 import { getLifetimeSessionCount, getSessionId, isNewSession, clearNewSessionFlag } from './lib/sessionTracking'
+import { captureReferralFromUrl } from './lib/referral'
 import { incrementSessionsSinceFeedback } from './hooks/useFeedbackFrequency'
 
 // Lazy-load pages for fast initial load on any device; each route loads only when visited.
@@ -101,6 +103,7 @@ const JoinFoundingTeam = lazy(() => import('./pages/JoinFoundingTeam'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 const Status = lazy(() => import('./pages/Status'))
 const ShareTranscript = lazy(() => import('./pages/ShareTranscript'))
+const EmbedTranscript = lazy(() => import('./pages/EmbedTranscript'))
 // Free tools — client-side only, zero server dependency
 const FreeToolsIndex = lazy(() => import('./pages/tools/FreeToolsIndex'))
 const SrtToVtt = lazy(() => import('./pages/tools/SrtToVtt'))
@@ -472,6 +475,14 @@ function ImpersonationHandler() {
   return null
 }
 
+function ReferralCapture() {
+  const { search } = useLocation()
+  useEffect(() => {
+    captureReferralFromUrl(search)
+  }, [search])
+  return null
+}
+
 function SessionTracker() {
   useEffect(() => {
     // Initialise session (may resume via grace period or create fresh)
@@ -499,6 +510,7 @@ function App() {
       {/* <WorkflowProvider> */}
       <LowercaseRedirect />
       <AppSeo />
+      <ReferralCapture />
       <SessionTracker />
       <PostCheckoutHandler />
       <CheckoutCancelledHandler />
@@ -509,6 +521,7 @@ function App() {
       <div className="min-h-screen flex flex-col overflow-x-hidden">
         <Navigation />
         <OfflineBanner />
+        <ReferralWelcomeBanner />
         <main id="main" className="flex-grow w-full min-w-0" role="main">
           <SessionErrorBoundary>
             <Suspense fallback={<RouteFallback />}>
@@ -599,6 +612,7 @@ function App() {
             <Route path="/status" element={<Status />} />
             <Route path="/voice-recorder" element={<VoiceRecorder />} />
             <Route path="/s/:slug" element={<ShareTranscript />} />
+            <Route path="/embed/:slug" element={<EmbedTranscript />} />
             <Route path="/guideline-format" element={<GuidelineFormat />} />
             <Route path="/video-to-transcript" element={<VideoToTranscript
               seoH1="Video to Transcript — Free AI Transcription, 98.5% Accurate"
@@ -614,7 +628,7 @@ function App() {
                 },
                 {
                   q: 'Can I transcribe video online for free?',
-                  a: 'Yes. The free plan includes 3 imports per month, no credit card, and no watermark. Paid plans are Basic $19, Pro $49, and Agency $129 per month.',
+                  a: 'Yes. The free plan includes 3 imports per month, no credit card, with a watermark on exports. Upgrade for watermark-free downloads. Paid plans are Basic $19, Pro $49, and Agency $129 per month.',
                 },
                 {
                   q: 'How long does it take to transcribe a video?',

@@ -19,6 +19,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { fileQueue, addJobToQueue, getTotalQueueCount as getQueueCountFromWorker, JobData } from '../workers/videoProcessor'
 import { validateFileType, validateSubtitleFile } from '../utils/fileValidation'
 import { enforceLanguageLimits, enforceUsageLimits, getDailySoftCapConcurrency, getMaxMonthlyImports, getPlanLimits, applySystemLoadGuard, FREE_MONTHLY_IMPORT_QUOTA_MESSAGE, GUEST_DAILY_IMPORT_QUOTA_MESSAGE } from '../utils/limits'
+import { assertCanImport } from '../utils/importQuota'
 import { resetDailyImportIfNeeded, resetDailyMinutesIfNeeded, resetUserUsageIfNeeded } from '../utils/usageReset'
 import { getUser, saveUser, PlanType, User, atomicResetDailyImportIfNeeded, atomicResetDailyMinutesIfNeeded } from '../models/User'
 import { hashFile, checkDuplicateProcessing } from './duplicate'
@@ -197,12 +198,12 @@ export async function runTranscriptionIntake(
     }
 
     // Free plan: 3 imports per calendar month (resets on the 1st UTC)
-    const monthlyCap = getMaxMonthlyImports(user.plan)
-    if (monthlyCap !== null && (user.usageThisMonth.importCount ?? 0) >= monthlyCap) {
+    const importGate = assertCanImport(user)
+    if (!importGate.ok) {
       if (req.file) {
         try { fs.unlinkSync(req.file.path) } catch { /* ignore */ }
       }
-      return err(403, 'QUOTA_EXCEEDED', FREE_MONTHLY_IMPORT_QUOTA_MESSAGE)
+      return err(403, 'QUOTA_EXCEEDED', importGate.message)
     }
 
     const activeJobs = await fileQueue.getJobs(['active', 'waiting', 'delayed'])

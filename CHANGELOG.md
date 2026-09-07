@@ -1,5 +1,23 @@
 # Changelog
 
+## [Unreleased] — 2026-09-07
+
+### Watermark enforcement (exports)
+- **Default server watermarking** — Free-plan downloads of SRT/VTT/TXT/JSON/CSV are always watermarked on `GET /api/download/:file` (no `?wm=1` opt-in bypass).
+- **Unified watermark copy** — Shared constants/helpers on client and server; SRT cue starts at index 1 with an 8-second two-line cue.
+- **Valid JSON/CSV exports** — Client exports inject `_watermark` / CSV comment headers instead of appending invalid footer text.
+- **Bypass fixes** — Translate Subtitles “Download Edited Subtitles”, Fix Subtitles VTT/TXT, and Video → Transcript JSON/CSV now watermarked on free tier.
+- **SRT/VTT on Video → Transcript** — Added subtitle export buttons to the Exports panel.
+- **Marketing alignment** — Site copy updated to state free exports include a watermark; paid plans get watermark-free exports.
+
+### Stronger free-plan watermarks (2026-09-07)
+- **Multi-layer text watermarks** — SRT/VTT: opening + trailing 8s cues with renumbered indices; TXT: header, mid-doc, and footer blocks; JSON: `_watermark_locked` + wrapped `fullTranscript`.
+- **PDF diagonal overlay** — “VideoText Free” on every page plus upgrade footer lines.
+- **Anti-bypass on server** — Re-applies watermark if a layer was stripped; guest downloads use job owner plan; no query-param bypass.
+- **Clipboard watermarked** — Video → Transcript and Translate Subtitles copy includes full upgrade notice on free tier.
+
+---
+
 ## [Unreleased] — 2026-03-10
 
 ### New Features

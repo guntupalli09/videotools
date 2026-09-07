@@ -50,7 +50,7 @@ Accuracy falls with noise, overlapping speakers, and heavy accents. Review names
 
 | Plan | Price | Included |
 |---|---|---|
-| Free | $0 | 3 imports/month, no credit card, no watermark, full feature set on those imports |
+| Free | $0 | 3 imports/month, no credit card, watermark on free exports, full feature set on those imports |
 | Basic | $19/month | 450 minutes/month |
 | Pro | $49/month | 1,200 minutes/month, batch ZIP, priority queue |
 | Agency | $129/month | 3,000 minutes/month, batch, priority, multi-seat |
@@ -166,7 +166,7 @@ Q: What is VideoText?
 A: An online tool that turns a video or YouTube URL into a transcript, SRT/VTT, summary, and chapters using Whisper large-v3.
 
 Q: Is there a free plan?  
-A: Yes. 3 imports per month, no credit card, no watermark.
+A: Yes. 3 imports per month, no credit card. Free exports include a watermark; upgrade for clean files.
 
 Q: What are the paid prices?  
 A: Basic $19, Pro $49, Agency $129 per month.
