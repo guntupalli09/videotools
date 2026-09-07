@@ -2830,7 +2830,6 @@ export default function GuidelineFormat() {
       <CollapsibleFaqSection
         items={[...GUIDELINE_FAQ]}
         title="Transcript Style Guide FAQ"
-        className="max-w-3xl pb-12 sm:px-component sm:pb-16 lg:px-8"
       />
 
       {/* ── QA Workflow Section ── */}

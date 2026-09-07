@@ -6728,10 +6728,7 @@ export default function VideoToTranscript(
       )}
 
       {faq.length > 0 && (
-        <CollapsibleFaqSection
-          items={faq}
-          className="max-w-5xl py-16 sm:px-6"
-        />
+        <CollapsibleFaqSection items={faq} />
       )}
     </>
   );
