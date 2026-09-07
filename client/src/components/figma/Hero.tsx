@@ -52,28 +52,26 @@ const TRUST_CHIPS = [
 
 function HeroActions() {
   return (
-    <div className="flex flex-col items-center">
-      <div className="flex w-full max-w-3xl flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
-        <Link
-          to="/video-to-transcript"
-          className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-accent transition hover:bg-blue-700 hover:shadow-accent-hover"
-        >
-          Get client-ready transcript
-          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-        </Link>
-        <Link
-          to="/video-to-subtitles"
-          className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/20 bg-white/[0.07] px-6 py-3 text-sm font-semibold text-white transition hover:border-white/35 hover:bg-white/[0.12]"
-        >
-          Create clean subtitles
-        </Link>
-        <Link
-          to="/guideline-format"
-          className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/10 px-6 py-3 text-sm font-semibold text-white/75 transition hover:border-white/25 hover:bg-white/[0.06] hover:text-white"
-        >
-          Format for client delivery
-        </Link>
-      </div>
+    <div className="flex w-full max-w-3xl flex-col items-stretch justify-center gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center">
+      <Link
+        to="/video-to-transcript"
+        className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-accent transition hover:bg-blue-700 hover:shadow-accent-hover"
+      >
+        Get client-ready transcript
+        <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+      </Link>
+      <Link
+        to="/video-to-subtitles"
+        className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/20 bg-white/[0.07] px-6 py-3 text-sm font-semibold text-white transition hover:border-white/35 hover:bg-white/[0.12]"
+      >
+        Create clean subtitles
+      </Link>
+      <Link
+        to="/guideline-format"
+        className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/10 px-6 py-3 text-sm font-semibold text-white/75 transition hover:border-white/25 hover:bg-white/[0.06] hover:text-white"
+      >
+        Format for client delivery
+      </Link>
     </div>
   );
 }
@@ -91,7 +89,7 @@ function HeroTrustChips({ publicRating }: { publicRating: PublicRating | null })
   });
 
   return (
-    <ul className="mt-6 grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-3">
+    <ul className="mx-auto mt-6 grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-3">
       {chips.map(({ icon: Icon, title, detail }) => (
         <li
           key={title}
@@ -113,7 +111,7 @@ export function Hero() {
 
   return (
     <section className="relative flex flex-col items-center bg-gray-950">
-      <div className="w-full max-w-5xl mx-auto px-6 pt-3 sm:pt-4 pb-8">
+      <div className="mx-auto flex w-full max-w-5xl flex-col items-center px-6 pt-3 pb-8 sm:pt-4">
         <TrustBadge className="mb-4" />
 
         <h1
