@@ -17,6 +17,10 @@ const CORE_PATHS = new Set([
   '/burn-subtitles',
   '/compress-video',
   '/batch-process',
+  // Manually-built tool page (App.tsx route, own SoftwareApplication/AEO schema)
+  // outside the auto-generated registry, same as the paths above — ~30 registry
+  // entries reference it via relatedSlugs.
+  '/guideline-format',
 ])
 
 function main() {
