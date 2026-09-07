@@ -19,6 +19,7 @@ import { ResultSkeleton } from '../components/figma/ResultSkeleton'
 import { TranslateResult } from '../components/figma/TranslateResult'
 import { ExportsPanel, ExportSection } from '../components/figma/ExportsPanel'
 import { ProcessingStateShell } from '../components/figma/ProcessingStateShell'
+import { VideoResultPreview } from '../components/figma/VideoResultPreview'
 import ResultUpgradeCard from '../components/ResultUpgradeCard'
 import { Select } from '../components/figma/FormControls'
 import { getFilePreview, formatDuration, type FilePreviewData } from '../lib/filePreview'
@@ -523,7 +524,16 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
             <SecondJobUpgradeNudge tool="burn-subtitles" resultKey={result.downloadUrl} milestone={3} />
 
             <div className="grid grid-cols-1 items-start gap-component-sm lg:grid-cols-[minmax(0,1fr)_320px]">
-              <CrossToolSuggestions
+              <div className="space-y-component min-w-0">
+                {videoPreviewUrl && (
+                  <VideoResultPreview
+                    videoSrc={videoPreviewUrl}
+                    durationSeconds={filePreview?.durationSeconds}
+                    fileName={videoFile?.name}
+                    label="Source video preview"
+                  />
+                )}
+                <CrossToolSuggestions
                 workflowHint="Your last file is pre-filled on the next tool."
                 suggestions={[
                   { icon: Minimize2, title: 'Compress Video', path: '/compress-video', description: 'Reduce file size', state: { useWorkflowVideo: true } },
@@ -531,6 +541,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
                   { icon: MessageSquare, title: 'Video → Subtitles', path: '/video-to-subtitles', description: 'Generate SRT/VTT', state: { useWorkflowVideo: true } },
                 ]}
               />
+              </div>
 
               <ExportsPanel freeExportsUsed={!hasPaidPlan ? freeExportsUsed : undefined}>
                 <ExportSection title="Video">
@@ -579,7 +590,9 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
 
 
 
-      {location.pathname === '/burn-subtitles' && <CoreToolSeoDepth path="/burn-subtitles" />}
+      {location.pathname === '/burn-subtitles' && (
+        <CoreToolSeoDepth path="/burn-subtitles" defaultCollapsed={status === 'completed'} />
+      )}
 
       <PaywallModal
         isOpen={showPaywall}

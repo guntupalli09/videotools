@@ -6305,7 +6305,7 @@ export default function VideoToTranscript(
       />
 
       {location.pathname === "/video-to-transcript" && (
-        <CoreToolSeoDepth path="/video-to-transcript" />
+        <CoreToolSeoDepth path="/video-to-transcript" defaultCollapsed={status === "completed"} />
       )}
 
       {(hasDeepContent || faq.length > 0) && (

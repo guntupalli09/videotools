@@ -1279,7 +1279,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
       {location.pathname === '/translate-subtitles' && (
         <>
           <TranslateLangCluster />
-          <CoreToolSeoDepth path="/translate-subtitles" />
+          <CoreToolSeoDepth path="/translate-subtitles" defaultCollapsed={status === 'completed'} />
         </>
       )}
 

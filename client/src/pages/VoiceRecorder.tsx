@@ -1479,7 +1479,7 @@ export default function VoiceRecorder() {
           />
         )}
 
-        <CoreToolSeoDepth path="/voice-recorder" />
+        <CoreToolSeoDepth path="/voice-recorder" defaultCollapsed={phase === 'result'} />
 
       </div>
 

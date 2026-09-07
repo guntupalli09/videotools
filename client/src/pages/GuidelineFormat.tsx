@@ -2816,7 +2816,12 @@ export default function GuidelineFormat() {
         }}
       />
 
-      <CoreToolSeoDepth path="/guideline-format" hideFaq variant="full" />
+      <CoreToolSeoDepth
+        path="/guideline-format"
+        hideFaq
+        variant="full"
+        defaultCollapsed={jobStatus?.status === 'completed'}
+      />
 
       {/* SEO FAQ section — crawlable content for Google and LLM citations */}
       <section
