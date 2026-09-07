@@ -204,17 +204,11 @@
   }
 }
 
-/* Force user menu panel to be visible: solid opaque background */
-[data-user-menu-panel] {
-  background-color: #ffffff !important;
-}
+/* Account drawer: always Studio Pro charcoal (no white flash on open) */
+[data-user-menu-panel],
 [data-user-menu-panel] [data-user-menu-body] {
-  background-color: #ffffff !important;
+  background-color: #0A0A0B !important;
   min-height: 60vh !important;
-}
-html.dark [data-user-menu-panel],
-html.dark [data-user-menu-panel] [data-user-menu-body] {
-  background-color: #18181B !important;
 }
 
 /* Pinned transcript audio bar — dark bar, indigo progress */
