@@ -48,24 +48,24 @@ function HeroActions() {
           to="/video-to-transcript"
           className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-orange-500 px-6 py-3 text-sm font-bold text-gray-950 shadow-[0_12px_35px_rgba(249,115,22,0.28)] transition hover:bg-orange-400 hover:shadow-[0_14px_40px_rgba(249,115,22,0.4)]"
         >
-          Transcribe a Video/Audio
+          Get client-ready transcript
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
         </Link>
         <Link
           to="/video-to-subtitles"
           className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/20 bg-white/[0.07] px-6 py-3 text-sm font-semibold text-white transition hover:border-white/35 hover:bg-white/[0.12]"
         >
-          Create Subtitles
+          Create clean subtitles
         </Link>
         <Link
-          to="/fix-subtitles"
+          to="/guideline-format"
           className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/10 px-6 py-3 text-sm font-semibold text-white/75 transition hover:border-white/25 hover:bg-white/[0.06] hover:text-white"
         >
-          Fix an SRT
+          Format for client delivery
         </Link>
       </div>
       <p className="mt-3 text-center text-xs font-medium text-white/45">
-        No signup required <span aria-hidden>·</span> Results in minutes
+        No signup required <span aria-hidden>·</span> QA-ready in minutes
       </p>
     </div>
   );
@@ -102,13 +102,18 @@ export function Hero() {
           className="mx-auto mb-3 max-w-4xl text-center font-display font-medium tracking-tight leading-[1.08]"
           style={{ fontSize: "clamp(2rem, 4.6vw, 3.75rem)" }}
         >
-          <span className="text-white">VideoText: Video to Text &amp; Subtitle Tools — </span>
-          <span className="bg-gradient-to-r from-fuchsia-300 via-blue-300 to-blue-300 bg-clip-text text-transparent">Fast.</span>
+          <span className="text-white">Faster transcripts. Cleaner output. </span>
+          <span className="bg-gradient-to-r from-fuchsia-300 via-blue-300 to-blue-300 bg-clip-text text-transparent">Client-ready.</span>
         </h1>
 
         {/* Sub-headline */}
+<<<<<<< Updated upstream
         <p className="mx-auto mb-6 max-w-2xl text-center text-base leading-relaxed text-white/60 sm:text-lg">
           Upload a video or YouTube URL. Get a transcript, SRT/VTT, summary, and chapters. Files deleted after processing. Start free — 3 imports/mo.
+=======
+        <p className="mx-auto mb-6 max-w-2xl text-center text-[15px] leading-relaxed text-white/60 sm:text-[17px]">
+          Upload a video or audio file. Get formatted transcripts and SRT/VTT your client can approve on the first pass — style-guide rules applied automatically, so you spend less time on QA. Files deleted after processing. Start free — 3 imports/mo.
+>>>>>>> Stashed changes
         </p>
 
         <HeroActions />
