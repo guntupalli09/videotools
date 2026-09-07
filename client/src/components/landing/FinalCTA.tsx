@@ -3,11 +3,7 @@ import { ChevronRight, Shield, CheckCircle2, Globe } from 'lucide-react';
 
 export function FinalCTA() {
   return (
-    <section className="relative overflow-hidden bg-gray-950 py-section-lg">
-      <div className="absolute inset-0">
-        <div className="absolute top-0 left-1/2 h-[500px] w-[900px] -translate-x-1/2 rounded-full bg-blue-600/[0.1] blur-[150px]" />
-      </div>
-
+    <section className="bg-gray-950 py-section-lg">
       <div className="relative mx-auto max-w-4xl px-6 text-center">
         <div className="mb-component inline-flex items-center gap-2 rounded-full border border-white/[0.1] bg-white/[0.07] px-4 py-1.5">
           <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
@@ -18,7 +14,7 @@ export function FinalCTA() {
 
         <h2 className="mb-6 font-display text-5xl font-medium leading-[1.05] text-white sm:text-6xl md:text-7xl">
           Start transcribing
-          <span className="block brand-moment">client-ready.</span>
+          <span className="brand-moment block">client-ready.</span>
         </h2>
 
         <p className="mx-auto mb-10 max-w-xl text-lg leading-relaxed text-white/45">
@@ -28,7 +24,7 @@ export function FinalCTA() {
 
         <Link
           to="/video-to-transcript"
-          className="group mb-component inline-flex items-center gap-2.5 rounded-xl bg-blue-600 px-10 py-4 text-base font-extrabold text-white shadow-accent transition hover:bg-blue-700 hover:shadow-accent-hover"
+          className="group mb-component inline-flex items-center gap-2.5 rounded-xl bg-blue-600 px-10 py-4 text-base font-extrabold text-white transition hover:bg-blue-700"
         >
           Start Free — No Card Needed
           <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" />

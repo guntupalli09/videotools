@@ -7,7 +7,6 @@ import { getSamplesModuleAttribution } from '../lib/samplesAttribution'
 import { captureReferralFromUrl, getStoredReferralCode, clearStoredReferralCode } from '../lib/referral'
 import { celebrateReferralReward } from '../lib/referralReward'
 import ReferralSignupBanner from '../components/ReferralSignupBanner'
-import { motion } from 'framer-motion'
 import { FileText, Youtube, Shield, ChevronRight, CheckCircle2 } from 'lucide-react'
 import GoogleSignInButton, { GOOGLE_CLIENT_ID } from '../components/GoogleSignInButton'
 
@@ -207,17 +206,15 @@ export default function Signup() {
   return (
     <div className="min-h-screen flex bg-gray-50 dark:bg-gray-950 transition-colors duration-500">
       {/* Left panel */}
-      <div className="hidden lg:flex lg:w-[44%] xl:w-[42%] bg-gradient-to-br from-blue-700 via-blue-700 to-blue-800 flex-col justify-between p-10 xl:p-14 relative overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-white/10 rounded-full blur-[80px] pointer-events-none" />
-
+      <div className="hidden lg:flex lg:w-[44%] xl:w-[42%] flex-col justify-between border-r border-white/[0.08] bg-gray-950 p-10 xl:p-14">
         {/* Logo */}
-        <div className="flex items-center gap-2.5 relative z-10">
+        <div className="flex items-center gap-2.5">
           <img src="/logo.svg" alt="VideoText" width={28} height={28} className="w-7 h-7" />
           <span className="font-bold text-white text-lg">VideoText</span>
         </div>
 
         {/* Headline */}
-        <div className="relative z-10 space-y-8">
+        <div className="space-y-8">
           <div>
             <h2 className="text-3xl xl:text-4xl font-medium text-white leading-tight mb-3">
               {fromGuestJob ? 'Your transcript is ready!' : 'Video to transcript.'}
@@ -237,10 +234,10 @@ export default function Signup() {
               const Icon = p.icon;
               return (
                 <div key={p.text} className="flex items-center gap-3">
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${p.highlight ? 'bg-emerald-500/30' : 'bg-white/15'}`}>
-                    <Icon className={`w-3.5 h-3.5 ${p.highlight ? 'text-emerald-300' : 'text-white/80'}`} />
+                  <div className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg ${p.highlight ? 'bg-blue-600/30' : 'bg-white/15'}`}>
+                    <Icon className={`h-3.5 w-3.5 ${p.highlight ? 'text-blue-200' : 'text-white/80'}`} />
                   </div>
-                  <span className={`text-sm ${p.highlight ? 'text-emerald-200 font-semibold' : 'text-white/65'}`}>{p.text}</span>
+                  <span className={`text-sm ${p.highlight ? 'font-semibold text-blue-200' : 'text-white/65'}`}>{p.text}</span>
                 </div>
               );
             })}
@@ -253,17 +250,12 @@ export default function Signup() {
           </div>
         </div>
 
-        <div className="relative z-10" />
+        <div />
       </div>
 
       {/* Right panel — form */}
       <div className="flex-1 flex items-center justify-center px-6 py-14">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="w-full max-w-[400px]"
-        >
+        <div className="w-full max-w-[400px]">
           {/* Mobile logo */}
           <div className="flex items-center justify-center gap-2 mb-8 lg:hidden">
             <img src="/logo.svg" alt="VideoText" width={24} height={24} className="w-6 h-6" />
@@ -297,9 +289,9 @@ export default function Signup() {
                 <p className="text-center text-sm text-gray-500 dark:text-gray-400">Signing up with Google…</p>
               )}
               {error && (
-                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-3 py-2 rounded-lg" role="alert">
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400" role="alert">
                   {error}
-                </motion.p>
+                </p>
               )}
               <div className="flex items-center gap-3">
                 <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
@@ -325,21 +317,19 @@ export default function Signup() {
                 />
               </div>
               {error && (
-                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-3 py-2 rounded-lg" role="alert">
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400" role="alert">
                   {error}
-                </motion.p>
+                </p>
               )}
-              <motion.button
+              <button
                 type="submit"
                 disabled={loading}
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-700 disabled:opacity-60 text-white font-semibold transition-all text-[15px] flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
               >
                 {loading ? 'Sending…' : (
                   <>Send verification code <ChevronRight className="w-4 h-4" /></>
                 )}
-              </motion.button>
+              </button>
               <p className="text-center text-[11px] text-gray-400 dark:text-gray-500">
                 We'll email you a 6-digit code. No password required yet.
               </p>
@@ -363,21 +353,19 @@ export default function Signup() {
                 />
               </div>
               {error && (
-                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-3 py-2 rounded-lg" role="alert">
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400" role="alert">
                   {error}
-                </motion.p>
+                </p>
               )}
-              <motion.button
+              <button
                 type="submit"
                 disabled={loading || otpCode.length !== 6}
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-700 disabled:opacity-60 text-white font-semibold transition-all text-[15px] flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
               >
                 {loading ? 'Verifying…' : (
                   <>Verify email <ChevronRight className="w-4 h-4" /></>
                 )}
-              </motion.button>
+              </button>
               <button
                 type="button"
                 onClick={() => { setStep('email'); setOtpCode(''); setError(null); }}
@@ -398,11 +386,11 @@ export default function Signup() {
               </div>
 
               {fromGuestJob && (
-                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20">
-                  <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 dark:border-blue-500/20 dark:bg-blue-500/10">
+                  <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">
                     2 free imports remaining
                   </p>
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
+                  <p className="mt-0.5 text-xs text-blue-600 dark:text-blue-400">
                     1 was used for your trial job. 2 more are ready after signup.
                   </p>
                 </div>
@@ -425,16 +413,14 @@ export default function Signup() {
                 />
               </div>
               {error && (
-                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-3 py-2 rounded-lg" role="alert">
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400" role="alert">
                   {error}
-                </motion.p>
+                </p>
               )}
-              <motion.button
+              <button
                 type="submit"
                 disabled={loading}
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-700 disabled:opacity-60 text-white font-semibold transition-all text-[15px] flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
               >
                 {loading ? 'Creating account…' : (
                   <>
@@ -442,7 +428,7 @@ export default function Signup() {
                     <ChevronRight className="w-4 h-4" />
                   </>
                 )}
-              </motion.button>
+              </button>
             </form>
           )}
 
@@ -462,7 +448,7 @@ export default function Signup() {
               </Link>
             </p>
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   )

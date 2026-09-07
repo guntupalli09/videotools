@@ -3,7 +3,6 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { login, storeLoginResult } from '../lib/auth'
 import { identifyUser, trackEvent } from '../lib/analytics'
 import { loginWithGoogle } from '../lib/api'
-import { motion } from 'framer-motion'
 import { FileText, Youtube, Zap, ChevronRight } from 'lucide-react'
 import GoogleSignInButton, { GOOGLE_CLIENT_ID } from '../components/GoogleSignInButton'
 
@@ -70,18 +69,15 @@ export default function Login() {
   return (
     <div className="min-h-screen flex bg-gray-50 dark:bg-gray-950 transition-colors duration-500">
       {/* Left panel — context / social proof (hidden on mobile) */}
-      <div className="hidden lg:flex lg:w-[44%] xl:w-[42%] bg-gradient-to-br from-blue-700 via-blue-700 to-blue-800 flex-col justify-between p-10 xl:p-14 relative overflow-hidden">
-        {/* Ambient glow */}
-        <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-white/10 rounded-full blur-[80px] pointer-events-none" />
-
+      <div className="hidden lg:flex lg:w-[44%] xl:w-[42%] flex-col justify-between border-r border-white/[0.08] bg-gray-950 p-10 xl:p-14">
         {/* Logo */}
-        <div className="flex items-center gap-2.5 relative z-10">
+        <div className="flex items-center gap-2.5">
           <img src="/logo.svg" alt="VideoText" width={28} height={28} className="w-7 h-7" />
           <span className="font-bold text-white text-lg">VideoText</span>
         </div>
 
         {/* Headline */}
-        <div className="relative z-10 space-y-8">
+        <div className="space-y-8">
           <div>
             <h2 className="text-3xl xl:text-4xl font-medium text-white leading-tight mb-4">
               Welcome back.
@@ -119,17 +115,12 @@ export default function Login() {
           </div>
         </div>
 
-        <div className="relative z-10" />
+        <div />
       </div>
 
       {/* Right panel — form */}
       <div className="flex-1 flex items-center justify-center px-6 py-14">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="w-full max-w-[400px]"
-        >
+        <div className="w-full max-w-[400px]">
           {/* Mobile logo */}
           <div className="flex items-center justify-center gap-2 mb-8 lg:hidden">
             <img src="/logo.svg" alt="VideoText" width={24} height={24} className="w-6 h-6" />
@@ -138,14 +129,10 @@ export default function Login() {
 
           {/* Context banner for users coming from a completed job */}
           {fromGuestJob && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-6 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20"
-            >
-              <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300 mb-0.5">Your transcript is ready!</p>
-              <p className="text-xs text-emerald-700 dark:text-emerald-400">Log in to download it. Your remaining imports will be adjusted.</p>
-            </motion.div>
+            <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-500/20 dark:bg-blue-500/10">
+              <p className="mb-0.5 text-sm font-semibold text-blue-800 dark:text-blue-300">Your transcript is ready!</p>
+              <p className="text-xs text-blue-700 dark:text-blue-400">Log in to download it. Your remaining imports will be adjusted.</p>
+            </div>
           )}
 
           <h1 className="text-2xl font-medium text-gray-900 dark:text-white mb-1">
@@ -169,14 +156,9 @@ export default function Login() {
                 <p className="text-center text-sm text-gray-500 dark:text-gray-400">Signing in with Google…</p>
               )}
               {error && (
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-3 py-2 rounded-lg"
-                  role="alert"
-                >
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400" role="alert">
                   {error}
-                </motion.p>
+                </p>
               )}
               <div className="flex items-center gap-3">
                 <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
@@ -224,22 +206,15 @@ export default function Login() {
             </div>
 
             {error && (
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-3 py-2 rounded-lg"
-                role="alert"
-              >
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400" role="alert">
                 {error}
-              </motion.p>
+              </p>
             )}
 
-            <motion.button
+            <button
               type="submit"
               disabled={loading}
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-700 disabled:opacity-60 text-white font-semibold transition-all text-[15px] flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
             >
               {loading ? (
                 <>
@@ -255,7 +230,7 @@ export default function Login() {
                   <ChevronRight className="w-4 h-4" />
                 </>
               )}
-            </motion.button>
+            </button>
           </form>
 
           {!fromGuestJob && (
@@ -277,7 +252,7 @@ export default function Login() {
               ← Back to home
             </Link>
           </p>
-        </motion.div>
+        </div>
       </div>
     </div>
   )

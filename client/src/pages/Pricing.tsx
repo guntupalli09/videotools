@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react'
-import { motion } from 'framer-motion'
 import { Youtube, Mic, Building2 } from 'lucide-react'
 import { createBillingPortalSession } from '../lib/billing'
 import { startCheckout } from '../lib/startCheckout'
@@ -148,7 +147,7 @@ export default function Pricing() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900 py-20 sm:py-28">
+    <div className="min-h-screen bg-gray-50 py-20 dark:bg-gray-950 sm:py-28">
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
 
         {/* Header */}
@@ -161,7 +160,7 @@ export default function Pricing() {
             Transcribe · Subtitle · Translate · Format · QA · Process · Deliver
           </p>
           {pricing.enabled && pricing.tier !== 'standard' && (
-            <p className="mt-3 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+            <p className="mt-3 text-sm font-medium text-blue-600 dark:text-blue-400">
               Regional pricing for your area — same full Pro workflow
             </p>
           )}
@@ -209,7 +208,7 @@ export default function Pricing() {
               className={`min-h-11 rounded-lg px-3 sm:px-5 text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 ${billingInterval === 'annual' ? 'bg-blue-600 text-white shadow' : 'text-gray-300 hover:text-white'}`}
             >
               <span>Annual</span>
-              <span className="ml-2 inline-flex rounded-full bg-emerald-400 px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-emerald-950 shadow-sm">Save 27%</span>
+              <span className="ml-2 inline-flex rounded-full bg-blue-600 px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-white">Save 27%</span>
             </button>
           </div>
         </div>
@@ -283,7 +282,7 @@ export default function Pricing() {
                 {billingInterval === 'annual' ? (
                   <>
                     <p className="font-medium text-gray-200">{pricing.annual.billedLabel} billed annually</p>
-                    <p className="text-emerald-400">Save {pricing.annual.savePercent}% vs monthly</p>
+                    <p className="text-blue-400">Save {pricing.annual.savePercent}% vs monthly</p>
                   </>
                 ) : <span className="sr-only">Billed monthly</span>}
               </div>
@@ -357,13 +356,9 @@ export default function Pricing() {
                 Platform: Building2, platformColor: 'text-blue-500',
                 result: '12 clients served', resultBg: 'bg-blue-500/10 text-blue-500 border border-blue-500/20',
               },
-            ].map((t, i) => (
-              <motion.div
+            ].map((t) => (
+              <div
                 key={t.name}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-40px' }}
-                transition={{ delay: i * 0.1, duration: 0.5 }}
                 className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 flex flex-col"
               >
                 <div className="flex items-center justify-between mb-4">
@@ -389,7 +384,7 @@ export default function Pricing() {
                     <p className="text-xs text-gray-400 dark:text-gray-500">{t.role} · {t.meta}</p>
                   </div>
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
@@ -402,7 +397,7 @@ export default function Pricing() {
         <div className="mt-10 flex flex-wrap justify-center gap-6 text-sm text-gray-400 dark:text-gray-500">
           {['Cancel any time', 'We don\'t store your files'].map((s) => (
             <span key={s} className="flex items-center gap-1.5">
-              <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden>
+              <svg className="w-4 h-4 text-blue-500 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden>
                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
               </svg>
               {s}
