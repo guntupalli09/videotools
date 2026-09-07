@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
-import { ChevronDown } from 'lucide-react'
 import { getCoreToolSeoDepth } from '../lib/coreToolSeoDepth'
+import CollapsibleToolSection from './CollapsibleToolSection'
 
 type Props = {
   path: string
@@ -8,7 +8,7 @@ type Props = {
   hideFaq?: boolean
   /** @deprecated Lead content now lives in the bottom `full` section only. */
   variant?: 'full' | 'lead'
-  /** When false, SEO depth starts expanded. Defaults to collapsed on all core tools. */
+  /** When true, SEO depth starts expanded. Defaults to collapsed on all core tools. */
   defaultCollapsed?: boolean
 }
 
@@ -24,22 +24,12 @@ export default function CoreToolSeoDepth({
   if (variant === 'lead') return null
 
   return (
-    <details
+    <CollapsibleToolSection
       id="how-this-tool-works"
-      className="group mx-auto mt-12 max-w-4xl scroll-mt-20 border-t border-gray-100/70 px-4 pt-8 dark:border-gray-800"
-      aria-label="How this tool works"
-      {...(defaultCollapsed ? {} : { open: true })}
+      title="How this tool works"
+      defaultOpen={!defaultCollapsed}
     >
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-lg font-medium text-gray-900 marker:content-none dark:text-white [&::-webkit-details-marker]:hidden">
-        <span>How this tool works</span>
-        <span className="inline-flex items-center gap-1 text-sm font-normal text-gray-500 dark:text-gray-400">
-          <span className="group-open:hidden">Show more</span>
-          <span className="hidden group-open:inline">Show less</span>
-          <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
-        </span>
-      </summary>
-
-      <div className="mt-6 space-y-section">
+      <div className="max-w-4xl space-y-section">
         <section className="space-y-component-sm">
           <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300 sm:text-base">
             {data.answerFirst}
@@ -124,6 +114,6 @@ export default function CoreToolSeoDepth({
           </section>
         )}
       </div>
-    </details>
+    </CollapsibleToolSection>
   )
 }

@@ -9,7 +9,6 @@ import {
 import toast from "react-hot-toast";
 import { ToolLayout } from "../components/figma/ToolLayout";
 import CoreToolSeoDepth from "../components/CoreToolSeoDepth";
-import CollapsibleFaqSection from "../components/CollapsibleFaqSection";
 import { api } from "../lib/api";
 import {
   detectFormat,
@@ -221,37 +220,6 @@ function applyReviewEditsToOutputText(
   }
   return { text, warnings };
 }
-
-const GUIDELINE_FAQ = [
-  {
-    q: "What transcription style guides does this tool support?",
-    a: "Built-in presets for Rev, GoTranscript, TranscribeMe, and Scribie. Each preset encodes the platform's rules for verbatim handling, speaker label format, filler word removal (um, uh), false start treatment, punctuation, and number formatting. You can also upload your own client style guide as a PDF or DOCX.",
-  },
-  {
-    q: "What are the Rev transcription formatting rules?",
-    a: "Rev uses non-verbatim format by default: remove filler words (um, uh, like), false starts, and stutters unless meaningful. Speaker labels use [Speaker Name]: format. Numbers one through nine are spelled out; 10+ use numerals. Inaudible sections are marked [inaudible]. Simultaneous speech is marked [crosstalk]. The Rev preset applies all these rules automatically.",
-  },
-  {
-    q: "What are the GoTranscript formatting rules?",
-    a: "GoTranscript uses non-verbatim format: remove fillers and false starts, use Speaker 1: / Speaker 2: labels, include timestamps every 2 minutes, mark inaudible sections as [inaudible]. Numbers 1–10 spelled out; 11+ use numerals.",
-  },
-  {
-    q: "What is the difference between verbatim and non-verbatim transcription?",
-    a: "Verbatim captures every spoken word exactly — including filler words (um, uh, like, you know), false starts, and stutters. Non-verbatim (clean verbatim) removes these for readability. Rev, GoTranscript, and Scribie use non-verbatim by default. Legal, research, or clinical transcription often requires full verbatim.",
-  },
-  {
-    q: "How do I format a transcript for Rev?",
-    a: "Remove filler words (um, uh, like), false starts, and stutters. Use [Speaker Name]: for speaker labels. Spell out numbers one through nine. Mark inaudible sections as [inaudible]. Mark overlapping speech as [crosstalk]. Use the Rev preset in this tool to apply all rules and get a QA compliance score before submitting.",
-  },
-  {
-    q: "Can I upload my own client's style guide?",
-    a: "Yes. Upload a PDF, DOCX, or TXT containing your client's transcription guidelines. The tool parses the document and generates editable rule cards. Adjust any rule before formatting — useful for clients with custom variations of standard platform rules.",
-  },
-  {
-    q: "What is a QA compliance score?",
-    a: "After formatting, the tool runs a checklist against the selected style guide and calculates what percentage of verifiable rules were applied correctly. Scores above 90% indicate the transcript is likely compliant. Flagged segments below the threshold are surfaced for manual review before export.",
-  },
-] as const;
 
 export default function GuidelineFormat() {
   const [transcript, setTranscript] = useState("");
@@ -2825,13 +2793,7 @@ export default function GuidelineFormat() {
         }}
       />
 
-      <CoreToolSeoDepth path="/guideline-format" hideFaq variant="full" />
-
-      <CollapsibleFaqSection
-        items={[...GUIDELINE_FAQ]}
-        title="Transcript Style Guide FAQ"
-        className="max-w-3xl pb-12 sm:px-component sm:pb-16 lg:px-8"
-      />
+      <CoreToolSeoDepth path="/guideline-format" variant="full" />
 
       {/* ── QA Workflow Section ── */}
       <section
