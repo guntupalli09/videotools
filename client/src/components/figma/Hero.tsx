@@ -107,13 +107,8 @@ export function Hero() {
         </h1>
 
         {/* Sub-headline */}
-<<<<<<< Updated upstream
         <p className="mx-auto mb-6 max-w-2xl text-center text-base leading-relaxed text-white/60 sm:text-lg">
-          Upload a video or YouTube URL. Get a transcript, SRT/VTT, summary, and chapters. Files deleted after processing. Start free — 3 imports/mo.
-=======
-        <p className="mx-auto mb-6 max-w-2xl text-center text-[15px] leading-relaxed text-white/60 sm:text-[17px]">
           Upload a video or audio file. Get formatted transcripts and SRT/VTT your client can approve on the first pass — style-guide rules applied automatically, so you spend less time on QA. Files deleted after processing. Start free — 3 imports/mo.
->>>>>>> Stashed changes
         </p>
 
         <HeroActions />
