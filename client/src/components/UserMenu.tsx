@@ -10,6 +10,8 @@ import { useTheme } from '../lib/theme'
 import { isLoggedIn, logout, isDemo } from '../lib/auth'
 import { useFounderStatus } from '../hooks/useFounderStatus'
 import { CORE_AI_TOOLS_NAV } from '../config/coreAiToolsNav'
+import CancellationReasonModal from './CancellationReasonModal'
+import { hasSubmittedCancellationReason } from '../lib/cancellationFeedback'
 
 const tools = [...CORE_AI_TOOLS_NAV]
 
@@ -28,6 +30,8 @@ export default function UserMenu() {
     limit?: number
   } | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
+  const [cancelReasonOpen, setCancelReasonOpen] = useState(false)
+  const [pendingPortalRedirect, setPendingPortalRedirect] = useState(false)
   const { theme, toggleTheme } = useTheme()
   const { isFounder, loading } = useFounderStatus()
 
@@ -77,8 +81,7 @@ export default function UserMenu() {
 
   const hasPaidPlan = isPaidPlan(usage?.plan)
 
-  async function handleManageSubscription() {
-    if (!hasPaidPlan) return
+  async function openBillingPortal() {
     setPortalLoading(true)
     try {
       const { url } = await createBillingPortalSession(
@@ -87,6 +90,25 @@ export default function UserMenu() {
       window.location.href = url
     } catch {
       setPortalLoading(false)
+    }
+  }
+
+  async function handleManageSubscription() {
+    if (!hasPaidPlan) return
+    setOpen(false)
+    if (hasSubmittedCancellationReason('pre_portal')) {
+      await openBillingPortal()
+      return
+    }
+    setPendingPortalRedirect(true)
+    setCancelReasonOpen(true)
+  }
+
+  async function finishManageSubscriptionFlow() {
+    setCancelReasonOpen(false)
+    if (pendingPortalRedirect) {
+      setPendingPortalRedirect(false)
+      await openBillingPortal()
     }
   }
 
@@ -357,6 +379,17 @@ export default function UserMenu() {
           </>
         )}
       </AnimatePresence>
+
+      <CancellationReasonModal
+        open={cancelReasonOpen}
+        timing="pre_portal"
+        plan={usage?.plan ?? 'pro'}
+        onClose={() => {
+          setCancelReasonOpen(false)
+          setPendingPortalRedirect(false)
+        }}
+        onComplete={finishManageSubscriptionFlow}
+      />
     </>
   )
 }

@@ -31,6 +31,7 @@ import eventsRoutes from './routes/events'
 import shareRoutes from './routes/share'
 import referralRoutes from './routes/referral'
 import feedbackSystemRoutes from './routes/feedbackSystem'
+import cancellationFeedbackRoutes from './routes/cancellationFeedback'
 import adminDashboardRoutes, { clearDashboardCache } from './routes/adminDashboard'
 import adminConversionIntentRoutes from './routes/adminConversionIntent'
 import adminSupportRoutes, { runAlertChecks, maybeSendDailyDigest } from './routes/adminSupport'
@@ -44,6 +45,7 @@ import { createMagicLinkToken } from './routes/auth'
 import { attachLiveTranscription } from './routes/liveTranscription'
 import { maybeRunYoutubeCanary } from './services/youtubeCanary'
 import { startOnboardingEmailCron } from './jobs/onboardingEmailCron'
+import { startProOnboardingEmailCron } from './jobs/proOnboardingEmailCron'
 import { startUpgradeRescueCron } from './jobs/upgradeRescueCron'
 import { startPricingIntentRescueCron } from './jobs/pricingIntentRescueCron'
 import { startXPostCron } from './jobs/xPostCron'
@@ -281,6 +283,7 @@ app.use('/api/referral', referralRoutes)
 app.use('/api/feedback', feedbackRoutes)
 app.use('/api/events', eventsRoutes)
 app.use('/api/feedback', feedbackSystemRoutes)
+app.use('/api/feedback', cancellationFeedbackRoutes)
 app.use('/api/admin/feedback', feedbackSystemRoutes)
 app.use('/api/admin', adminDashboardRoutes)
 app.use('/api/admin', adminConversionIntentRoutes)
@@ -531,6 +534,10 @@ const server = app.listen(PORT, () => {
   // Activation sequence (Day 0/1/3/7) for free users who signed up but never started.
   startOnboardingEmailCron().catch((e) => {
     log.error({ msg: 'Failed to start onboarding cron', error: (e as Error)?.message })
+  })
+
+  startProOnboardingEmailCron().catch((e) => {
+    log.error({ msg: 'Failed to start pro onboarding cron', error: (e as Error)?.message })
   })
 
   // Upgrade rescue sequence for users who clicked upgrade but did not complete payment in 24h.
