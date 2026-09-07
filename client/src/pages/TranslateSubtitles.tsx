@@ -10,6 +10,7 @@ import PaywallModal, { type PaywallReason } from '../components/PaywallModal'
 import JobAuthGateModal from '../components/JobAuthGateModal'
 import UpgradeBanner from '../components/UpgradeBanner'
 import FreePlanNudge from '../components/FreePlanNudge'
+import SecondJobUpgradeNudge from '../components/SecondJobUpgradeNudge'
 import { ToolLayout } from '../components/figma/ToolLayout'
 import { UploadZone } from '../components/figma/UploadZone'
 import { ProcessingInterface } from '../components/figma/ProcessingInterface'
@@ -19,6 +20,7 @@ import { Select } from '../components/figma/FormControls'
 import type { SubtitleRow } from '../components/SubtitleEditor'
 const SubtitleEditor = lazy(() => import('../components/SubtitleEditor'))
 import { incrementUsage } from '../lib/usage'
+import { incrementJobCompletedCount } from '../lib/jobCount'
 import { uploadFileWithProgress, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError, getAuthToken } from '../lib/api'
 import { isLoggedIn } from '../lib/auth'
 import { isPaidPlan as hasPaidPlan } from '../lib/plans'
@@ -547,6 +549,17 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                 }
               }
               incrementUsage('translate-subtitles')
+              try {
+                const nextJobCount = incrementJobCompletedCount()
+                trackEvent('job_completed', {
+                  job_id: response.jobId,
+                  tool_type: BACKEND_TOOL_TYPES.TRANSLATE_SUBTITLES,
+                  processing_time_ms: Date.now() - started,
+                  job_count: nextJobCount,
+                })
+              } catch {
+                /* non-blocking */
+              }
             }
           } else if (transition === 'failed') {
             clearInterval(pollIntervalRef.current)
@@ -832,7 +845,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                   <Select label="Translate to" options={LANGUAGES} value={targetLanguage} onChange={setTargetLanguage} />
                   {!isPaidPlan && (
                     <p className="text-xs text-gray-400 dark:text-gray-500">
-                      Free plan: 3 translations per day ·{' '}
+                      Free plan: 3 translations per month ·{' '}
                       <Link to="/pricing" className="text-blue-600 hover:underline">Unlock Pro — $7.99/mo</Link>
                     </p>
                   )}
@@ -852,7 +865,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                 />
                 {!isPaidPlan && (
                   <p className="text-xs text-gray-400 dark:text-gray-500">
-                    Free plan: 3 translations per day ·{' '}
+                    Free plan: 3 translations per month ·{' '}
                     <Link to="/pricing" className="text-blue-600 hover:underline">Unlock Pro — $7.99/mo</Link>
                   </p>
                 )}
@@ -966,6 +979,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                   ]}
                 />
                 {inputKind === 'subtitles' && <FreePlanNudge tool="translation" resultKey={result.downloadUrl} />}
+                {inputKind === 'subtitles' && <SecondJobUpgradeNudge tool="translation" resultKey={result.downloadUrl} />}
 
                 {/* Plain text result */}
                 {plainTextResult && (
@@ -1082,7 +1096,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                 <Select label="Translate to" options={LANGUAGES} value={targetLanguage} onChange={setTargetLanguage} />
                 {!isPaidPlan && (
                   <p className="text-xs text-gray-400 dark:text-gray-500">
-                    Free plan: 3 translations per day ·{' '}
+                    Free plan: 3 translations per month ·{' '}
                     <Link to="/pricing" className="text-blue-600 hover:underline">Unlock Pro — $7.99/mo</Link>
                   </p>
                 )}
@@ -1109,7 +1123,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                 />
                 {!isPaidPlan && (
                   <p className="text-xs text-gray-400 dark:text-gray-500">
-                    Free plan: 3 translations per day ·{' '}
+                    Free plan: 3 translations per month ·{' '}
                     <Link to="/pricing" className="text-blue-600 hover:underline">Unlock Pro — $7.99/mo</Link>
                   </p>
                 )}

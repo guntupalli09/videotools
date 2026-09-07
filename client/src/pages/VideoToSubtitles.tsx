@@ -9,6 +9,8 @@ import PaywallModal, { type PaywallReason } from '../components/PaywallModal'
 import JobAuthGateModal from '../components/JobAuthGateModal'
 import UpgradeBanner from '../components/UpgradeBanner'
 import FreePlanNudge from '../components/FreePlanNudge'
+import SecondJobUpgradeNudge from '../components/SecondJobUpgradeNudge'
+import { incrementJobCompletedCount } from '../lib/jobCount'
 import LanguageSelector from '../components/LanguageSelector'
 import { ToolLayout } from '../components/figma/ToolLayout'
 import { UploadZone } from '../components/figma/UploadZone'
@@ -655,10 +657,12 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           }
           incrementUsage('video-to-subtitles')
           try {
+            const nextJobCount = incrementJobCompletedCount()
             trackEvent('job_completed', {
               job_id: response.jobId,
               tool_type: BACKEND_TOOL_TYPES.VIDEO_TO_SUBTITLES,
               processing_time_ms: processingMs,
+              job_count: nextJobCount,
             })
             trackFirstOutputSeen({ tool: 'video-to-subtitles', source: 'result_panel' })
             trackAppEvent('first_output_seen', { tool: 'video-to-subtitles', source: 'result_panel' })
@@ -1418,6 +1422,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               </div>
             )}
             <FreePlanNudge tool="subtitles" resultKey={result.downloadUrl} />
+            <SecondJobUpgradeNudge tool="subtitles" resultKey={result.downloadUrl} />
           </div>
         )}
 

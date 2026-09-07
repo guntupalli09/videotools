@@ -6,7 +6,7 @@ import fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
 import { fileQueue, addJobToQueue, getJobById, getTotalQueueCount as getQueueCountFromWorker, JobData } from '../workers/videoProcessor'
 import { validateFileType, validateFileSize, validateSubtitleFile } from '../utils/fileValidation'
-import { enforceLanguageLimits, enforceUsageLimits, getDailySoftCapConcurrency, getJobPriority, getMaxDailyImports, getPlanLimits, applySystemLoadGuard } from '../utils/limits'
+import { enforceLanguageLimits, enforceUsageLimits, getDailySoftCapConcurrency, getJobPriority, getMaxMonthlyImports, getPlanLimits, applySystemLoadGuard, FREE_MONTHLY_IMPORT_QUOTA_MESSAGE, GUEST_DAILY_IMPORT_QUOTA_MESSAGE } from '../utils/limits'
 import { assertCanImport } from '../utils/importQuota'
 import { resetDailyImportIfNeeded, resetDailyMinutesIfNeeded, resetUserUsageIfNeeded } from '../utils/usageReset'
 import { getUser, saveUser, PlanType, User, atomicResetDailyImportIfNeeded, atomicResetDailyMinutesIfNeeded } from '../models/User'
@@ -205,7 +205,7 @@ router.post('/init', async (req: Request, res: Response) => {
     if (userId.startsWith('guest_')) {
       const clientIp = extractClientIp(req)
       if (!await checkAndRecordGuestIpImport(clientIp)) {
-        return res.status(403).json({ message: "You've used today's 3 free imports. They reset at midnight — or upgrade to Pro." })
+        return res.status(403).json({ message: GUEST_DAILY_IMPORT_QUOTA_MESSAGE })
       }
     }
 
@@ -783,7 +783,7 @@ router.post('/youtube', async (req: Request, res: Response) => {
       if (dailyMinutesReset) await atomicResetDailyMinutesIfNeeded(user.id, now, user.usageThisMonth.dailyMinutesTodayResetDate!)
     }
 
-    // ── Import count check (free plan: 3 imports/day, resets at midnight UTC) ─
+    // ── Import count check (free plan: 3 imports/month, resets on the 1st UTC) ─
     const ytImportGate = user ? assertCanImport(user) : { ok: true as const }
     if (!ytImportGate.ok) {
       return res.status(403).json({ message: ytImportGate.message })

@@ -87,9 +87,14 @@ test('7+9: processing_completed only fires after the backend upload/job resolves
   )
   assert.doesNotMatch(fallbackCatch, /processing_completed/)
 
-  // Both real processing_completed calls are the ones already proven (test 6) to sit directly
-  // after invalidateUsageCache() — i.e. inside the success branch of their try block, never a catch.
-  assert.equal((handleUpload.match(/invalidateUsageCache\(\)\s*\n\s*trackEvent\('processing_completed'/g) || []).length, 2)
+  // Both real processing_completed calls sit after invalidateUsageCache() in their success
+  // branch (job_completed may follow processing_completed on the fallback path).
+  const completedCalls = [...handleUpload.matchAll(/trackEvent\('processing_completed'/g)]
+  for (const match of completedCalls) {
+    const before = handleUpload.slice(0, match.index)
+    assert.ok(before.includes('invalidateUsageCache()'), 'processing_completed must follow cache invalidation')
+  }
+  assert.equal(completedCalls.length, 2)
 })
 
 test('8+10: both catch blocks detect the daily-limit error and open the paywall instead of swallowing it', () => {

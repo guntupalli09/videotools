@@ -1,30 +1,27 @@
 import { useEffect, useState } from 'react'
 import { Loader2, Zap } from 'lucide-react'
-import { trackAppEvent } from '../lib/feedbackEvents'
-import { trackEvent } from '../lib/analytics'
-import { createCheckoutSession, rememberCheckoutAttribution } from '../lib/billing'
 import { getCurrentUsage } from '../lib/api'
 import { isPaidPlan } from '../lib/plans'
-import { isLoggedIn } from '../lib/auth'
+import { startCheckout } from '../lib/startCheckout'
 
 export type UpgradeBannerVariant =
-  | 'video-length'   // longer-video Pro value
-  | 'watermark'      // "Remove watermark from all exports"
-  | 'queue'          // "Process faster with priority queue"
-  | 'ai-features'    // "Unlock AI chapters, keywords & summaries"
-  | 'batch'          // "Process 20 videos at once with batch"
-  | 'voice'          // voice export Pro value
+  | 'video-length'
+  | 'watermark'
+  | 'queue'
+  | 'ai-features'
+  | 'batch'
+  | 'voice'
 
 const MESSAGES: Record<UpgradeBannerVariant, { text: string; cta: string }> = {
   'video-length': {
     text: 'Free plan: 30 min max.',
     cta: 'Process videos up to 2 hours with Pro — $7.99/mo',
   },
-  'watermark': {
+  watermark: {
     text: 'Your exports include a watermark.',
     cta: 'Remove watermark — $7.99/mo',
   },
-  'queue': {
+  queue: {
     text: 'Free plan uses the standard queue.',
     cta: 'Unlock Pro — $7.99/mo',
   },
@@ -32,11 +29,11 @@ const MESSAGES: Record<UpgradeBannerVariant, { text: string; cta: string }> = {
     text: 'AI features are Pro-only.',
     cta: 'Unlock AI outputs — $7.99/mo',
   },
-  'batch': {
+  batch: {
     text: 'Batch processing is Pro-only.',
     cta: 'Process up to 20 videos — $7.99/mo',
   },
-  'voice': {
+  voice: {
     text: 'Voice recordings export with a watermark.',
     cta: 'Unlock Pro — $7.99/mo',
   },
@@ -65,21 +62,17 @@ export default function UpgradeBanner({ variant = 'video-length', tool }: Upgrad
     setError(null)
     setLoading(true)
     try {
-      const attribution = { source: 'upgrade_banner', tool, variant, plan: 'free', billing_interval: 'monthly', displayed_price: 7.99 }
-      try { trackAppEvent('upgrade_clicked', attribution); trackEvent('upgrade_clicked', attribution) } catch { /* non-blocking */ }
-      const { url } = await createCheckoutSession({
-        mode: 'subscription',
-        plan: 'pro',
-        billingInterval: 'monthly',
+      await startCheckout({
         returnToPath: '/pricing',
-        frontendOrigin: window.location.origin,
+        attribution: {
+          source: 'upgrade_banner',
+          tool,
+          variant,
+          plan: 'free',
+          billing_interval: 'monthly',
+          displayed_price: 7.99,
+        },
       })
-      rememberCheckoutAttribution(attribution)
-      try {
-        trackEvent('checkout_session_created', attribution); trackEvent('stripe_redirect', attribution)
-        if (isLoggedIn()) { trackAppEvent('checkout_session_created', attribution); trackAppEvent('stripe_redirect', attribution) }
-      } catch { /* non-blocking */ }
-      window.location.assign(url)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to start checkout. Please try again.'
       setError(message)

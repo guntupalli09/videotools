@@ -18,7 +18,7 @@ import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { fileQueue, addJobToQueue, getTotalQueueCount as getQueueCountFromWorker, JobData } from '../workers/videoProcessor'
 import { validateFileType, validateSubtitleFile } from '../utils/fileValidation'
-import { enforceLanguageLimits, enforceUsageLimits, getDailySoftCapConcurrency, getMaxDailyImports, getPlanLimits, applySystemLoadGuard } from '../utils/limits'
+import { enforceLanguageLimits, enforceUsageLimits, getDailySoftCapConcurrency, getMaxMonthlyImports, getPlanLimits, applySystemLoadGuard, FREE_MONTHLY_IMPORT_QUOTA_MESSAGE, GUEST_DAILY_IMPORT_QUOTA_MESSAGE } from '../utils/limits'
 import { assertCanImport } from '../utils/importQuota'
 import { resetDailyImportIfNeeded, resetDailyMinutesIfNeeded, resetUserUsageIfNeeded } from '../utils/usageReset'
 import { getUser, saveUser, PlanType, User, atomicResetDailyImportIfNeeded, atomicResetDailyMinutesIfNeeded } from '../models/User'
@@ -134,7 +134,7 @@ export async function runTranscriptionIntake(
       const clientIp = extractClientIp(req)
       if (!await checkAndRecordGuestIpImport(clientIp)) {
         if (req.file) try { fs.unlinkSync(req.file.path) } catch { /* ignore */ }
-        return err(403, 'QUOTA_EXCEEDED', "You've used today's 3 free imports. They reset at midnight — or upgrade to Pro.")
+        return err(403, 'QUOTA_EXCEEDED', GUEST_DAILY_IMPORT_QUOTA_MESSAGE)
       }
     }
 
@@ -197,7 +197,7 @@ export async function runTranscriptionIntake(
       if (dailyMinutesReset) await atomicResetDailyMinutesIfNeeded(user.id, now, user.usageThisMonth.dailyMinutesTodayResetDate!)
     }
 
-    // Free plan: 3 imports per day (resets at midnight UTC)
+    // Free plan: 3 imports per calendar month (resets on the 1st UTC)
     const importGate = assertCanImport(user)
     if (!importGate.ok) {
       if (req.file) {

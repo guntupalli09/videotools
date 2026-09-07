@@ -28,6 +28,8 @@ import SamplesModule from "../components/SamplesModule";
 import PaywallModal, { type PaywallReason } from "../components/PaywallModal";
 import UpgradeBanner from "../components/UpgradeBanner";
 import FreePlanNudge from "../components/FreePlanNudge";
+import SecondJobUpgradeNudge from "../components/SecondJobUpgradeNudge";
+import { incrementJobCompletedCount } from "../lib/jobCount";
 import JobAuthGateModal from "../components/JobAuthGateModal";
 import { isLoggedIn } from "../lib/auth";
 import { isPaidPlan as hasPaidPlan } from "../lib/plans";
@@ -1732,13 +1734,7 @@ export default function VideoToTranscript(
                 processing_time_ms: processingMs,
                 ...getFunnelProps("file_upload"),
               });
-              const nextJobCount =
-                (Number(localStorage.getItem(JOB_COMPLETED_COUNT_KEY) || "0") ||
-                  0) + 1;
-              localStorage.setItem(
-                JOB_COMPLETED_COUNT_KEY,
-                String(nextJobCount),
-              );
+              const nextJobCount = incrementJobCompletedCount();
               trackFirstOutputSeen({
                 ...getFunnelProps("result_panel"),
                 job_count: nextJobCount,
@@ -2145,13 +2141,7 @@ export default function VideoToTranscript(
                 processing_time_ms: processingMs,
                 ...getFunnelProps("youtube_url"),
               });
-              const nextJobCount =
-                (Number(localStorage.getItem(JOB_COMPLETED_COUNT_KEY) || "0") ||
-                  0) + 1;
-              localStorage.setItem(
-                JOB_COMPLETED_COUNT_KEY,
-                String(nextJobCount),
-              );
+              const nextJobCount = incrementJobCompletedCount();
               trackFirstOutputSeen({
                 ...getFunnelProps("result_panel"),
                 job_count: nextJobCount,
@@ -4689,6 +4679,7 @@ export default function VideoToTranscript(
               hidden={showAuthGate && !isLoggedIn()}
             >
               <FreePlanNudge tool="transcript" resultKey={currentJobId || result.downloadUrl} />
+              <SecondJobUpgradeNudge tool="transcript" resultKey={currentJobId || result.downloadUrl} />
               {/* ── Transcript stats pills ── */}
               {(() => {
                 const text =

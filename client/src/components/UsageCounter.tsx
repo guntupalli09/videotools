@@ -36,7 +36,7 @@ function useUsage(refreshTrigger?: string | number) {
             used: 0,
           })
         } else if (quotaType === 'imports') {
-          const used = data.used ?? data.usage?.importCountToday ?? data.usage?.importCount ?? 0
+          const used = data.used ?? data.usage?.importCount ?? 0
           const limit = data.limit ?? 3
           const dailyRemaining = data.dailyRemaining ?? Math.max(0, limit - used)
           const bonusImportCredits = data.bonusImportCredits ?? 0
@@ -85,7 +85,7 @@ function useUsage(refreshTrigger?: string | number) {
 
 /**
  * Usage bar for the tool page header.
- * - Free: shows "X of 3 daily imports used" with progress dots and View plans CTA.
+ * - Free: shows "X of 3 monthly imports used" with progress dots and View plans CTA.
  * - Pro (not degraded): returns null (no bar).
  * - Pro (soft cap active): shows quiet inline upgrade banner.
  * - Business: returns null.
@@ -110,13 +110,13 @@ export default function UsageCounter({ refreshTrigger }: { refreshTrigger?: stri
 
   useEffect(() => {
     if (usage?.quotaType === 'imports' && usage.remaining === 0) {
-      trackEvent('daily_cap_hit')
+      trackEvent('monthly_cap_hit')
     }
   }, [usage?.quotaType, usage?.remaining])
 
   if (!usage || isDemo()) return null
 
-  const { quotaType, remaining, dailyRemaining, bonusImportCredits, used, limit, usedPercent } = usage
+  const { quotaType, remaining, bonusImportCredits, used, limit, usedPercent } = usage
 
   // Pro/Business without a daily import cap — no bar unless degraded
   if (quotaType === 'unlimited') {
@@ -174,19 +174,20 @@ export default function UsageCounter({ refreshTrigger }: { refreshTrigger?: stri
     )
   }
 
-  // Free tier — daily imports bar
-  const dailyExhausted = dailyRemaining === 0
+  // Free tier — monthly imports bar (+ optional referral bonus credits)
+  const monthlyRemaining = Math.max(0, limit - used)
+  const monthlyExhausted = monthlyRemaining === 0
   const totalExhausted = remaining === 0
   const filledDots = Math.min(used, limit)
   const resetLabel = usage.resetDate
-    ? new Date(usage.resetDate).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
-    : 'midnight'
+    ? new Date(usage.resetDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : 'the 1st'
 
   const statusLine = totalExhausted
-    ? `All imports used — daily resets at ${resetLabel}`
-    : dailyExhausted && bonusImportCredits > 0
-      ? `Daily imports used — ${bonusImportCredits} bonus upload${bonusImportCredits === 1 ? '' : 's'} left`
-      : `${used} of ${limit} daily imports used`
+    ? `All imports used — monthly resets ${resetLabel}`
+    : monthlyExhausted && bonusImportCredits > 0
+      ? `Monthly imports used — ${bonusImportCredits} bonus upload${bonusImportCredits === 1 ? '' : 's'} left`
+      : `${used} of ${limit} monthly imports used`
 
   return (
     <div className={`rounded-xl border transition-colors overflow-hidden ${
@@ -226,7 +227,7 @@ export default function UsageCounter({ refreshTrigger }: { refreshTrigger?: stri
 
         {bonusImportCredits > 0 && (
           <p className="text-xs text-emerald-400/90 mt-2">
-            + {bonusImportCredits} referral bonus upload{bonusImportCredits === 1 ? '' : 's'} (used after daily imports)
+            + {bonusImportCredits} referral bonus upload{bonusImportCredits === 1 ? '' : 's'} (used after monthly imports)
           </p>
         )}
       </div>

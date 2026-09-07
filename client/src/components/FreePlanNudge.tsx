@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { Loader2, Zap } from 'lucide-react'
-import { createCheckoutSession, rememberCheckoutAttribution } from '../lib/billing'
 import { getCurrentUsage, type UsageData } from '../lib/api'
 import { isLoggedIn } from '../lib/auth'
 import { trackEvent } from '../lib/analytics'
 import { trackAppEvent } from '../lib/feedbackEvents'
 import { getFreePlanNudgeState } from '../lib/freePlanConversion'
+import { startCheckout } from '../lib/startCheckout'
 
 export type FreePlanNudgeTool = 'transcript' | 'subtitles' | 'translation' | 'fix-srt' | 'burn-subtitles' | 'compress-video' | 'voice'
 
@@ -14,8 +14,8 @@ const TOOL_COPY: Record<FreePlanNudgeTool, string> = {
   subtitles: 'Translate, edit, batch process and export professional subtitle formats with Pro.',
   translation: 'Keep translating and unlock editing, additional workflows and professional exports.',
   'fix-srt': 'Keep fixing subtitles and unlock professional exports, editing and the complete VideoText workflow.',
-  'burn-subtitles': 'Keep processing videos without daily stops and unlock the complete VideoText workflow.',
-  'compress-video': 'Keep processing videos without daily stops and unlock the complete VideoText workflow.',
+  'burn-subtitles': 'Keep processing videos without monthly stops and unlock the complete VideoText workflow.',
+  'compress-video': 'Keep processing videos without monthly stops and unlock the complete VideoText workflow.',
   voice: 'Remove workflow interruptions and unlock the complete Voice/Text workflow.',
 }
 
@@ -40,7 +40,7 @@ export default function FreePlanNudge({ tool, resultKey, placement = 'result' }:
 
   const plan = (usage?.plan || '').toLowerCase()
   const limit = usage?.limit ?? 3
-  const used = usage?.used ?? usage?.usage?.importCountToday ?? 0
+  const used = usage?.used ?? usage?.usage?.importCount ?? 0
   const remaining = Math.max(0, usage?.remaining ?? limit - used)
   const nudgeState = getFreePlanNudgeState(used, remaining)
   const visible = plan === 'free' && usage?.quotaType === 'imports' && nudgeState !== 'hidden'
@@ -58,27 +58,30 @@ export default function FreePlanNudge({ tool, resultKey, placement = 'result' }:
 
   if (!visible) return null
 
-  const title = remaining === 0 ? "Today's free imports are used" : remaining === 1 ? '1 free import left today' : 'Keep going with Pro'
+  const title = remaining === 0 ? "This month's free imports are used" : remaining === 1 ? '1 free import left this month' : 'Keep going with Pro'
   const quotaCopy = remaining === 0
-    ? 'Your free imports reset at midnight UTC, or keep processing now with Pro.'
+    ? 'Your free imports reset on the 1st of each month, or keep processing now with Pro.'
     : remaining === 1
-      ? 'Upgrade now to keep your workflow moving without daily stops.'
-      : `You have ${remaining} free imports left today. Unlock longer files, advanced workflows, and uninterrupted processing.`
+      ? 'Upgrade now to keep your workflow moving without monthly limits.'
+      : `You have ${remaining} free imports left this month. Unlock longer files, advanced workflows, and uninterrupted processing.`
   const cta = remaining === 0 ? 'Continue with Pro — $7.99/mo →' : 'Unlock Pro — $7.99/mo →'
 
   async function upgrade() {
     if (loading) return
     setLoading(true); setError(null)
     try {
-      const attribution = { source: 'free_plan_nudge', tool, remaining_imports: remaining, placement, plan, billing_interval: 'monthly', displayed_price: 7.99 }
-      try { trackEvent('upgrade_clicked', attribution) } catch { /* non-blocking */ }
-      const { url } = await createCheckoutSession({ mode: 'subscription', plan: 'pro', billingInterval: 'monthly', returnToPath: window.location.pathname, frontendOrigin: window.location.origin })
-      rememberCheckoutAttribution(attribution)
-      try {
-        trackEvent('checkout_session_created', attribution); trackEvent('stripe_redirect', attribution)
-        if (isLoggedIn()) { trackAppEvent('checkout_session_created', attribution); trackAppEvent('stripe_redirect', attribution) }
-      } catch { /* non-blocking */ }
-      window.location.assign(url)
+      await startCheckout({
+        returnToPath: window.location.pathname,
+        attribution: {
+          source: 'free_plan_nudge',
+          tool,
+          remaining_imports: remaining,
+          placement,
+          plan: 'free',
+          billing_interval: 'monthly',
+          displayed_price: 7.99,
+        },
+      })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not open checkout. Please try again.')
       setLoading(false)

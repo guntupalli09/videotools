@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import UpgradeBanner from '../components/UpgradeBanner'
 import FreePlanNudge from '../components/FreePlanNudge'
+import SecondJobUpgradeNudge from '../components/SecondJobUpgradeNudge'
 import PaywallModal, { type PaywallReason } from '../components/PaywallModal'
 import { isPaidPlan as hasPaidPlan } from '../lib/plans'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -43,6 +44,7 @@ import PinnedAudioPlayerBar from '../components/transcript/PinnedAudioPlayerBar'
 import { LANGUAGES } from '../lib/languages'
 import { exportFileStem, joinExportFilename, targetLangFileSlug } from '../lib/exportFileNames'
 import { trackEvent } from '../lib/analytics'
+import { incrementJobCompletedCount } from '../lib/jobCount'
 import { applyWatermarkToTxt, WATERMARK_CLIPBOARD_SUFFIX } from '../lib/watermark'
 import toast from 'react-hot-toast'
 
@@ -352,7 +354,7 @@ export default function VoiceRecorder() {
     if (!isLoggedIn()) return true
     try {
       const usage = await getCurrentUsage({ skipCache: true })
-      const remaining = usage.remaining ?? (usage.limit ?? 3) - (usage.used ?? usage.usage?.importCountToday ?? 0)
+      const remaining = usage.remaining ?? (usage.limit ?? 3) - (usage.used ?? usage.usage?.importCount ?? 0)
       if (usage.plan === 'free' && usage.quotaType === 'imports' && remaining <= 0) {
         setPaywallReason('FREE_DAILY_LIMIT_REACHED')
         setShowPaywall(true)
@@ -675,10 +677,22 @@ export default function VoiceRecorder() {
             setTranscript(text)
             setPhase('result')
             invalidateUsageCache()
+            const words = text.trim().split(/\s+/).filter(Boolean).length
             trackEvent('processing_completed', {
               tool: 'voice-recorder',
-              words: text.trim().split(/\s+/).filter(Boolean).length,
+              words,
             })
+            try {
+              const nextJobCount = incrementJobCompletedCount()
+              trackEvent('job_completed', {
+                job_id: res.jobId,
+                tool_type: 'voice-recorder',
+                job_count: nextJobCount,
+                words,
+              })
+            } catch {
+              /* non-blocking */
+            }
             toast.success('Transcript ready!')
           } else if (s.status === 'failed') {
             stopPollRef.current?.()
@@ -1360,6 +1374,7 @@ export default function VoiceRecorder() {
 
                 </>)}{/* end gate-hidden result */}
                 {voiceJobId && <FreePlanNudge tool="voice" resultKey={voiceJobId} />}
+                {voiceJobId && <SecondJobUpgradeNudge tool="voice" resultKey={voiceJobId} />}
 
                 {/* Record again */}
                 <button

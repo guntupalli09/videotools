@@ -192,7 +192,7 @@ router.post('/checkout', async (req: Request, res: Response) => {
         recordUpgradeIntent({ userId: auth.userId, source: 'checkout_session_started' }).catch(() => {})
       }
 
-      return res.json({ url: session.url })
+      return res.json({ url: session.url, sessionId: session.id })
     }
 
     if (mode === 'payment') {

@@ -301,7 +301,7 @@ const TOOL_GUIDES: ToolGuide[] = [
 
 /** Plan limits at a glance (authoritative summary; exact values in server/utils/limits.ts). */
 const PLAN_LIMITS = [
-  { plan: 'Free', uploads: '3/day', maxDuration: '30 min', maxSize: '2 GB', languages: '1', batch: '-', aiFeatures: '-' },
+  { plan: 'Free', uploads: '3/month', maxDuration: '30 min', maxSize: '2 GB', languages: '1', batch: '-', aiFeatures: '-' },
   { plan: 'Pro', uploads: 'No daily import cap', maxDuration: '2 h', maxSize: '10 GB', languages: '70+', batch: 'Up to 20 files', aiFeatures: 'Summary, Chapters, Speakers, Translation' },
 ]
 
@@ -501,7 +501,7 @@ export default function Guide() {
           <div className="p-4 sm:p-6 border-b border-gray-100">
             <h2 className="text-lg font-medium text-gray-900">Plan limits at a glance</h2>
             <p className="text-sm text-gray-600 mt-1">
-              Free: 3 imports/day, 30 min per video. Paid: monthly minute quota. AI features (Summary, Chapters, Speakers, Translation, Batch) are Pro and above. Exact limits enforced at upload.
+              Free: 3 imports/month, 30 min per video. Paid: monthly minute quota. AI features (Summary, Chapters, Speakers, Translation, Batch) are Pro and above. Exact limits enforced at upload.
             </p>
           </div>
           <div className="overflow-x-auto">

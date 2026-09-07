@@ -10,6 +10,7 @@ import CrossToolSuggestions from '../components/CrossToolSuggestions'
 // import WorkflowChainSuggestion from '../components/WorkflowChainSuggestion'
 import PaywallModal from '../components/PaywallModal'
 import FreePlanNudge from '../components/FreePlanNudge'
+import SecondJobUpgradeNudge from '../components/SecondJobUpgradeNudge'
 import { isPaidPlan } from '../lib/plans'
 import JobAuthGateModal from '../components/JobAuthGateModal'
 import { ToolLayout } from '../components/figma/ToolLayout'
@@ -21,6 +22,7 @@ import { TranslateResult } from '../components/figma/TranslateResult'
 import { RadioGroup } from '../components/figma/FormControls'
 import { getFilePreview, formatDuration, type FilePreviewData } from '../lib/filePreview'
 import { incrementUsage } from '../lib/usage'
+import { incrementJobCompletedCount } from '../lib/jobCount'
 import { uploadFileWithProgress, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError, claimGuestJob, getAuthToken } from '../lib/api'
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
@@ -220,7 +222,17 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
             trackAppEvent('transcription_completed', { toolId: 'compress-video' })
             // emitToolCompleted({ toolId: 'compress-video', pathname: '/compress-video', processingMs })
             incrementUsage('compress-video')
-            // texJobCompleted(processingMs, 'compress-video')
+            try {
+              const nextJobCount = incrementJobCompletedCount()
+              trackEvent('job_completed', {
+                job_id: response.jobId,
+                tool_type: BACKEND_TOOL_TYPES.COMPRESS_VIDEO,
+                processing_time_ms: processingMs,
+                job_count: nextJobCount,
+              })
+            } catch {
+              /* non-blocking */
+            }
           } else if (transition === 'failed') {
             clearInterval(pollIntervalRef.current)
             setStatus('failed')
@@ -473,6 +485,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
             />
             )}{/* end gate-hidden result */}
             <FreePlanNudge tool="compress-video" resultKey={result.downloadUrl} />
+            <SecondJobUpgradeNudge tool="compress-video" resultKey={result.downloadUrl} />
             <div className="mt-2 min-h-[2.75rem]">
             {/* <WorkflowChainSuggestion
               pathname={location.pathname}

@@ -12,18 +12,19 @@ test('progresses only after successful free imports', () => {
   assert.equal(getFreePlanNudgeState(3, 0), 'exhausted')
 })
 
-test('shared inline conversion surfaces explicitly choose monthly checkout', () => {
-  for (const file of ['FreePlanNudge.tsx', 'PaywallModal.tsx', 'UpgradeBanner.tsx', 'ProResultNudge.tsx']) {
+test('shared inline conversion surfaces route checkout through startCheckout', () => {
+  for (const file of ['FreePlanNudge.tsx', 'PaywallModal.tsx', 'UpgradeBanner.tsx', 'ProResultNudge.tsx', 'SecondJobUpgradeNudge.tsx']) {
     const source = readFileSync(resolve(process.cwd(), 'src/components', file), 'utf8')
-    assert.match(source, /billingInterval:\s*['"]monthly['"]/, file)
+    assert.match(source, /startCheckout\(/, file)
     assert.doesNotMatch(source, /\bprice(Id)?\s*:/, file)
   }
 })
 
-test('all quota-consuming core result pages mount the shared nudge', () => {
+test('all quota-consuming core result pages mount shared conversion nudges', () => {
   for (const file of ['VideoToTranscript.tsx', 'VideoToSubtitles.tsx', 'TranslateSubtitles.tsx', 'FixSubtitles.tsx', 'BurnSubtitles.tsx', 'CompressVideo.tsx', 'VoiceRecorder.tsx']) {
     const source = readFileSync(resolve(process.cwd(), 'src/pages', file), 'utf8')
     assert.match(source, /<FreePlanNudge\b/, file)
+    assert.match(source, /<SecondJobUpgradeNudge\b/, file)
   }
   const guideline = readFileSync(resolve(process.cwd(), 'src/pages/GuidelineFormat.tsx'), 'utf8')
   assert.match(guideline, /<ProResultNudge\b/)
@@ -32,7 +33,7 @@ test('all quota-consuming core result pages mount the shared nudge', () => {
 
 test('PaywallModal owns its impression and has no competing navigation callback', () => {
   const modal = readFileSync(resolve(process.cwd(), 'src/components/PaywallModal.tsx'), 'utf8')
-  assert.equal((modal.match(/paywall_shown/g) || []).length, 1)
+  assert.equal((modal.match(/trackEvent\('paywall_shown'/g) || []).length, 1)
   assert.doesNotMatch(modal, /onUpgrade/)
 })
 

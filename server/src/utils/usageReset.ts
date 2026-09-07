@@ -9,7 +9,7 @@ export function nextMidnightUTC(now: Date): Date {
 
 /**
  * Single helper for monthly usage reset. Mutates user in place.
- * Free: resets importCount on the 1st of each calendar month (3 imports/month, not lifetime).
+ * Free: resets importCount on the 1st of each calendar month (3 imports/month).
  * Paid: zero usage; resetDate from Stripe billing period (caller syncs billingPeriodEnd).
  * Caller must call saveUser(user) after this when reset was applied.
  */

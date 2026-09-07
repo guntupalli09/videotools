@@ -148,20 +148,21 @@ router.get('/current', async (req: Request, res: Response) => {
       : undefined
 
   if (plan === 'free') {
-    const importCountToday = usage.importCountToday ?? 0
+    const importCount = usage.importCount ?? 0
     const limit = 3
+    const resetDate = usage.resetDate ?? new Date(now.getFullYear(), now.getMonth() + 1, 1)
     const bonusImportCredits = user?.bonusImportCredits ?? 0
-    const todayResetDate = usage.importCountTodayResetDate ?? new Date(now.getTime() + 24 * 60 * 60 * 1000)
-    const dailyRemaining = Math.max(0, limit - importCountToday)
+    const monthlyRemaining = Math.max(0, limit - importCount)
     res.json({
       plan: 'free',
       quotaType: 'imports',
-      used: importCountToday,
+      used: importCount,
       limit,
-      remaining: dailyRemaining + bonusImportCredits,
+      remaining: monthlyRemaining + bonusImportCredits,
       bonusImportCredits,
-      dailyRemaining,
-      resetDate: todayResetDate.toISOString(),
+      dailyRemaining: monthlyRemaining,
+      monthlyRemaining,
+      resetDate: resetDate.toISOString(),
       email: displayEmail,
       limits: {
         maxLanguages: limits.maxLanguages,
@@ -172,7 +173,8 @@ router.get('/current', async (req: Request, res: Response) => {
       usage: {
         videoCount: usage.videoCount,
         batchCount: usage.batchCount,
-        importCountToday,
+        importCount,
+        importCountToday: usage.importCountToday ?? 0,
       },
       overages: { minutes: 0, charge: 0 },
       queuePriority: getJobPriority(plan),

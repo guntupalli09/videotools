@@ -9,6 +9,7 @@ import SamplesModule from '../components/SamplesModule'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import PaywallModal from '../components/PaywallModal'
 import FreePlanNudge from '../components/FreePlanNudge'
+import SecondJobUpgradeNudge from '../components/SecondJobUpgradeNudge'
 import { isPaidPlan } from '../lib/plans'
 import { ToolLayout } from '../components/figma/ToolLayout'
 import { UploadZone } from '../components/figma/UploadZone'
@@ -19,6 +20,7 @@ import { TranslateResult } from '../components/figma/TranslateResult'
 import { Select } from '../components/figma/FormControls'
 import { getFilePreview, formatDuration, type FilePreviewData } from '../lib/filePreview'
 import { incrementUsage } from '../lib/usage'
+import { incrementJobCompletedCount } from '../lib/jobCount'
 import { uploadDualFilesWithProgress, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError, claimGuestJob, getAuthToken } from '../lib/api'
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
@@ -225,7 +227,17 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
             trackAppEvent('transcription_completed', { toolId: 'burn-subtitles' })
             // emitToolCompleted({ toolId: 'burn-subtitles', pathname: '/burn-subtitles', processingMs })
             incrementUsage('burn-subtitles')
-            // texJobCompleted(processingMs, 'burn-subtitles')
+            try {
+              const nextJobCount = incrementJobCompletedCount()
+              trackEvent('job_completed', {
+                job_id: response.jobId,
+                tool_type: BACKEND_TOOL_TYPES.BURN_SUBTITLES,
+                processing_time_ms: processingMs,
+                job_count: nextJobCount,
+              })
+            } catch {
+              /* non-blocking */
+            }
           } else if (transition === 'failed') {
             clearInterval(pollIntervalRef.current)
             setStatus('failed')
@@ -525,6 +537,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
               ]}
             />
             <FreePlanNudge tool="burn-subtitles" resultKey={result.downloadUrl} />
+            <SecondJobUpgradeNudge tool="burn-subtitles" resultKey={result.downloadUrl} />
 
             <CrossToolSuggestions
               workflowHint="Your last file is pre-filled on the next tool."

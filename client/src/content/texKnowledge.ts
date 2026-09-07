@@ -107,7 +107,7 @@ export const TEX_ENTRIES: TexEntry[] = [
     keywords: ['free', 'free plan', 'free tier', '3 imports', 'free limit', 'imports'],
     question: 'What’s included in the free plan?',
     answer:
-      'Free: 3 uploads per day, up to 30 min per video. Video → Transcript and Video → Subtitles, one language. No batch. Upgrade for continued processing and features.',
+      'Free: 3 uploads per month, up to 30 min per video. Video → Transcript and Video → Subtitles, one language. No batch. Upgrade for continued processing and features.',
     link: { path: '/pricing', label: 'See pricing' },
   },
   {
