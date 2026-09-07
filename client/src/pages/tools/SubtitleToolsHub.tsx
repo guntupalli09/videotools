@@ -96,12 +96,12 @@ export default function SubtitleToolsHub() {
         canonicalPath="/subtitle-tools"
       />
       {/* Hero */}
-      <div className="bg-gradient-to-br from-pink-600 to-rose-800 text-white py-16 px-4">
+      <div className="bg-gray-950 text-white py-16 px-4 border-b border-white/[0.06]">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-4xl md:text-5xl font-display font-medium mb-4">
             Free Subtitle Tools for Creators
           </h1>
-          <p className="text-lg text-pink-100 max-w-2xl">
+          <p className="text-lg text-white/55 max-w-2xl">
             Convert formats, shift timing, validate cues, and check character limits in your browser. No account. Nothing uploaded.
           </p>
         </div>

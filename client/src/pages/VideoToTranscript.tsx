@@ -3409,23 +3409,23 @@ export default function VideoToTranscript(
                   </div>
                 )}
                 {sourceMessage && (
-                  <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/80 dark:border-emerald-800/60 dark:bg-emerald-950/25 px-4 py-3">
-                    <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                  <div className="rounded-xl border border-blue-200/70 bg-blue-50/80 dark:border-blue-800/60 dark:bg-blue-950/25 px-4 py-3">
+                    <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">
                       {sourceMessage.title}
                     </p>
-                    <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-200/90">
+                    <p className="mt-1 text-xs text-blue-700 dark:text-blue-200/90">
                       {sourceMessage.body}
                     </p>
                   </div>
                 )}
                 {shouldShowActivationCard && (
-                  <div className="rounded-xl border border-emerald-300/70 dark:border-emerald-700/70 bg-emerald-50/80 dark:bg-emerald-950/25 px-4 py-4 sm:px-5 sm:py-5">
+                  <div className="rounded-xl border border-blue-300/70 dark:border-blue-700/70 bg-blue-50/80 dark:bg-blue-950/25 px-4 py-4 sm:px-5 sm:py-5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">
+                        <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
                           Get your first transcript in under a minute
                         </p>
-                        <ol className="mt-2 space-y-1.5 text-xs sm:text-sm text-emerald-800 dark:text-emerald-100/90">
+                        <ol className="mt-2 space-y-1.5 text-xs sm:text-sm text-blue-800 dark:text-blue-100/90">
                           <li className="flex items-center gap-2">
                             <CheckCircle2
                               className="h-4 w-4 shrink-0"
@@ -3452,7 +3452,7 @@ export default function VideoToTranscript(
                       <button
                         type="button"
                         onClick={handleActivationWizardCta}
-                        className="shrink-0 rounded-lg bg-emerald-600 px-3 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-emerald-700 transition"
+                        className="shrink-0 rounded-lg bg-blue-600 px-3 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-blue-700 transition"
                       >
                         Start now
                       </button>
@@ -4386,9 +4386,9 @@ export default function VideoToTranscript(
 
         {/* Batch completed results */}
         {isBatchMode && status === "completed" && batchInfo && (
-          <div className="rounded-xl border border-emerald-200/80 dark:border-emerald-900/40 bg-gradient-to-br from-emerald-50/95 via-white to-teal-50/60 dark:from-emerald-950/35 dark:via-gray-900/90 dark:to-teal-950/25 p-6 sm:p-8 space-y-component shadow-lg shadow-emerald-500/10">
+          <div className="rounded-xl border border-blue-200/80 dark:border-blue-900/40 bg-gradient-to-br from-blue-50/95 via-white to-blue-50/60 dark:from-blue-950/35 dark:via-gray-900/90 dark:to-blue-950/25 p-6 sm:p-8 space-y-component shadow-lg shadow-blue-500/10">
             <div className="flex flex-col sm:flex-row sm:items-start gap-component-sm">
-              <div className="shrink-0 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md">
+              <div className="shrink-0 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-md">
                 <Download className="w-6 h-6" aria-hidden />
               </div>
               <div className="flex-1 min-w-0">
@@ -4434,7 +4434,7 @@ export default function VideoToTranscript(
             <a
               href={getBatchDownloadUrl(batchInfo.batchId)}
               download
-              className="flex items-center justify-center gap-2 w-full py-3.5 px-6 rounded-xl font-semibold text-sm bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white transition-colors shadow-md"
+              className="flex items-center justify-center gap-2 w-full py-3.5 px-6 rounded-xl font-semibold text-sm bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-700 text-white transition-colors shadow-md"
             >
               <Download className="w-4 h-4" />
               Download all as ZIP
@@ -4858,11 +4858,11 @@ export default function VideoToTranscript(
                         {/* "Saved" indicator — appears after the 1.5 s auto-save debounce fires */}
                         {editsSavedAt && (
                           <span
-                            className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 select-none"
+                            className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 select-none"
                             aria-live="polite"
                           >
                             <span
-                              className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"
+                              className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"
                               aria-hidden
                             />
                             saved
