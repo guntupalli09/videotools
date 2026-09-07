@@ -20,6 +20,7 @@ import { UploadZone } from '../components/figma/UploadZone'
 import { ProcessingInterface } from '../components/figma/ProcessingInterface'
 import { ProcessingProgress } from '../components/figma/ProcessingProgress'
 import { TranslateResult } from '../components/figma/TranslateResult'
+import ResultUpgradeCard from '../components/ResultUpgradeCard'
 import { Checkbox } from '../components/figma/FormControls'
 import type { SubtitleRow } from '../components/SubtitleEditor'
 const SubtitleQAReview = lazy(() => import('../components/SubtitleQAReview'))
@@ -754,10 +755,17 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
     breadcrumbs,
     title: seoH1 ?? 'Fix Subtitles — Timing, CPS & Lines',
     subtitle: seoIntro ?? 'Fix overlapping timestamps, long lines, CPS/reading-speed, and formatting in SRT/VTT. Files deleted after processing. 3 free imports/mo.',
-    icon: <Wrench className="w-8 h-8 text-blue-600 dark:text-blue-400" />,
+    icon: <Wrench className="w-4 h-4 text-blue-600 dark:text-blue-400" />,
     tags: ['CPS', 'CPL', 'Timing', 'Scene Cuts', 'Line Breaks', 'Filler Words'],
     sidebar: null,
+    compactToolHeader: true,
     coreToolPath: '/fix-subtitles',
+    currentStepLabel:
+      status === 'completed'
+        ? 'Subtitles fixed'
+        : selectedFile
+          ? 'Upload configured'
+          : 'Ready to upload',
   }
 
   return (
@@ -1174,8 +1182,10 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
               downloadLabel={plan === 'free' ? (freeExportsUsed >= 2 ? '2/2 free downloads used' : 'Download SRT') : 'Download SRT'}
               onDownload={() => requireAuthForDownload(downloadFixedSubtitles)}
               onProcessAnother={handleProcessAnother}
+              processAnotherLabel="Fix another file"
               relatedTools={[]}
             />
+            <ResultUpgradeCard tool="fix-srt" resultKey={result.downloadUrl} />
             <FreePlanNudge tool="fix-srt" resultKey={result.downloadUrl} />
             <SecondJobUpgradeNudge tool="fix-srt" resultKey={result.downloadUrl} milestone={2} />
             <SecondJobUpgradeNudge tool="fix-srt" resultKey={result.downloadUrl} milestone={3} />

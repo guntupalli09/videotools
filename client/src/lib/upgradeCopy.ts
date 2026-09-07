@@ -24,7 +24,15 @@ export const PRO_BENEFIT_BULLETS = [
   'Unlimited imports — no monthly cap',
 ] as const
 
-export type ResultUpgradeTool = 'transcript' | 'subtitles' | 'translation' | 'voice'
+export type ResultUpgradeTool =
+  | 'transcript'
+  | 'subtitles'
+  | 'translation'
+  | 'voice'
+  | 'fix-srt'
+  | 'burn'
+  | 'compress'
+  | 'guideline'
 
 export function getResultUpgradeCopy(
   tool: ResultUpgradeTool,
@@ -74,6 +82,38 @@ export function getResultUpgradeCopy(
         subhead: 'Pro removes export watermarks and unlocks longer recordings plus the full VideoText workflow.',
         bullets: PRO_BENEFIT_BULLETS,
         cta: `Unlock voice exports — ${priceLabel}`,
+        quotaLine,
+      }
+    case 'fix-srt':
+      return {
+        headline: 'Subtitles fixed — ship clean files',
+        subhead: 'Pro removes watermarks, unlocks VTT/ASS exports, and unlimited monthly imports for your caption workflow.',
+        bullets: PRO_BENEFIT_BULLETS,
+        cta: `Export without limits — ${priceLabel}`,
+        quotaLine,
+      }
+    case 'burn':
+      return {
+        headline: 'Burned video ready — deliver without limits',
+        subhead: 'Pro unlocks watermark-free downloads, longer videos, and the full subtitle pipeline in one flat price.',
+        bullets: PRO_BENEFIT_BULLETS,
+        cta: `Download without watermark — ${priceLabel}`,
+        quotaLine,
+      }
+    case 'compress':
+      return {
+        headline: 'Video compressed — keep the workflow going',
+        subhead: 'Pro unlocks unlimited imports, batch processing, and clean exports across every VideoText tool.',
+        bullets: PRO_BENEFIT_BULLETS,
+        cta: `Unlock unlimited imports — ${priceLabel}`,
+        quotaLine,
+      }
+    case 'guideline':
+      return {
+        headline: 'Format ready — make every transcript client-ready',
+        subhead: 'Pro unlocks continued guideline formatting, QA review, and professional delivery exports.',
+        bullets: PRO_BENEFIT_BULLETS,
+        cta: `Unlock client-ready exports — ${priceLabel}`,
         quotaLine,
       }
   }

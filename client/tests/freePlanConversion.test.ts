@@ -32,14 +32,21 @@ test('all quota-consuming core result pages mount shared conversion nudges', () 
     assert.match(source, /<FreePlanNudge\b/, file)
     assert.match(source, /<SecondJobUpgradeNudge\b/, file)
     assert.match(source, /milestone=\{3\}/, file)
+    assert.match(source, /<ResultUpgradeCard\b/, file)
+    assert.match(source, /compactToolHeader:\s*true|compactToolHeader\b/, file)
+    assert.match(source, /<ResultHeader\b|<TranslateResult\b/, file)
   }
-  const transcript = readFileSync(resolve(process.cwd(), 'src/pages/VideoToTranscript.tsx'), 'utf8')
-  assert.match(transcript, /<ResultUpgradeCard\b/)
-  const subtitles = readFileSync(resolve(process.cwd(), 'src/pages/VideoToSubtitles.tsx'), 'utf8')
-  assert.match(subtitles, /<ResultUpgradeCard\b/)
   const guideline = readFileSync(resolve(process.cwd(), 'src/pages/GuidelineFormat.tsx'), 'utf8')
-  assert.match(guideline, /<ProResultNudge\b/)
+  assert.match(guideline, /<ResultUpgradeCard\b/)
+  assert.match(guideline, /<ResultHeader\b/)
+  assert.match(guideline, /compactToolHeader/)
   assert.doesNotMatch(guideline, /<FreePlanNudge\b/)
+})
+
+test('VoiceRecorder Pro grid routes checkout through startCheckout', () => {
+  const source = readFileSync(resolve(process.cwd(), 'src/pages/VoiceRecorder.tsx'), 'utf8')
+  assert.match(source, /startCheckout\(/)
+  assert.doesNotMatch(source, /Link to="\/pricing"[^>]*>Unlock Pro/)
 })
 
 test('PaywallModal owns its impression and has no competing navigation callback', () => {

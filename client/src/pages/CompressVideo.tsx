@@ -19,6 +19,8 @@ import { ProcessingInterface } from '../components/figma/ProcessingInterface'
 import { ProcessingProgress } from '../components/figma/ProcessingProgress'
 import { ResultSkeleton } from '../components/figma/ResultSkeleton'
 import { TranslateResult } from '../components/figma/TranslateResult'
+import ResultUpgradeCard from '../components/ResultUpgradeCard'
+import ResultHeader from '../components/ResultHeader'
 import { RadioGroup } from '../components/figma/FormControls'
 import { getFilePreview, formatDuration, type FilePreviewData } from '../lib/filePreview'
 import { incrementUsage } from '../lib/usage'
@@ -290,10 +292,17 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
     breadcrumbs,
     title: seoH1 ?? 'Compress Video — Light, Medium, Heavy',
     subtitle: seoIntro ?? 'Shrink a video with light, medium, or heavy compression. Files deleted after processing. 3 free imports/mo.',
-    icon: <Minimize2 className="w-8 h-8 text-blue-600 dark:text-blue-400" />,
+    icon: <Minimize2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />,
     tags: ['Compression', 'Reduce size', 'Quality', 'Optimize'],
     sidebar: null,
+    compactToolHeader: true,
     coreToolPath: '/compress-video',
+    currentStepLabel:
+      status === 'completed'
+        ? 'Video compressed'
+        : selectedFile
+          ? 'Upload configured'
+          : 'Ready to upload',
   }
 
   return (
@@ -399,15 +408,15 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
             {/* Teaser card for guests */}
             {showAuthGate && !isLoggedIn() && (
               <div className="rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 overflow-hidden select-none">
-                <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                    <span className="text-sm font-semibold text-gray-800 dark:text-white">Video compressed!</span>
-                    {lastProcessingMs != null && (
-                      <span className="text-xs text-gray-400">· {(lastProcessingMs / 1000).toFixed(1)}s</span>
-                    )}
-                  </div>
-                </div>
+                <ResultHeader
+                  embedded
+                  title="Video compressed"
+                  processingTime={
+                    lastProcessingMs != null
+                      ? `${(lastProcessingMs / 1000).toFixed(1)}s`
+                      : null
+                  }
+                />
                 <div className="px-5 py-4">
                   <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-4">
                     <span>Original: {formatFileSize(selectedFile.size)}</span>
@@ -484,6 +493,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
               ]}
             />
             )}{/* end gate-hidden result */}
+            <ResultUpgradeCard tool="compress" resultKey={result.downloadUrl} />
             <FreePlanNudge tool="compress-video" resultKey={result.downloadUrl} />
             <SecondJobUpgradeNudge tool="compress-video" resultKey={result.downloadUrl} milestone={2} />
             <SecondJobUpgradeNudge tool="compress-video" resultKey={result.downloadUrl} milestone={3} />

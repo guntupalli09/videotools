@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, Suspense, lazy, useMemo } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { MessageSquare, FileDown, Lock, CheckCircle2, Upload, AlertTriangle, RefreshCw } from 'lucide-react'
+import { MessageSquare, FileDown, Lock, AlertTriangle, RefreshCw } from 'lucide-react'
 import FailedState from '../components/FailedState'
 import CoreToolSeoDepth from '../components/CoreToolSeoDepth'
 import SamplesModule from '../components/SamplesModule'
@@ -11,6 +11,7 @@ import UpgradeBanner from '../components/UpgradeBanner'
 import FreePlanNudge from '../components/FreePlanNudge'
 import SecondJobUpgradeNudge from '../components/SecondJobUpgradeNudge'
 import ResultUpgradeCard from '../components/ResultUpgradeCard'
+import ResultHeader from '../components/ResultHeader'
 import { incrementJobCompletedCount } from '../lib/jobCount'
 import LanguageSelector from '../components/LanguageSelector'
 import { ToolLayout } from '../components/figma/ToolLayout'
@@ -886,10 +887,17 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
     breadcrumbs,
     title: seoH1 ?? 'Video to Subtitles — Full Caption Hub',
     subtitle: seoIntro ?? 'Turn video or a YouTube URL into timed SRT/VTT, then fix, translate, or burn. For transcript + summary + chapters, use Video to Transcript.',
-    icon: <MessageSquare className="w-8 h-8 text-blue-600 dark:text-blue-400" />,
+    icon: <MessageSquare className="w-4 h-4 text-blue-600 dark:text-blue-400" />,
     tags: ['SRT', 'VTT', 'Subtitles', 'Captions', 'Timestamps', 'Multi-format'],
     sidebar: null,
+    compactToolHeader: true,
     coreToolPath: isSubtitleHub ? '/video-to-subtitles' : undefined,
+    currentStepLabel:
+      status === 'completed'
+        ? 'Subtitles ready'
+        : selectedFile
+          ? 'Upload configured'
+          : 'Ready to upload',
   }
 
   return (
@@ -1055,15 +1063,15 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             {/* Teaser card for guests */}
             {showAuthGate && !isLoggedIn() && (
               <div className="rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 overflow-hidden select-none">
-                <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                    <span className="text-sm font-semibold text-gray-800 dark:text-white">Subtitles ready!</span>
-                    {lastProcessingMs != null && (
-                      <span className="text-xs text-gray-400">· {(lastProcessingMs / 1000).toFixed(1)}s</span>
-                    )}
-                  </div>
-                </div>
+                <ResultHeader
+                  embedded
+                  title="Subtitles ready"
+                  processingTime={
+                    lastProcessingMs != null
+                      ? `${(lastProcessingMs / 1000).toFixed(1)}s`
+                      : null
+                  }
+                />
                 <div className="px-5 py-4">
                   <p className="text-[11px] text-gray-400 mb-2 font-medium">Sign up to unlock:</p>
                   <div className="flex flex-wrap gap-1.5 mb-4">
@@ -1096,25 +1104,16 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
 
             {(!showAuthGate || isLoggedIn()) && (
               <div className="space-y-4">
-                {/* ── Compact success bar ──────────────────────────────────── */}
-                <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800/40 bg-emerald-50 dark:bg-emerald-950/20">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500 dark:text-emerald-400 shrink-0" />
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">Subtitles ready</span>
-                    {lastProcessingMs != null && (
-                      <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">· {(lastProcessingMs / 1000).toFixed(1)}s ⚡</span>
-                    )}
-                    <span className="text-xs text-gray-400 dark:text-gray-500 truncate hidden sm:block">— {result.fileName ?? fallbackSubtitleName}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleProcessAnother}
-                    className="inline-flex items-center gap-2 rounded-xl border border-blue-300 bg-blue-600 px-3 py-2 text-[13px] font-medium text-white hover:bg-blue-700 transition-colors shadow-sm shrink-0"
-                  >
-                    <Upload className="h-4 w-4" aria-hidden />
-                    Upload new file
-                  </button>
-                </div>
+                <ResultHeader
+                  title="Subtitles ready"
+                  processingTime={
+                    lastProcessingMs != null
+                      ? `${(lastProcessingMs / 1000).toFixed(1)}s`
+                      : null
+                  }
+                  fileName={result.fileName ?? fallbackSubtitleName}
+                  onAction={handleProcessAnother}
+                />
 
                 {/* ── Stat pills — mirrors Video → Transcript's pill row so the two tools read the same way at a glance ── */}
                 {subtitleRows.length > 0 && (() => {
