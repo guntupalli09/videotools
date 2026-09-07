@@ -679,11 +679,11 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
 
   // ── Subtitle style panel (shown after successful subtitle translation) ──────
   const subtitleStylePanel = subtitleRows.length > 0 && (
-    <div className="surface-card rounded-xl p-6 space-y-5">
+    <div className="surface-card rounded-xl p-component space-y-5">
       <h3 className="text-sm font-medium text-gray-800 dark:text-gray-100">Subtitle Style</h3>
-      <div className="flex flex-col sm:flex-row gap-6">
+      <div className="flex flex-col sm:flex-row gap-component">
         {/* Controls */}
-        <div className="flex-1 space-y-4">
+        <div className="flex-1 space-y-component-sm">
           {/* Font */}
           <div className="flex gap-3">
             <div className="flex-1">
@@ -709,7 +709,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
             </div>
           </div>
           {/* Colors */}
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-component-sm">
             <div>
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Text color</label>
               <input type="color" value={subStyles.color} onChange={(e) => updateStyle('color', e.target.value)}
@@ -825,7 +825,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
 
             {/* Upload: no file */}
             {status === 'idle' && tab === 'upload' && !selectedFile && (
-              <div className="space-y-4">
+              <div className="space-y-component-sm">
                 <UploadZone
                   immediateSelect
                   onFileSelect={handleFileSelect}
@@ -865,7 +865,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
 
             {/* Paste tab */}
             {status === 'idle' && tab === 'paste' && (
-              <div className="space-y-4">
+              <div className="space-y-component-sm">
                 <Select label="Translate to" options={LANGUAGES} value={targetLanguage} onChange={setTargetLanguage} />
                 <textarea
                   value={pastedText}
@@ -894,7 +894,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
             {/* Processing */}
             {status === 'processing' && (
               <ProcessingStateShell>
-                <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+                <div className="mb-component-sm text-sm text-gray-600 dark:text-gray-400">
                   {selectedFile?.name ?? 'Pasted text'} · Translating to {targetLanguage}
                 </div>
                 <ProcessingProgress
@@ -925,7 +925,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                   }
                 />
                 <div className="px-5 py-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-component-sm">
                     Create a free account to view, copy, and download your translation.
                   </p>
                   <div className="flex gap-2">
@@ -943,7 +943,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
 
             {/* Completed — full result for signed-in users */}
             {status === 'completed' && result && isLoggedIn() && (
-              <div className="space-y-6">
+              <div className="space-y-component">
                 <TranslateResult
                   title="Translation complete!"
                   fileName={result.fileName ?? fallbackTranslatedName(translateFallbackExt)}
@@ -963,10 +963,10 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                   </>
                 )}
 
-                <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-                  <div className="min-w-0 space-y-6">
+                <div className="grid grid-cols-1 items-start gap-component-sm lg:grid-cols-[minmax(0,1fr)_320px]">
+                  <div className="min-w-0 space-y-component">
                     {plainTextResult && (
-                      <div className="surface-card space-y-3 rounded-xl p-6">
+                      <div className="surface-card space-y-3 rounded-xl p-component">
                         <div className="flex items-center justify-between">
                           <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Translated text</p>
                           <button
@@ -984,7 +984,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                     )}
 
                     {result.consistencyIssues && result.consistencyIssues.length > 0 && (
-                      <div className="shadow-card rounded-xl border border-amber-100 bg-amber-50 p-6">
+                      <div className="shadow-card rounded-xl border border-amber-100 bg-amber-50 p-component">
                         <p className="mb-2 font-medium text-amber-800">Some lines may not be translated.</p>
                         <ul className="space-y-1 text-sm text-amber-900">
                           {result.consistencyIssues.slice(0, 8).map((issue, i) => (
@@ -998,7 +998,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                     {subtitleStylePanel}
 
                     {subtitleRows.length > 0 && (
-                      <div className="surface-card rounded-xl p-6">
+                      <div className="surface-card rounded-xl p-component">
                         <Suspense fallback={null}>
                           <SubtitleEditor entries={subtitleRows} editable={canEdit} onChange={setSubtitleRows} />
                         </Suspense>
@@ -1064,7 +1064,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                               if (!isPaidPlan) content = watermarkTextExport(content, 'srt')
                               downloadBlob(content, 'text/plain', (result.fileName || fallbackTranslatedName('.srt')).replace(/\.vtt$/i, '.srt'))
                             }}
-                            className="w-full rounded-lg border border-gray-200 px-2 py-2 text-[11px] font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                            className="w-full rounded-lg border border-gray-200 px-2 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
                           >
                             Download edited SRT
                           </button>
@@ -1073,18 +1073,18 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                           <div className="grid grid-cols-2 gap-2">
                             <button
                               onClick={() => requireAuthForDownload(() => generateStyledVtt(subtitleRows, subStyles, subtitleBaseName, isPaidPlan))}
-                              className="rounded-lg border border-gray-200 px-2 py-2 text-[11px] font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                              className="rounded-lg border border-gray-200 px-2 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
                             >
                               Styled VTT
                             </button>
                             <button
                               onClick={() => requireAuthForDownload(() => generateAssFile(subtitleRows, subStyles, subtitleBaseName, isPaidPlan))}
-                              className="rounded-lg border border-gray-200 px-2 py-2 text-[11px] font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                              className="rounded-lg border border-gray-200 px-2 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
                             >
                               ASS / SSA
                             </button>
                           </div>
-                          <p className="mt-2 text-[10px] text-gray-400 dark:text-gray-500">
+                          <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
                             For Premiere, DaVinci, Aegisub, and styled players
                           </p>
                         </ExportSection>
@@ -1127,7 +1127,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
 
             {/* Upload: file read, ready to translate */}
             {!docTranslated && !docLoading && tab === 'upload' && selectedFile && docText && (
-              <div className="space-y-4">
+              <div className="space-y-component-sm">
                 <div className="flex items-center gap-3 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{selectedFile.name}</p>
@@ -1158,7 +1158,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
 
             {/* Paste tab */}
             {!docTranslated && !docLoading && tab === 'paste' && (
-              <div className="space-y-4">
+              <div className="space-y-component-sm">
                 <Select label="Translate to" options={LANGUAGES} value={targetLanguage} onChange={setTargetLanguage} />
                 <textarea
                   value={pastedText}
@@ -1201,7 +1201,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
 
             {/* Result — signed-in only */}
             {docTranslated && !isLoggedIn() && (
-              <div className="rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 text-center space-y-4">
+              <div className="rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-component text-center space-y-component-sm">
                 <p className="text-sm font-semibold text-gray-900 dark:text-white">Translation complete!</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   Create a free account to view, copy, and download your translated document.
@@ -1217,7 +1217,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
             )}
 
             {docTranslated && isLoggedIn() && (
-              <div className="space-y-4">
+              <div className="space-y-component-sm">
                 <ResultHeader
                   title="Translation complete"
                   meta={`Translated to ${targetLanguage}`}
@@ -1225,7 +1225,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                   onAction={() => { setDocTranslated(null); setDocText(null); setSelectedFile(null); setPastedText('') }}
                 />
 
-                <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+                <div className="grid grid-cols-1 items-start gap-component-sm lg:grid-cols-[minmax(0,1fr)_320px]">
                   <div className="min-w-0 space-y-3">
                     <div className="flex justify-end">
                       <button
@@ -1250,19 +1250,19 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                             'text/plain',
                             `${docBaseName}.txt`,
                           ))}
-                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-2 py-2 text-[11px] font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-2 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
                         >
                           <Download className="h-3.5 w-3.5" /> Download TXT
                         </button>
                         <button
                           onClick={() => requireAuthForDownload(() => downloadDocAsDocx(docTranslated, `${docBaseName}.docx`, isPaidPlan))}
-                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-2 py-2 text-[11px] font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-2 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
                         >
                           <Download className="h-3.5 w-3.5" /> Download DOCX
                         </button>
                         <button
                           onClick={() => requireAuthForDownload(() => downloadDocAsPdf(docTranslated, `${docBaseName}.pdf`, isPaidPlan))}
-                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-2 py-2 text-[11px] font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-2 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
                         >
                           <Download className="h-3.5 w-3.5" /> Download PDF
                         </button>
@@ -1308,8 +1308,8 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
 
       {faq.length > 0 && (
         <section className="mt-12 pt-8 border-t border-gray-100/70 max-w-4xl mx-auto px-4" aria-label="FAQ">
-          <h2 className="text-2xl font-medium text-gray-800 mb-4">Frequently asked questions</h2>
-          <dl className="space-y-4">
+          <h2 className="text-2xl font-medium text-gray-800 mb-component-sm">Frequently asked questions</h2>
+          <dl className="space-y-component-sm">
             {faq.map((item, i) => (
               <div key={i}>
                 <dt className="font-medium text-gray-800">{item.q}</dt>

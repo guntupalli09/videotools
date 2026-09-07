@@ -774,7 +774,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
     <>
       <ToolLayout {...layoutProps}>
         {status === 'idle' && !selectedFile && !showIssues && (
-          <div className="space-y-4">
+          <div className="space-y-component-sm">
             <UploadZone
               immediateSelect
               onFileSelect={handleFileSelect}
@@ -809,7 +809,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
                 <Scissors className="h-4 w-4 text-violet-500" />
                 <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                   Scene cut detection
-                  <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-normal text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                  <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-500 dark:bg-gray-800 dark:text-gray-400">
                     optional
                   </span>
                 </p>
@@ -853,7 +853,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
 
         {status === 'analyzing' && (
           <ProcessingStateShell>
-            <div className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+            <div className="mb-component-sm text-sm text-gray-500 dark:text-gray-400">
               {selectedFile?.name}
               {videoFile && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"><Scissors className="h-3 w-3" />scene detection enabled</span>}
             </div>
@@ -878,10 +878,10 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
           const totalFindings = issues.length + warnings.length
 
           return (
-            <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[1fr_320px] lg:items-start">
+            <div className="flex flex-col gap-component-sm lg:grid lg:grid-cols-[1fr_320px] lg:items-start">
 
               {/* ── Left column: summary + scene cuts + fix options + CTA ── */}
-              <div className="space-y-4">
+              <div className="space-y-component-sm">
 
                 {/* Header / summary */}
                 <motion.div
@@ -961,7 +961,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
                   transition={{ delay: 0.1 }}
                   className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900"
                 >
-                  <div className="mb-4 flex items-center justify-between">
+                  <div className="mb-component-sm flex items-center justify-between">
                     <div>
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Fix options</h3>
                       <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Original file is always preserved — only the downloaded copy is modified.</p>
@@ -1127,7 +1127,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
 
         {status === 'processing' && (
           <ProcessingStateShell>
-            <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+            <div className="mb-component-sm text-sm text-gray-600 dark:text-gray-400">
               {selectedFile?.name} • {((selectedFile?.size ?? 0) / 1024).toFixed(2)} KB
             </div>
             <ProcessingProgress
@@ -1149,7 +1149,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900 text-center space-y-4"
+            className="rounded-xl border border-gray-200 bg-white p-component shadow-sm dark:border-gray-800 dark:bg-gray-900 text-center space-y-component-sm"
           >
             <div className="flex items-center justify-center gap-2">
               <CheckCircle className="h-6 w-6 text-green-500" />
@@ -1176,7 +1176,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         )}
 
         {status === 'completed' && result && isLoggedIn() && (
-          <div className="space-y-6">
+          <div className="space-y-component">
             <TranslateResult
               title="Subtitles fixed!"
               fileName={result.fileName ?? fallbackFixedName}
@@ -1191,8 +1191,8 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
             <SecondJobUpgradeNudge tool="fix-srt" resultKey={result.downloadUrl} milestone={2} />
             <SecondJobUpgradeNudge tool="fix-srt" resultKey={result.downloadUrl} milestone={3} />
 
-            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-              <div className="min-w-0 space-y-6">
+            <div className="grid grid-cols-1 items-start gap-component-sm lg:grid-cols-[minmax(0,1fr)_320px]">
+              <div className="min-w-0 space-y-component">
                 {changedCues.length > 0 && (
                   <motion.div
                     initial={{ opacity: 0, y: 12 }}
@@ -1216,17 +1216,17 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
                     <ol className="divide-y divide-gray-100 dark:divide-gray-800">
                       {changedCues.map(({ index, before, after }) => (
                         <li key={index} className="space-y-2 px-5 py-4">
-                          <p className="font-mono text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                          <p className="font-mono text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
                             Cue {before.index}
                           </p>
                           <div className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 dark:border-red-900/50 dark:bg-red-950/20">
-                            <p className="mb-1 font-mono text-[11px] text-red-500 dark:text-red-400">
+                            <p className="mb-1 font-mono text-xs text-red-500 dark:text-red-400">
                               {before.startTime} {'->'} {before.endTime}
                             </p>
                             <p className="whitespace-pre-wrap text-sm text-red-800 dark:text-red-200">{before.text}</p>
                           </div>
                           <div className="rounded-lg border border-green-200 bg-green-50 px-3.5 py-2.5 dark:border-green-900/50 dark:bg-green-950/20">
-                            <p className="mb-1 font-mono text-[11px] text-green-600 dark:text-green-400">
+                            <p className="mb-1 font-mono text-xs text-green-600 dark:text-green-400">
                               {after.startTime} {'->'} {after.endTime}
                             </p>
                             <p className="whitespace-pre-wrap text-sm text-green-800 dark:text-green-200">{after.text}</p>
@@ -1262,7 +1262,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
                 freeExportsUsed={plan === 'free' ? freeExportsUsed : undefined}
                 badge={
                   subtitleRows.length > 0 && changedCues.length > 0 ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
                       <CheckCircle className="h-3 w-3" />
                       Edits included
                     </span>
@@ -1285,13 +1285,13 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => requireAuthForDownload(handleExportSrt)}
-                      className="rounded-lg border border-gray-200 px-2 py-2 text-[11px] font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                      className="rounded-lg border border-gray-200 px-2 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
                     >
                       SRT {!isPaid && <span className="text-gray-400">(wm)</span>}
                     </button>
                     <button
                       onClick={() => requireAuthForDownload(handleExportVtt)}
-                      className="rounded-lg border border-gray-200 px-2 py-2 text-[11px] font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                      className="rounded-lg border border-gray-200 px-2 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
                     >
                       VTT
                     </button>
@@ -1301,13 +1301,13 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => requireAuthForDownload(handleExportTxt)}
-                      className="rounded-lg border border-gray-200 px-2 py-2 text-[11px] font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                      className="rounded-lg border border-gray-200 px-2 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
                     >
                       TXT
                     </button>
                     <button
                       onClick={() => requireAuthForDownload(handleExportPdf)}
-                      className={`rounded-lg border px-2 py-2 text-[11px] font-medium transition-colors ${
+                      className={`rounded-lg border px-2 py-2 text-xs font-medium transition-colors ${
                         isPaid
                           ? 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800'
                           : 'border-dashed border-gray-200 text-gray-400 dark:border-gray-700 dark:text-gray-500'
@@ -1317,7 +1317,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
                     </button>
                     <button
                       onClick={() => requireAuthForDownload(handleExportDocx)}
-                      className={`col-span-2 rounded-lg border px-2 py-2 text-[11px] font-medium transition-colors ${
+                      className={`col-span-2 rounded-lg border px-2 py-2 text-xs font-medium transition-colors ${
                         isPaid
                           ? 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800'
                           : 'border-dashed border-gray-200 text-gray-400 dark:border-gray-700 dark:text-gray-500'
@@ -1327,7 +1327,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
                     </button>
                   </div>
                   {!isPaid && (
-                    <p className="mt-2 text-[10px] text-gray-400 dark:text-gray-500">
+                    <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
                       PDF and Word export available on paid plans.
                     </p>
                   )}
@@ -1355,8 +1355,8 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
 
       {faq.length > 0 && location.pathname !== '/fix-subtitles' && (
         <section className="mt-12 pt-8 border-t border-gray-100/70 max-w-4xl mx-auto px-4" aria-label="FAQ">
-          <h2 className="text-2xl font-medium text-gray-800 mb-4">Frequently asked questions</h2>
-          <dl className="space-y-4">
+          <h2 className="text-2xl font-medium text-gray-800 mb-component-sm">Frequently asked questions</h2>
+          <dl className="space-y-component-sm">
             {faq.map((item, i) => (
               <div key={i}>
                 <dt className="font-medium text-gray-800">{item.q}</dt>

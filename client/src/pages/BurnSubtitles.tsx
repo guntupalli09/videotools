@@ -327,7 +327,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
     <>
       <ToolLayout {...layoutProps}>
         {status === 'idle' && !videoFile && (
-          <div className="space-y-4">
+          <div className="space-y-component-sm">
             <UploadZone
               immediateSelect
               onFileSelect={handleVideoSelect}
@@ -348,9 +348,9 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
         )}
 
         {status === 'idle' && videoFile && !subtitleFile && (
-          <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm">
-              <div className="flex items-center justify-between gap-4 mb-4">
+          <div className="space-y-component">
+            <div className="bg-white dark:bg-gray-900 rounded-xl p-component border border-gray-200 dark:border-gray-800 shadow-sm">
+              <div className="flex items-center justify-between gap-component-sm mb-component-sm">
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Video</p>
                   <p className="font-semibold text-gray-900 dark:text-white">{videoFile.name}</p>
@@ -408,7 +408,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
             videoSrc={videoPreviewUrl ?? undefined}
             durationSeconds={filePreview?.durationSeconds}
           >
-            <div className="space-y-6">
+            <div className="space-y-component">
               <div className="flex items-center justify-between rounded-lg bg-gray-50 dark:bg-gray-800/50 p-3">
                 <span className="text-sm text-gray-700 dark:text-gray-300">Subtitle: {subtitleFile.name}</span>
                 <button
@@ -458,7 +458,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
 
         {status === 'processing' && (
           <ProcessingStateShell>
-            <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+            <div className="mb-component-sm text-sm text-gray-600 dark:text-gray-400">
               {videoFile?.name} • {subtitleFile?.name}
             </div>
             <ProcessingProgress
@@ -481,7 +481,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900 text-center space-y-4"
+            className="rounded-xl border border-gray-200 bg-white p-component shadow-sm dark:border-gray-800 dark:bg-gray-900 text-center space-y-component-sm"
           >
             <div className="flex items-center justify-center gap-2">
               <CheckCircle className="h-6 w-6 text-green-500" />
@@ -508,7 +508,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
         )}
 
         {status === 'completed' && result && isLoggedIn() && (
-          <div className="space-y-6">
+          <div className="space-y-component">
             <TranslateResult
               title="Video with burned subtitles ready!"
               fileName={result.fileName ?? fallbackBurnName}
@@ -522,7 +522,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
             <SecondJobUpgradeNudge tool="burn-subtitles" resultKey={result.downloadUrl} milestone={2} />
             <SecondJobUpgradeNudge tool="burn-subtitles" resultKey={result.downloadUrl} milestone={3} />
 
-            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="grid grid-cols-1 items-start gap-component-sm lg:grid-cols-[minmax(0,1fr)_320px]">
               <CrossToolSuggestions
                 workflowHint="Your last file is pre-filled on the next tool."
                 suggestions={[
@@ -619,8 +619,8 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
 
       {faq.length > 0 && location.pathname !== '/burn-subtitles' && (
         <section className="mt-12 pt-8 border-t border-gray-100/70 max-w-4xl mx-auto px-4" aria-label="FAQ">
-          <h2 className="text-2xl font-medium text-gray-800 mb-4">Frequently Asked Questions</h2>
-          <dl className="space-y-4">
+          <h2 className="text-2xl font-medium text-gray-800 mb-component-sm">Frequently Asked Questions</h2>
+          <dl className="space-y-component-sm">
             {faq.map((item, i) => (
               <div key={i}>
                 <dt className="font-medium text-gray-800">{item.q}</dt>

@@ -311,7 +311,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
     <>
       <ToolLayout {...layoutProps}>
         {status === 'idle' && !selectedFile && (
-          <div className="space-y-4">
+          <div className="space-y-component-sm">
             <UploadZone
               immediateSelect
               onFileSelect={handleFileSelect}
@@ -350,7 +350,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
             videoSrc={videoPreviewUrl ?? undefined}
             durationSeconds={filePreview?.durationSeconds}
           >
-            <div className="space-y-6">
+            <div className="space-y-component">
               <RadioGroup
                 label="Profile (recommended)"
                 options={[
@@ -386,7 +386,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
 
         {status === 'processing' && (
           <ProcessingStateShell>
-            <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+            <div className="mb-component-sm text-sm text-gray-600 dark:text-gray-400">
               {selectedFile?.name} • {filePreview?.durationSeconds != null ? formatDuration(filePreview.durationSeconds) : '—'}
             </div>
             <ProcessingProgress
@@ -406,7 +406,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
         )}
 
         {status === 'completed' && result && selectedFile && (
-          <div className="space-y-6">
+          <div className="space-y-component">
             {/* Teaser card for guests */}
             {showAuthGate && !isLoggedIn() && (
               <div className="rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 overflow-hidden select-none">
@@ -420,15 +420,15 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
                   }
                 />
                 <div className="px-5 py-4">
-                  <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-component-sm">
                     <span>Original: {formatFileSize(selectedFile.size)}</span>
                     <span className="text-gray-400">→</span>
                     <span className="text-emerald-600 font-semibold">Compressed: {formatFileSize(getEstimatedSize())}</span>
                   </div>
-                  <p className="text-[11px] text-gray-400 mb-2 font-medium">Sign up to unlock:</p>
-                  <div className="flex flex-wrap gap-1.5 mb-4">
+                  <p className="text-xs text-gray-400 mb-2 font-medium">Sign up to unlock:</p>
+                  <div className="flex flex-wrap gap-1.5 mb-component-sm">
                     {(['Download compressed video', '2 free exports', 'No watermark'] as const).map((feat) => (
-                      <span key={feat} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-[11px] text-gray-400 dark:text-gray-500">
+                      <span key={feat} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-xs text-gray-400 dark:text-gray-500">
                         <Lock className="w-2.5 h-2.5" />
                         {feat}
                       </span>
@@ -466,9 +466,9 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
               relatedTools={[]}
             />
 
-            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-              <div className="space-y-6 min-w-0">
-                <div className="rounded-xl border border-green-200 bg-green-50 p-6 dark:border-green-900/40 dark:bg-green-950/20">
+            <div className="grid grid-cols-1 items-start gap-component-sm lg:grid-cols-[minmax(0,1fr)_320px]">
+              <div className="space-y-component min-w-0">
+                <div className="rounded-xl border border-green-200 bg-green-50 p-component dark:border-green-900/40 dark:bg-green-950/20">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">Original size</p>
@@ -534,7 +534,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
                   >
                     {!hasPaidPlan && freeExportsUsed >= 2 ? '2/2 free downloads used' : 'Download Video'}
                   </button>
-                  <p className="mt-2 text-[10px] text-gray-400 dark:text-gray-500">
+                  <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
                     {formatFileSize(getEstimatedSize())} compressed file
                   </p>
                 </ExportSection>
@@ -583,8 +583,8 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
 
       {faq.length > 0 && location.pathname !== '/compress-video' && (
         <section className="mt-12 pt-8 border-t border-gray-100/70 max-w-4xl mx-auto px-4" aria-label="FAQ">
-          <h2 className="text-2xl font-medium text-gray-800 mb-4">Frequently asked questions</h2>
-          <dl className="space-y-4">
+          <h2 className="text-2xl font-medium text-gray-800 mb-component-sm">Frequently asked questions</h2>
+          <dl className="space-y-component-sm">
             {faq.map((item, i) => (
               <div key={i}>
                 <dt className="font-medium text-gray-800">{item.q}</dt>
