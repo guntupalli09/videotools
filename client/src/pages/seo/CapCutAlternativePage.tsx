@@ -46,7 +46,7 @@ const FAQ = [
   },
   {
     q: 'Is VideoText free like CapCut?',
-    a: 'Yes. VideoText free tier: 3 uploads/day with no credit card. Exported SRT files are watermark-free on all paid plans. On the free tier, a VideoText watermark appears in the SRT — upgrade to Pro ($7.99/month) to remove it.',
+    a: 'Yes. VideoText free tier: 3 uploads/month with no credit card. Exported SRT files are watermark-free on all paid plans. On the free tier, a VideoText watermark appears in the SRT — upgrade to Pro ($7.99/month) to remove it.',
   },
 ]
 

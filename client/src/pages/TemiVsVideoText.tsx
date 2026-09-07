@@ -842,7 +842,7 @@ export default function TemiVsVideoText() {
             </h2>
             <p className="text-blue-200 text-sm max-w-xl mx-auto mb-6">
               Upload a file or paste a YouTube URL. Get transcript, broadcast-safe SRT/VTT subtitles, an AI summary, and chapter markers — in under 5 minutes.
-              3 uploads/day free, no credit card needed.
+              3 uploads/month free, no credit card needed.
             </p>
             <div className="flex flex-wrap justify-center gap-4">
               <Link
@@ -858,7 +858,7 @@ export default function TemiVsVideoText() {
                 View Pricing Plans
               </Link>
             </div>
-            <p className="mt-4 text-xs text-blue-300">3 uploads/day free · No credit card · Cancel anytime · Instant results</p>
+            <p className="mt-4 text-xs text-blue-300">3 uploads/month free · No credit card · Cancel anytime · Instant results</p>
           </section>
 
           {/* ── INTERNAL LINKING HUB ── */}

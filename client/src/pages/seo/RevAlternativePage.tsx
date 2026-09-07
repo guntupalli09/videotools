@@ -23,7 +23,7 @@ const COMPARE_ROWS = [
 const FAQ = [
   {
     q: 'What is the best free Rev alternative for AI transcription?',
-    a: 'VideoText is the most cost-effective alternative for AI transcription. Rev AI charges $0.25/minute — a 60-minute video costs $15. VideoText Pro is $7.99/month flat with no per-minute charges. Free tier included with 3 uploads/day, no card needed.',
+    a: 'VideoText is the most cost-effective alternative for AI transcription. Rev AI charges $0.25/minute — a 60-minute video costs $15. VideoText Pro is $7.99/month flat with no per-minute charges. Free tier included with 3 uploads/month, no card needed.',
   },
   {
     q: 'Is VideoText as accurate as Rev AI?',

@@ -47,7 +47,7 @@ const FAQ = [
   },
   {
     q: 'Is VideoText free like MacWhisper?',
-    a: 'VideoText free tier: 3 uploads/day, no credit card. MacWhisper has a free tier but limits features — Pro is a one-time $29 purchase. VideoText Pro is $7.99/month for continued processing.',
+    a: 'VideoText free tier: 3 uploads/month, no credit card. MacWhisper has a free tier but limits features — Pro is a one-time $29 purchase. VideoText Pro is $7.99/month for continued processing.',
   },
 ]
 

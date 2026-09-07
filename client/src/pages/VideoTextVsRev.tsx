@@ -260,7 +260,7 @@ export default function VideoTextVsRev() {
                 View Plans
               </Link>
             </div>
-            <p className="mt-4 text-xs text-blue-300">3 uploads/day free · No credit card · Cancel anytime</p>
+            <p className="mt-4 text-xs text-blue-300">3 uploads/month free · No credit card · Cancel anytime</p>
           </section>
 
           {/* Internal links */}
