@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { Check, Loader2, AlertCircle } from 'lucide-react';
 
 interface ProcessingStep {
@@ -27,45 +26,42 @@ export function ProcessingProgress({
   liveTranscript,
   livePreviewLabel = 'Live transcript',
   statusSubtext,
-  onCancel
+  onCancel,
 }: ProcessingProgressProps) {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-center gap-4 flex-wrap">
+      <div className="flex flex-wrap items-center justify-center gap-4">
         {steps.map((step, index) => (
           <div key={index} className="flex items-center gap-4">
             <div className="flex flex-col items-center gap-2">
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: index * 0.1 }}
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${
+              <div
+                className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition-colors ${
                   step.status === 'completed'
-                    ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                    ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
                     : step.status === 'active'
-                    ? 'bg-blue-600 text-white'
-                    : step.status === 'error'
-                    ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
+                      ? 'bg-blue-600 text-white'
+                      : step.status === 'error'
+                        ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                        : 'bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500'
                 }`}
               >
                 {step.status === 'completed' ? (
-                  <Check className="w-4 h-4" />
+                  <Check className="h-4 w-4" />
                 ) : step.status === 'active' ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : step.status === 'error' ? (
-                  <AlertCircle className="w-4 h-4" />
+                  <AlertCircle className="h-4 w-4" />
                 ) : (
                   index + 1
                 )}
-              </motion.div>
+              </div>
               <span
                 className={`text-xs font-medium ${
                   step.status === 'active'
                     ? 'text-blue-600 dark:text-blue-400'
                     : step.status === 'completed'
-                    ? 'text-green-600 dark:text-green-400'
-                    : 'text-gray-500 dark:text-gray-400'
+                      ? 'text-blue-600 dark:text-blue-400'
+                      : 'text-gray-500 dark:text-gray-400'
                 }`}
               >
                 {step.label}
@@ -73,8 +69,8 @@ export function ProcessingProgress({
             </div>
             {index < steps.length - 1 && (
               <div
-                className={`w-12 h-0.5 ${
-                  step.status === 'completed' ? 'bg-green-400 dark:bg-green-600' : 'bg-gray-200 dark:bg-gray-700'
+                className={`h-0.5 w-12 ${
+                  step.status === 'completed' ? 'bg-blue-400 dark:bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'
                 }`}
               />
             )}
@@ -83,7 +79,7 @@ export function ProcessingProgress({
       </div>
 
       <div className="text-center">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">{currentMessage}</h3>
+        <h3 className="mb-1 text-lg font-medium text-gray-900 dark:text-white">{currentMessage}</h3>
         {(statusSubtext || estimatedTime) && (
           <p className="text-sm text-gray-600 dark:text-gray-400">
             {statusSubtext}
@@ -94,12 +90,10 @@ export function ProcessingProgress({
       </div>
 
       <div className="space-y-2">
-        <div className="relative h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-          <motion.div
-            className="absolute h-full bg-gradient-to-r from-blue-600 to-blue-700"
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
+        <div className="relative h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+          <div
+            className="absolute h-full rounded-full bg-blue-600 transition-[width] duration-500 ease-out"
+            style={{ width: `${progress}%` }}
           />
         </div>
         <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
@@ -109,16 +103,12 @@ export function ProcessingProgress({
       </div>
 
       {liveTranscript != null && liveTranscript.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-800"
-        >
-          <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">{livePreviewLabel}</h4>
-          <div className="max-h-48 overflow-y-auto text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
+        <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+          <h4 className="mb-3 text-sm font-medium text-gray-900 dark:text-white">{livePreviewLabel}</h4>
+          <div className="max-h-48 overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-gray-300">
             {liveTranscript}
           </div>
-        </motion.div>
+        </div>
       )}
 
       {onCancel && (
@@ -126,7 +116,7 @@ export function ProcessingProgress({
           <button
             type="button"
             onClick={onCancel}
-            className="px-6 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+            className="px-6 py-2 text-sm font-medium text-gray-700 transition-colors hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
           >
             Cancel
           </button>

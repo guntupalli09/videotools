@@ -35,12 +35,8 @@ const BENCHMARKS = [
 
 export function HowItWorks() {
   return (
-    <section id="how-it-works" className="relative overflow-hidden bg-gray-950 px-6 py-section">
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/4 h-[400px] w-[500px] rounded-full bg-blue-600/[0.06] blur-[120px]" />
-      </div>
-
-      <div className="relative mx-auto max-w-5xl">
+    <section id="how-it-works" className="bg-gray-950 px-6 py-section">
+      <div className="mx-auto max-w-5xl">
         <div className="mb-section text-center">
           <p className="mb-3 text-sm font-bold uppercase tracking-widest text-blue-400">How it works</p>
           <h2 className="mb-4 font-display text-4xl font-medium leading-tight text-white md:text-5xl">
