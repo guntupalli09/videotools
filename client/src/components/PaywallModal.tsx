@@ -6,6 +6,8 @@ import { trackAppEvent } from '../lib/feedbackEvents'
 import { startCheckout } from '../lib/startCheckout'
 import { isLoggedIn } from '../lib/auth'
 import { Link } from 'react-router-dom'
+import { Check } from 'lucide-react'
+import { PRO_BENEFIT_BULLETS, PRO_ANNUAL_NOTE } from '../lib/upgradeCopy'
 
 export type PaywallReason =
   | 'FREE_DAILY_LIMIT_REACHED'
@@ -91,9 +93,10 @@ function getContent(reason?: PaywallReason) {
     case 'FREE_DAILY_LIMIT_REACHED':
     default:
       return {
-        title: "This month's 3 free imports are used",
-        body: 'They reset on the 1st of each month, or keep processing now with Pro.',
-        cta: 'Continue with Pro — $7.99/mo',
+        title: "You've used all 3 free imports this month",
+        body: 'They reset on the 1st — or upgrade now for unlimited imports, clean exports, and videos up to 2 hours.',
+        cta: 'Continue without limits — $7.99/mo',
+        bullets: PRO_BENEFIT_BULLETS,
         secondaryLabel: null,
         secondary: null,
       }
@@ -114,7 +117,7 @@ export default function PaywallModal({ isOpen, onClose, reason, tool, remainingI
 
   if (!isOpen) return null
 
-  const { title, body, cta, secondaryLabel, secondary } = getContent(reason)
+  const { title, body, cta, secondaryLabel, secondary, bullets } = getContent(reason) as ReturnType<typeof getContent> & { bullets?: readonly string[] }
 
   async function handleUpgrade() {
     if (loading) return
@@ -167,7 +170,18 @@ export default function PaywallModal({ isOpen, onClose, reason, tool, remainingI
           </button>
 
           <h2 id="paywall-title" className="text-xl font-medium text-gray-900 dark:text-white mb-2">{title}</h2>
-          <p className="text-gray-600 dark:text-gray-300 text-sm mb-6">{body}</p>
+          <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">{body}</p>
+
+          {bullets && bullets.length > 0 && (
+            <ul className="mb-5 space-y-2">
+              {bullets.map((item) => (
+                <li key={item} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          )}
 
           <button
             type="button"
@@ -179,6 +193,8 @@ export default function PaywallModal({ isOpen, onClose, reason, tool, remainingI
             {loading ? 'Opening checkout…' : cta}
           </button>
           {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400 text-center" role="alert">{error}</p>}
+
+          <p className="mt-2 text-center text-xs text-gray-400 dark:text-gray-500">{PRO_ANNUAL_NOTE}</p>
 
           <Link to="/pricing" onClick={onClose} className="mt-3 block text-center text-sm font-medium text-gray-500 underline underline-offset-2 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
             Compare plans

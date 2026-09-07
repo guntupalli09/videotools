@@ -174,7 +174,7 @@ export default function AboutPage() {
       {/* CTA */}
       <div className="text-center bg-gray-900 dark:bg-gray-800 rounded-xl p-10">
         <h2 className="text-2xl font-medium text-white mb-3">Try VideoText free</h2>
-        <p className="text-gray-400 mb-6">3 uploads per day. No credit card required. Files deleted after processing.</p>
+        <p className="text-gray-400 mb-6">3 uploads per month. No credit card required. Files deleted after processing.</p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
             to="/signup"

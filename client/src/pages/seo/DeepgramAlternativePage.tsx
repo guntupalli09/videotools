@@ -47,7 +47,7 @@ const FAQ = [
   },
   {
     q: 'Is VideoText free unlike Deepgram?',
-    a: 'VideoText free tier: 3 imports/day, no credit card, no API key setup. Deepgram offers $200 in free credits (~45 hours of audio) but requires account creation, API key setup, and code to make any transcription request.',
+    a: 'VideoText free tier: 3 imports/month, no credit card, no API key setup. Deepgram offers $200 in free credits (~45 hours of audio) but requires account creation, API key setup, and code to make any transcription request.',
   },
 ]
 

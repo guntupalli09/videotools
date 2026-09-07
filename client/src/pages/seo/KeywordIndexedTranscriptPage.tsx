@@ -5,7 +5,7 @@
 import VideoToTranscript from '../VideoToTranscript'
 
 const FAQ = [
-  { q: 'Is this free?', a: 'Yes. Free tier includes 3 uploads per day.' },
+  { q: 'Is this free?', a: 'Yes. Free tier includes 3 uploads per month.' },
   { q: 'What are keywords?', a: 'Repeated terms in the transcript. The Keywords branch shows them and links each to the transcript section where it first appears.' },
   { q: 'Can I export the index?', a: 'Yes. The Exports branch offers JSON, CSV, Markdown, and Notion-style export (paid for full download).' },
 ]

@@ -6,17 +6,18 @@ import { trackEvent } from '../lib/analytics'
 import { trackAppEvent } from '../lib/feedbackEvents'
 import { getFreePlanNudgeState } from '../lib/freePlanConversion'
 import { startCheckout } from '../lib/startCheckout'
+import { getResultUpgradeCopy, PRO_ANNUAL_NOTE } from '../lib/upgradeCopy'
 
 export type FreePlanNudgeTool = 'transcript' | 'subtitles' | 'translation' | 'fix-srt' | 'burn-subtitles' | 'compress-video' | 'voice'
 
-const TOOL_COPY: Record<FreePlanNudgeTool, string> = {
-  transcript: 'Take your transcript further with formatting, QA, translation, batch processing and professional exports.',
-  subtitles: 'Translate, edit, batch process and export professional subtitle formats with Pro.',
-  translation: 'Keep translating and unlock editing, additional workflows and professional exports.',
-  'fix-srt': 'Keep fixing subtitles and unlock professional exports, editing and the complete VideoText workflow.',
-  'burn-subtitles': 'Keep processing videos without monthly stops and unlock the complete VideoText workflow.',
-  'compress-video': 'Keep processing videos without monthly stops and unlock the complete VideoText workflow.',
-  voice: 'Remove workflow interruptions and unlock the complete Voice/Text workflow.',
+const TOOL_TO_RESULT: Record<FreePlanNudgeTool, 'transcript' | 'subtitles' | 'translation' | 'voice'> = {
+  transcript: 'transcript',
+  subtitles: 'subtitles',
+  translation: 'translation',
+  'fix-srt': 'subtitles',
+  'burn-subtitles': 'subtitles',
+  'compress-video': 'transcript',
+  voice: 'voice',
 }
 
 export default function FreePlanNudge({ tool, resultKey, placement = 'result' }: {
@@ -58,13 +59,15 @@ export default function FreePlanNudge({ tool, resultKey, placement = 'result' }:
 
   if (!visible) return null
 
-  const title = remaining === 0 ? "This month's free imports are used" : remaining === 1 ? '1 free import left this month' : 'Keep going with Pro'
-  const quotaCopy = remaining === 0
-    ? 'Your free imports reset on the 1st of each month, or keep processing now with Pro.'
-    : remaining === 1
-      ? 'Upgrade now to keep your workflow moving without monthly limits.'
-      : `You have ${remaining} free imports left this month. Unlock longer files, advanced workflows, and uninterrupted processing.`
-  const cta = remaining === 0 ? 'Continue with Pro — $7.99/mo →' : 'Unlock Pro — $7.99/mo →'
+  const resultCopy = getResultUpgradeCopy(TOOL_TO_RESULT[tool], { remaining })
+  const title =
+    remaining === 0
+      ? "You're out of free imports this month"
+      : remaining === 1
+        ? '1 free import left — don\'t stop mid-workflow'
+        : resultCopy.headline
+  const quotaCopy = resultCopy.subhead
+  const cta = remaining === 0 ? `Keep going — ${resultCopy.cta.split(' — ')[1] ?? '$7.99/mo'}` : resultCopy.cta
 
   async function upgrade() {
     if (loading) return
@@ -95,10 +98,18 @@ export default function FreePlanNudge({ tool, resultKey, placement = 'result' }:
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-gray-900 dark:text-white">{title}</p>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{quotaCopy}</p>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{TOOL_COPY[tool]}</p>
+          {resultCopy.quotaLine && remaining !== 0 && (
+            <p className="mt-1 text-xs font-medium text-blue-700 dark:text-blue-300">{resultCopy.quotaLine}</p>
+          )}
+          <ul className="mt-2 space-y-1">
+            {resultCopy.bullets.slice(0, 3).map((item) => (
+              <li key={item} className="text-xs text-gray-500 dark:text-gray-400">· {item}</li>
+            ))}
+          </ul>
           <button type="button" onClick={upgrade} disabled={loading} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:opacity-70">
             {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}{loading ? 'Opening checkout…' : cta}
           </button>
+          <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">{PRO_ANNUAL_NOTE}</p>
           {error && <p className="mt-2 text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>}
         </div>
       </div>

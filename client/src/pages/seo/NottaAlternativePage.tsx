@@ -30,7 +30,7 @@ const FAQ = [
   },
   {
     q: 'Does VideoText have a monthly transcription limit like Notta?',
-    a: 'VideoText free tier gives you 3 daily imports for files up to 30 minutes. Notta free tier gives 120 minutes per month but caps each file at 3 minutes. For most users, VideoText\'s model is more practical for real-world recording lengths.',
+    a: 'VideoText free tier gives you 3 monthly imports for files up to 30 minutes. Notta free tier gives 120 minutes per month but caps each file at 3 minutes. For most users, VideoText\'s model is more practical for real-world recording lengths.',
   },
   {
     q: 'Does VideoText support the same file formats as Notta?',

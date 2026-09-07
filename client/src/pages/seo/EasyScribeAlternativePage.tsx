@@ -27,7 +27,7 @@ const FAQ = [
   },
   {
     q: 'Is VideoText free unlike EasyScribe?',
-    a: 'Yes. VideoText has a permanent free tier — 3 uploads per day with no credit card required. You can transcribe your first video right now without entering any payment information.',
+    a: 'Yes. VideoText has a permanent free tier — 3 uploads per month with no credit card required. You can transcribe your first video right now without entering any payment information.',
   },
   {
     q: 'Can VideoText generate subtitle files that EasyScribe cannot?',
@@ -147,7 +147,7 @@ export default function EasyScribeAlternativePage() {
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           {[
             { icon: Zap, title: 'Full subtitle workflow', body: 'VideoText generates SRT and VTT files with accurate timestamps, translates them to 70+ languages, and can burn them directly into video. EasyScribe produces plain text only.' },
-            { icon: DollarSign, title: 'Free tier included', body: 'Start with 3 free imports per day — no credit card, no trial expiry. EasyScribe requires payment to get started.' },
+            { icon: DollarSign, title: 'Free tier included', body: 'Start with 3 free imports per month — no credit card, no trial expiry. EasyScribe requires payment to get started.' },
             { icon: Shield, title: 'YouTube URL support', body: 'Paste any YouTube link and VideoText transcribes it directly. No need to download the video. EasyScribe has no YouTube integration.' },
           ].map(({ icon: Icon, title, body }) => (
             <div key={title} className="bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-white/[0.06] p-6">

@@ -41,7 +41,7 @@ const FAQ = [
   },
   {
     q: 'Is VideoText free for students using Panopto?',
-    a: 'Yes. VideoText free tier includes 3 imports per day — enough for students to cover their most important lecture recordings. No credit card required.',
+    a: 'Yes. VideoText free tier includes 3 imports per month — enough for students to cover their most important lecture recordings. No credit card required.',
   },
   {
     q: 'Does VideoText generate study notes from lecture videos?',
@@ -149,7 +149,7 @@ export default function PanoptoAlternativePage() {
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           {[
             { icon: Zap, title: 'Exportable SRT and TXT', body: 'Download a full SRT subtitle file or plain-text transcript from any Panopto video. Panopto keeps captions locked inside its player.' },
-            { icon: DollarSign, title: 'Free for students', body: '3 free imports per day, no credit card, no institutional account needed. Use VideoText even after you leave the university.' },
+            { icon: DollarSign, title: 'Free for students', body: '3 free imports per month, no credit card, no institutional account needed. Use VideoText even after you leave the university.' },
             { icon: Shield, title: 'Chapters and keyword study notes', body: 'Auto-generate chapters by topic, a keyword index with timestamps, and a summary — turning your lecture recording into structured study notes.' },
           ].map(({ icon: Icon, title, body }) => (
             <div key={title} className="bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-white/[0.06] p-6">

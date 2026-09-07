@@ -167,7 +167,7 @@ export async function runGuidelineFormatIntake(
       const dailyLimitKey = authedUserId ?? `ip_${String(req.ip || req.headers['x-forwarded-for'] || 'unknown')}`
       const allowed = await checkAndRecordGuidelineDaily(dailyLimitKey, 3)
       if (!allowed) {
-        return intakeError(429, 'QUOTA_EXCEEDED', 'Free plan limit reached: 3 guideline formats per day. Upgrade to Pro for unlimited.')
+        return intakeError(429, 'QUOTA_EXCEEDED', 'Free plan limit reached: 3 guideline formats per month. Upgrade to Pro for unlimited.')
       }
     }
 

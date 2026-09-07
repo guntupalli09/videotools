@@ -125,7 +125,7 @@ export function initWebMCP() {
         execute: async () => {
           return {
             plans: [
-              { name: 'Free', price: '$0', minutes: '3 imports/day' },
+              { name: 'Free', price: '$0', minutes: '3 imports/month' },
               { name: 'Basic', price: '$19/mo', minutes: '450 min/month' },
               { name: 'Pro', price: '$49/mo', minutes: '1200 min/month' },
               { name: 'Agency', price: '$129/mo', minutes: '3000 min/month' },

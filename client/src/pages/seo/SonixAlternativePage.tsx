@@ -23,7 +23,7 @@ const COMPARE_ROWS = [
 const FAQ = [
   {
     q: 'What is the best free Sonix alternative?',
-    a: 'VideoText is the strongest free Sonix alternative. Sonix has no permanent free tier — only a 30-minute trial. VideoText gives you 3 free imports per day with no credit card required, no time limit, and no hidden per-minute overages.',
+    a: 'VideoText is the strongest free Sonix alternative. Sonix has no permanent free tier — only a 30-minute trial. VideoText gives you 3 free imports per month with no credit card required, no time limit, and no hidden per-minute overages.',
   },
   {
     q: 'Is VideoText cheaper than Sonix?',

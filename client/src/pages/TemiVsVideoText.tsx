@@ -657,7 +657,7 @@ export default function TemiVsVideoText() {
               {[
                 { q: 'Do I need to configure anything?', a: 'No. Create a free account, upload a file or paste a URL, and you\'re done. No API keys, no project setup.' },
                 { q: 'What about my existing Temi/Rev transcripts?', a: 'Keep them. VideoText generates new transcripts from source files. Your historical files stay wherever they are.' },
-                { q: 'Is the VideoText free tier actually useful?', a: '3 uploads per day — no credit card. You can transcribe a full podcast interview completely free, every day.' },
+                { q: 'Is the VideoText free tier actually useful?', a: '3 uploads per month — no credit card. You can transcribe a full podcast interview free on the monthly plan (3 uploads per month).' },
                 { q: 'What if I need to cancel?', a: 'Cancel anytime. No cancellation fees. Unlike Temi\'s per-minute model, you never owe more than the current billing period.' },
                 { q: 'Will accuracy match or beat Temi?', a: 'On English clean audio: equal or better (Whisper large-v3 vs Temi\'s proprietary model). On anything non-English: VideoText is the only option.' },
                 { q: 'Can my team use VideoText?', a: 'Yes. Multiple users can process files simultaneously on the Pro plan. See the pricing page for details.' },
@@ -767,7 +767,7 @@ export default function TemiVsVideoText() {
               {[
                 {
                   q: 'Is VideoText cheaper than Temi?',
-                  a: 'Yes. Temi charges $0.25/minute for every file, always. VideoText Pro is $7.99/month flat rate — far cheaper for any regular workload. VideoText also has a free tier with 3 uploads per day at no cost.',
+                  a: 'Yes. Temi charges $0.25/minute for every file, always. VideoText Pro is $7.99/month flat rate — far cheaper for any regular workload. VideoText also has a free tier with 3 uploads per month at no cost.',
                 },
                 {
                   q: 'Does Temi support languages other than English?',
@@ -823,7 +823,7 @@ export default function TemiVsVideoText() {
                 },
                 {
                   q: 'Is there a free trial for VideoText?',
-                  a: 'Yes. VideoText offers 3 uploads per day free — permanently, not a one-time trial. No credit card required. Temi offers 1 free hour as a one-time trial, then $0.25/min forever. Rev has no meaningful free tier.',
+                  a: 'Yes. VideoText offers 3 uploads per month free — permanently, not a one-time trial. No credit card required. Temi offers 1 free hour as a one-time trial, then $0.25/min forever. Rev has no meaningful free tier.',
                 },
               ].map(({ q, a }) => (
                 <div key={q} className="border-b border-gray-100 dark:border-gray-800 pb-5 last:border-0 last:pb-0">

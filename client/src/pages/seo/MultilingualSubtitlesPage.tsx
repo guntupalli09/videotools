@@ -6,7 +6,7 @@ import TranslateSubtitles from '../TranslateSubtitles'
 
 const FAQ = [
   { q: 'Can I get multiple languages from one file?', a: 'Yes. Upload once and translate to different languages; each download is one target language. Paid plans support multiple languages in one flow.' },
-  { q: 'Is this free?', a: 'Yes. Free tier available — 3 uploads per day, no credit card. Upgrade to Pro for continued processing and multi-language features.' },
+  { q: 'Is this free?', a: 'Yes. Free tier available — 3 uploads per month, no credit card. Upgrade to Pro for continued processing and multi-language features.' },
   { q: 'Do timestamps stay accurate?', a: 'Yes. Translation only changes text; timestamps are preserved.' },
 ]
 

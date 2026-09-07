@@ -352,7 +352,7 @@ Today we are covering subtitle formats.`}
         </p>
         <h3 className="text-base font-medium text-gray-900 dark:text-white mt-6">Is all of this free?</h3>
         <p>
-          Sign up for free to get 3 uploads per day across all tools. Pro plan is $7.99/month for continued processing.
+          Sign up for free to get 3 uploads per month across all tools. Pro plan is $7.99/month for continued processing.
         </p>
       </div>
     ),
@@ -391,7 +391,7 @@ Today we are covering subtitle formats.`}
         </p>
         <h3 className="text-base font-medium text-gray-900 dark:text-white mt-6">VideoText</h3>
         <p>
-          <strong>Free tier:</strong> 3 uploads per day, sign up for free, watermark on subtitle exports. <strong>Accuracy:</strong> Whisper-based, same model as the field. <strong>Privacy:</strong> Files are deleted after processing — we store no transcript, no audio, no video. <strong>Best for:</strong> One-off transcription where you do not want your content stored, or workflows that also need subtitle generation, translation, fixing, or burning.
+          <strong>Free tier:</strong> 3 uploads per month, sign up for free, watermark on subtitle exports. <strong>Accuracy:</strong> Whisper-based, same model as the field. <strong>Privacy:</strong> Files are deleted after processing — we store no transcript, no audio, no video. <strong>Best for:</strong> One-off transcription where you do not want your content stored, or workflows that also need subtitle generation, translation, fixing, or burning.
         </p>
         <p>
           <strong>Where we fall short:</strong> We do not have persistent storage — if you close the tab, the transcript is gone. We do not have a collaborative workspace. Speaker diarization is not as mature as Otter's. We do not support audio-only files natively.
@@ -897,7 +897,7 @@ Today we are covering subtitle formats.`}
           <strong>OpenAI Whisper (local)</strong>: The same model, run entirely on your machine. Free and private — but requires Python, a decent GPU, and setup time. Not practical for non-technical users. <strong>Otter.ai free tier</strong>: 300 minutes/month for live meeting recording. Does not accept audio file uploads on any plan. <strong>Google Docs voice typing</strong>: Real-time only, not for pre-recorded audio.
         </p>
         <p>
-          For most users, VideoText's free tier (3 imports/day) is the simplest path: no setup, no Python, no credit card.
+          For most users, VideoText's free tier (3 imports/month) is the simplest path: no setup, no Python, no credit card.
         </p>
       </div>
     ),
@@ -1014,7 +1014,7 @@ Today we are covering subtitle formats.`}
           What makes it good for journalism: files are deleted immediately after processing. No cloud retention, no storage of sensitive source recordings. Speaker labels separate interviewer and interviewee. Results stream in real time — a 60-minute interview transcribes in 5–8 minutes.
         </p>
         <p>
-          Free tier: 3 uploads per day. Pro plan is $7.99/month with no per-minute fees.
+          Free tier: 3 uploads per month. Pro plan is $7.99/month with no per-minute fees.
         </p>
         <h3 className="text-base font-medium text-gray-900 dark:text-white mt-6">2. Otter.ai — best for live recording in the field</h3>
         <p>
@@ -1253,7 +1253,7 @@ Today we are covering subtitle formats.`}
         </ul>
         <h3 className="text-base font-medium text-gray-900 dark:text-white mt-6">How much does it cost?</h3>
         <p>
-          The free tier includes 3 uploads per day — enough for most students to transcribe their key lectures. Sign up for free to start. No credit card required.
+          The free tier includes 3 uploads per month — enough for most students to transcribe their key lectures. Sign up for free to start. No credit card required.
         </p>
       </div>
     ),
@@ -1298,7 +1298,7 @@ Today we are covering subtitle formats.`}
           The easiest option is to use a hosted service that runs Whisper on your behalf. <a href="/whisper-online" className="text-blue-600 dark:text-blue-400 hover:underline">VideoText's Whisper online tool</a> runs large-v3 on cloud GPUs. Paste a YouTube URL or upload a file, and you get a transcript in seconds — no Python, no GPU, no setup.
         </p>
         <p>
-          The <a href="/video-to-transcript" className="text-blue-600 dark:text-blue-400 hover:underline">video-to-transcript tool</a> accepts MP4, MOV, AVI, WebM, MKV, MP3, WAV, M4A, and most common formats. Free tier includes 3 uploads per day. Pro plan ($7.99/month) unlocks longer files, batch, and multi-language output.
+          The <a href="/video-to-transcript" className="text-blue-600 dark:text-blue-400 hover:underline">video-to-transcript tool</a> accepts MP4, MOV, AVI, WebM, MKV, MP3, WAV, M4A, and most common formats. Free tier includes 3 uploads per month. Pro plan ($7.99/month) unlocks longer files, batch, and multi-language output.
         </p>
         <h3 className="text-base font-medium text-gray-900 dark:text-white mt-6">How to Run Whisper Locally (If You Prefer)</h3>
         <p>
@@ -1569,7 +1569,7 @@ function PostView({ post }: { post: BlogPost }) {
       </div>
 
       <div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700 space-y-4">
-        <p className="text-sm text-gray-500 dark:text-gray-400">Free accounts include 3 uploads per day; Pro plan ($7.99/month) unlocks longer files, batch, and guideline handoff from transcript results.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Free accounts include 3 uploads per month; Pro plan ($7.99/month) unlocks longer files, batch, and guideline handoff from transcript results.</p>
         <div className="flex flex-col sm:flex-row flex-wrap gap-3">
           <Link
             to="/video-to-transcript"

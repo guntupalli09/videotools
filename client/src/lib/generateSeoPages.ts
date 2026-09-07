@@ -116,7 +116,7 @@ export function getProgrammaticSeoEntries(): SeoRegistryEntry[] {
         '98.5% accuracy on clear speech vs 88% of competitors',
         'Results in 2-5 minutes — 10x faster than Descript',
         'Speaker labels included automatically',
-        'Free tier: 3 imports/day, no credit card required',
+        'Free tier: 3 imports/month, no credit card required',
       ],
       workflowSteps: [
         { title: 'Step 1: Download podcast file', detail: 'Get your MP3/M4A from Anchor, Spotify, Apple Podcasts, or your podcast host.' },

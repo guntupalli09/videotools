@@ -113,7 +113,7 @@ export default function RevAlternativePage() {
           <h2 className="text-lg font-medium text-amber-800 dark:text-amber-300 mb-3">Cost comparison: Rev AI vs VideoText</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
             {[
-              { label: '1 hour of video', rev: '$15.00', us: 'Free (3 imports/day)' },
+              { label: '1 hour of video', rev: '$15.00', us: 'Free (3 imports/month)' },
               { label: '10 hours/month', rev: '$150.00', us: '$7.99/month (Pro)' },
               { label: '20 hours/month', rev: '$300.00', us: '$7.99/month (Pro)' },
             ].map(({ label, rev, us }) => (

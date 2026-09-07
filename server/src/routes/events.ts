@@ -50,6 +50,7 @@ const VALID_EVENTS = new Set([
   'second_job_upgrade_nudge_seen',
   'cancellation_reason_submitted',
   'pro_onboarding_nudge_seen',
+  'result_upgrade_card_seen',
 ])
 
 router.post('/', eventsLimit, async (req: Request, res: Response) => {

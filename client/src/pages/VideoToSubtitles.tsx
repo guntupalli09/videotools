@@ -10,6 +10,7 @@ import JobAuthGateModal from '../components/JobAuthGateModal'
 import UpgradeBanner from '../components/UpgradeBanner'
 import FreePlanNudge from '../components/FreePlanNudge'
 import SecondJobUpgradeNudge from '../components/SecondJobUpgradeNudge'
+import ResultUpgradeCard from '../components/ResultUpgradeCard'
 import { incrementJobCompletedCount } from '../lib/jobCount'
 import LanguageSelector from '../components/LanguageSelector'
 import { ToolLayout } from '../components/figma/ToolLayout'
@@ -1406,6 +1407,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                 </div>
               </div>
             )}
+            <ResultUpgradeCard tool="subtitles" resultKey={result.downloadUrl} />
             <FreePlanNudge tool="subtitles" resultKey={result.downloadUrl} />
             <SecondJobUpgradeNudge tool="subtitles" resultKey={result.downloadUrl} />
           </div>
