@@ -49,6 +49,26 @@ test('VoiceRecorder Pro grid routes checkout through startCheckout', () => {
   assert.doesNotMatch(source, /Link to="\/pricing"[^>]*>Unlock Pro/)
 })
 
+test('core tool pages enforce type scale and display font on titles', () => {
+  const coreTools = [
+    'VideoToTranscript.tsx',
+    'VideoToSubtitles.tsx',
+    'TranslateSubtitles.tsx',
+    'FixSubtitles.tsx',
+    'BurnSubtitles.tsx',
+    'CompressVideo.tsx',
+    'VoiceRecorder.tsx',
+    'GuidelineFormat.tsx',
+  ]
+  for (const file of coreTools) {
+    const source = readFileSync(resolve(process.cwd(), 'src/pages', file), 'utf8')
+    assert.doesNotMatch(source, /text-\[(10|11|13|14)px\]/, file)
+  }
+  const toolLayout = readFileSync(resolve(process.cwd(), 'src/components/figma/ToolLayout.tsx'), 'utf8')
+  assert.match(toolLayout, /tool-title-compact/)
+  assert.match(toolLayout, /tool-title text-2xl/)
+})
+
 test('PaywallModal owns its impression and has no competing navigation callback', () => {
   const modal = readFileSync(resolve(process.cwd(), 'src/components/PaywallModal.tsx'), 'utf8')
   assert.equal((modal.match(/trackEvent\('paywall_shown'/g) || []).length, 1)
