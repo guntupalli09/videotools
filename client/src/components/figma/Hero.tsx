@@ -112,12 +112,8 @@ export function Hero() {
   const publicRating = usePublicRating();
 
   return (
-    <section className="relative flex flex-col items-center overflow-hidden bg-gray-950">
-      <div className="absolute inset-0 z-[1] pointer-events-none overflow-hidden">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[700px] bg-blue-600/[0.08] rounded-full blur-[160px]" />
-      </div>
-
-      <div className="relative z-10 w-full max-w-5xl mx-auto px-6 pt-3 sm:pt-4 pb-8">
+    <section className="relative flex flex-col items-center bg-gray-950">
+      <div className="w-full max-w-5xl mx-auto px-6 pt-3 sm:pt-4 pb-8">
         <TrustBadge className="mb-4" />
 
         <h1
