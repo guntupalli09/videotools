@@ -122,8 +122,8 @@ export function Hero() {
           <span className="brand-moment">Client-ready.</span>
         </h1>
 
-        <p className="mx-auto mb-6 max-w-2xl text-center text-base leading-relaxed text-white/60 sm:text-lg">
-          Upload a video or audio file. Get formatted transcripts and SRT/VTT your client can approve on the first pass — style-guide rules applied automatically, so you spend less time on QA.
+        <p className="mx-auto mb-6 max-w-xl text-center text-base leading-relaxed text-white/60 sm:text-lg">
+          Built to cut QA time. Upload once — get transcripts and subtitles your client can approve on the first pass.
         </p>
 
         <HeroActions />
