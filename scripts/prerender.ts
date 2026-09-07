@@ -27,7 +27,7 @@ import { getCoreToolFaq, getCoreToolSeoDepth } from '../client/src/lib/coreToolS
 import { getIndexablePaths } from './seo/registry'
 import { stripTopLevelSoftwareApplicationScripts } from './seo/jsonLdUtils'
 import { renderPageToHtml } from '../client/src/ssr-render'
-import { getContextualCta, getRouteFamily, getWorkflowStageCtas } from '../client/src/lib/routeFamilyTemplates'
+import { getContextualCta, getRouteFamily } from '../client/src/lib/routeFamilyTemplates'
 import slugMapJson from '../client/src/data/hashnode-slug-map.json'
 
 const REPO_ROOT = path.resolve(__dirname, '..')
@@ -61,15 +61,6 @@ interface RouteMeta {
   intentKey?: string
   defaultInputMode?: 'youtube'
 }
-
-const MONEY_PAGES: Array<{ path: string; label: string }> = [
-  { path: '/video-to-transcript', label: 'Video to Transcript' },
-  { path: '/video-to-subtitles', label: 'Video to Subtitles' },
-  { path: '/translate-subtitles', label: 'Translate Subtitles' },
-  { path: '/fix-subtitles', label: 'Fix Subtitles' },
-  { path: '/burn-subtitles', label: 'Burn Subtitles' },
-  { path: '/compress-video', label: 'Compress Video' },
-]
 
 // ── Static route metadata ─────────────────────────────────────────────────────
 
@@ -1633,21 +1624,6 @@ function buildCanonicalToolsSection(hubPath: string): string {
   `
 }
 
-// Add back-links from ALL pages to hub pages (fixes orphan pages)
-function buildBacklinksHtml(): string {
-  return `
-    <section style="margin:32px 0;padding:24px;background:#f3f4f6;border-radius:8px">
-      <h3 style="font-size:13px;font-weight:600;color:#4b5563;margin:0 0 12px 0;text-transform:uppercase;letter-spacing:0.5px">Find More Tools</h3>
-      <div style="display:flex;flex-wrap:wrap;gap:8px">
-        <a href="/alternatives" style="display:inline-block;padding:8px 14px;background:white;border:1px solid #d1d5db;border-radius:5px;text-decoration:none;color:#2563eb;font-size:13px;font-weight:500">Tool Alternatives</a>
-        <a href="/transcription-tools" style="display:inline-block;padding:8px 14px;background:white;border:1px solid #d1d5db;border-radius:5px;text-decoration:none;color:#2563eb;font-size:13px;font-weight:500">Transcription Tools</a>
-        <a href="/subtitle-tools" style="display:inline-block;padding:8px 14px;background:white;border:1px solid #d1d5db;border-radius:5px;text-decoration:none;color:#2563eb;font-size:13px;font-weight:500">Subtitle Tools</a>
-      </div>
-    </section>
-  `
-}
-
-
 function buildAllPagesIndexHtml(routes: RouteMeta[]): string {
   const sorted = [...routes].sort((a, b) => a.path.localeCompare(b.path))
   const items = sorted
@@ -1662,40 +1638,6 @@ function buildAllPagesIndexHtml(routes: RouteMeta[]): string {
       <h2 style="font-size:20px;font-weight:700;margin:0 0 16px 0">All VideoText Pages</h2>
       <p style="margin:0 0 16px 0;color:#4b5563">Use this index to jump to VideoText transcript, subtitle, formatting, comparison, sample, and utility workflows.</p>
       <ul style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:10px;list-style:none;padding:0;margin:0">${items}</ul>
-    </section>
-  `
-}
-
-function buildGlobalDiscoverabilityLinksHtml(routePath: string): string {
-  const routeFamily = getRouteFamily(routePath)
-  const stageLinks = getWorkflowStageCtas(routeFamily, routePath).slice(0, 3)
-  return `
-    <section style="margin:20px 0;padding:16px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px">
-      <h3 style="font-size:13px;font-weight:600;color:#3730a3;margin:0 0 10px 0;text-transform:uppercase;letter-spacing:0.5px">Workflow shortcuts</h3>
-      <div style="display:flex;flex-wrap:wrap;gap:8px">
-${stageLinks.map((cta, index) => `<a href="${escapeHtml(cta.path)}" style="display:inline-block;padding:8px 12px;background:white;border:1px solid #c7d2fe;border-radius:5px;text-decoration:none;color:#3730a3;font-size:13px;font-weight:${index === 0 ? 700 : 600}">${escapeHtml(cta.text)}</a>`).join('')}
-        <a href="/site-index" style="display:inline-block;padding:8px 12px;background:white;border:1px solid #c7d2fe;border-radius:5px;text-decoration:none;color:#3730a3;font-size:13px;font-weight:600">All Pages Index</a>
-        <a href="/alternatives" style="display:inline-block;padding:8px 12px;background:white;border:1px solid #d1d5db;border-radius:5px;text-decoration:none;color:#2563eb;font-size:13px;font-weight:500">Tool Alternatives</a>
-        <a href="/transcription-tools" style="display:inline-block;padding:8px 12px;background:white;border:1px solid #d1d5db;border-radius:5px;text-decoration:none;color:#2563eb;font-size:13px;font-weight:500">Transcription Tools</a>
-        <a href="/subtitle-tools" style="display:inline-block;padding:8px 12px;background:white;border:1px solid #d1d5db;border-radius:5px;text-decoration:none;color:#2563eb;font-size:13px;font-weight:500">Subtitle Tools</a>
-      </div>
-    </section>
-  `
-}
-
-function buildMoneyPageAuthorityLinksHtml(routePath: string): string {
-  const links = MONEY_PAGES
-    .filter((p) => p.path !== routePath)
-    .map(
-      (p) =>
-        `<a href="${escapeHtml(p.path)}" style="display:inline-block;padding:8px 12px;background:#fff;border:1px solid #bbf7d0;border-radius:5px;text-decoration:none;color:#166534;font-size:13px;font-weight:600">${escapeHtml(p.label)}</a>`
-    )
-    .join('')
-
-  return `
-    <section style="margin:20px 0;padding:16px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px">
-      <h3 style="font-size:13px;font-weight:700;color:#166534;margin:0 0 10px 0;text-transform:uppercase;letter-spacing:0.5px">Primary Transcription & Caption Tools</h3>
-      <div style="display:flex;flex-wrap:wrap;gap:8px">${links}</div>
     </section>
   `
 }
@@ -1981,22 +1923,6 @@ async function main() {
       if (canonicalToolsHtml) {
         html = html.replace('</body>', `${canonicalToolsHtml}\n</body>`)
       }
-    }
-
-    // Inject crawlable discoverability links on ALL pages.
-    const discoverabilityHtml = buildGlobalDiscoverabilityLinksHtml(routePath)
-    html = html.replace('</body>', `${discoverabilityHtml}\n</body>`)
-
-    // Inject authority links to money pages on all indexable pages.
-    if (routePath !== '/') {
-      const authorityLinksHtml = buildMoneyPageAuthorityLinksHtml(routePath)
-      html = html.replace('</body>', `${authorityLinksHtml}\n</body>`)
-    }
-
-    // Keep legacy hub backlinks on non-hub pages to preserve existing architecture.
-    if (routePath !== '/' && !HUB_PAGE_LINKS[routePath]) {
-      const backlinksHtml = buildBacklinksHtml()
-      html = html.replace('</body>', `${backlinksHtml}\n</body>`)
     }
 
     if (routePath === '/') {
