@@ -3,7 +3,7 @@ import { prisma } from '../db'
 import { getLogger } from '../lib/logger'
 import { REFERRAL_BONUS_IMPORTS } from '../utils/importQuota'
 
-const log = getLogger('referral')
+const log = getLogger('api').child({ module: 'referral' })
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 

@@ -16,7 +16,7 @@ import {
   getMaxDailyImports,
   sumBatchVideoDurationsSeconds,
 } from '../utils/limits'
-import { assertCanImport } from '../utils/importQuota'
+import { assertCanImport, freeImportBlockedMessage } from '../utils/importQuota'
 import { resetDailyImportIfNeeded, resetDailyMinutesIfNeeded, resetUserUsageIfNeeded } from '../utils/usageReset'
 import { addJobToQueue, getTotalQueueCount } from '../workers/videoProcessor'
 import { insertJobRecord } from '../lib/jobAnalytics'
@@ -247,7 +247,11 @@ router.post(
         const totalSlots = dailySlots + bonus
         if (videoMeta.length > totalSlots) {
           for (const v of videoMeta) fs.unlinkSync(v.path)
-          return res.status(403).json({ message: batchImportGate.message })
+          return res.status(403).json({
+            message: totalSlots === 0
+              ? freeImportBlockedMessage()
+              : `Batch exceeds available imports (${totalSlots} remaining today, including bonus credits).`,
+          })
         }
       }
 
