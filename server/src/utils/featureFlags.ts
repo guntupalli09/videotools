@@ -99,3 +99,9 @@ export const DASHBOARD_CANONICAL_CUTOVER = isFlagEnabled(process.env.DASHBOARD_C
  * any time either way. See docs/analytics/SPRINT_7_RECONCILIATION_REPORT.md.
  */
 export const ROLLUP_CANONICAL_SOURCE = isFlagEnabled(process.env.ROLLUP_CANONICAL_SOURCE)
+
+/**
+ * Geo / PPP pricing: when enabled, checkout and /api/billing/prices resolve tier from
+ * x-vercel-ip-country (or cf-ipcountry). Requires matching Stripe Price IDs per tier.
+ */
+export const PPP_PRICING_ENABLED = isFlagEnabled(process.env.PPP_PRICING_ENABLED)

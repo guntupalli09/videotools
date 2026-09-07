@@ -6,7 +6,8 @@ import { trackEvent } from '../lib/analytics'
 import { trackAppEvent } from '../lib/feedbackEvents'
 import { getFreePlanNudgeState } from '../lib/freePlanConversion'
 import { startCheckout } from '../lib/startCheckout'
-import { getResultUpgradeCopy, PRO_ANNUAL_NOTE } from '../lib/upgradeCopy'
+import { getResultUpgradeCopy } from '../lib/upgradeCopy'
+import { useProPricing } from '../contexts/PricingContext'
 
 export type FreePlanNudgeTool = 'transcript' | 'subtitles' | 'translation' | 'fix-srt' | 'burn-subtitles' | 'compress-video' | 'voice'
 
@@ -25,6 +26,7 @@ export default function FreePlanNudge({ tool, resultKey, placement = 'result' }:
   resultKey?: string | number | null
   placement?: string
 }) {
+  const { pricing } = useProPricing()
   const [usage, setUsage] = useState<UsageData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -59,7 +61,7 @@ export default function FreePlanNudge({ tool, resultKey, placement = 'result' }:
 
   if (!visible) return null
 
-  const resultCopy = getResultUpgradeCopy(TOOL_TO_RESULT[tool], { remaining })
+  const resultCopy = getResultUpgradeCopy(TOOL_TO_RESULT[tool], { remaining, pricing })
   const title =
     remaining === 0
       ? "You're out of free imports this month"
@@ -67,7 +69,7 @@ export default function FreePlanNudge({ tool, resultKey, placement = 'result' }:
         ? '1 free import left — don\'t stop mid-workflow'
         : resultCopy.headline
   const quotaCopy = resultCopy.subhead
-  const cta = remaining === 0 ? `Keep going — ${resultCopy.cta.split(' — ')[1] ?? '$7.99/mo'}` : resultCopy.cta
+  const cta = remaining === 0 ? `Keep going — ${pricing.priceLabel}` : resultCopy.cta
 
   async function upgrade() {
     if (loading) return
@@ -82,7 +84,6 @@ export default function FreePlanNudge({ tool, resultKey, placement = 'result' }:
           placement,
           plan: 'free',
           billing_interval: 'monthly',
-          displayed_price: 7.99,
         },
       })
     } catch (e) {
@@ -109,7 +110,7 @@ export default function FreePlanNudge({ tool, resultKey, placement = 'result' }:
           <button type="button" onClick={upgrade} disabled={loading} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:opacity-70">
             {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}{loading ? 'Opening checkout…' : cta}
           </button>
-          <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">{PRO_ANNUAL_NOTE}</p>
+          <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">{pricing.annualNote}</p>
           {error && <p className="mt-2 text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>}
         </div>
       </div>

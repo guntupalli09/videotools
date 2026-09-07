@@ -3,7 +3,8 @@ import { Loader2, Zap } from 'lucide-react'
 import { getCurrentUsage } from '../lib/api'
 import { isPaidPlan } from '../lib/plans'
 import { startCheckout } from '../lib/startCheckout'
-import { UPGRADE_BANNER_COPY } from '../lib/upgradeCopy'
+import { getUpgradeBannerCopy } from '../lib/upgradeCopy'
+import { useProPricing } from '../contexts/PricingContext'
 
 export type UpgradeBannerVariant =
   | 'video-length'
@@ -19,6 +20,7 @@ interface UpgradeBannerProps {
 }
 
 export default function UpgradeBanner({ variant = 'video-length', tool }: UpgradeBannerProps) {
+  const { pricing } = useProPricing()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [plan, setPlan] = useState<string | null>(null)
@@ -44,7 +46,7 @@ export default function UpgradeBanner({ variant = 'video-length', tool }: Upgrad
 
   if (!plan || isPaidPlan(plan)) return null
 
-  const { text, highlight, cta } = UPGRADE_BANNER_COPY[variant]
+  const { text, highlight, cta } = getUpgradeBannerCopy(pricing)[variant]
 
   async function handleUpgrade() {
     if (loading) return
@@ -59,7 +61,6 @@ export default function UpgradeBanner({ variant = 'video-length', tool }: Upgrad
           variant,
           plan: 'free',
           billing_interval: 'monthly',
-          displayed_price: 7.99,
         },
       })
     } catch (err) {

@@ -8,6 +8,7 @@ import { isPaidPlan } from '../lib/plans'
 import { getCurrentUsage } from '../lib/api'
 import { trackEvent } from '../lib/analytics'
 import { trackAppEvent } from '../lib/feedbackEvents'
+import { useProPricing } from '../contexts/PricingContext'
 
 const DISMISS_KEY = 'vt:second-job-nudge-shown'
 
@@ -26,6 +27,7 @@ interface Props {
 }
 
 export default function SecondJobUpgradeNudge({ tool, resultKey }: Props) {
+  const { pricing } = useProPricing()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -73,7 +75,6 @@ export default function SecondJobUpgradeNudge({ tool, resultKey }: Props) {
           job_count: getJobCompletedCount(),
           plan: 'free',
           billing_interval: 'monthly',
-          displayed_price: 7.99,
         },
       })
     } catch (e) {
@@ -129,7 +130,7 @@ export default function SecondJobUpgradeNudge({ tool, resultKey }: Props) {
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-wait disabled:opacity-75"
             >
               {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
-              {loading ? 'Opening checkout…' : 'Unlock Pro — $7.99/mo'}
+              {loading ? 'Opening checkout…' : `Unlock Pro — ${pricing.priceLabel}`}
             </button>
             {error && (
               <p className="mt-3 text-center text-sm text-red-600 dark:text-red-400" role="alert">
