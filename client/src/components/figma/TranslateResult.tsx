@@ -17,6 +17,8 @@ interface TranslateResultProps {
   onProcessAnother?: () => void;
   processAnotherLabel?: string;
   relatedTools?: Array<{ path: string; name: string; description: string }>;
+  /** When true, download CTA is expected in a right-rail ExportsPanel instead. */
+  hideDownload?: boolean;
 }
 
 const defaultRelatedTools = [
@@ -36,6 +38,7 @@ export function TranslateResult({
   onProcessAnother,
   processAnotherLabel = 'Process another file',
   relatedTools = defaultRelatedTools,
+  hideDownload = false,
 }: TranslateResultProps) {
   return (
     <div className="space-y-6">
@@ -57,7 +60,7 @@ export function TranslateResult({
         </motion.div>
       )}
 
-      {onDownload && (
+      {onDownload && !hideDownload && (
         <motion.button
           type="button"
           initial={{ opacity: 0, y: 20 }}

@@ -28,6 +28,8 @@ import {
   Loader2,
 } from 'lucide-react'
 import { ToolLayout } from '../components/figma/ToolLayout'
+import { ProcessingProgress } from '../components/figma/ProcessingProgress'
+import { ProcessingStateShell } from '../components/figma/ProcessingStateShell'
 import CoreToolSeoDepth from '../components/CoreToolSeoDepth'
 import TranscriptSharePanel from '../components/TranscriptSharePanel'
 import JobAuthGateModal from '../components/JobAuthGateModal'
@@ -97,6 +99,7 @@ export default function VoiceRecorder() {
   const [phase, setPhase] = useState<Phase>('idle')
   const [recSecs, setRecSecs] = useState(0)
   const [uploadPct, setUploadPct] = useState(0)
+  const [processingPct, setProcessingPct] = useState(35)
   const [transcript, setTranscript] = useState('')
   const [partial, setPartial] = useState('')
   const [copied, setCopied] = useState(false)
@@ -178,6 +181,17 @@ export default function VoiceRecorder() {
       const t = setTimeout(() => setShowAuthGate(true), 3000)
       return () => clearTimeout(t)
     }
+  }, [phase])
+
+  useEffect(() => {
+    if (phase !== 'processing') {
+      setProcessingPct(35)
+      return
+    }
+    const id = window.setInterval(() => {
+      setProcessingPct((p) => Math.min(92, p + 3))
+    }, 700)
+    return () => window.clearInterval(id)
   }, [phase])
 
   useEffect(() => {
@@ -1060,67 +1074,20 @@ export default function VoiceRecorder() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="p-8 sm:p-10 flex flex-col items-center gap-6"
+                className="p-6 sm:p-8"
               >
-                {/* Animated icon */}
-                <div className="w-[76px] h-[76px] rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
-                  >
-                    <Sparkles className="w-9 h-9 text-blue-600 dark:text-blue-400" />
-                  </motion.div>
-                </div>
-
-                <div className="text-center space-y-1.5 w-full">
-                  <p className="text-base font-semibold text-gray-800 dark:text-gray-100">
-                    {phase === 'uploading' ? 'Uploading recording…' : 'Transcribing with AI…'}
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {phase === 'uploading'
-                      ? 'Preparing your audio for the AI'
-                      : 'Usually takes 5–8 seconds'}
-                  </p>
-                </div>
-
-                {/* Upload progress bar */}
-                {phase === 'uploading' && (
-                  <div className="w-full max-w-xs bg-gray-100 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
-                    <motion.div
-                      className="h-full bg-gradient-to-r from-blue-600 to-blue-500 rounded-full"
-                      initial={{ width: '0%' }}
-                      animate={{ width: `${uploadPct}%` }}
-                      transition={{ duration: 0.25 }}
-                    />
-                  </div>
-                )}
-
-                {/* Processing pulse dots */}
-                {phase === 'processing' && !partial && (
-                  <div className="flex gap-2">
-                    {[0, 1, 2].map((i) => (
-                      <motion.div
-                        key={i}
-                        className="w-2.5 h-2.5 rounded-full bg-blue-600"
-                        animate={{ opacity: [0.25, 1, 0.25], scale: [0.8, 1.15, 0.8] }}
-                        transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.18 }}
-                      />
-                    ))}
-                  </div>
-                )}
-
-                {/* Partial transcript preview — signed-in only */}
-                {phase === 'processing' && partial && isLoggedIn() && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="w-full bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/40 rounded-xl p-4 max-h-32 overflow-y-auto"
-                  >
-                    <p className="text-sm text-blue-800 dark:text-blue-200 italic leading-relaxed">
-                      "{partial}"
-                    </p>
-                  </motion.div>
-                )}
+                <ProcessingStateShell className="!p-6 sm:!p-8">
+                  <ProcessingProgress
+                    steps={[
+                      { label: 'Uploading', status: phase === 'uploading' ? 'active' : 'completed' },
+                      { label: 'Transcribing', status: phase === 'processing' ? 'active' : 'pending' },
+                    ]}
+                    currentMessage={phase === 'uploading' ? 'Uploading recording…' : 'Transcribing with AI…'}
+                    progress={phase === 'uploading' ? uploadPct : processingPct}
+                    estimatedTime={phase === 'processing' ? 'Usually 5–8 seconds' : undefined}
+                    liveTranscript={phase === 'processing' && partial && isLoggedIn() ? partial : undefined}
+                  />
+                </ProcessingStateShell>
               </motion.div>
             )}
 

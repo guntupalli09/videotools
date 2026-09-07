@@ -19,6 +19,8 @@ import { ProcessingInterface } from '../components/figma/ProcessingInterface'
 import { ProcessingProgress } from '../components/figma/ProcessingProgress'
 import { ResultSkeleton } from '../components/figma/ResultSkeleton'
 import { TranslateResult } from '../components/figma/TranslateResult'
+import { ExportsPanel, ExportSection } from '../components/figma/ExportsPanel'
+import { ProcessingStateShell } from '../components/figma/ProcessingStateShell'
 import ResultUpgradeCard from '../components/ResultUpgradeCard'
 import ResultHeader from '../components/ResultHeader'
 import { RadioGroup } from '../components/figma/FormControls'
@@ -383,7 +385,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
         )}
 
         {status === 'processing' && (
-          <div className="rounded-xl bg-blue-50 dark:bg-blue-950/30 p-6 sm:p-8">
+          <ProcessingStateShell>
             <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
               {selectedFile?.name} • {filePreview?.durationSeconds != null ? formatDuration(filePreview.durationSeconds) : '—'}
             </div>
@@ -400,7 +402,7 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
               onCancel={handleProcessAnother}
             />
             <ResultSkeleton variant="compress" />
-          </div>
+          </ProcessingStateShell>
         )}
 
         {status === 'completed' && result && selectedFile && (
@@ -454,86 +456,97 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
 
             {/* Full result — hidden until signed in */}
             {(!showAuthGate || isLoggedIn()) && (
+            <>
             <TranslateResult
               title="Video compressed!"
               fileName={result.fileName ?? fallbackCompressedName}
               processingTime={lastProcessingMs != null ? `${(lastProcessingMs / 1000).toFixed(1)}s` : '—'}
-              downloadLabel={!hasPaidPlan ? (freeExportsUsed >= 2 ? '2/2 free downloads used' : 'Download (2 free)') : 'Download Video'}
-              onDownload={
-                !hasPaidPlan
-                  ? async () => {
-                      if (freeExportsUsed >= 2) {
-                        toast('You\'ve used your 2 free downloads. Upgrade for more.')
-                        return
-                      }
-                      try {
-                        await downloadAuthedUrl(getDownloadUrl(), result?.fileName || fallbackCompressedName)
-                        trackAppEvent('export_clicked', { toolId: 'compress-video' })
-                        try { trackEvent('result_downloaded', { tool: 'compress-video', plan: 'free' }) } catch { /* non-blocking */ }
-                        setFreeExportsUsed((prev) => prev + 1)
-                        toast.success('Download started')
-                      } catch {
-                        toast.error('Download failed')
-                      }
-                    }
-                  : async () => {
-                      try {
-                        await downloadAuthedUrl(getDownloadUrl(), result?.fileName || fallbackCompressedName)
-                        try { trackEvent('result_downloaded', { tool: 'compress-video', plan: 'paid' }) } catch { /* non-blocking */ }
-                      } catch {
-                        toast.error('Download failed')
-                      }
-                    }
-              }
+              hideDownload
               onProcessAnother={handleProcessAnother}
-              relatedTools={[
-                { path: '/burn-subtitles', name: 'Burn Subtitles', description: 'Burn captions into video' },
-                { path: '/video-to-subtitles', name: 'Video → Subtitles', description: 'Generate SRT/VTT' },
-                { path: '/video-to-transcript', name: 'Video → Transcript', description: 'Get transcript & chapters' },
-              ]}
+              relatedTools={[]}
             />
+
+            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+              <div className="space-y-6 min-w-0">
+                <div className="rounded-xl border border-green-200 bg-green-50 p-6 dark:border-green-900/40 dark:bg-green-950/20">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Original size</p>
+                      <p className="text-lg font-semibold text-gray-800 dark:text-gray-100">{formatFileSize(selectedFile.size)}</p>
+                    </div>
+                    <div className="text-2xl text-gray-400">→</div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Compressed size</p>
+                      <p className="text-lg font-semibold text-green-600 dark:text-green-400">
+                        {formatFileSize(getEstimatedSize())}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 border-t border-green-200 pt-4 dark:border-green-900/40">
+                    <p className="text-sm font-medium text-green-800 dark:text-green-300">
+                      Quality preserved ✓
+                    </p>
+                  </div>
+                </div>
+
+                <CrossToolSuggestions
+                  workflowHint="Your last file is pre-filled on the next tool."
+                  suggestions={[
+                    { icon: Film, title: 'Burn Subtitles', path: '/burn-subtitles', description: 'Burn captions into video', state: { useWorkflowVideo: true } },
+                    { icon: MessageSquare, title: 'Video → Subtitles', path: '/video-to-subtitles', description: 'Generate SRT/VTT', state: { useWorkflowVideo: true } },
+                    { icon: FileText, title: 'Video → Transcript', path: '/video-to-transcript', description: 'Get transcript & chapters', state: { useWorkflowVideo: true } },
+                  ]}
+                />
+              </div>
+
+              <ExportsPanel freeExportsUsed={!hasPaidPlan ? freeExportsUsed : undefined}>
+                <ExportSection title="Video">
+                  <button
+                    type="button"
+                    onClick={
+                      !hasPaidPlan
+                        ? async () => {
+                            if (freeExportsUsed >= 2) {
+                              toast('You\'ve used your 2 free downloads. Upgrade for more.')
+                              return
+                            }
+                            try {
+                              await downloadAuthedUrl(getDownloadUrl(), result?.fileName || fallbackCompressedName)
+                              trackAppEvent('export_clicked', { toolId: 'compress-video' })
+                              try { trackEvent('result_downloaded', { tool: 'compress-video', plan: 'free' }) } catch { /* non-blocking */ }
+                              setFreeExportsUsed((prev) => prev + 1)
+                              toast.success('Download started')
+                            } catch {
+                              toast.error('Download failed')
+                            }
+                          }
+                        : async () => {
+                            try {
+                              await downloadAuthedUrl(getDownloadUrl(), result?.fileName || fallbackCompressedName)
+                              try { trackEvent('result_downloaded', { tool: 'compress-video', plan: 'paid' }) } catch { /* non-blocking */ }
+                            } catch {
+                              toast.error('Download failed')
+                            }
+                          }
+                    }
+                    disabled={!hasPaidPlan && freeExportsUsed >= 2}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {!hasPaidPlan && freeExportsUsed >= 2 ? '2/2 free downloads used' : 'Download Video'}
+                  </button>
+                  <p className="mt-2 text-[10px] text-gray-400 dark:text-gray-500">
+                    {formatFileSize(getEstimatedSize())} compressed file
+                  </p>
+                </ExportSection>
+              </ExportsPanel>
+            </div>
+            </>
             )}{/* end gate-hidden result */}
             <ResultUpgradeCard tool="compress" resultKey={result.downloadUrl} />
             <FreePlanNudge tool="compress-video" resultKey={result.downloadUrl} />
             <SecondJobUpgradeNudge tool="compress-video" resultKey={result.downloadUrl} milestone={2} />
             <SecondJobUpgradeNudge tool="compress-video" resultKey={result.downloadUrl} milestone={3} />
-            <div className="mt-2 min-h-[2.75rem]">
-            {/* <WorkflowChainSuggestion
-              pathname={location.pathname}
-              plan={plan}
-              lastJobCompletedToolId={lastJobCompletedToolId}
-            /> */}
-            </div>
-
-            <div className="bg-green-50 rounded-xl p-6 border border-green-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Original size</p>
-                  <p className="text-lg font-semibold text-gray-800">{formatFileSize(selectedFile.size)}</p>
-                </div>
-                <div className="text-2xl text-gray-400">→</div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-600">Compressed size</p>
-                  <p className="text-lg font-semibold text-green-600">
-                    {formatFileSize(getEstimatedSize())}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-green-200">
-                <p className="text-sm text-green-800 font-medium">
-                  Quality preserved ✓
-                </p>
-              </div>
-            </div>
-
-            <CrossToolSuggestions
-              workflowHint="Your last file is pre-filled on the next tool."
-              suggestions={[
-                { icon: Film, title: 'Burn Subtitles', path: '/burn-subtitles', description: 'Burn captions into video', state: { useWorkflowVideo: true } },
-                { icon: MessageSquare, title: 'Video → Subtitles', path: '/video-to-subtitles', description: 'Generate SRT/VTT', state: { useWorkflowVideo: true } },
-                { icon: FileText, title: 'Video → Transcript', path: '/video-to-transcript', description: 'Get transcript & chapters', state: { useWorkflowVideo: true } },
-              ]}
-            />
+            <div className="mt-2 min-h-[2.75rem]" />
           </div>
         )}
 

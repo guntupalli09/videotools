@@ -134,9 +134,18 @@
   background-size: 200% 100%;
   animation: processing-shimmer 8s ease-in-out infinite;
 }
+.dark .processing-gradient-bg {
+  background: linear-gradient(110deg, #0c1929 0%, #172554 25%, #0c1929 50%, #172554 75%, #0c1929 100%);
+  background-size: 200% 100%;
+}
 @keyframes processing-shimmer {
   0%, 100% { background-position: 0% 0; }
   50% { background-position: 100% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .processing-gradient-bg {
+    animation: none;
+  }
 }
 
 /* Route change: opacity only (200ms, no transform — avoids CLS) */

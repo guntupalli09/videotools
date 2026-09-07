@@ -17,6 +17,8 @@ import { ProcessingInterface } from '../components/figma/ProcessingInterface'
 import { ProcessingProgress } from '../components/figma/ProcessingProgress'
 import { ResultSkeleton } from '../components/figma/ResultSkeleton'
 import { TranslateResult } from '../components/figma/TranslateResult'
+import { ExportsPanel, ExportSection } from '../components/figma/ExportsPanel'
+import { ProcessingStateShell } from '../components/figma/ProcessingStateShell'
 import ResultUpgradeCard from '../components/ResultUpgradeCard'
 import { Select } from '../components/figma/FormControls'
 import { getFilePreview, formatDuration, type FilePreviewData } from '../lib/filePreview'
@@ -455,7 +457,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
         )}
 
         {status === 'processing' && (
-          <div className="rounded-xl bg-blue-50 dark:bg-blue-950/30 p-6 sm:p-8">
+          <ProcessingStateShell>
             <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
               {videoFile?.name} • {subtitleFile?.name}
             </div>
@@ -472,7 +474,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
               onCancel={handleProcessAnother}
             />
             <ResultSkeleton variant="burn" />
-          </div>
+          </ProcessingStateShell>
         )}
 
         {status === 'completed' && result && !isLoggedIn() && (
@@ -511,52 +513,62 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
               title="Video with burned subtitles ready!"
               fileName={result.fileName ?? fallbackBurnName}
               processingTime={lastProcessingMs != null ? `${(lastProcessingMs / 1000).toFixed(1)}s` : '—'}
-              downloadLabel={!hasPaidPlan ? (freeExportsUsed >= 2 ? '2/2 free downloads used' : 'Download (2 free)') : 'Download Video'}
-              onDownload={() => requireAuthForDownload(
-                !hasPaidPlan
-                  ? async () => {
-                      if (freeExportsUsed >= 2) {
-                        toast('You\'ve used your 2 free downloads. Upgrade for more.')
-                        return
-                      }
-                      try {
-                        await downloadAuthedUrl(getDownloadUrl(), result?.fileName || fallbackBurnName)
-                        try { trackEvent('result_downloaded', { tool: 'burn-subtitles', plan: 'free' }) } catch { /* non-blocking */ }
-                        setFreeExportsUsed((prev) => prev + 1)
-                        toast.success('Download started')
-                      } catch {
-                        toast.error('Download failed')
-                      }
-                    }
-                  : async () => {
-                      try {
-                        await downloadAuthedUrl(getDownloadUrl(), result?.fileName || fallbackBurnName)
-                        try { trackEvent('result_downloaded', { tool: 'burn-subtitles', plan: 'paid' }) } catch { /* non-blocking */ }
-                      } catch {
-                        toast.error('Download failed')
-                      }
-                    }
-              )}
+              hideDownload
               onProcessAnother={handleProcessAnother}
-              relatedTools={[
-                { path: '/compress-video', name: 'Compress Video', description: 'Reduce file size' },
-                { path: '/video-to-transcript', name: 'Video → Transcript', description: 'Get transcript' },
-                { path: '/video-to-subtitles', name: 'Video → Subtitles', description: 'Generate SRT/VTT' },
-              ]}
+              relatedTools={[]}
             />
             <ResultUpgradeCard tool="burn" resultKey={result.downloadUrl} />
             <FreePlanNudge tool="burn-subtitles" resultKey={result.downloadUrl} />
             <SecondJobUpgradeNudge tool="burn-subtitles" resultKey={result.downloadUrl} milestone={2} />
             <SecondJobUpgradeNudge tool="burn-subtitles" resultKey={result.downloadUrl} milestone={3} />
 
-            <CrossToolSuggestions
-              workflowHint="Your last file is pre-filled on the next tool."
-              suggestions={[
-                { icon: Minimize2, title: 'Compress Video', path: '/compress-video', description: 'Reduce file size', state: { useWorkflowVideo: true } },
-                { icon: FileText, title: 'Video → Transcript', path: '/video-to-transcript', description: 'Get transcript', state: { useWorkflowVideo: true } },
-                { icon: MessageSquare, title: 'Video → Subtitles', path: '/video-to-subtitles', description: 'Generate SRT/VTT', state: { useWorkflowVideo: true } },
-              ]}
-            />
+            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+              <CrossToolSuggestions
+                workflowHint="Your last file is pre-filled on the next tool."
+                suggestions={[
+                  { icon: Minimize2, title: 'Compress Video', path: '/compress-video', description: 'Reduce file size', state: { useWorkflowVideo: true } },
+                  { icon: FileText, title: 'Video → Transcript', path: '/video-to-transcript', description: 'Get transcript', state: { useWorkflowVideo: true } },
+                  { icon: MessageSquare, title: 'Video → Subtitles', path: '/video-to-subtitles', description: 'Generate SRT/VTT', state: { useWorkflowVideo: true } },
+                ]}
+              />
+
+              <ExportsPanel freeExportsUsed={!hasPaidPlan ? freeExportsUsed : undefined}>
+                <ExportSection title="Video">
+                  <button
+                    type="button"
+                    onClick={() => requireAuthForDownload(
+                      !hasPaidPlan
+                        ? async () => {
+                            if (freeExportsUsed >= 2) {
+                              toast('You\'ve used your 2 free downloads. Upgrade for more.')
+                              return
+                            }
+                            try {
+                              await downloadAuthedUrl(getDownloadUrl(), result?.fileName || fallbackBurnName)
+                              try { trackEvent('result_downloaded', { tool: 'burn-subtitles', plan: 'free' }) } catch { /* non-blocking */ }
+                              setFreeExportsUsed((prev) => prev + 1)
+                              toast.success('Download started')
+                            } catch {
+                              toast.error('Download failed')
+                            }
+                          }
+                        : async () => {
+                            try {
+                              await downloadAuthedUrl(getDownloadUrl(), result?.fileName || fallbackBurnName)
+                              try { trackEvent('result_downloaded', { tool: 'burn-subtitles', plan: 'paid' }) } catch { /* non-blocking */ }
+                            } catch {
+                              toast.error('Download failed')
+                            }
+                          }
+                    )}
+                    disabled={!hasPaidPlan && freeExportsUsed >= 2}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {!hasPaidPlan && freeExportsUsed >= 2 ? '2/2 free downloads used' : 'Download Video'}
+                  </button>
+                </ExportSection>
+              </ExportsPanel>
+            </div>
           </div>
         )}
 

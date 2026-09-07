@@ -39,6 +39,7 @@ import { ToolLayout } from "../components/figma/ToolLayout";
 import { UploadZone } from "../components/figma/UploadZone";
 import { ProcessingInterface } from "../components/figma/ProcessingInterface";
 import { ProcessingProgress } from "../components/figma/ProcessingProgress";
+import { ProcessingStateShell } from "../components/figma/ProcessingStateShell";
 import { ResultSkeleton } from "../components/figma/ResultSkeleton";
 import TranscriptSharePanel from "../components/TranscriptSharePanel";
 import SpeakerSegmentsPanel from "../components/videoTranscript/SpeakerSegmentsPanel";
@@ -4459,7 +4460,7 @@ export default function VideoToTranscript(
         )}
 
         {!isBatchMode && status === "processing" && (
-          <div className="bg-blue-50 dark:bg-blue-900/10 rounded-xl p-8 border border-blue-100 dark:border-blue-900/30">
+          <ProcessingStateShell className="p-8">
             <div className="flex items-center gap-4 mb-8 pb-6 border-b border-blue-200 dark:border-blue-900/30">
               {/* YouTube thumbnail or file icon */}
               {youtubeThumbnailUrl ? (
@@ -4597,7 +4598,7 @@ export default function VideoToTranscript(
               onCancel={handleCancelUpload}
             />
             <ResultSkeleton variant="transcript" />
-          </div>
+          </ProcessingStateShell>
         )}
 
         {!isBatchMode && status === "completed" && result && (
