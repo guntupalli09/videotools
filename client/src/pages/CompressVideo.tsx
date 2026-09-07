@@ -23,6 +23,7 @@ import { ExportsPanel, ExportSection } from '../components/figma/ExportsPanel'
 import { ProcessingStateShell } from '../components/figma/ProcessingStateShell'
 import ResultUpgradeCard from '../components/ResultUpgradeCard'
 import ResultHeader from '../components/ResultHeader'
+import { CompressionSavingsCard, estimateCompressedSize } from '../components/figma/CompressionSavingsCard'
 import { RadioGroup } from '../components/figma/FormControls'
 import { getFilePreview, formatDuration, type FilePreviewData } from '../lib/filePreview'
 import { incrementUsage } from '../lib/usage'
@@ -35,7 +36,6 @@ import { trackEvent } from '../lib/analytics'
 // import { texJobStarted, texJobCompleted, texJobFailed } from '../tex'
 import toast from 'react-hot-toast'
 import { MessageSquare, Film, FileText } from 'lucide-react'
-import { formatFileSize } from '../lib/utils'
 import { trackAppEvent } from '../lib/feedbackEvents'
 import { exportFileStem, joinExportFilename } from '../lib/exportFileNames'
 // import { emitToolCompleted } from '../workflow/workflowStore'
@@ -152,15 +152,10 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
     setTrimEnd(null)
   }
 
-  const getEstimatedSize = (): number => {
-    if (!selectedFile) return 0
-    const reductionMap: Record<CompressionLevel, number> = {
-      light: 0.3, // 30% smaller
-      medium: 0.5, // 50% smaller
-      heavy: 0.7, // 70% smaller
-    }
-    return selectedFile.size * (1 - reductionMap[compressionLevel])
-  }
+  const estimatedCompressedBytes =
+    selectedFile != null
+      ? estimateCompressedSize(selectedFile.size, compressionLevel, compressProfile)
+      : 0
 
   const handleProcess = async (trimStartPercent?: number, trimEndPercent?: number) => {
     if (!selectedFile) {
@@ -374,12 +369,11 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
                   onChange={(v) => setCompressionLevel(v as CompressionLevel)}
                 />
               )}
-              <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                <p className="text-sm text-gray-700 dark:text-gray-300">
-                  Your <span className="font-medium">{formatFileSize(selectedFile.size)}</span> file → approximately{' '}
-                  <span className="font-medium">{formatFileSize(getEstimatedSize())}</span>
-                </p>
-              </div>
+              <CompressionSavingsCard
+                variant="estimate"
+                originalBytes={selectedFile.size}
+                compressedBytes={estimatedCompressedBytes}
+              />
             </div>
           </ProcessingInterface>
         )}
@@ -420,10 +414,12 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
                   }
                 />
                 <div className="px-5 py-4">
-                  <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-component-sm">
-                    <span>Original: {formatFileSize(selectedFile.size)}</span>
-                    <span className="text-gray-400">→</span>
-                    <span className="text-emerald-600 font-semibold">Compressed: {formatFileSize(getEstimatedSize())}</span>
+                  <div className="mb-component-sm">
+                    <CompressionSavingsCard
+                      variant="inline"
+                      originalBytes={selectedFile.size}
+                      compressedBytes={estimatedCompressedBytes}
+                    />
                   </div>
                   <p className="text-xs text-gray-400 mb-2 font-medium">Sign up to unlock:</p>
                   <div className="flex flex-wrap gap-1.5 mb-component-sm">
@@ -468,26 +464,12 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
 
             <div className="grid grid-cols-1 items-start gap-component-sm lg:grid-cols-[minmax(0,1fr)_320px]">
               <div className="space-y-component min-w-0">
-                <div className="rounded-xl border border-green-200 bg-green-50 p-component dark:border-green-900/40 dark:bg-green-950/20">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Original size</p>
-                      <p className="text-lg font-semibold text-gray-800 dark:text-gray-100">{formatFileSize(selectedFile.size)}</p>
-                    </div>
-                    <div className="text-2xl text-gray-400">→</div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Compressed size</p>
-                      <p className="text-lg font-semibold text-green-600 dark:text-green-400">
-                        {formatFileSize(getEstimatedSize())}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-4 border-t border-green-200 pt-4 dark:border-green-900/40">
-                    <p className="text-sm font-medium text-green-800 dark:text-green-300">
-                      Quality preserved ✓
-                    </p>
-                  </div>
-                </div>
+                <CompressionSavingsCard
+                  variant="result"
+                  originalBytes={selectedFile.size}
+                  compressedBytes={estimatedCompressedBytes}
+                  showQualityNote
+                />
 
                 <CrossToolSuggestions
                   workflowHint="Your last file is pre-filled on the next tool."
@@ -534,9 +516,6 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
                   >
                     {!hasPaidPlan && freeExportsUsed >= 2 ? '2/2 free downloads used' : 'Download Video'}
                   </button>
-                  <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
-                    {formatFileSize(getEstimatedSize())} compressed file
-                  </p>
                 </ExportSection>
               </ExportsPanel>
             </div>
@@ -579,7 +558,9 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
       />
 
 
-      {location.pathname === '/compress-video' && <CoreToolSeoDepth path="/compress-video" />}
+      {location.pathname === '/compress-video' && (
+        <CoreToolSeoDepth path="/compress-video" defaultCollapsed={status === 'completed'} />
+      )}
 
       {faq.length > 0 && location.pathname !== '/compress-video' && (
         <section className="mt-12 pt-8 border-t border-gray-100/70 max-w-4xl mx-auto px-4" aria-label="FAQ">

@@ -1540,7 +1540,13 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
         </aside>
       )}
 
-      {isSubtitleHub && <CoreToolSeoDepth path="/video-to-subtitles" hideFaq={effectiveFaq.length > 0} />}
+      {isSubtitleHub && (
+        <CoreToolSeoDepth
+          path="/video-to-subtitles"
+          hideFaq={effectiveFaq.length > 0}
+          defaultCollapsed={status === 'completed'}
+        />
+      )}
 
       {effectiveFaq.length > 0 && (
         <section className="mt-12 pt-8 border-t border-gray-100/70 dark:border-gray-700/50 max-w-4xl mx-auto px-4" aria-label="FAQ">

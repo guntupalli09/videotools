@@ -69,6 +69,35 @@ test('core tool pages enforce type scale and display font on titles', () => {
   assert.match(toolLayout, /tool-title text-2xl/)
 })
 
+test('P3 polish: burn preview, compress savings card, collapsed SEO depth on results', () => {
+  const burn = readFileSync(resolve(process.cwd(), 'src/pages/BurnSubtitles.tsx'), 'utf8')
+  assert.match(burn, /<VideoResultPreview/)
+  assert.match(burn, /defaultCollapsed=\{status === 'completed'\}/)
+
+  const compress = readFileSync(resolve(process.cwd(), 'src/pages/CompressVideo.tsx'), 'utf8')
+  assert.match(compress, /<CompressionSavingsCard/)
+  assert.match(compress, /estimateCompressedSize/)
+  assert.doesNotMatch(compress, /compressed file/)
+
+  const seoDepth = readFileSync(resolve(process.cwd(), 'src/components/CoreToolSeoDepth.tsx'), 'utf8')
+  assert.match(seoDepth, /defaultCollapsed/)
+  assert.match(seoDepth, /<details/)
+
+  for (const file of [
+    'VideoToTranscript.tsx',
+    'VideoToSubtitles.tsx',
+    'TranslateSubtitles.tsx',
+    'FixSubtitles.tsx',
+    'BurnSubtitles.tsx',
+    'CompressVideo.tsx',
+    'VoiceRecorder.tsx',
+    'GuidelineFormat.tsx',
+  ]) {
+    const source = readFileSync(resolve(process.cwd(), 'src/pages', file), 'utf8')
+    assert.match(source, /defaultCollapsed=/, file)
+  }
+})
+
 test('PaywallModal owns its impression and has no competing navigation callback', () => {
   const modal = readFileSync(resolve(process.cwd(), 'src/components/PaywallModal.tsx'), 'utf8')
   assert.equal((modal.match(/trackEvent\('paywall_shown'/g) || []).length, 1)

@@ -1351,7 +1351,9 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
         )}
       </ToolLayout>
 
-      {location.pathname === '/fix-subtitles' && <CoreToolSeoDepth path="/fix-subtitles" />}
+      {location.pathname === '/fix-subtitles' && (
+        <CoreToolSeoDepth path="/fix-subtitles" defaultCollapsed={status === 'completed'} />
+      )}
 
       {faq.length > 0 && location.pathname !== '/fix-subtitles' && (
         <section className="mt-12 pt-8 border-t border-gray-100/70 max-w-4xl mx-auto px-4" aria-label="FAQ">
