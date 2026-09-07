@@ -130,17 +130,17 @@ function ToolCard({
 
 export function Features() {
   return (
-    <section id="tools" className="bg-white py-section dark:bg-gray-950">
+    <section id="tools" className="border-t border-gray-200 bg-white py-section dark:border-white/[0.06] dark:bg-gray-950">
       <div className="mx-auto max-w-5xl px-6">
         <div className="mb-8 text-center">
-          <p className="mb-3 text-sm font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">
+          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">
             Professional transcript workflow
           </p>
-          <h2 className="mb-4 font-display text-4xl font-medium leading-tight text-gray-900 dark:text-white md:text-5xl">
-            Stop doing the same cleanup twice.
+          <h2 className="mb-2 text-2xl font-medium leading-tight text-gray-900 dark:text-white md:text-3xl">
+            Eight tools. One cleanup pass.
           </h2>
-          <p className="mx-auto max-w-xl text-lg text-gray-500 dark:text-white/40">
-            Transcribe, validate against client rules, and deliver without revisions — across all eight tools.
+          <p className="mx-auto max-w-lg text-sm text-gray-500 dark:text-white/40">
+            Transcribe, format, translate, and deliver — pick the tool you need.
           </p>
         </div>
 

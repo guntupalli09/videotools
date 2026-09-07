@@ -111,7 +111,7 @@ export function Hero() {
 
   return (
     <section className="relative flex flex-col items-center bg-gray-950">
-      <div className="mx-auto flex w-full max-w-5xl flex-col items-center px-6 pt-3 pb-8 sm:pt-4">
+      <div className="mx-auto flex w-full max-w-5xl flex-col items-center px-6 pt-3 pb-12 sm:pt-4 sm:pb-16">
         <TrustBadge className="mb-4" />
 
         <h1
