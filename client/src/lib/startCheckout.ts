@@ -7,6 +7,7 @@ import {
 import { trackEvent } from './analytics'
 import { trackAppEvent } from './feedbackEvents'
 import { isLoggedIn } from './auth'
+import { getCachedProPricing } from './pricingApi'
 
 export type StartCheckoutParams = {
   plan?: BillingPlan
@@ -55,7 +56,20 @@ export async function startCheckout(params: StartCheckoutParams): Promise<void> 
   const plan = params.plan ?? 'pro'
   const billingInterval = params.billingInterval ?? 'monthly'
   const returnToPath = params.returnToPath ?? window.location.pathname
-  const attribution = { ...params.attribution, plan, billing_interval: billingInterval }
+  const pricing = getCachedProPricing()
+  const defaultDisplayedPrice =
+    billingInterval === 'annual' ? pricing.annual.effectiveMonthly : pricing.monthly.amount
+  const attribution = {
+    ...params.attribution,
+    plan,
+    billing_interval: billingInterval,
+    pricing_tier: pricing.tier,
+    ...(pricing.country ? { pricing_country: pricing.country } : {}),
+    displayed_price:
+      typeof params.attribution.displayed_price === 'number'
+        ? params.attribution.displayed_price
+        : defaultDisplayedPrice,
+  }
 
   try {
     trackEvent('upgrade_clicked', attribution)

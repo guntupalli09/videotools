@@ -12,6 +12,7 @@ import { trackAppEvent } from '../lib/feedbackEvents'
 import { getJobCompletedCount } from '../lib/jobCount'
 import CancellationReasonModal from '../components/CancellationReasonModal'
 import { hasSubmittedCancellationReason } from '../lib/cancellationFeedback'
+import { useProPricing } from '../contexts/PricingContext'
 
 function Check() {
   return (
@@ -33,6 +34,7 @@ function X() {
 }
 
 export default function Pricing() {
+  const { pricing } = useProPricing()
   const [currentPlan, setCurrentPlan] = useState<string | null>(null)
   const [usageResetDate, setUsageResetDate] = useState<string | null>(null)
   const [cancelAtPeriodEnd, setCancelAtPeriodEnd] = useState(false)
@@ -129,7 +131,9 @@ export default function Pricing() {
           source: 'pricing_page',
           job_count: jobCount,
           ...(hoursSinceSignup != null ? { hours_since_signup: hoursSinceSignup, cohort_date: signupStartedAt?.slice(0, 10) } : {}),
-          displayed_price: billingInterval === 'annual' ? 5.83 : 7.99,
+          displayed_price: billingInterval === 'annual' ? pricing.annual.effectiveMonthly : pricing.monthly.amount,
+          pricing_tier: pricing.tier,
+          ...(pricing.country ? { pricing_country: pricing.country } : {}),
         },
       })
     } catch (e: any) {
@@ -156,6 +160,11 @@ export default function Pricing() {
           <p className="mt-4 text-lg text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
             Transcribe · Subtitle · Translate · Format · QA · Process · Deliver
           </p>
+          {pricing.enabled && pricing.tier !== 'standard' && (
+            <p className="mt-3 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+              Regional pricing for your area — same full Pro workflow
+            </p>
+          )}
 
           {isPaidPlan && (
             <div className="mt-8 flex flex-col items-center gap-2">
@@ -263,14 +272,18 @@ export default function Pricing() {
             <div className="mb-6">
               <h3 className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-widest">Pro</h3>
               <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-5xl font-bold text-white">{billingInterval === 'annual' ? '$5.83' : '$7.99'}</span>
+                <span className="text-5xl font-bold text-white">
+                  {billingInterval === 'annual'
+                    ? pricing.annual.effectiveMonthlyDisplay
+                    : pricing.monthly.displayAmount}
+                </span>
                 <span className="text-sm text-gray-400">/mo</span>
               </div>
               <div className="min-h-[44px] pt-1 text-sm" aria-live="polite">
                 {billingInterval === 'annual' ? (
                   <>
-                    <p className="font-medium text-gray-200">$69.99 billed annually</p>
-                    <p className="text-emerald-400">Save $25.89/year</p>
+                    <p className="font-medium text-gray-200">{pricing.annual.billedLabel} billed annually</p>
+                    <p className="text-emerald-400">Save {pricing.annual.savePercent}% vs monthly</p>
                   </>
                 ) : <span className="sr-only">Billed monthly</span>}
               </div>
@@ -307,7 +320,9 @@ export default function Pricing() {
               {isCurrentPlan('pro')
                 ? (portalLoading ? 'Opening…' : 'Manage subscription')
                 : checkoutLoading === 'pro' ? 'Redirecting…'
-                : billingInterval === 'annual' ? 'Unlock Pro — $69.99/year' : 'Unlock Pro — $7.99/mo'}
+                : billingInterval === 'annual'
+                  ? `Unlock Pro — ${pricing.annual.label}`
+                  : `Unlock Pro — ${pricing.monthly.label}`}
             </button>
             <p className="mt-3 text-center text-xs text-gray-400">Cancel anytime · All Pro tools included</p>
           </div>

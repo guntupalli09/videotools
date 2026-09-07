@@ -1,5 +1,12 @@
 import Stripe from 'stripe'
 import { getLogger } from '../lib/logger'
+import {
+  getRegionalStripePriceConfig,
+  isRegionalProPriceId,
+  selectProPriceIdForTier,
+  assertProPriceForTier,
+} from './stripePricingTiers'
+import type { PricingTier } from '../utils/geoPricing'
 
 const log = getLogger('api')
 
@@ -75,7 +82,14 @@ export function getStripePriceConfig(): StripePriceConfig {
 export function getPlanFromPriceId(priceId: string): BillingPlan | null {
   try {
     const config = getStripePriceConfig()
-    if (priceId === config.proMonthlyPriceId || priceId === config.proAnnualPriceId || config.legacyProPriceIds.includes(priceId)) return 'pro'
+    if (
+      priceId === config.proMonthlyPriceId ||
+      priceId === config.proAnnualPriceId ||
+      config.legacyProPriceIds.includes(priceId) ||
+      isRegionalProPriceId(priceId)
+    ) {
+      return 'pro'
+    }
     if (config.businessPriceId && priceId === config.businessPriceId) return 'business'
     // Grandfathered plans
     if (config.basicPriceId && (priceId === config.basicPriceId || priceId === config.basicAnnualPriceId)) return 'basic'
@@ -88,7 +102,14 @@ export function getPlanFromPriceId(priceId: string): BillingPlan | null {
 }
 
 /** Map the browser's constrained interval selection to a server-owned Stripe Price ID. */
-export function selectProPriceId(config: StripePriceConfig, billingInterval: ProBillingInterval): string {
+export function selectProPriceId(
+  config: StripePriceConfig,
+  billingInterval: ProBillingInterval,
+  pricingTier: PricingTier = 'standard',
+): string {
+  if (pricingTier !== 'standard') {
+    return selectProPriceIdForTier(pricingTier, billingInterval)
+  }
   return billingInterval === 'annual' ? config.proAnnualPriceId : config.proMonthlyPriceId
 }
 
@@ -108,9 +129,26 @@ export function assertProPrice(
   }
 }
 
-export async function verifyProPrice(priceId: string, billingInterval: ProBillingInterval): Promise<void> {
+export async function verifyProPrice(
+  priceId: string,
+  billingInterval: ProBillingInterval,
+  pricingTier: PricingTier = 'standard',
+): Promise<void> {
   const price = await stripe.prices.retrieve(priceId)
-  assertProPrice(price, billingInterval)
+  if (pricingTier === 'standard') {
+    assertProPrice(price, billingInterval)
+  } else {
+    assertProPriceForTier(price, billingInterval, pricingTier)
+  }
+}
+
+/** Expose regional price IDs for webhook/tests. */
+export function getAllRegionalProPriceIds(): string[] {
+  try {
+    return getRegionalStripePriceConfig().regionalProPriceIds
+  } catch {
+    return []
+  }
 }
 
 /**

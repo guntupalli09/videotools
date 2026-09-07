@@ -6,7 +6,8 @@ import { isPaidPlan } from '../lib/plans'
 import { startCheckout } from '../lib/startCheckout'
 import { trackEvent } from '../lib/analytics'
 import { trackAppEvent } from '../lib/feedbackEvents'
-import { getResultUpgradeCopy, PRO_ANNUAL_NOTE, type ResultUpgradeTool } from '../lib/upgradeCopy'
+import { getResultUpgradeCopy, type ResultUpgradeTool } from '../lib/upgradeCopy'
+import { useProPricing } from '../contexts/PricingContext'
 
 interface Props {
   tool: ResultUpgradeTool
@@ -16,6 +17,7 @@ interface Props {
 
 /** High-intent upgrade card shown on the result panel (peak moment after job success). */
 export default function ResultUpgradeCard({ tool, resultKey, wordCount }: Props) {
+  const { pricing } = useProPricing()
   const [visible, setVisible] = useState(false)
   const [remaining, setRemaining] = useState<number | undefined>()
   const [loading, setLoading] = useState(false)
@@ -55,7 +57,7 @@ export default function ResultUpgradeCard({ tool, resultKey, wordCount }: Props)
 
   if (!visible) return null
 
-  const copy = getResultUpgradeCopy(tool, { wordCount, remaining })
+  const copy = getResultUpgradeCopy(tool, { wordCount, remaining, pricing })
 
   async function handleUpgrade() {
     if (loading) return
@@ -69,8 +71,6 @@ export default function ResultUpgradeCard({ tool, resultKey, wordCount }: Props)
           tool,
           plan: 'free',
           billing_interval: 'monthly',
-          displayed_price: 7.99,
-          remaining_imports: remaining,
           ...(wordCount != null ? { word_count: wordCount } : {}),
         },
       })
@@ -114,7 +114,7 @@ export default function ResultUpgradeCard({ tool, resultKey, wordCount }: Props)
                 {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
                 {loading ? 'Opening checkout…' : copy.cta}
               </button>
-              <span className="text-xs text-gray-500 dark:text-gray-400">{PRO_ANNUAL_NOTE}</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">{pricing.annualNote}</span>
             </div>
             {error && (
               <p className="mt-2 text-xs text-red-600 dark:text-red-400" role="alert">

@@ -10,9 +10,29 @@ import { isAllowedOrigin, normalizeOrigin } from '../utils/allowedOrigins'
 import { getLogger } from '../lib/logger'
 import { captureFunnelEvent } from '../utils/funnelEvents'
 import { recordUpgradeIntent } from '../models/UpgradeIntent'
+import {
+  getRequestCountry,
+  resolvePricingTier,
+  buildProPriceDisplay,
+  PPP_PRICING_ENABLED,
+} from '../utils/geoPricing'
+import { resolveEffectivePricingTier } from '../services/stripePricingTiers'
 
 const log = getLogger('api')
 const router = express.Router()
+
+/** Geo-aware Pro pricing for client display — tier is resolved server-side from IP country. */
+router.get('/prices', (req: Request, res: Response) => {
+  const country = getRequestCountry(req)
+  const requestedTier = resolvePricingTier(country)
+  const effectiveTier = resolveEffectivePricingTier(requestedTier)
+  const display = buildProPriceDisplay(country, effectiveTier, PPP_PRICING_ENABLED)
+  return res.json({
+    ...display,
+    tier: effectiveTier,
+    requestedTier,
+  })
+})
 
 interface CheckoutRequestBody {
   mode: 'subscription' | 'payment'
@@ -110,6 +130,9 @@ router.post('/checkout', async (req: Request, res: Response) => {
       // the explicit constrained interval; no Stripe Price ID is accepted from the browser.
       const billingInterval: ProBillingInterval = req.body.billingInterval || (req.body.annual === true ? 'annual' : 'monthly')
       const annual = billingInterval === 'annual'
+      const country = getRequestCountry(req)
+      const requestedTier = resolvePricingTier(country)
+      const pricingTier = resolveEffectivePricingTier(requestedTier)
       let priceId: string
       if (plan === 'business') {
         if (!prices.businessPriceId) {
@@ -117,7 +140,7 @@ router.post('/checkout', async (req: Request, res: Response) => {
         }
         priceId = prices.businessPriceId
       } else if (plan === 'pro') {
-        priceId = selectProPriceId(prices, billingInterval)
+        priceId = selectProPriceId(prices, billingInterval, pricingTier)
       } else if (plan === 'founding_workflow') {
         return res.status(410).json({ message: 'This legacy plan is no longer available. Choose Pro instead.' })
       } else if (plan === 'basic') {
@@ -135,7 +158,7 @@ router.post('/checkout', async (req: Request, res: Response) => {
 
       // Validate the server-selected Stripe object before creating checkout so
       // stale configuration can never silently charge a different amount/interval.
-      if (plan === 'pro') await verifyProPrice(priceId, billingInterval)
+      if (plan === 'pro') await verifyProPrice(priceId, billingInterval, pricingTier)
 
       // Preserve existing promotion-code support for active offers.
       const planSupportsPromo = plan === 'basic' || plan === 'pro'
@@ -169,6 +192,8 @@ router.post('/checkout', async (req: Request, res: Response) => {
           purchaseType: 'subscription',
           plan,
           billingInterval,
+          pricingTier,
+          ...(country ? { country } : {}),
           returnToPath: normalizedPath,
           ...(auth?.userId ? { userId: auth.userId } : {}),
           ...(checkoutEmail ? { email: checkoutEmail } : {}),
@@ -184,7 +209,7 @@ router.post('/checkout', async (req: Request, res: Response) => {
           userId: auth.userId,
           source: 'billing_checkout_route',
           plan,
-          metadata: { annual, billingInterval },
+          metadata: { annual, billingInterval, pricingTier, country: country ?? undefined },
         }).catch(() => {})
       }
 

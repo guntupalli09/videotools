@@ -27,6 +27,7 @@ import { trackAppEvent } from './lib/feedbackEvents'
 import { getLifetimeSessionCount, getSessionId, isNewSession, clearNewSessionFlag } from './lib/sessionTracking'
 import { captureReferralFromUrl } from './lib/referral'
 import { incrementSessionsSinceFeedback } from './hooks/useFeedbackFrequency'
+import { PricingProvider } from './contexts/PricingContext'
 
 // Lazy-load pages for fast initial load on any device; each route loads only when visited.
 const Home = lazy(() => import('./pages/Home'))
@@ -509,6 +510,7 @@ function SessionTracker() {
 
 function App() {
   return (
+    <PricingProvider>
     <BrowserRouter>
       {/* <WorkflowProvider> */}
       <LowercaseRedirect />
@@ -940,6 +942,7 @@ function App() {
       </div>
       {/* </WorkflowProvider> */}
     </BrowserRouter>
+    </PricingProvider>
   )
 }
 
