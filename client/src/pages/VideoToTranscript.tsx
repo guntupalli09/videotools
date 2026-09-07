@@ -97,7 +97,10 @@ import { trackEvent, trackFirstOutputSeen } from "../lib/analytics";
 import {
   formatTimestamp,
   type Segment,
+  segmentsToSrt,
+  segmentsToVtt,
 } from "../lib/srtExport";
+import { WATERMARK_DOC_FOOTER, watermarkTextExport } from "../lib/watermark";
 import { addAnchorTimecode } from "../lib/smpteTimecode";
 import {
   type SpeakerNameMap,
@@ -2738,9 +2741,7 @@ export default function VideoToTranscript(
       );
       return;
     }
-    const watermark = isPaidPlan
-      ? undefined
-      : "Exported from VideoText (Free Plan) · videotext.io";
+    const watermark = isPaidPlan ? undefined : WATERMARK_DOC_FOOTER;
     const filename = joinExportFilename(
       exportFileStem(selectedFile?.name, "video"),
       `transcript_original_${langCodeForFile(exportSourceLangCode)}`,
@@ -2800,9 +2801,7 @@ export default function VideoToTranscript(
       );
       return;
     }
-    const watermark = isPaidPlan
-      ? undefined
-      : "Exported from VideoText (Free Plan) · videotext.io";
+    const watermark = isPaidPlan ? undefined : WATERMARK_DOC_FOOTER;
     const filename = joinExportFilename(
       exportFileStem(selectedFile?.name, "video"),
       `transcript_original_${langCodeForFile(exportSourceLangCode)}`,
@@ -2858,9 +2857,7 @@ export default function VideoToTranscript(
       );
       return;
     }
-    const watermark = isPaidPlan
-      ? undefined
-      : "Exported from VideoText (Free Plan) · videotext.io";
+    const watermark = isPaidPlan ? undefined : WATERMARK_DOC_FOOTER;
     const slug = translationLanguage
       ? targetLangFileSlug(translationLanguage)
       : "translated";
@@ -2918,9 +2915,7 @@ export default function VideoToTranscript(
       );
       return;
     }
-    const watermark = isPaidPlan
-      ? undefined
-      : "Exported from VideoText (Free Plan) · videotext.io";
+    const watermark = isPaidPlan ? undefined : WATERMARK_DOC_FOOTER;
     const slug = translationLanguage
       ? targetLangFileSlug(translationLanguage)
       : "translated";
@@ -2982,9 +2977,7 @@ export default function VideoToTranscript(
       );
       return;
     }
-    const watermark = isPaidPlan
-      ? undefined
-      : "Exported from VideoText (Free Plan) · videotext.io";
+    const watermark = isPaidPlan ? undefined : WATERMARK_DOC_FOOTER;
     const filename = joinExportFilename(
       exportFileStem(selectedFile?.name, "video"),
       `transcript_3col_${langCodeForFile(exportSourceLangCode)}`,
@@ -3044,9 +3037,7 @@ export default function VideoToTranscript(
       );
       return;
     }
-    const watermark = isPaidPlan
-      ? undefined
-      : "Exported from VideoText (Free Plan) · videotext.io";
+    const watermark = isPaidPlan ? undefined : WATERMARK_DOC_FOOTER;
     const filename = joinExportFilename(
       exportFileStem(selectedFile?.name, "video"),
       `transcript_3col_${langCodeForFile(exportSourceLangCode)}`,
@@ -3089,6 +3080,67 @@ export default function VideoToTranscript(
     exportSourceLangCode,
     verbatimMode,
   ]);
+
+  const downloadSubtitleExport = useCallback(
+    (format: "srt" | "vtt") => {
+      const segs =
+        (editableSegments && editableSegments.length > 0
+          ? editableSegments
+          : result?.segments) ?? null;
+      if (!segs?.length) {
+        toast.error("Nothing to export");
+        return;
+      }
+      if (!isPaidPlan && freeExportsUsed >= 2) {
+        toast(
+          "You've used your 2 free exports. Unlock continued downloads with Pro — $7.99/mo.",
+        );
+        return;
+      }
+      const resolved = withResolvedSpeakers(segs, speakerNameMap);
+      let content =
+        format === "srt"
+          ? segmentsToSrt(resolved)
+          : segmentsToVtt(resolved);
+      if (!isPaidPlan) {
+        content = watermarkTextExport(content, format);
+        setFreeExportsUsed((n) => n + 1);
+      }
+      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = joinExportFilename(
+        exportFileStem(selectedFile?.name, "video"),
+        `subtitles_original_${langCodeForFile(exportSourceLangCode)}`,
+        format === "srt" ? ".srt" : ".vtt",
+      );
+      a.click();
+      URL.revokeObjectURL(a.href);
+      try {
+        trackEvent("result_downloaded", {
+          tool: "video-to-transcript",
+          format,
+          plan: isPaidPlan ? "paid" : "free",
+        });
+      } catch {
+        /* non-blocking */
+      }
+      toast.success(
+        isPaidPlan
+          ? "Download started"
+          : "Download started (with watermark)",
+      );
+    },
+    [
+      editableSegments,
+      result?.segments,
+      speakerNameMap,
+      isPaidPlan,
+      freeExportsUsed,
+      selectedFile?.name,
+      exportSourceLangCode,
+    ],
+  );
 
   /** Translate a pasted plain-text transcript (no video/audio upload required). */
   const handleTextTranslate = useCallback(async () => {
@@ -5508,6 +5560,26 @@ export default function VideoToTranscript(
                               </div>
                               <div>
                                 <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-gray-500">
+                                  Subtitles
+                                </p>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {(["srt", "vtt"] as const).map((format) => (
+                                    <button
+                                      key={format}
+                                      type="button"
+                                      onClick={() => downloadSubtitleExport(format)}
+                                      className="rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 px-2 py-2 text-[11px] font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                    >
+                                      {format.toUpperCase()}
+                                      {!isPaidPlan && (
+                                        <span className="text-gray-400 font-normal"> · wm</span>
+                                      )}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <div>
+                                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-gray-500">
                                   Documents
                                 </p>
                                 <div className="grid grid-cols-3 gap-2">
@@ -5536,8 +5608,6 @@ export default function VideoToTranscript(
                                             smpteFps,
                                           },
                                         );
-                                        const FREE_EXPORT_WATERMARK =
-                                          "\n\n---\nExported from VideoText (Free Plan) · videotext.io\n";
                                         const freeCanDownload =
                                           !isPaidPlan && freeExportsUsed < 2;
                                         const freeUsedAll =
@@ -5565,7 +5635,7 @@ export default function VideoToTranscript(
                                           return;
                                         }
                                         const blob = new Blob(
-                                          [content + FREE_EXPORT_WATERMARK],
+                                          [watermarkTextExport(content, "txt")],
                                           { type: "text/plain" },
                                         );
                                         setFreeExportsUsed((prev) => prev + 1);
@@ -5662,45 +5732,52 @@ export default function VideoToTranscript(
                                                     smpteFps,
                                                   },
                                                 );
-                                      const FREE_EXPORT_WATERMARK =
-                                        "\n\n---\nExported from VideoText (Free Plan) · videotext.io\n";
-                                      const freeCanDownload =
-                                        !isPaidPlan && freeExportsUsed < 2;
-                                      const freeUsedAll =
-                                        !isPaidPlan && freeExportsUsed >= 2;
-                                      const mimeType =
-                                        format === "json"
-                                          ? "application/json"
-                                          : "text/plain";
-                                      const canClick =
-                                        isPaidPlan || freeCanDownload;
-                                      const handleDownload = () => {
-                                        if (isPaidPlan) {
-                                          const blob = new Blob([content], {
-                                            type: mimeType,
-                                          });
-                                          const a = document.createElement("a");
-                                          a.href = URL.createObjectURL(blob);
-                                          a.download = transcriptExportName(
-                                            selectedFile?.name,
-                                            format,
-                                            exportSourceLangCode,
+                                        const freeCanDownload =
+                                          !isPaidPlan && freeExportsUsed < 2;
+                                        const freeUsedAll =
+                                          !isPaidPlan && freeExportsUsed >= 2;
+                                        const mimeType =
+                                          format === "json"
+                                            ? "application/json"
+                                            : "text/plain";
+                                        const canClick =
+                                          isPaidPlan || freeCanDownload;
+                                        const handleDownload = () => {
+                                          if (isPaidPlan) {
+                                            const blob = new Blob([content], {
+                                              type: mimeType,
+                                            });
+                                            const a = document.createElement("a");
+                                            a.href = URL.createObjectURL(blob);
+                                            a.download = transcriptExportName(
+                                              selectedFile?.name,
+                                              format,
+                                              exportSourceLangCode,
+                                            );
+                                            a.click();
+                                            URL.revokeObjectURL(a.href);
+                                            toast.success("Download started");
+                                            return;
+                                          }
+                                          if (freeUsedAll) {
+                                            toast(
+                                              "You've used your 2 free exports. Unlock continued downloads with Pro — $7.99/mo.",
+                                            );
+                                            return;
+                                          }
+                                          const blob = new Blob(
+                                            [
+                                              watermarkTextExport(
+                                                content,
+                                                format === "json"
+                                                  ? "json"
+                                                  : format === "csv"
+                                                    ? "csv"
+                                                    : "notion",
+                                              ),
+                                            ],
+                                            { type: mimeType },
                                           );
-                                          a.click();
-                                          URL.revokeObjectURL(a.href);
-                                          toast.success("Download started");
-                                          return;
-                                        }
-                                        if (freeUsedAll) {
-                                          toast(
-                                            "You've used your 2 free exports. Unlock continued downloads with Pro — $7.99/mo.",
-                                          );
-                                          return;
-                                        }
-                                        const blob = new Blob(
-                                          [content + FREE_EXPORT_WATERMARK],
-                                          { type: mimeType },
-                                        );
                                         setFreeExportsUsed((prev) => prev + 1);
                                         const a = document.createElement("a");
                                         a.href = URL.createObjectURL(blob);
@@ -5769,8 +5846,6 @@ export default function VideoToTranscript(
                                     selectedFile?.name,
                                     "video",
                                   );
-                                  const FREE_EXPORT_WATERMARK =
-                                    "\n\n---\nExported from VideoText (Free Plan) · videotext.io\n";
                                   const freeCanDownload =
                                     !isPaidPlan && freeExportsUsed < 2;
                                   const freeUsedAll =
@@ -5848,7 +5923,7 @@ export default function VideoToTranscript(
                                             : ".txt";
                                       const payload = isPaidPlan
                                         ? content
-                                        : content + FREE_EXPORT_WATERMARK;
+                                        : watermarkTextExport(content, format);
                                       if (!isPaidPlan)
                                         setFreeExportsUsed((n) => n + 1);
                                       const blob = new Blob([payload], {

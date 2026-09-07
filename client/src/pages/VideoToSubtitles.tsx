@@ -1248,7 +1248,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                                 }
                                 try {
                                   const token = getAuthToken()
-                                  const res = await fetch(getDownloadUrl() + '?wm=1', {
+                                  const res = await fetch(getDownloadUrl(), {
                                     headers: token ? { Authorization: `Bearer ${token}` } : {},
                                   })
                                   const blob = await res.blob()

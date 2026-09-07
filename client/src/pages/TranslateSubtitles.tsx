@@ -22,6 +22,7 @@ import { incrementUsage } from '../lib/usage'
 import { uploadFileWithProgress, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError, getAuthToken } from '../lib/api'
 import { isLoggedIn } from '../lib/auth'
 import { isPaidPlan as hasPaidPlan } from '../lib/plans'
+import { watermarkTextExport } from '../lib/watermark'
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl, getApiBase } from '../lib/apiBase'
 import { persistJobId, clearPersistedJobId, getPersistedJobId, getPersistedJobToken } from '../lib/jobSession'
@@ -835,7 +836,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                           if (freeExportsUsed >= 2) { toast('You\'ve used your 2 free downloads. Upgrade for more.'); return }
                           try {
                             const token = getAuthToken()
-                            const res = await fetch(getDownloadUrl() + '?wm=1', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+                            const res = await fetch(getDownloadUrl(), { headers: token ? { Authorization: `Bearer ${token}` } : {} })
                             const blob = await res.blob()
                             const a = document.createElement('a')
                             a.href = URL.createObjectURL(blob)
@@ -915,7 +916,8 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                       <button
                         disabled={!canEdit}
                         onClick={() => {
-                          const content = rowsToSrt(subtitleRows)
+                          let content = rowsToSrt(subtitleRows)
+                          if (!isPaidPlan) content = watermarkTextExport(content, 'srt')
                           downloadBlob(content, 'text/plain', (result.fileName || fallbackTranslatedName('.srt')).replace(/\.vtt$/i, '.srt'))
                         }}
                         className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"

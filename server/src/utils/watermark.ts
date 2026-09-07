@@ -1,14 +1,16 @@
-/** Keep in sync with server/src/utils/watermark.ts */
+/** Keep in sync with client/src/lib/watermark.ts */
 
 export const WATERMARK_LINE1 = 'Fast AI transcription by VideoText.io — Free Plan'
 export const WATERMARK_LINE2 = '⚠  Remove this watermark: videotext.io/pricing  |  Upgrade to Pro'
 export const WATERMARK_SEPARATOR = '=================================================================================='
 export const WATERMARK_UPGRADE_URL = 'videotext.io/pricing'
 
-/** PDF/DOCX footer and inline document watermark. */
+/** Shorter line for PDF/DOCX footers and UI copy. */
 export const WATERMARK_DOC_FOOTER = `${WATERMARK_LINE1} · ${WATERMARK_UPGRADE_URL}`
 
 export const WATERMARK_CLIPBOARD_SUFFIX = `\n\n---\n${WATERMARK_LINE1} · ${WATERMARK_UPGRADE_URL}\n`
+
+export const TEXT_EXTENSIONS = new Set(['.srt', '.vtt', '.txt', '.json', '.csv'])
 
 const SRT_WATERMARK_CUE = [
   '1',
@@ -79,24 +81,24 @@ export function applyWatermarkToJson(content: string): string {
   return applyWatermarkToTxt(content)
 }
 
-export type WatermarkTextFormat = 'txt' | 'csv' | 'json' | 'notion' | 'srt' | 'vtt'
-
-/** Apply the correct watermark for client-generated text exports. */
-export function watermarkTextExport(content: string, format: WatermarkTextFormat): string {
-  switch (format) {
-    case 'srt':
+/**
+ * Apply watermark to text export content by file extension.
+ * - SRT/VTT: 8-second opening cue
+ * - JSON: _watermark field
+ * - CSV: comment header/footer
+ * - TXT/default: separator header/footer
+ */
+export function applyWatermark(content: string, ext: string): string {
+  switch (ext) {
+    case '.srt':
       return applyWatermarkToSrt(content)
-    case 'vtt':
+    case '.vtt':
       return applyWatermarkToVtt(content)
-    case 'json':
-    case 'notion':
+    case '.json':
       return applyWatermarkToJson(content)
-    case 'csv':
+    case '.csv':
       return applyWatermarkToCsv(content)
     default:
       return applyWatermarkToTxt(content)
   }
 }
-
-/** @deprecated Use watermarkTextExport or WATERMARK_DOC_FOOTER */
-export const FREE_EXPORT_WATERMARK = `\n\n---\n${WATERMARK_DOC_FOOTER}\n`

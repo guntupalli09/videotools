@@ -6,6 +6,7 @@ import { getEffectiveUserId } from '../utils/auth'
 import { findJobByResultFilename } from '../lib/jobAnalytics'
 import { getBatchById } from '../models/BatchJob'
 import { getLogger } from '../lib/logger'
+import { applyWatermark, TEXT_EXTENSIONS } from '../utils/watermark'
 
 const log = getLogger('api')
 const router = express.Router()
@@ -13,64 +14,6 @@ const router = express.Router()
 const tempDir =
   process.env.TEMP_FILE_PATH ||
   (process.platform === 'win32' ? path.join(process.cwd(), 'temp') : '/tmp')
-
-// Strong, highly visible watermark strings
-const WATERMARK_LINE1 = 'Fast AI transcription by VideoText.io — Free Plan'
-const WATERMARK_LINE2 = '⚠  Remove this watermark: videotext.io/pricing  |  Upgrade to Pro'
-const WATERMARK_SEPARATOR = '=================================================================================='
-const TEXT_EXTENSIONS = new Set(['.srt', '.vtt', '.txt', '.json', '.csv'])
-
-/**
- * Apply a strong, highly visible watermark to free-plan exports.
- * - SRT/VTT: first 8-second cue at the very start, impossible to miss
- * - TXT/CSV: bold header + footer with separator lines
- * - JSON: _watermark field at the top
- */
-function applyWatermark(content: string, ext: string): string {
-  switch (ext) {
-    case '.srt': {
-      // Prominent 8-second two-line cue at the very start of the video
-      const cue = [
-        '0',
-        '00:00:00,000 --> 00:00:08,000',
-        WATERMARK_LINE1,
-        WATERMARK_LINE2,
-        '',
-        '',
-      ].join('\n')
-      return cue + content.trimStart()
-    }
-    case '.vtt': {
-      const lines = content.split('\n')
-      const headerIdx = lines.findIndex((l) => l.startsWith('WEBVTT'))
-      const cueLines = ['', '00:00:00.000 --> 00:00:08.000', WATERMARK_LINE1, WATERMARK_LINE2, '']
-      if (headerIdx >= 0) {
-        lines.splice(headerIdx + 1, 0, ...cueLines)
-      }
-      return lines.join('\n')
-    }
-    case '.json': {
-      try {
-        const obj = JSON.parse(content)
-        if (typeof obj === 'object' && obj !== null && !Array.isArray(obj)) {
-          const watermarked = {
-            _watermark: `${WATERMARK_LINE1} | ${WATERMARK_LINE2}`,
-            _upgrade: 'videotext.io/pricing',
-            ...obj,
-          }
-          return JSON.stringify(watermarked, null, 2)
-        }
-      } catch { /* fall through */ }
-      return `${WATERMARK_SEPARATOR}\n${WATERMARK_LINE1}\n${WATERMARK_LINE2}\n${WATERMARK_SEPARATOR}\n\n${content}\n\n${WATERMARK_SEPARATOR}\n${WATERMARK_LINE1}\n${WATERMARK_LINE2}\n${WATERMARK_SEPARATOR}\n`
-    }
-    default: {
-      // TXT, CSV, and any other text format
-      const header = `${WATERMARK_SEPARATOR}\n${WATERMARK_LINE1}\n${WATERMARK_LINE2}\n${WATERMARK_SEPARATOR}\n\n`
-      const footer = `\n\n${WATERMARK_SEPARATOR}\n${WATERMARK_LINE1}\n${WATERMARK_LINE2}\n${WATERMARK_SEPARATOR}\n`
-      return header + content + footer
-    }
-  }
-}
 
 /** Per-video batch zip, written by workers/videoProcessor.ts generateBatchZip() as `batch-<batchId>.zip`. */
 export const BATCH_ZIP_PATTERN = /^batch-(.+)\.zip$/
@@ -170,14 +113,11 @@ router.get('/:filename', async (req: Request, res: Response) => {
     const asciiSafe = safeForHeader.replace(/[^\x20-\x7E]/g, '_')
 
     const ext = path.extname(filename).toLowerCase()
-    const isDownloadRequest = req.query.wm === '1'
 
-    // Apply server-side watermark when ?wm=1 and user is on free plan (or unauthenticated)
-    if (isDownloadRequest && TEXT_EXTENSIONS.has(ext)) {
+    // Free plan: always watermark text exports (SRT/VTT/TXT/JSON/CSV). Paid: clean file.
+    if (TEXT_EXTENSIONS.has(ext)) {
       const { plan } = await getEffectivePlan(req)
-      const isPaid = plan !== 'free'
-
-      if (!isPaid) {
+      if (plan === 'free') {
         const content = fs.readFileSync(filePath, 'utf-8')
         const watermarked = applyWatermark(content, ext)
         res.setHeader('Content-Disposition', `attachment; filename="${asciiSafe}"`)

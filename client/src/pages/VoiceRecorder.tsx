@@ -43,6 +43,7 @@ import PinnedAudioPlayerBar from '../components/transcript/PinnedAudioPlayerBar'
 import { LANGUAGES } from '../lib/languages'
 import { exportFileStem, joinExportFilename, targetLangFileSlug } from '../lib/exportFileNames'
 import { trackEvent } from '../lib/analytics'
+import { applyWatermarkToTxt, WATERMARK_CLIPBOARD_SUFFIX } from '../lib/watermark'
 import toast from 'react-hot-toast'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -706,8 +707,7 @@ export default function VoiceRecorder() {
   // ── Actions ────────────────────────────────────────────────────────────────
   async function copyTranscript() {
     const displayText = transcriptView === 'translated' && translatedText ? translatedText : transcript
-    const WM = '\n\n---\nTranscribed by VideoText.io (Free Plan) · videotext.io/pricing'
-    const textToCopy = isPaidPlan ? displayText : displayText + WM
+    const textToCopy = isPaidPlan ? displayText : displayText + WATERMARK_CLIPBOARD_SUFFIX
     try {
       await navigator.clipboard.writeText(textToCopy)
       setCopied(true)
@@ -746,12 +746,7 @@ export default function VoiceRecorder() {
   function downloadTranscript(which: 'original' | 'translated' = 'original') {
     const useTranslated = which === 'translated' && translatedText
     const baseText = useTranslated ? translatedText! : transcript
-    const WM_SEP   = '=================================================================================='
-    const WM_LINE1 = 'Fast AI transcription by VideoText.io — Free Plan'
-    const WM_LINE2 = '⚠  Remove this watermark with Pro: videotext.io/pricing  |  $7.99/mo'
-    const content = isPaidPlan
-      ? baseText
-      : `${WM_SEP}\n${WM_LINE1}\n${WM_LINE2}\n${WM_SEP}\n\n${baseText}\n\n${WM_SEP}\n${WM_LINE1}\n${WM_LINE2}\n${WM_SEP}`
+    const content = isPaidPlan ? baseText : applyWatermarkToTxt(baseText)
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
