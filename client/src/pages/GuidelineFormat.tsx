@@ -9,6 +9,8 @@ import {
 import toast from "react-hot-toast";
 import { ToolLayout } from "../components/figma/ToolLayout";
 import CoreToolSeoDepth from "../components/CoreToolSeoDepth";
+import CollapsibleToolSection from "../components/CollapsibleToolSection";
+import { getCoreToolSeoDepth } from "../lib/coreToolSeoDepth";
 import { api } from "../lib/api";
 import {
   detectFormat,
@@ -1202,6 +1204,8 @@ export default function GuidelineFormat() {
         syncScrollLockRef.current = null;
     }, 0);
   }, []);
+
+  const guidelineFaq = getCoreToolSeoDepth("/guideline-format")?.faq ?? [];
 
   return (
     <>
@@ -2793,7 +2797,19 @@ export default function GuidelineFormat() {
         }}
       />
 
-      <CoreToolSeoDepth path="/guideline-format" variant="full" />
+      <CoreToolSeoDepth path="/guideline-format" hideFaq defaultCollapsed />
+
+      <CollapsibleToolSection id="tool-faq" title="Frequently asked questions">
+        {guidelineFaq.length > 0 && (
+          <dl className="mb-section max-w-4xl space-y-component-sm">
+            {guidelineFaq.map((item) => (
+              <div key={item.q}>
+                <dt className="font-medium text-gray-900 dark:text-white">{item.q}</dt>
+                <dd className="mt-1 text-gray-600 dark:text-gray-400">{item.a}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
 
       {/* ── QA Workflow Section ── */}
       <section
@@ -3519,6 +3535,7 @@ Speaker 1: The first 30 days we had 4,000 signups, which is above projections.`}
           </div>
         ))}
       </section>
+      </CollapsibleToolSection>
     </>
   );
 }
