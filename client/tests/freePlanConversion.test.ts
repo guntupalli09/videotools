@@ -73,6 +73,7 @@ test('P3 polish: burn preview, compress savings card, collapsed SEO depth on res
   const burn = readFileSync(resolve(process.cwd(), 'src/pages/BurnSubtitles.tsx'), 'utf8')
   assert.match(burn, /<VideoResultPreview/)
   assert.match(burn, /defaultCollapsed=\{status === 'completed'\}/)
+  assert.match(burn, /<ResultHeader embedded/)
 
   const compress = readFileSync(resolve(process.cwd(), 'src/pages/CompressVideo.tsx'), 'utf8')
   assert.match(compress, /<CompressionSavingsCard/)
@@ -82,6 +83,7 @@ test('P3 polish: burn preview, compress savings card, collapsed SEO depth on res
   const seoDepth = readFileSync(resolve(process.cwd(), 'src/components/CoreToolSeoDepth.tsx'), 'utf8')
   assert.match(seoDepth, /defaultCollapsed/)
   assert.match(seoDepth, /<details/)
+  assert.match(seoDepth, /space-y-section/)
 
   for (const file of [
     'VideoToTranscript.tsx',
@@ -96,6 +98,27 @@ test('P3 polish: burn preview, compress savings card, collapsed SEO depth on res
     const source = readFileSync(resolve(process.cwd(), 'src/pages', file), 'utf8')
     assert.match(source, /defaultCollapsed=/, file)
   }
+})
+
+test('P4 audit fixes: unified guest headers, exports panel, checkout links, processing shell', () => {
+  const fix = readFileSync(resolve(process.cwd(), 'src/pages/FixSubtitles.tsx'), 'utf8')
+  assert.match(fix, /<ResultHeader embedded title="Subtitles fixed!"/)
+
+  const subtitles = readFileSync(resolve(process.cwd(), 'src/pages/VideoToSubtitles.tsx'), 'utf8')
+  assert.match(subtitles, /<ExportsPanel/)
+  assert.doesNotMatch(subtitles, /to="\/pricing"/)
+
+  const transcript = readFileSync(resolve(process.cwd(), 'src/pages/VideoToTranscript.tsx'), 'utf8')
+  assert.doesNotMatch(transcript, /to="\/pricing"/)
+  assert.match(transcript, /ProCheckoutLink/)
+
+  const translate = readFileSync(resolve(process.cwd(), 'src/pages/TranslateSubtitles.tsx'), 'utf8')
+  assert.match(translate, /ResultUpgradeCard tool="translation" resultKey=\{`doc-/)
+  assert.match(translate, /defaultCollapsed=\{status === 'completed' \|\| !!docTranslated\}/)
+
+  const guideline = readFileSync(resolve(process.cwd(), 'src/pages/GuidelineFormat.tsx'), 'utf8')
+  assert.match(guideline, /ProcessingStateShell/)
+  assert.match(guideline, /ProcessingProgress/)
 })
 
 test('PaywallModal owns its impression and has no competing navigation callback', () => {

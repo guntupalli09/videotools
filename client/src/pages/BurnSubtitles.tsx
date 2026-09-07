@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Film, CheckCircle } from 'lucide-react'
+import { Film } from 'lucide-react'
 // import { useWorkflow } from '../contexts/WorkflowContext'
 import FailedState from '../components/FailedState'
 import CoreToolSeoDepth from '../components/CoreToolSeoDepth'
@@ -17,6 +17,7 @@ import { ProcessingInterface } from '../components/figma/ProcessingInterface'
 import { ProcessingProgress } from '../components/figma/ProcessingProgress'
 import { ResultSkeleton } from '../components/figma/ResultSkeleton'
 import { TranslateResult } from '../components/figma/TranslateResult'
+import ResultHeader from '../components/ResultHeader'
 import { ExportsPanel, ExportSection } from '../components/figma/ExportsPanel'
 import { ProcessingStateShell } from '../components/figma/ProcessingStateShell'
 import { VideoResultPreview } from '../components/figma/VideoResultPreview'
@@ -482,28 +483,27 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-xl border border-gray-200 bg-white p-component shadow-sm dark:border-gray-800 dark:bg-gray-900 text-center space-y-component-sm"
+            className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900"
           >
-            <div className="flex items-center justify-center gap-2">
-              <CheckCircle className="h-6 w-6 text-green-500" />
-              <p className="text-base font-semibold text-gray-900 dark:text-white">Your video with burned-in subtitles is ready!</p>
-            </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Create a free account to download your video.
-            </p>
-            <div className="flex gap-2 justify-center">
-              <button
-                onClick={() => { setAuthModalMode('signup-combo'); setShowAuthModal(true) }}
-                className="flex-1 max-w-[200px] py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
-              >
-                Create free account
-              </button>
-              <button
-                onClick={() => { setAuthModalMode('login'); setShowAuthModal(true) }}
-                className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
-              >
-                Log in
-              </button>
+            <ResultHeader embedded title="Video with burned subtitles ready!" />
+            <div className="space-y-component-sm px-5 py-4 text-center">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Create a free account to download your video.
+              </p>
+              <div className="flex justify-center gap-2">
+                <button
+                  onClick={() => { setAuthModalMode('signup-combo'); setShowAuthModal(true) }}
+                  className="max-w-[200px] flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+                >
+                  Create free account
+                </button>
+                <button
+                  onClick={() => { setAuthModalMode('login'); setShowAuthModal(true) }}
+                  className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:border-gray-300 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600"
+                >
+                  Log in
+                </button>
+              </div>
             </div>
           </motion.div>
         )}

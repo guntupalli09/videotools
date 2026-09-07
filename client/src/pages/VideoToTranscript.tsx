@@ -20,6 +20,7 @@ import {
   Pencil,
   Copy as CopyIcon,
 } from "lucide-react";
+import ProCheckoutLink from "../components/ProCheckoutLink";
 import FailedState from "../components/FailedState";
 import CoreToolSeoDepth from "../components/CoreToolSeoDepth";
 import { MakeClientReadyTranscriptButton } from "../components/SuccessState";
@@ -3397,7 +3398,7 @@ export default function VideoToTranscript(
 
             {/* ── File upload tab ── */}
             {inputMode === "file" && (
-              <div className="space-y-3 sm:space-y-component-sm">
+              <div className="space-y-component-sm sm:space-y-component-sm">
                 {batchUploadEligible() && (
                   <div
                     className="rounded-xl sm:rounded-xl border-2 border-blue-400/55 dark:border-blue-500/45 bg-gradient-to-br from-blue-600/[0.12] via-blue-600/[0.08] to-fuchsia-600/[0.06] dark:from-blue-950/60 dark:via-blue-950/40 dark:to-fuchsia-950/25 px-4 py-3.5 sm:px-5 sm:py-4 shadow-sm shadow-blue-500/10"
@@ -3525,7 +3526,7 @@ export default function VideoToTranscript(
                     />
                   </button>
                   {textTranslateOpen && (
-                    <div className="px-4 pb-4 space-y-3 border-t border-gray-100 dark:border-gray-800">
+                    <div className="px-4 pb-4 space-y-component-sm border-t border-gray-100 dark:border-gray-800">
                       <p className="text-xs text-gray-500 dark:text-gray-400 pt-3">
                         Paste your finished transcript below or upload a
                         .txt/.srt/.vtt file, pick a target language, and
@@ -3591,7 +3592,7 @@ export default function VideoToTranscript(
                         </button>
                       </div>
                       {textTranslateResult && (
-                        <div className="space-y-2">
+                        <div className="space-y-micro">
                           <div className="flex items-center justify-between">
                             <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                               Translation ({textTranslateLang})
@@ -3724,22 +3725,24 @@ export default function VideoToTranscript(
                           Pro &amp; Business
                         </span>
                         .{" "}
-                        <Link
-                          to="/pricing"
-                          className="text-blue-600 dark:text-blue-400 font-semibold hover:underline"
+                        <ProCheckoutLink
+                          source="transcript_batch_upload"
+                          tool="transcript"
+                          className="font-semibold text-blue-600 hover:underline dark:text-blue-400"
                         >
                           View plans
-                        </Link>
+                        </ProCheckoutLink>
                       </>
                     ) : (
                       <>
                         Batch upload — process many videos in one go — is on{" "}
-                        <Link
-                          to="/pricing"
-                          className="text-blue-600 dark:text-blue-400 font-semibold hover:underline"
+                        <ProCheckoutLink
+                          source="transcript_batch_upload"
+                          tool="transcript"
+                          className="font-semibold text-blue-600 hover:underline dark:text-blue-400"
                         >
                           Pro &amp; Business
-                        </Link>
+                        </ProCheckoutLink>
                         .
                       </>
                     )}
@@ -3815,11 +3818,11 @@ export default function VideoToTranscript(
                 </div>
 
                 {/* Options (same as file mode) */}
-                <div className="rounded-xl bg-gray-50/90 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700/50 p-4 space-y-3">
+                <div className="rounded-xl bg-gray-50/90 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700/50 p-4 space-y-component-sm">
                   <h4 className="text-sm font-medium text-gray-800 dark:text-gray-200">
                     Options
                   </h4>
-                  <div className="space-y-2">
+                  <div className="space-y-micro">
                     {/* AI Summary — Pro only */}
                     {isPaidPlan ? (
                       <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -3839,12 +3842,13 @@ export default function VideoToTranscript(
                           Include AI summary &amp; bullets{" "}
                           <Lock className="w-3 h-3 text-gray-400" />
                         </span>
-                        <Link
-                          to="/pricing"
-                          className="text-xs text-blue-600 font-medium hover:underline"
+                        <ProCheckoutLink
+                          source="transcript_youtube_summary"
+                          tool="transcript"
+                          className="text-xs font-medium text-blue-600 hover:underline"
                         >
                           Pro
-                        </Link>
+                        </ProCheckoutLink>
                       </div>
                     )}
                     {/* Chapters — Pro only */}
@@ -3866,12 +3870,13 @@ export default function VideoToTranscript(
                           Auto-generate chapters{" "}
                           <Lock className="w-3 h-3 text-gray-400" />
                         </span>
-                        <Link
-                          to="/pricing"
-                          className="text-xs text-blue-600 font-medium hover:underline"
+                        <ProCheckoutLink
+                          source="transcript_youtube_summary"
+                          tool="transcript"
+                          className="text-xs font-medium text-blue-600 hover:underline"
                         >
                           Pro
-                        </Link>
+                        </ProCheckoutLink>
                       </div>
                     )}
                     {/* Audio language — always visible */}
@@ -3916,12 +3921,13 @@ export default function VideoToTranscript(
                           Speaker labels (who said what){" "}
                           <Lock className="w-3 h-3 text-gray-400" />
                         </span>
-                        <Link
-                          to="/pricing"
-                          className="text-xs text-blue-600 font-medium hover:underline"
+                        <ProCheckoutLink
+                          source="transcript_youtube_summary"
+                          tool="transcript"
+                          className="text-xs font-medium text-blue-600 hover:underline"
                         >
                           Pro
-                        </Link>
+                        </ProCheckoutLink>
                       </div>
                     )}
                     {isPaidPlan && speakerDiarization && (
@@ -4002,7 +4008,7 @@ export default function VideoToTranscript(
         {/* Batch mode — file list + process CTA */}
         {isBatchMode && status === "idle" && (
           <div className="space-y-component-sm">
-            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-component-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-medium text-gray-900 dark:text-white">
@@ -4073,7 +4079,7 @@ export default function VideoToTranscript(
                 </span>
               </label>
             </div>
-            <div className="rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/40 p-3 space-y-3 text-sm">
+            <div className="rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/40 p-3 space-y-component-sm text-sm">
               <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
                 ZIP layout:{" "}
                 <span className="font-mono text-xs">
@@ -4200,7 +4206,7 @@ export default function VideoToTranscript(
             }
             videoSrc={videoPreviewUrl ?? undefined}
           >
-            <div className="space-y-3">
+            <div className="space-y-component-sm">
               <h3 className="text-xs font-medium uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400">
                 Options
               </h3>
@@ -4268,12 +4274,13 @@ export default function VideoToTranscript(
                         Speaker labels (who said what){" "}
                         <Lock className="w-3 h-3 text-gray-400" />
                       </span>
-                      <Link
-                        to="/pricing"
-                        className="text-xs text-blue-600 font-medium hover:underline"
+                      <ProCheckoutLink
+                        source="transcript_upload_speakers"
+                        tool="transcript"
+                        className="text-xs font-medium text-blue-600 hover:underline"
                       >
                         Pro
-                      </Link>
+                      </ProCheckoutLink>
                     </div>
                   )}
                   {isPaidPlan && speakerDiarization && (
@@ -4361,7 +4368,7 @@ export default function VideoToTranscript(
                 </p>
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-micro">
               <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
                 <span>Overall progress</span>
                 <span>{batchInfo.progress.percentage}%</span>
@@ -4917,7 +4924,7 @@ export default function VideoToTranscript(
                         className="flex-1 min-h-0 overflow-y-auto bg-white rounded-xl border border-gray-200/90 px-5 py-5 shadow-[inset_0_1px_0_0_rgba(15,23,42,0.04)] text-sm leading-[1.65] tracking-[-0.011em] text-[#1d1d1f] antialiased selection:bg-blue-100 selection:text-[#1d1d1f] font-[ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,'Helvetica_Neue',Helvetica,Arial,sans-serif]"
                       >
                         {transcriptEditMode && editableSegments?.length ? (
-                          <div className="space-y-3">
+                          <div className="space-y-component-sm">
                             {editableSegments.map((seg, i) => (
                               <div key={i} className="flex gap-3 items-start">
                                 <span className="shrink-0 text-[12px] tabular-nums text-gray-500 font-mono mt-2.5 w-11">
@@ -5148,7 +5155,7 @@ export default function VideoToTranscript(
                             }
 
                             return (
-                              <div className="max-w-[52rem] space-y-5">
+                              <div className="max-w-[52rem] space-y-component-sm">
                                 {vGroups.map((vg, gi) => {
                                   // Split items into paragraphs on newPara boundaries
                                   const paras: {
@@ -5186,7 +5193,7 @@ export default function VideoToTranscript(
                                           )}
                                         </div>
                                       )}
-                                      <div className="space-y-3">
+                                      <div className="space-y-component-sm">
                                         {paras.map((para, pi) => (
                                           <p key={pi}>
                                             {para.map(({ seg, globalIndex }) =>
@@ -5239,7 +5246,7 @@ export default function VideoToTranscript(
                     </div>
                   )}
                 </div>
-                <aside className="min-w-0 space-y-3 self-start lg:sticky lg:top-20">
+                <aside className="min-w-0 space-y-component-sm self-start lg:sticky lg:top-20">
                   {(() => {
                     const schema = getSummarySchema();
                     const previewBullets = [
@@ -5278,9 +5285,9 @@ export default function VideoToTranscript(
                               Exports appear after transcript data is ready.
                             </p>
                           ) : (
-                            <div className="space-y-3">
+                            <div className="space-y-component-sm">
                               {/* ── Output settings (mirrored from pre-processing panel, always visible at export time) ── */}
-                              <div className="space-y-2 rounded-lg border border-gray-100 px-2 pb-2 dark:border-gray-800">
+                              <div className="space-y-micro rounded-lg border border-gray-100 px-2 pb-2 dark:border-gray-800">
                                 <div className="flex items-center justify-between pt-2">
                                   <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                                     Output settings
@@ -5911,7 +5918,7 @@ export default function VideoToTranscript(
                                     }`;
 
                                   return (
-                                    <div className="border-t border-dashed border-gray-200 dark:border-gray-700 pt-3 space-y-3">
+                                    <div className="border-t border-dashed border-gray-200 dark:border-gray-700 pt-3 space-y-component-sm">
                                       <div className="flex items-center gap-1.5">
                                         <span className="text-xs uppercase tracking-wide text-sky-600 dark:text-sky-400 font-semibold">
                                           Translated · {langLabel}
@@ -6021,7 +6028,7 @@ export default function VideoToTranscript(
                           ) : (
                             <div className="relative rounded-lg overflow-hidden">
                               {/* Blurred skeleton lines representing locked summary content */}
-                              <div className="blur-sm select-none pointer-events-none space-y-2 py-1">
+                              <div className="blur-sm select-none pointer-events-none space-y-micro py-1">
                                 <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full w-full" />
                                 <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full w-5/6" />
                                 <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full w-11/12" />
@@ -6095,7 +6102,7 @@ export default function VideoToTranscript(
                               aria-hidden
                             />
                           </summary>
-                          <ul className="px-4 pb-3 border-t border-gray-100 dark:border-gray-800 pt-3 space-y-2 max-h-56 overflow-y-auto">
+                          <ul className="px-4 pb-3 border-t border-gray-100 dark:border-gray-800 pt-3 space-y-micro max-h-56 overflow-y-auto">
                             {highlights.length === 0 ? (
                               <li className="text-xs text-gray-500">
                                 No highlights detected.
@@ -6314,11 +6321,11 @@ export default function VideoToTranscript(
 
       {hasDeepContent && (
         <section
-          className="py-16 px-4 sm:px-6 max-w-5xl mx-auto space-y-20"
+          className="py-16 px-4 sm:px-6 max-w-5xl mx-auto space-y-micro0"
           aria-label="Workflow proof and comparison"
         >
           {location.pathname === "/video-to-transcript" && (
-            <div className="space-y-10">
+            <div className="space-y-section">
               <div>
                 <h2 className="text-2xl sm:text-3xl font-medium text-gray-900 dark:text-gray-100">
                   Video to Transcript Online (Free &amp; Fast)
@@ -6362,7 +6369,7 @@ export default function VideoToTranscript(
                 <h2 className="text-2xl sm:text-3xl font-medium text-gray-900 dark:text-gray-100">
                   Related transcription tools
                 </h2>
-                <ul className="mt-4 space-y-2 text-blue-700 dark:text-blue-300 font-medium">
+                <ul className="mt-4 space-y-micro text-blue-700 dark:text-blue-300 font-medium">
                   <li>
                     <Link
                       to="/youtube-transcript-generator"
@@ -6388,7 +6395,7 @@ export default function VideoToTranscript(
                 <p className="mt-6 text-sm font-semibold text-gray-700 dark:text-gray-300">
                   More workflow tools
                 </p>
-                <ul className="mt-2 space-y-2 text-blue-700 dark:text-blue-300 font-medium">
+                <ul className="mt-2 space-y-micro text-blue-700 dark:text-blue-300 font-medium">
                   <li>
                     <Link to="/translate-subtitles" className="hover:underline">
                       Translate your transcripts
@@ -6732,7 +6739,7 @@ export default function VideoToTranscript(
               Frequently asked questions
             </h2>
           </div>
-          <dl className="space-y-2">
+          <dl className="space-y-micro">
             {faq.map((item, i) => (
               <details
                 key={i}
