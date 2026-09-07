@@ -23,7 +23,7 @@ const COMPARE_ROWS = [
 const FAQ = [
   {
     q: 'What is the best free HappyScribe alternative?',
-    a: 'VideoText is the top free alternative to HappyScribe. HappyScribe has no permanent free tier — it only offers a 10-minute trial. VideoText gives you 3 uploads per day with no credit card, no expiry, and no upload size limit on those imports.',
+    a: 'VideoText is the top free alternative to HappyScribe. HappyScribe has no permanent free tier — it only offers a 10-minute trial. VideoText gives you 3 uploads per month with no credit card, no expiry, and no upload size limit on those imports.',
   },
   {
     q: 'Is VideoText cheaper than HappyScribe?',

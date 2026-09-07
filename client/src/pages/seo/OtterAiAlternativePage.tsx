@@ -39,7 +39,7 @@ const FAQ = [
   },
   {
     q: 'Does VideoText have a free tier like Otter.ai?',
-    a: 'Yes. VideoText has a free tier with 3 uploads per day. No credit card required. Otter.ai also has a free tier (300 minutes/month) but requires an account and does not support video file uploads on any tier.',
+    a: 'Yes. VideoText has a free tier with 3 uploads per month. No credit card required. Otter.ai also has a free tier (300 minutes/month) but requires an account and does not support video file uploads on any tier.',
   },
 ]
 

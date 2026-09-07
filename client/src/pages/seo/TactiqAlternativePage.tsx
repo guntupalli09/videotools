@@ -47,7 +47,7 @@ const FAQ = [
   },
   {
     q: 'Is VideoText free like Tactiq?',
-    a: 'Yes. VideoText free tier: 3 imports/day, no credit card, no browser extension install. Tactiq free tier: 5 meeting transcriptions/month, but only if you run the extension during the live call.',
+    a: 'Yes. VideoText free tier: 3 imports/month, no credit card, no browser extension install. Tactiq free tier: 5 meeting transcriptions/month, but only if you run the extension during the live call.',
   },
 ]
 

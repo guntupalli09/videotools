@@ -452,7 +452,7 @@ const server = app.listen(PORT, () => {
             body: JSON.stringify({
               from: fromEmail,
               to: [email],
-              subject: 'Your 3 free daily transcriptions have arrived! 🎬',
+              subject: 'Your free imports have reset for the month! 🎬',
               html,
               headers: {
                 'List-Unsubscribe': `<${unsubscribeUrl}>`,
@@ -502,7 +502,7 @@ const server = app.listen(PORT, () => {
         <tr>
           <td style="padding:0 40px 32px">
             <p style="margin:0 0 16px;color:#a0a0c0;font-size:15px;line-height:1.6">Hey!</p>
-            <p style="margin:0 0 16px;color:#a0a0c0;font-size:15px;line-height:1.6">Your 3 free daily transcriptions have reset. Upload a video and get your transcript, subtitles, or captions in minutes.</p>
+            <p style="margin:0 0 16px;color:#a0a0c0;font-size:15px;line-height:1.6">Your 3 free monthly imports are available again. Upload a video and get your transcript, subtitles, or captions in minutes.</p>
             <p style="margin:0 0 32px;color:#a0a0c0;font-size:15px;line-height:1.6">Click below — you'll be logged in instantly, no password needed.</p>
             <a href="${openLink}" style="display:block;background:#2563EB;color:#ffffff;text-decoration:none;text-align:center;padding:16px 32px;border-radius:10px;font-size:15px;font-weight:700;letter-spacing:0.5px">OPEN NOW</a>
           </td>

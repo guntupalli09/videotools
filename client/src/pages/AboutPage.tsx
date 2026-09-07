@@ -130,7 +130,7 @@ export default function AboutPage() {
         <h2 className="text-2xl font-medium text-gray-900 dark:text-white mb-6">Pricing</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { plan: 'Free', price: '$0/mo', features: '3 uploads/day, no credit card required' },
+            { plan: 'Free', price: '$0/mo', features: '3 uploads/month, no credit card required' },
             { plan: 'Pro', price: '$7.99/mo', features: 'Continued processing, AI features, watermark-free exports, batch' },
           ].map(({ plan, price, features }) => (
             <div key={plan} className="bg-gray-50 dark:bg-gray-800 rounded-xl p-5">
@@ -174,7 +174,7 @@ export default function AboutPage() {
       {/* CTA */}
       <div className="text-center bg-gray-900 dark:bg-gray-800 rounded-xl p-10">
         <h2 className="text-2xl font-medium text-white mb-3">Try VideoText free</h2>
-        <p className="text-gray-400 mb-6">3 uploads per day. No credit card required. Files deleted after processing.</p>
+        <p className="text-gray-400 mb-6">3 uploads per month. No credit card required. Files deleted after processing.</p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
             to="/signup"

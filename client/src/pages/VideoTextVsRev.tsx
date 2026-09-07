@@ -235,7 +235,7 @@ export default function VideoTextVsRev() {
                 },
                 {
                   q: 'Is there a free plan for VideoText vs Rev?',
-                  a: 'VideoText has a permanent free tier: 3 uploads per day, no credit card required. Rev has no free tier — you pay $0.25/min from the first second. VideoText Free is more useful than Temi\'s one-off trial.',
+                  a: 'VideoText has a permanent free tier: 3 uploads per month, no credit card required. Rev has no free tier — you pay $0.25/min from the first second. VideoText Free is more useful than Temi\'s one-off trial.',
                 },
               ].map(({ q, a }) => (
                 <div key={q} className="border-b border-gray-100 dark:border-gray-800 pb-5 last:border-0 last:pb-0">
@@ -260,7 +260,7 @@ export default function VideoTextVsRev() {
                 View Plans
               </Link>
             </div>
-            <p className="mt-4 text-xs text-blue-300">3 uploads/day free · No credit card · Cancel anytime</p>
+            <p className="mt-4 text-xs text-blue-300">3 uploads/month free · No credit card · Cancel anytime</p>
           </section>
 
           {/* Internal links */}

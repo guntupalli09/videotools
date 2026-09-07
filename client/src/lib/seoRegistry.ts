@@ -1648,7 +1648,7 @@ const MANUAL_REGISTRY: SeoRegistryEntry[] = [
       ],
       comparisonRows: [
         { feature: 'Processing time (60-min file)', videotext: '~3 minutes', alternatives: 'Descript: ~18 minutes' },
-        { feature: 'Starting price', videotext: '$0 — 3 free imports/day', alternatives: 'Descript: $24/month minimum' },
+        { feature: 'Starting price', videotext: '$0 — 3 free imports/month', alternatives: 'Descript: $24/month minimum' },
         { feature: 'Browser-based (no install)', videotext: 'Yes — open and use instantly', alternatives: 'Descript: Desktop app required' },
         { feature: 'YouTube URL input', videotext: 'Yes — paste URL, no download', alternatives: 'Descript: No' },
         { feature: 'SRT / VTT subtitle export', videotext: 'Yes — one step', alternatives: 'Descript: Yes, but buried in workflow' },
@@ -1709,7 +1709,7 @@ const MANUAL_REGISTRY: SeoRegistryEntry[] = [
         { feature: 'Auto-chapters + timestamps', videotext: 'Yes', alternatives: 'Otter.ai: No' },
         { feature: 'Live meeting transcription (Zoom/Meet)', videotext: 'No', alternatives: 'Otter.ai: Yes (this is its strength)' },
         { feature: 'File deletion after processing', videotext: 'Immediate — nothing stored', alternatives: 'Otter.ai: Files stored permanently' },
-        { feature: 'Starting price for video', videotext: '$0 — 3 video imports/day free', alternatives: 'Otter.ai: Free tier does not support video files' },
+        { feature: 'Starting price for video', videotext: '$0 — 3 video imports/month free', alternatives: 'Otter.ai: Free tier does not support video files' },
       ],
       outputExamples: [
         { title: 'What happens when you upload a video to Otter.ai', body: 'Otter.ai does not accept video file uploads. You must either connect it to a live Zoom/Meet/Teams session or import audio-only from their mobile app. There is no "upload an MP4" workflow.' },
@@ -1864,7 +1864,7 @@ const MANUAL_REGISTRY: SeoRegistryEntry[] = [
         { feature: 'YouTube URL input', videotext: 'Yes — paste URL, no download', alternatives: 'TurboScribe: No — must download and re-upload' },
         { feature: 'AI summary + chapters', videotext: 'Auto-generated with transcript', alternatives: 'TurboScribe: Not available' },
         { feature: 'Subtitle translation (70+ languages)', videotext: 'Yes', alternatives: 'TurboScribe: No' },
-        { feature: 'Starting price', videotext: '$0 — 3 free imports/day', alternatives: 'TurboScribe: $10/month minimum' },
+        { feature: 'Starting price', videotext: '$0 — 3 free imports/month', alternatives: 'TurboScribe: $10/month minimum' },
         { feature: 'File deletion after processing', videotext: 'Immediate — nothing stored', alternatives: 'TurboScribe: Files retained in cloud' },
       ],
       outputExamples: [
@@ -3484,7 +3484,7 @@ const MANUAL_REGISTRY: SeoRegistryEntry[] = [
     indexable: true,
     intentKey: 'notta-alternative',
     faq: [
-      { q: 'What are Notta\'s limitations compared to VideoText?', a: 'Notta free tier: 3 minutes max per transcription, 120 minutes/month total. VideoText free tier: 3 daily imports for files up to 30 minutes. VideoText also gives chapters, keywords, and SRT export on the free tier.' },
+      { q: 'What are Notta\'s limitations compared to VideoText?', a: 'Notta free tier: 3 minutes max per transcription, 120 minutes/month total. VideoText free tier: 3 monthly imports for files up to 30 minutes. VideoText also gives chapters, keywords, and SRT export on the free tier.' },
       { q: 'Does VideoText support the same file types as Notta?', a: 'Yes. VideoText supports MP4, MOV, AVI, WebM, MKV (video) and MP3, WAV, M4A, AAC, OGG, FLAC (audio) — all the formats Notta supports, plus more.' },
       { q: 'Does VideoText transcribe live meetings like Notta?', a: 'VideoText transcribes uploaded files — it does not join live meetings. For recorded meetings (Zoom, Teams, Meet), download the MP4 and upload it. Results are typically ready in 5–8 minutes for a 60-minute call.' },
       { q: 'Is VideoText free like Notta?', a: 'Yes. Free tier includes 3 imports per month with no credit card. Pro plan is $49/month.' },
@@ -4213,7 +4213,7 @@ const MANUAL_REGISTRY: SeoRegistryEntry[] = [
     intentKey: 'voice-to-text',
     faq: [
       { q: 'How does voice to text work?', a: 'Click the microphone button and allow browser microphone access. Speak clearly for up to 5 minutes. When you stop recording, VideoText uploads the audio to our AI transcription engine powered by Whisper and delivers a clean text transcript within seconds.' },
-      { q: 'Is voice to text free?', a: 'Yes. The free tier includes 3 recordings per day with no credit card required. Pro plan is $49/month with longer-file and professional workflow access.' },
+      { q: 'Is voice to text free?', a: 'Yes. The free tier includes 3 recordings per month with no credit card required. Pro plan is $49/month with longer-file and professional workflow access.' },
       { q: 'What is the best voice to text tool?', a: 'VideoText offers browser-based voice recording with AI transcription powered by Whisper. Unlike Otter.ai or Dragon Dictate, VideoText works entirely in the browser with no app installation and no subscription required for basic use.' },
       { q: 'How accurate is voice to text?', a: 'VideoText uses Whisper large-v3, achieving 95–98% accuracy for clear English speech. Accuracy improves when speaking clearly in a quiet environment. For technical vocabulary, accents, or multiple speakers, accuracy remains high due to Whisper\'s large training corpus.' },
       { q: 'Can I use voice to text on my phone?', a: 'Yes. VideoText works in mobile browsers including Safari on iPhone and Chrome on Android. Open the site, tap the microphone, and speak. Your transcript downloads or copies directly to clipboard.' },
@@ -4270,7 +4270,7 @@ const MANUAL_REGISTRY: SeoRegistryEntry[] = [
     intentKey: 'online-voice-recorder',
     faq: [
       { q: 'How do I record voice online?', a: 'Go to VideoText, click the microphone button, allow browser microphone access, and speak. The recorder captures your voice for up to 5 minutes. Click stop and your transcript appears within seconds.' },
-      { q: 'Can I record voice online for free?', a: 'Yes. VideoText offers 3 free voice recordings per day with no credit card required.' },
+      { q: 'Can I record voice online for free?', a: 'Yes. VideoText offers 3 free voice recordings per month with no credit card required.' },
       { q: 'What happens to my recording after transcription?', a: 'VideoText processes your recording and deletes it after transcription. Your audio is not stored or used for any other purpose.' },
       { q: 'Can I download the recording?', a: 'VideoText focuses on the text transcript output, which you can copy or download as TXT. The audio recording itself is processed server-side and not returned as a download.' },
     ],
@@ -4296,7 +4296,7 @@ const MANUAL_REGISTRY: SeoRegistryEntry[] = [
     title: 'Free Voice to Text – No Signup, No App | VideoText',
     description: 'Free voice to text online. Record from your browser. No subscription. No credit card. AI transcription powered by Whisper.',
     h1: 'Free Voice to Text',
-    intro: 'Get accurate voice-to-text transcription for free. Record from your browser microphone or upload an existing voice file. VideoText\'s free tier includes 3 recordings per day with no credit card. Powered by Whisper AI.',
+    intro: 'Get accurate voice-to-text transcription for free. Record from your browser microphone or upload an existing voice file. VideoText\'s free tier includes 3 recordings per month with no credit card. Powered by Whisper AI.',
     breadcrumbLabel: 'Free Voice to Text',
     toolKey: 'voice-to-text',
     relatedSlugs: ['/voice-to-text', '/voice-to-text-online', '/online-voice-recorder', '/speechnotes-alternative', '/speechtexter-alternative'],
@@ -4442,7 +4442,7 @@ const MANUAL_REGISTRY: SeoRegistryEntry[] = [
     intentKey: 'speechify-alternative',
     faq: [
       { q: 'What is the difference between Speechify and VideoText?', a: 'Speechify is a text-to-speech tool that reads documents aloud. VideoText is a speech-to-text tool that converts voice recordings to text. If you\'re looking to transcribe voice recordings, VideoText is the right tool.' },
-      { q: 'Does VideoText have a free plan like Speechify?', a: 'Yes. VideoText offers 3 free transcriptions per day with no credit card. Pro plan is $49/month with expanded workflow access.' },
+      { q: 'Does VideoText have a free plan like Speechify?', a: 'Yes. VideoText offers 3 free transcriptions per month with no credit card. Pro plan is $49/month with expanded workflow access.' },
       { q: 'Can I use VideoText to transcribe voice memos like Speechify?', a: 'Yes. Upload voice memos (M4A, MP3, WAV) or record directly in the browser. VideoText produces accurate text transcripts you can copy or download.' },
     ],
   },
@@ -4460,7 +4460,7 @@ const MANUAL_REGISTRY: SeoRegistryEntry[] = [
     faq: [
       { q: 'How is VideoText different from Speechnotes?', a: 'Speechnotes relies on the Chrome Web Speech API for transcription, which uses Google\'s real-time recognition. VideoText records audio and processes it through Whisper large-v3, which is significantly more accurate — especially for accents, technical vocabulary, and non-English speech.' },
       { q: 'Does VideoText require a Chrome extension like Speechnotes?', a: 'No. VideoText is a web app that works natively in Chrome, Firefox, Safari, and Edge without any extension. Speechnotes\' Chrome extension approach limits it to Chrome and Chromium-based browsers.' },
-      { q: 'Is VideoText free like Speechnotes?', a: 'Yes. VideoText\'s free tier includes 3 transcriptions per day. Unlike Speechnotes, VideoText has no ads and no paywalls for core features.' },
+      { q: 'Is VideoText free like Speechnotes?', a: 'Yes. VideoText\'s free tier includes 3 transcriptions per month. Unlike Speechnotes, VideoText has no ads and no paywalls for core features.' },
     ],
   },
   {
@@ -4492,7 +4492,7 @@ const MANUAL_REGISTRY: SeoRegistryEntry[] = [
     intentKey: 'dictation-io-alternative',
     faq: [
       { q: 'What is dictation.io and how does VideoText compare?', a: 'Dictation.io is a free browser-based dictation tool using the Web Speech API. VideoText uses Whisper large-v3, achieving significantly higher accuracy — especially for non-English languages, accents, and technical vocabulary.' },
-      { q: 'Is VideoText free like dictation.io?', a: 'Yes. VideoText offers a free tier with 3 transcriptions per day, no credit card required.' },
+      { q: 'Is VideoText free like dictation.io?', a: 'Yes. VideoText offers a free tier with 3 transcriptions per month, no credit card required.' },
     ],
   },
   {
@@ -4508,7 +4508,7 @@ const MANUAL_REGISTRY: SeoRegistryEntry[] = [
     intentKey: 'whispertype-alternative',
     faq: [
       { q: 'How does VideoText compare to WhisperType?', a: 'WhisperType is a desktop dictation app that runs Whisper AI locally on macOS or Windows. VideoText is browser-based — no installation, no API key, works on any OS. Both use Whisper for accuracy.' },
-      { q: 'Is there a free WhisperType alternative?', a: 'Yes. VideoText offers a free tier with 3 transcriptions per day. WhisperType requires API key costs from OpenAI.' },
+      { q: 'Is there a free WhisperType alternative?', a: 'Yes. VideoText offers a free tier with 3 transcriptions per month. WhisperType requires API key costs from OpenAI.' },
     ],
   },
   {

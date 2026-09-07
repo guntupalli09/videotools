@@ -6,7 +6,7 @@ import BurnSubtitles from '../BurnSubtitles'
 
 const FAQ = [
   { q: 'What are hardcoded captions?', a: 'Captions burned into the video so they always show. Upload video + SRT/VTT and get one video with captions baked in.' },
-  { q: 'Is this free?', a: 'Yes. Free tier available — 3 uploads per day, no credit card. Upgrade to Pro for continued processing.' },
+  { q: 'Is this free?', a: 'Yes. Free tier available — 3 uploads per month, no credit card. Upgrade to Pro for continued processing.' },
   { q: 'Can I choose font size and position?', a: 'Yes. You can set font size (small/medium/large), position (bottom/middle), and background opacity before processing.' },
 ]
 

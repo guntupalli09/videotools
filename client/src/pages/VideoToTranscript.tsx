@@ -29,6 +29,7 @@ import PaywallModal, { type PaywallReason } from "../components/PaywallModal";
 import UpgradeBanner from "../components/UpgradeBanner";
 import FreePlanNudge from "../components/FreePlanNudge";
 import SecondJobUpgradeNudge from "../components/SecondJobUpgradeNudge";
+import ResultUpgradeCard from "../components/ResultUpgradeCard";
 import { incrementJobCompletedCount } from "../lib/jobCount";
 import JobAuthGateModal from "../components/JobAuthGateModal";
 import { isLoggedIn } from "../lib/auth";
@@ -4678,6 +4679,16 @@ export default function VideoToTranscript(
               className={`space-y-6 ${audioObjectUrl ? "pb-24 sm:pb-28" : ""}`}
               hidden={showAuthGate && !isLoggedIn()}
             >
+              <ResultUpgradeCard
+                tool="transcript"
+                resultKey={currentJobId || result.downloadUrl}
+                wordCount={
+                  (displayTranscript || fullTranscript || transcriptPreview || "")
+                    .trim()
+                    .split(/\s+/)
+                    .filter(Boolean).length || undefined
+                }
+              />
               <FreePlanNudge tool="transcript" resultKey={currentJobId || result.downloadUrl} />
               <SecondJobUpgradeNudge tool="transcript" resultKey={currentJobId || result.downloadUrl} />
               {/* ── Transcript stats pills ── */}
