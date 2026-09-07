@@ -12,6 +12,7 @@ import FreePlanNudge from '../components/FreePlanNudge'
 import SecondJobUpgradeNudge from '../components/SecondJobUpgradeNudge'
 import PaywallModal, { type PaywallReason } from '../components/PaywallModal'
 import { isPaidPlan } from '../lib/plans'
+import { WATERMARK_DOC_FOOTER, WATERMARK_DOC_HEADER, watermarkTextExport, drawPdfFreePlanWatermark } from '../lib/watermark'
 import SamplesModule from '../components/SamplesModule'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 import { ToolLayout } from '../components/figma/ToolLayout'
@@ -259,6 +260,8 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
       y += lineH * bodyLines.length + lineH * 0.8
     }
 
+    if (watermark) drawPdfFreePlanWatermark(doc)
+
     doc.save(filename)
   }
 
@@ -268,10 +271,16 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
       new Paragraph({ text: 'Subtitle Script', heading: HeadingLevel.HEADING_1 }),
     ]
     if (watermark) {
-      children.push(new Paragraph({
-        children: [new TextRun({ text: watermark, italics: true, color: '888888', size: 18 })],
-        spacing: { after: 200 },
-      }))
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: WATERMARK_DOC_HEADER, bold: true, color: '666666', size: 20 })],
+          spacing: { after: 80 },
+        }),
+        new Paragraph({
+          children: [new TextRun({ text: WATERMARK_DOC_FOOTER, italics: true, color: '888888', size: 18 })],
+          spacing: { after: 200 },
+        }),
+      )
     }
     for (const row of rows) {
       children.push(
@@ -348,10 +357,15 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
           const transition = getJobLifecycleTransition(jobStatus)
           if (transition === 'completed') {
             clearInterval(pollIntervalRef.current)
-            setResult(jobStatus.result ?? null)
-            setIssues(jobStatus.result?.issues ?? [])
-            setWarnings(jobStatus.result?.warnings ?? [])
-            setShowIssues(true)
+            if (isLoggedIn() && !jobStatus.requiresAuth) {
+              setResult(jobStatus.result ?? null)
+              setIssues(jobStatus.result?.issues ?? [])
+              setWarnings(jobStatus.result?.warnings ?? [])
+              setShowIssues(true)
+            } else {
+              setShowAuthModal(true)
+              setResult({ downloadUrl: '' })
+            }
             setStatus('idle')
             trackAppEvent('transcription_completed', { toolId: 'fix-subtitles' })
             // texJobCompleted(Date.now() - processingStartedAtRef.current, 'fix-subtitles')
@@ -423,12 +437,17 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
             const processingMs = Date.now() - started
             setLastProcessingMs(processingMs)
             setStatus('completed')
-            setResult(jobStatus.result ?? null)
-            setIssues(jobStatus.result?.issues ?? [])
-            trackAppEvent('transcription_completed', { toolId: 'fix-subtitles' })
-            // emitToolCompleted({ toolId: 'fix-subtitles', pathname: '/fix-subtitles', processingMs })
-            setWarnings(jobStatus.result?.warnings ?? [])
+            if (isLoggedIn() && !jobStatus.requiresAuth) {
+              setResult(jobStatus.result ?? null)
+            } else {
+              setShowAuthModal(true)
+              setResult({ downloadUrl: '' })
+            }
+            setIssues(isLoggedIn() && !jobStatus.requiresAuth ? (jobStatus.result?.issues ?? []) : [])
+            setWarnings(isLoggedIn() && !jobStatus.requiresAuth ? (jobStatus.result?.warnings ?? []) : [])
+            setShowIssues(isLoggedIn() && !jobStatus.requiresAuth)
             incrementUsage('fix-subtitles')
+            trackAppEvent('transcription_completed', { toolId: 'fix-subtitles' })
             try {
               const nextJobCount = incrementJobCompletedCount()
               trackEvent('job_completed', {
@@ -440,7 +459,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
             } catch {
               /* non-blocking */
             }
-            if (jobStatus.result?.downloadUrl) {
+            if (isLoggedIn() && jobStatus.result?.downloadUrl) {
               try {
                 const token = getAuthToken()
                 const res = await fetch(getAbsoluteDownloadUrl(jobStatus.result.downloadUrl), {
@@ -524,8 +543,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
 
     try {
       const token = getAuthToken()
-      const shouldWatermark = plan === 'free'
-      const downloadUrl = `${getDownloadUrl()}${shouldWatermark ? '?wm=1' : ''}`
+      const downloadUrl = `${getDownloadUrl()}`
       const res = await fetch(downloadUrl, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
@@ -562,16 +580,13 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
 
   const exportRows = subtitleRows.length > 0 ? subtitleRows : []
   const isPaid = isPaidPlan(plan)
-  const exportWatermark = !isPaid ? 'Generated by VideoText.io (Free Plan) · videotext.io' : undefined
+  const exportWatermark = !isPaid ? WATERMARK_DOC_FOOTER : undefined
 
   const handleExportSrt = () => {
     if (exportRows.length > 0) {
-      // Use edited/fixed rows so pro user edits are included
       const content = rowsToSrt(exportRows)
-      const watermarked = !isPaid
-        ? `1\n00:00:00,000 --> 00:00:01,500\nVideoText.io (Free Plan)\n\n${content}`
-        : content
-      triggerBlobDownload(watermarked, `${stemName}.srt`, 'text/plain')
+      const payload = isPaid ? content : watermarkTextExport(content, 'srt')
+      triggerBlobDownload(payload, `${stemName}.srt`, 'text/plain')
       trackAppEvent('export_clicked', { toolId: 'fix-subtitles', format: 'srt' })
       toast.success(isPaid ? 'Download started' : 'Download started (with watermark)')
     } else {
@@ -581,13 +596,17 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
 
   const handleExportVtt = () => {
     if (!exportRows.length) { toast.error('No subtitle data to export'); return }
-    triggerBlobDownload(rowsToVtt(exportRows), `${stemName}.vtt`, 'text/vtt')
+    const content = rowsToVtt(exportRows)
+    const payload = isPaid ? content : watermarkTextExport(content, 'vtt')
+    triggerBlobDownload(payload, `${stemName}.vtt`, 'text/vtt')
     trackAppEvent('export_clicked', { toolId: 'fix-subtitles', format: 'vtt' })
   }
 
   const handleExportTxt = () => {
     if (!exportRows.length) { toast.error('No subtitle data to export'); return }
-    triggerBlobDownload(rowsToTxt(exportRows), `${stemName}.txt`, 'text/plain')
+    const content = rowsToTxt(exportRows)
+    const payload = isPaid ? content : watermarkTextExport(content, 'txt')
+    triggerBlobDownload(payload, `${stemName}.txt`, 'text/plain')
     trackAppEvent('export_clicked', { toolId: 'fix-subtitles', format: 'txt' })
   }
 

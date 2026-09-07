@@ -112,6 +112,7 @@ router.get('/jobs/:jobId', async (req: Request, res: Response) => {
     return res.status(200).json({
       status: row.status,
       stage: row.stage,
+      requiresAuth: row.status === 'completed' && !canRevealResult,
       outputText: canRevealResult ? row.outputText : null,
       diffData: canRevealResult ? row.diffData : null,
       flaggedSegments: canRevealResult ? row.flaggedSegments : null,

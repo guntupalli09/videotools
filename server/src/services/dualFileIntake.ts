@@ -20,6 +20,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { fileQueue, addJobToQueue, getTotalQueueCount as getQueueCountFromWorker, JobData } from '../workers/videoProcessor'
 import { validateFileType, validateSubtitleFile } from '../utils/fileValidation'
 import { enforceUsageLimits, getDailySoftCapConcurrency, getMaxMonthlyImports, getPlanLimits, applySystemLoadGuard, FREE_MONTHLY_IMPORT_QUOTA_MESSAGE, GUEST_DAILY_IMPORT_QUOTA_MESSAGE } from '../utils/limits'
+import { assertCanImport, freeImportBlockedMessage } from '../utils/importQuota'
 import { resetDailyImportIfNeeded, resetDailyMinutesIfNeeded, resetUserUsageIfNeeded } from '../utils/usageReset'
 import { getUser, saveUser, PlanType, User, atomicResetDailyImportIfNeeded, atomicResetDailyMinutesIfNeeded } from '../models/User'
 import { getAuthFromRequest, getEffectiveUserId } from '../utils/auth'
@@ -144,11 +145,11 @@ export async function runFixSubtitlesDualIntake(
       await saveUser(fixUser)
     }
 
-    const fixMonthlyCap = getMaxMonthlyImports(plan)
-    if (fixMonthlyCap !== null && fixUser && (fixUser.usageThisMonth.importCount ?? 0) >= fixMonthlyCap) {
+    const fixImportGate = fixUser ? assertCanImport(fixUser) : { ok: true as const }
+    if (!fixImportGate.ok) {
       safeUnlink(files.subtitles[0].path)
       safeUnlink(files.video?.[0]?.path)
-      return intakeError(403, 'QUOTA_EXCEEDED', FREE_MONTHLY_IMPORT_QUOTA_MESSAGE)
+      return intakeError(403, 'QUOTA_EXCEEDED', fixImportGate.message)
     }
 
     const subtitleFileForFix = files.subtitles[0]
@@ -265,11 +266,11 @@ export async function runBurnSubtitlesIntake(
       if (dailyMinutesReset) await atomicResetDailyMinutesIfNeeded(burnUser.id, now, burnUser.usageThisMonth.dailyMinutesTodayResetDate!)
     }
 
-    const burnMonthlyCap = getMaxMonthlyImports(burnUser.plan)
-    if (burnMonthlyCap !== null && (burnUser.usageThisMonth.importCount ?? 0) >= burnMonthlyCap) {
+    const burnImportGate = assertCanImport(burnUser)
+    if (!burnImportGate.ok) {
       safeUnlink(videoFile.path)
       safeUnlink(subtitleFile.path)
-      return intakeError(403, 'QUOTA_EXCEEDED', FREE_MONTHLY_IMPORT_QUOTA_MESSAGE)
+      return intakeError(403, 'QUOTA_EXCEEDED', burnImportGate.message)
     }
 
     const activeJobs = await fileQueue.getJobs(['active', 'waiting', 'delayed'])

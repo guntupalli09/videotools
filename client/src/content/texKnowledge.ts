@@ -41,7 +41,7 @@ export const TEX_ENTRIES: TexEntry[] = [
     keywords: ['signup', 'sign up', 'account', 'register', 'free signup', 'free trial', 'try free'],
     question: 'Do I need to sign up?',
     answer:
-      "Sign up to try free (3 uploads/day, no credit card). When you're ready for continued processing or more features (batch, multi-language, no watermark), subscribe from Pricing.",
+      "Sign up to try free (3 uploads/day, no credit card). Free exports include a watermark. When you're ready for watermark-free exports and more features (batch, multi-language), subscribe from Pricing.",
     link: { path: '/pricing', label: 'See plans' },
   },
   // —— Tools ——

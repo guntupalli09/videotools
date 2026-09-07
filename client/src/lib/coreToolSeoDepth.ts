@@ -52,7 +52,7 @@ const CORE: Record<string, CoreToolSeoDepth> = {
       items: [
         { label: 'Timestamps stay intact', detail: 'Cue start/end times are kept so the file does not drift after translation.' },
         { label: '70+ languages', detail: 'Arabic, Hindi, Spanish, French, German, Portuguese, Chinese, Japanese, Korean, and more.' },
-        { label: 'Privacy-first', detail: 'Files are deleted after processing. Free plan: 3 imports/mo, no card, no watermark.' },
+        { label: 'Privacy-first', detail: 'Files are deleted after processing. Free plan: 3 imports/mo, no card; watermark on free exports.' },
       ],
     },
     related: {
@@ -69,7 +69,7 @@ const CORE: Record<string, CoreToolSeoDepth> = {
     faq: [
       { q: 'How do I translate SRT or VTT subtitles?', a: 'Upload your SRT or VTT, pick a target language, and download the translated file. Timestamps stay aligned with the original cues.' },
       { q: 'Do timestamps survive translation?', a: 'Yes. VideoText translates cue text only and keeps the original start and end times, so the file stays in sync.' },
-      { q: 'Is subtitle translation free?', a: 'Yes. The free plan includes 3 imports per month, no credit card, and no watermark. Files are deleted after processing.' },
+      { q: 'Is subtitle translation free?', a: 'Yes. The free plan includes 3 imports per month, no credit card; watermark on free exports. Files are deleted after processing.' },
       { q: 'How many languages can I translate to?', a: '70+ languages, including Arabic, Hindi, Spanish, French, German, Portuguese, Chinese, Japanese, and Korean.' },
       { q: 'I do not have an SRT yet — how do I start?', a: 'Create captions on Video to Subtitles (full product hub), or use the SRT file generator / video-to-SRT converter if you only need a .srt. Then return here to translate.' },
     ],
@@ -108,7 +108,7 @@ const CORE: Record<string, CoreToolSeoDepth> = {
       items: [
         { label: 'No editor required', detail: 'Upload video + SRT/VTT. No Premiere, Final Cut, or FFmpeg command line.' },
         { label: 'Privacy-first', detail: 'Files are deleted after processing.' },
-        { label: 'Free to try', detail: '3 imports/mo, no card, no watermark on the free plan.' },
+        { label: 'Free to try', detail: '3 imports/mo, no card; watermark on free exports on the free plan.' },
       ],
     },
     related: {
@@ -179,7 +179,7 @@ const CORE: Record<string, CoreToolSeoDepth> = {
       items: [
         { label: 'Built as a fast online AI transcription tool', detail: 'Long recordings are processed as a single job — no timeline editing.' },
         { label: '~98.5%+ on clear audio', detail: 'Whisper large-v3. Accuracy still depends on noise, overlap, and language.' },
-        { label: 'Files deleted after processing', detail: 'Privacy-first. Free: 3 imports/mo, no card, no watermark.' },
+        { label: 'Files deleted after processing', detail: 'Privacy-first. Free: 3 imports/mo, no card; watermark on free exports.' },
       ],
     },
     related: {
@@ -196,7 +196,7 @@ const CORE: Record<string, CoreToolSeoDepth> = {
     faq: [
       { q: 'How do I convert a video to a transcript?', a: 'Upload a video or paste a public YouTube URL. VideoText transcribes with Whisper large-v3 and returns transcript text plus SRT/VTT, summary, and chapters.' },
       { q: 'Can I transcribe a YouTube video without downloading it?', a: 'Yes. Paste a public YouTube URL on this page. VideoText streams the audio — you do not need to download the video first.' },
-      { q: 'Is it free?', a: 'Yes. Free plan: 3 imports per month, no credit card, no watermark. Paid plans are Basic $19, Pro $49, and Agency $129.' },
+      { q: 'Is it free?', a: 'Yes. Free plan: 3 imports per month, no credit card; watermark on free exports. Paid plans are Basic $19, Pro $49, and Agency $129.' },
       { q: 'How accurate is it?', a: 'About 98.5%+ on clear audio. Set the spoken language when you know it. Noisy or overlapping speech will need a review pass.' },
       { q: 'Does VideoText keep my files?', a: 'Files are deleted after processing. Uploads are not kept as a library.' },
       { q: 'What is the difference between this and Video to Subtitles?', a: 'This page is the full text workflow: transcript + SRT/VTT + summary + chapters. Video to Subtitles is the caption-first hub when the main job is a subtitle file.' },
@@ -236,7 +236,7 @@ const CORE: Record<string, CoreToolSeoDepth> = {
       items: [
         { label: 'Whisper large-v3', detail: '~98.5%+ on clear audio. You still review names and noisy sections.' },
         { label: 'Privacy-first', detail: 'Files deleted after processing.' },
-        { label: 'Free plan', detail: '3 imports/mo, no card, no watermark.' },
+        { label: 'Free plan', detail: '3 imports/mo, no card; watermark on free exports.' },
       ],
     },
     related: {
@@ -253,7 +253,7 @@ const CORE: Record<string, CoreToolSeoDepth> = {
     faq: [
       { q: 'How do I generate subtitles from a video?', a: 'Upload a video or paste a YouTube URL, choose SRT or VTT, and download the timed file. Whisper large-v3 creates the cues.' },
       { q: 'Can I also get a transcript and summary?', a: 'Yes. Use Video to Transcript for transcript + SRT/VTT + summary + chapters from a video or YouTube URL. This hub stays caption-first.' },
-      { q: 'Is it free?', a: 'Yes. 3 imports per month, no card, no watermark. Files are deleted after processing.' },
+      { q: 'Is it free?', a: 'Yes. 3 imports per month, no card; watermark on free exports. Files are deleted after processing.' },
       { q: 'How is this different from the SRT file generator?', a: 'This page is the full product hub (captions plus the VideoText workflow). /srt-generator is the file maker/creator for “srt file generator” searches. Same engine; different intent.' },
       { q: 'How is this different from Video to SRT?', a: '/video-to-srt is the converter page (video in, SRT out). Use that if you searched “video to srt”. Come here when you want the caption product and next steps (fix, translate, burn, transcript).' },
     ],
@@ -293,7 +293,7 @@ const CORE: Record<string, CoreToolSeoDepth> = {
       items: [
         { label: 'Repair, not generate', detail: 'This page fixes an existing SRT/VTT. To create captions from video, use Video to Subtitles.' },
         { label: 'Privacy-first', detail: 'Files are deleted after processing.' },
-        { label: 'Free to try', detail: '3 imports/mo, no card, no watermark.' },
+        { label: 'Free to try', detail: '3 imports/mo, no card; watermark on free exports.' },
       ],
     },
     related: {
@@ -310,7 +310,7 @@ const CORE: Record<string, CoreToolSeoDepth> = {
     faq: [
       { q: 'What does Fix Subtitles correct?', a: 'Overlapping timestamps, long lines, CPS/reading-speed issues, and common SRT/VTT formatting problems. You can also enable extra passes such as line breaks when you need them.' },
       { q: 'Do I upload a video or a subtitle file?', a: 'Upload SRT or VTT. A video file is optional for scene-cut context — the primary input is the subtitle file.' },
-      { q: 'Is it free?', a: 'Yes. 3 imports per month on the free plan, no card, no watermark. Files are deleted after processing.' },
+      { q: 'Is it free?', a: 'Yes. 3 imports per month on the free plan, no card; watermark on free exports. Files are deleted after processing.' },
       { q: 'Is this the same as the free subtitle validator?', a: 'No. The validator reports issues in your browser. This page auto-corrects the file. Use both: validate, then fix.' },
       { q: 'Should I fix before or after translation?', a: 'Fix obvious overlaps before translate. After translation, run fix again — target-language text is often longer and can break CPS.' },
     ],
@@ -349,7 +349,7 @@ const CORE: Record<string, CoreToolSeoDepth> = {
       items: [
         { label: 'Style rules, not speech-to-text', detail: 'Presets apply verbatim/non-verbatim, speakers, fillers, and related transcript rules.' },
         { label: 'Privacy-first', detail: 'Files are deleted after processing.' },
-        { label: 'Free to try', detail: '3 imports/mo, no card, no watermark.' },
+        { label: 'Free to try', detail: '3 imports/mo, no card; watermark on free exports.' },
       ],
     },
     related: {
@@ -368,7 +368,7 @@ const CORE: Record<string, CoreToolSeoDepth> = {
     faq: [
       { q: 'Does this transcribe video?', a: 'No. It formats an existing transcript. Use Video to Transcript to get the text from a file or YouTube URL.' },
       { q: 'What style guides can I apply?', a: 'Presets for Rev, GoTranscript, TranscribeMe, and Scribie-style rules. Cards are editable. You can also work from uploaded client notes in your workflow.' },
-      { q: 'Is guideline formatting free?', a: 'Yes. Free plan: 3 imports per month, no credit card, no watermark. Paid plans are Basic $19, Pro $49, and Agency $129.' },
+      { q: 'Is guideline formatting free?', a: 'Yes. Free plan: 3 imports per month, no credit card; watermark on free exports. Paid plans are Basic $19, Pro $49, and Agency $129.' },
       { q: 'Is this the same as Fix Subtitles?', a: 'No. Guideline format is transcript style (verbatim, speakers, fillers). Fix Subtitles is caption-file QC: overlaps, long lines, and CPS.' },
       { q: 'When should I use this in the workflow?', a: 'After Video to Transcript, before you invoice or send to client QA. If the client also wants SRT, generate or export captions and run Fix Subtitles separately.' },
     ],
@@ -407,7 +407,7 @@ const CORE: Record<string, CoreToolSeoDepth> = {
       items: [
         { label: 'Microphone-first', detail: 'Built for live recording, not “upload MP4.”' },
         { label: 'Privacy-first', detail: 'Processing follows the same delete-after-processing approach as other tools.' },
-        { label: 'Free to try', detail: '3 imports/mo, no card, no watermark.' },
+        { label: 'Free to try', detail: '3 imports/mo, no card; watermark on free exports.' },
       ],
     },
     related: {
@@ -422,7 +422,7 @@ const CORE: Record<string, CoreToolSeoDepth> = {
     faq: [
       { q: 'How do I convert voice to text in the browser?', a: 'Open this page, allow the microphone, and speak. Text appears from your live recording — you do not start by uploading a video file.' },
       { q: 'Is this the same as Video to Transcript?', a: 'No. Voice recorder is mic → text. Video to Transcript is file or YouTube URL → transcript + SRT/VTT + summary + chapters.' },
-      { q: 'Is there a free voice to text option?', a: 'Yes. Free plan: 3 imports per month, no card, no watermark.' },
+      { q: 'Is there a free voice to text option?', a: 'Yes. Free plan: 3 imports per month, no card; watermark on free exports.' },
       { q: 'I landed on /speak-to-text — is that different?', a: 'Same product family. This page is the primary voice → text tool. Use this URL when you want the recorder.' },
     ],
   },
@@ -461,7 +461,7 @@ const CORE: Record<string, CoreToolSeoDepth> = {
       items: [
         { label: 'Three levels only', detail: 'Light / medium / heavy — no invented codecs or “visually lossless” guarantee on heavy.' },
         { label: 'Privacy-first', detail: 'Files are deleted after processing.' },
-        { label: 'Free to try', detail: '3 imports/mo, no card, no watermark.' },
+        { label: 'Free to try', detail: '3 imports/mo, no card; watermark on free exports.' },
       ],
     },
     related: {
@@ -475,7 +475,7 @@ const CORE: Record<string, CoreToolSeoDepth> = {
     },
     faq: [
       { q: 'How do I compress a video online?', a: 'Upload the file, choose light, medium, or heavy, and download the result. No desktop app required.' },
-      { q: 'Is it free?', a: 'Yes. 3 imports per month, no card, no watermark. Files are deleted after processing.' },
+      { q: 'Is it free?', a: 'Yes. 3 imports per month, no card; watermark on free exports. Files are deleted after processing.' },
       { q: 'Will quality stay the same?', a: 'Light aims for a smaller file with modest change. Medium and heavy reduce size more and can show more quality loss. Pick the lowest level that meets your size limit.' },
       { q: 'Is this the same as adding subtitles?', a: 'No. This only reduces file size. Use Video to Subtitles to make an SRT, or Burn Subtitles to hardcode captions.' },
     ],

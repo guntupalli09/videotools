@@ -43,8 +43,8 @@ export function logout(): void {
 }
 
 /** Complete signup after email OTP verification. Call after verifyOtp; returns same shape as login. */
-export async function completeSignup(verificationToken: string, password: string): Promise<{ token: string; userId: string; plan: string; email: string }> {
-  return completeSignupApi(verificationToken, password)
+export async function completeSignup(verificationToken: string, password: string, referralCode?: string | null): Promise<{ token: string; userId: string; plan: string; email: string; referralApplied?: boolean }> {
+  return completeSignupApi(verificationToken, password, referralCode)
 }
 
 /** Log in with email and password. Returns { token, userId, plan, email } on success. Caller should store these and then refresh/navigate. */

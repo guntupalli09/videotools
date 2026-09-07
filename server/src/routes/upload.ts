@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { fileQueue, addJobToQueue, getJobById, getTotalQueueCount as getQueueCountFromWorker, JobData } from '../workers/videoProcessor'
 import { validateFileType, validateFileSize, validateSubtitleFile } from '../utils/fileValidation'
 import { enforceLanguageLimits, enforceUsageLimits, getDailySoftCapConcurrency, getJobPriority, getMaxMonthlyImports, getPlanLimits, applySystemLoadGuard, FREE_MONTHLY_IMPORT_QUOTA_MESSAGE, GUEST_DAILY_IMPORT_QUOTA_MESSAGE } from '../utils/limits'
+import { assertCanImport } from '../utils/importQuota'
 import { resetDailyImportIfNeeded, resetDailyMinutesIfNeeded, resetUserUsageIfNeeded } from '../utils/usageReset'
 import { getUser, saveUser, PlanType, User, atomicResetDailyImportIfNeeded, atomicResetDailyMinutesIfNeeded } from '../models/User'
 import { hashFile, checkDuplicateProcessing } from '../services/duplicate'
@@ -450,9 +451,9 @@ router.post('/complete', async (req: Request, res: Response) => {
         const dailyMinutesReset = resetDailyMinutesIfNeeded(user, now)
         if (dailyImportReset && !meta.userId!.startsWith('guest_')) await atomicResetDailyImportIfNeeded(user.id, now, user.usageThisMonth.importCountTodayResetDate!)
         if (dailyMinutesReset && !meta.userId!.startsWith('guest_')) await atomicResetDailyMinutesIfNeeded(user.id, now, user.usageThisMonth.dailyMinutesTodayResetDate!)
-        const chunkMonthlyCap = getMaxMonthlyImports(user.plan)
-        if (chunkMonthlyCap !== null && (user.usageThisMonth.importCount ?? 0) >= chunkMonthlyCap) {
-          throw Object.assign(new Error(FREE_MONTHLY_IMPORT_QUOTA_MESSAGE), { statusCode: 403 })
+        const importGate = assertCanImport(user)
+        if (!importGate.ok) {
+          throw Object.assign(new Error(importGate.message), { statusCode: 403 })
         }
       }
       const fileSize = fs.statSync(outPath).size
@@ -783,9 +784,9 @@ router.post('/youtube', async (req: Request, res: Response) => {
     }
 
     // ── Import count check (free plan: 3 imports/month, resets on the 1st UTC) ─
-    const ytMonthlyCap = getMaxMonthlyImports(user.plan)
-    if (ytMonthlyCap !== null && (user.usageThisMonth.importCount ?? 0) >= ytMonthlyCap) {
-      return res.status(403).json({ message: FREE_MONTHLY_IMPORT_QUOTA_MESSAGE })
+    const ytImportGate = user ? assertCanImport(user) : { ok: true as const }
+    if (!ytImportGate.ok) {
+      return res.status(403).json({ message: ytImportGate.message })
     }
 
     // ── Concurrent job cap ────────────────────────────────────────────────────

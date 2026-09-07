@@ -57,9 +57,18 @@ model User {
   isDeleted                Boolean  @default(false) // reserved for a future soft-delete path; current deletion is hard-delete (see delete-test-users.ts / adminSupport.ts) and does not set this yet
   includeInBusinessMetrics Boolean  @default(true)  // NOT (isFounder OR isInternal OR isDeveloper OR isQa OR isDemo OR isBot OR isDeleted); computed by the backfill script for existing rows, not a DB-generated column
 
+  // Referral program — unique share code, bonus import credits, referrer tracking
+  referralCode           String?  @unique
+  referredByUserId       String?
+  bonusImportCredits     Int      @default(0)
+  referralSignupCount    Int      @default(0)
+
   upgradeIntents           UpgradeIntent[]
+  referralSignupsAsReferrer ReferralSignup[] @relation("ReferrerSignups")
+  referralSignupAsReferee   ReferralSignup?  @relation("RefereeSignup")
 
   @@index([createdAt])
+  @@index([referredByUserId])
   @@index([userClass])
   @@index([includeInBusinessMetrics])
 }
@@ -170,7 +179,7 @@ model ApiKey {
   @@index([userId, revokedAt])
 }
 
-// Pro (and team) — read-only public snapshot for sharing transcripts
+// Read-only public snapshot for sharing transcripts (all plans; free includes branding)
 model TranscriptShare {
   id             String    @id @default(cuid())
   slug           String    @unique
@@ -181,11 +190,26 @@ model TranscriptShare {
   title          String    @default("")
   targetLanguage String?
   payload        Json
+  ownerPlan      String    @default("free") // plan snapshot at share time (branding + analytics)
   createdAt      DateTime  @default(now())
   revokedAt      DateTime?
 
   @@index([userId])
   @@index([jobId])
+}
+
+// Audit trail when a referral code converts to a signup reward
+model ReferralSignup {
+  id             String   @id @default(cuid())
+  referrerUserId String
+  refereeUserId  String   @unique
+  bonusCredits   Int      @default(3)
+  createdAt      DateTime @default(now())
+
+  referrer User @relation("ReferrerSignups", fields: [referrerUserId], references: [id], onDelete: Cascade)
+  referee  User @relation("RefereeSignup", fields: [refereeUserId], references: [id], onDelete: Cascade)
+
+  @@index([referrerUserId])
 }
 
 model SubscriptionSnapshot {
