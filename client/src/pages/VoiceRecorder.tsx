@@ -885,7 +885,7 @@ export default function VoiceRecorder() {
               : 'Ready to record'
       }
     >
-      <div className={`max-w-2xl mx-auto space-y-5 ${audioObjectUrl ? 'pb-24 sm:pb-28' : 'pb-16'}`}>
+      <div className={`max-w-2xl mx-auto space-y-component-sm ${audioObjectUrl ? 'pb-24 sm:pb-28' : 'pb-16'}`}>
         <UpgradeBanner variant="voice" tool="voice-recorder" />
 
         {/* ── Main recorder card ──────────────────────────────────────────── */}
@@ -1099,7 +1099,7 @@ export default function VoiceRecorder() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.25 }}
-                className="p-component sm:p-8 space-y-5"
+                className="p-component sm:p-8 space-y-component-sm"
               >
                 {/* Teaser card for guests */}
                 {showAuthGate && !isLoggedIn() && (
@@ -1220,7 +1220,7 @@ export default function VoiceRecorder() {
                       !(transcriptView === 'translated' && translatedText)
                     if (showSegmentSync && voiceSegments) {
                       return (
-                        <div className="space-y-2">
+                        <div className="space-y-micro">
                           {voiceSegments.map((seg, i) => {
                             const isActive = i === activeSegIdx
                             return (
@@ -1262,7 +1262,7 @@ export default function VoiceRecorder() {
 
                 {/* Translation panel — Pro only */}
                 {isPaidPlan && transcript.trim() && (
-                  <div className={`rounded-xl border p-4 space-y-3 transition-colors ${
+                  <div className={`rounded-xl border p-4 space-y-component-sm transition-colors ${
                     translatedText ? 'border-blue-200 dark:border-blue-800/40 bg-blue-50/40 dark:bg-blue-950/20' : 'border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/20'
                   }`}>
                     <div className="flex items-center gap-2">
@@ -1325,7 +1325,7 @@ export default function VoiceRecorder() {
 
                 {/* Pro-locked feature teasers — free users only */}
                 {!isPaidPlan && transcript.trim().length > 0 && (
-                  <div className="rounded-xl border border-blue-200 dark:border-blue-800/40 bg-blue-50/50 dark:bg-blue-950/20 p-4 space-y-3">
+                  <div className="rounded-xl border border-blue-200 dark:border-blue-800/40 bg-blue-50/50 dark:bg-blue-950/20 p-4 space-y-component-sm">
                     <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide">
                       Unlock with Pro
                     </p>
@@ -1410,7 +1410,7 @@ export default function VoiceRecorder() {
                 <div className="w-[76px] h-[76px] rounded-full bg-red-50 dark:bg-red-900/30 flex items-center justify-center">
                   <AlertCircle className="w-9 h-9 text-red-500" />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-micro">
                   <p className="text-base font-semibold text-gray-800 dark:text-gray-100">
                     Something went wrong
                   </p>

@@ -4,11 +4,18 @@ import { startCheckout } from '../lib/startCheckout'
 
 type Props = {
   source?: string
+  tool?: string
   className?: string
+  children?: React.ReactNode
 }
 
 /** Inline Pro CTA that opens Stripe checkout (not /pricing). */
-export default function ProCheckoutLink({ source = 'translate_subtitles', className }: Props) {
+export default function ProCheckoutLink({
+  source = 'translate_subtitles',
+  tool = 'translation',
+  className,
+  children,
+}: Props) {
   const { pricing } = useProPricing()
   const [loading, setLoading] = useState(false)
 
@@ -21,7 +28,7 @@ export default function ProCheckoutLink({ source = 'translate_subtitles', classN
         returnToPath: window.location.pathname,
         attribution: {
           source,
-          tool: 'translation',
+          tool,
           plan: 'free',
           billing_interval: 'monthly',
         },
@@ -38,7 +45,9 @@ export default function ProCheckoutLink({ source = 'translate_subtitles', classN
       disabled={loading}
       className={className ?? 'text-blue-600 hover:underline disabled:opacity-60'}
     >
-      {loading ? 'Opening checkout…' : `Unlock Pro — ${pricing.priceLabel}`}
+      {loading
+        ? 'Opening checkout…'
+        : children ?? `Unlock Pro — ${pricing.priceLabel}`}
     </button>
   )
 }

@@ -5,7 +5,6 @@ import {
   ChevronRight,
   FileText,
   BookOpen,
-  Lock,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { ToolLayout } from "../components/figma/ToolLayout";
@@ -21,6 +20,8 @@ import {
 import JobAuthGateModal from "../components/JobAuthGateModal";
 import ResultUpgradeCard from "../components/ResultUpgradeCard";
 import ResultHeader from "../components/ResultHeader";
+import { ProcessingStateShell } from "../components/figma/ProcessingStateShell";
+import { ProcessingProgress } from "../components/figma/ProcessingProgress";
 import { isLoggedIn } from "../lib/auth";
 import { isPaidPlan as hasPaidPlan } from "../lib/plans";
 import {
@@ -1232,7 +1233,7 @@ export default function GuidelineFormat() {
                 : "Rev style guide active"
         }
       >
-        <div className="max-w-6xl mx-auto space-y-5">
+        <div className="max-w-6xl mx-auto space-y-component-sm">
           <div
             className="flex h-8 items-start justify-center gap-0 px-2"
             aria-label="Formatting steps"
@@ -1291,7 +1292,7 @@ export default function GuidelineFormat() {
 
           <div className="grid grid-cols-1 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:grid-cols-2">
             {/* Left — transcript */}
-            <section className="space-y-3 bg-white dark:bg-gray-900">
+            <section className="space-y-component-sm bg-white dark:bg-gray-900">
               <div className="flex h-9 items-center justify-between gap-3 border-b border-gray-100 px-3 dark:border-gray-800">
                 <p className="text-xs font-medium uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400">
                   Transcript
@@ -1450,7 +1451,7 @@ export default function GuidelineFormat() {
 
               {selectedPreset === "custom" &&
                 customGuideConflicts.length > 0 && (
-                  <div className="rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50/70 dark:bg-red-950/20 px-4 py-3 space-y-2">
+                  <div className="rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50/70 dark:bg-red-950/20 px-4 py-3 space-y-micro">
                     <p className="text-sm font-semibold text-red-800 dark:text-red-200">
                       Potential rule conflicts detected
                     </p>
@@ -1520,7 +1521,7 @@ export default function GuidelineFormat() {
                           </span>
                         </button>
                         {isOpen && (
-                          <div className="space-y-2 pb-2">
+                          <div className="space-y-micro pb-2">
                             {list.map((rule) => (
                               <div
                                 key={rule.id}
@@ -1623,7 +1624,7 @@ export default function GuidelineFormat() {
               </h2>
 
               {selectedPreset === "custom" && (
-                <div className="space-y-2 px-3 pb-3">
+                <div className="space-y-micro px-3 pb-3">
                   <input
                     ref={customGuideRef}
                     type="file"
@@ -1697,90 +1698,74 @@ export default function GuidelineFormat() {
             </div>
           </div>
 
-          {(showLoadingMessage ||
-            showProcessingMessage ||
-            submitError ||
-            jobStatus) && (
-            <div className="rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/60 dark:bg-blue-950/25 p-component space-y-component-sm">
-              {showLoadingMessage && (
-                <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed">
-                  Applying style guide rules to your transcript… This takes
-                  30–60 seconds for a 1-hour transcript.
-                </p>
-              )}
-              {showProcessingMessage && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed">
-                      {stageLabel ?? "Formatting in progress…"}
-                    </p>
-                    {jobStatus?.stage && (
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        Stage: {jobStatus.stage}
-                      </span>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                    {[
-                      { key: "queued", label: "Preparing transcript…" },
-                      { key: "formatting", label: "Applying style guide…" },
-                      { key: "validating", label: "Verifying checks…" },
-                      { key: "completed", label: "Generating review queue…" },
-                    ].map((s) => {
-                      const active =
-                        jobStatus?.stage === s.key ||
-                        (s.key === "queued" &&
-                          (jobStatus?.status === "queued" ||
-                            jobStatus?.stage === "queued")) ||
-                        (s.key === "completed" &&
-                          jobStatus?.status === "completed");
-                      const done =
-                        jobStatus?.stage === "completed" ||
-                        (jobStatus?.stage === "validating" &&
-                          (s.key === "queued" || s.key === "formatting")) ||
-                        (jobStatus?.stage === "formatting" &&
-                          s.key === "queued");
-                      return (
-                        <div
-                          key={s.key}
-                          className={`rounded-xl border px-3 py-2 text-xs ${
-                            active
-                              ? "border-blue-300 dark:border-blue-800 bg-white/70 dark:bg-gray-900/40 text-gray-900 dark:text-gray-100"
-                              : "border-gray-200/60 dark:border-gray-800 bg-white/40 dark:bg-gray-950/20 text-gray-600 dark:text-gray-300"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-semibold">{s.label}</span>
-                            <span className="text-xs font-semibold uppercase tracking-wide opacity-80">
-                              {done ? "✓" : active ? "…" : ""}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="h-2 w-full rounded-full bg-blue-200/50 dark:bg-blue-900/30 overflow-hidden">
-                    <div
-                      className="h-full bg-blue-600 transition-all"
-                      style={{
-                        width:
-                          jobStatus?.stage === "formatting"
-                            ? "55%"
-                            : jobStatus?.stage === "validating"
-                              ? "85%"
-                              : "35%",
-                      }}
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {jobStatus?.stage === "validating"
-                      ? "Running verification checks for a professional handoff…"
-                      : "Applying style guide rules to your transcript…"}
-                  </p>
-                </div>
-              )}
+          {(showLoadingMessage || showProcessingMessage) && (
+            <ProcessingStateShell>
+              <ProcessingProgress
+                steps={[
+                  {
+                    label: "Preparing",
+                    status:
+                      !jobStatus && showLoadingMessage
+                        ? "active"
+                        : jobStatus
+                          ? "completed"
+                          : "pending",
+                  },
+                  {
+                    label: "Formatting",
+                    status:
+                      jobStatus?.stage === "formatting"
+                        ? "active"
+                        : jobStatus?.stage === "validating" ||
+                            jobStatus?.status === "completed"
+                          ? "completed"
+                          : jobStatus && jobStatus.status !== "failed"
+                            ? "pending"
+                            : "pending",
+                  },
+                  {
+                    label: "Validating",
+                    status:
+                      jobStatus?.stage === "validating"
+                        ? "active"
+                        : jobStatus?.status === "completed"
+                          ? "completed"
+                          : "pending",
+                  },
+                  {
+                    label: "Review queue",
+                    status:
+                      jobStatus?.status === "completed" ? "completed" : "pending",
+                  },
+                ]}
+                currentMessage={
+                  showLoadingMessage
+                    ? "Applying style guide rules to your transcript… This takes 30–60 seconds for a 1-hour transcript."
+                    : stageLabel ?? "Formatting in progress…"
+                }
+                progress={
+                  !jobStatus
+                    ? 15
+                    : jobStatus.stage === "validating"
+                      ? 85
+                      : jobStatus.stage === "formatting"
+                        ? 55
+                        : 35
+                }
+                estimatedTime="30–60 seconds for a 1-hour transcript"
+                statusSubtext={
+                  jobStatus?.stage === "validating"
+                    ? "Running verification checks for a professional handoff…"
+                    : undefined
+                }
+              />
+            </ProcessingStateShell>
+          )}
+
+          {(submitError || jobStatus) && !(showLoadingMessage || showProcessingMessage) && (
+            <div className="space-y-component-sm">
               {submitError && (
-                <div className="space-y-3">
+                <div className="space-y-component-sm">
                   <p className="text-sm text-red-700 dark:text-red-300">
                     {submitError}
                   </p>
@@ -1794,7 +1779,7 @@ export default function GuidelineFormat() {
                 </div>
               )}
               {jobStatus?.status === "failed" && !submitError && (
-                <div className="space-y-3">
+                <div className="space-y-component-sm">
                   <p className="text-sm text-gray-800 dark:text-gray-100">
                     Formatting failed. Please try again.
                   </p>
@@ -1810,43 +1795,35 @@ export default function GuidelineFormat() {
               {jobStatus?.status === "completed" &&
                 !submitError &&
                 (showAuthGate && !isLoggedIn() ? (
-                  <div className="rounded-xl border border-blue-200/80 dark:border-blue-900/50 bg-white/85 dark:bg-gray-900/60 p-component shadow-sm space-y-component-sm">
-                    <div className="flex items-start gap-3">
-                      <span className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
-                        <Lock className="h-4 w-4" aria-hidden />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                          Your formatted transcript is ready
-                        </p>
-                        <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                          We finished processing your style guide. Create a free
-                          account or log in to unlock the formatted transcript,
-                          validation report, review queue, and exports.
-                        </p>
+                  <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                    <ResultHeader embedded title="Your formatted transcript is ready" />
+                    <div className="space-y-component-sm px-5 py-4">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Create a free account or log in to unlock the formatted transcript,
+                        validation report, review queue, and exports.
+                      </p>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAuthModalMode("signup-combo");
+                            setShowAuthModal(true);
+                          }}
+                          className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-blue-700"
+                        >
+                          Create free account
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAuthModalMode("login");
+                            setShowAuthModal(true);
+                          }}
+                          className="rounded-xl border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-800 transition-colors hover:bg-white/80 dark:border-gray-600 dark:text-gray-100 dark:hover:bg-gray-900/60"
+                        >
+                          Log in
+                        </button>
                       </div>
-                    </div>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAuthModalMode("signup-combo");
-                          setShowAuthModal(true);
-                        }}
-                        className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-3 text-sm shadow-md transition-colors"
-                      >
-                        Create free account
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAuthModalMode("login");
-                          setShowAuthModal(true);
-                        }}
-                        className="rounded-xl border border-gray-300 dark:border-gray-600 px-5 py-3 text-sm font-semibold text-gray-800 dark:text-gray-100 hover:bg-white/80 dark:hover:bg-gray-900/60"
-                      >
-                        Log in
-                      </button>
                     </div>
                   </div>
                 ) : (
@@ -2379,7 +2356,7 @@ export default function GuidelineFormat() {
                     )}
 
                     {resultMode === "full" && (
-                      <div className="space-y-3">
+                      <div className="space-y-component-sm">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div>
                             <p className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -2442,7 +2419,7 @@ export default function GuidelineFormat() {
                         </div>
 
                         {fullTranscriptMode === "focus" ? (
-                          <div className="space-y-3">
+                          <div className="space-y-component-sm">
                             {flaggedList.length === 0 ? (
                               <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/40 p-2.5">
                                 <p className="text-sm text-gray-800 dark:text-gray-100">
@@ -2570,7 +2547,7 @@ export default function GuidelineFormat() {
                                           Original
                                         </p>
                                         {context.length ? (
-                                          <div className="space-y-2">
+                                          <div className="space-y-micro">
                                             {context.map((idx) => (
                                               <div
                                                 key={idx}
@@ -2631,7 +2608,7 @@ export default function GuidelineFormat() {
                                 onScroll={() => onScrollSynced("original")}
                                 className="h-[60vh] overflow-auto pr-2"
                               >
-                                <div className="space-y-3">
+                                <div className="space-y-component-sm">
                                   {originalSegments.length > 0 ? (
                                     originalSegments.map((seg, idx) => {
                                       const n = idx + 1;
@@ -3003,9 +2980,9 @@ export default function GuidelineFormat() {
           client-ready output contains. Every transformation shown here is
           applied automatically.
         </p>
-        <div className="space-y-10">
+        <div className="space-y-section">
           {/* Example 1 — Rev non-verbatim */}
-          <div className="space-y-3">
+          <div className="space-y-component-sm">
             <h3 className="text-sm font-medium text-gray-900 dark:text-white">
               Example: Rev non-verbatim format
             </h3>
@@ -3041,7 +3018,7 @@ spk_1: yeah yeah and and the second run was i think more more compelling right`}
           </div>
 
           {/* Example 2 — GoTranscript with timestamps */}
-          <div className="space-y-3">
+          <div className="space-y-component-sm">
             <h3 className="text-sm font-medium text-gray-900 dark:text-white">
               Example: GoTranscript format with 2-minute timestamps
             </h3>
@@ -3083,7 +3060,7 @@ Speaker 1: The first 30 days we had 4,000 signups, which is above projections.`}
           </div>
 
           {/* Example 3 — Full verbatim */}
-          <div className="space-y-3">
+          <div className="space-y-component-sm">
             <h3 className="text-sm font-medium text-gray-900 dark:text-white">
               Example: Full verbatim (legal / research format)
             </h3>

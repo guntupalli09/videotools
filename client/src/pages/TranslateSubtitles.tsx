@@ -653,9 +653,11 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
     currentStepLabel:
       status === 'completed'
         ? 'Translation ready'
-        : selectedFile || pastedText.trim()
-          ? 'Upload configured'
-          : 'Ready to upload',
+        : docTranslated
+          ? 'Document translated'
+          : selectedFile || pastedText.trim()
+            ? 'Upload configured'
+            : 'Ready to upload',
   }
 
   // ── Shared tab bar (used in both modes) ────────────────────────────────────
@@ -1201,18 +1203,20 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
 
             {/* Result — signed-in only */}
             {docTranslated && !isLoggedIn() && (
-              <div className="rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-component text-center space-y-component-sm">
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">Translation complete!</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Create a free account to view, copy, and download your translated document.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setShowAuthGate(true)}
-                  className="w-full max-w-xs mx-auto py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
-                >
-                  Create free account
-                </button>
+              <div className="overflow-hidden rounded-xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
+                <ResultHeader embedded title="Translation complete" meta={`Translated to ${targetLanguage}`} />
+                <div className="space-y-component-sm p-component text-center">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Create a free account to view, copy, and download your translated document.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowAuthGate(true)}
+                    className="mx-auto w-full max-w-xs rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+                  >
+                    Create free account
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1224,9 +1228,13 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                   actionLabel="Translate another"
                   onAction={() => { setDocTranslated(null); setDocText(null); setSelectedFile(null); setPastedText('') }}
                 />
+                <ResultUpgradeCard tool="translation" resultKey={`doc-${docBaseName}`} />
+                <FreePlanNudge tool="translation" resultKey={`doc-${docBaseName}`} />
+                <SecondJobUpgradeNudge tool="translation" resultKey={`doc-${docBaseName}`} milestone={2} />
+                <SecondJobUpgradeNudge tool="translation" resultKey={`doc-${docBaseName}`} milestone={3} />
 
                 <div className="grid grid-cols-1 items-start gap-component-sm lg:grid-cols-[minmax(0,1fr)_320px]">
-                  <div className="min-w-0 space-y-3">
+                  <div className="min-w-0 space-y-component-sm">
                     <div className="flex justify-end">
                       <button
                         onClick={() => copyToClipboard(docTranslated)}
@@ -1279,7 +1287,10 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
       {location.pathname === '/translate-subtitles' && (
         <>
           <TranslateLangCluster />
-          <CoreToolSeoDepth path="/translate-subtitles" defaultCollapsed={status === 'completed'} />
+          <CoreToolSeoDepth
+            path="/translate-subtitles"
+            defaultCollapsed={status === 'completed' || !!docTranslated}
+          />
         </>
       )}
 

@@ -19,6 +19,8 @@ import { UploadZone } from '../components/figma/UploadZone'
 import { ProcessingInterface } from '../components/figma/ProcessingInterface'
 import { ProcessingProgress } from '../components/figma/ProcessingProgress'
 import { ProcessingStateShell } from '../components/figma/ProcessingStateShell'
+import { ExportsPanel, ExportSection } from '../components/figma/ExportsPanel'
+import ProCheckoutLink from '../components/ProCheckoutLink'
 import { ResultSkeleton } from '../components/figma/ResultSkeleton'
 import { RadioGroup, Select } from '../components/figma/FormControls'
 import type { SubtitleRow } from '../components/SubtitleEditor'
@@ -1151,7 +1153,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                 <div className="grid grid-cols-1 gap-component-sm lg:grid-cols-[minmax(0,1fr)_320px] items-start">
 
                   {/* ── Left column: toggle + QA editor ────────────────────── */}
-                  <div className="space-y-3 min-w-0">
+                  <div className="min-w-0 space-y-component-sm">
                     {/* Translation toggle */}
                     {translationLanguage && (
                       <div className="flex items-center gap-2">
@@ -1241,162 +1243,142 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                     )}
                   </div>
 
-                  {/* ── Right column: exports sidebar ───────────────────────── */}
-                  <aside className="lg:sticky lg:top-20 space-y-3">
-                    <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
-                      {/* Header */}
-                      <div className="px-4 py-3 flex items-center justify-between border-b border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-800/40">
-                        <h3 className="text-sm font-semibold text-gray-800 dark:text-white flex items-center gap-2">
-                          <FileDown className="h-4 w-4 text-blue-600" strokeWidth={1.7} />
-                          Exports
-                        </h3>
-                        {plan === 'free' && (
-                          <span className="text-xs text-gray-400 dark:text-gray-500">{freeExportsUsed}/2 free</span>
-                        )}
-                      </div>
-
-                      <div className="p-3 space-y-component-sm">
-                        {plan === 'free' ? (
-                          /* Free plan: single download with watermark */
-                          <div className="space-y-2">
-                            <p className="text-xs font-semibold uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400">Original</p>
+                  {/* ── Right column: exports + share ───────────────────────── */}
+                  <div className="space-y-component-sm">
+                  <ExportsPanel freeExportsUsed={plan === 'free' ? freeExportsUsed : undefined}>
+                    {plan === 'free' ? (
+                      <ExportSection title="Original">
+                        <button
+                          onClick={async () => {
+                            if (freeExportsUsed >= 2) {
+                              toast("You've used your 2 free downloads. Upgrade for more.")
+                              return
+                            }
+                            try {
+                              const token = getAuthToken()
+                              const res = await fetch(getDownloadUrl(), {
+                                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                              })
+                              const blob = await res.blob()
+                              const a = document.createElement('a')
+                              a.href = URL.createObjectURL(blob)
+                              a.download = result?.fileName || fallbackSubtitleName
+                              a.click()
+                              URL.revokeObjectURL(a.href)
+                              trackAppEvent('export_clicked', { toolId: 'video-to-subtitles' })
+                              try { trackEvent('result_downloaded', { tool: 'video-to-subtitles', format, plan: 'free' }) } catch { /* non-blocking */ }
+                              setFreeExportsUsed((prev) => prev + 1)
+                              toast.success('Download started (with watermark)')
+                            } catch {
+                              toast.error('Download failed')
+                            }
+                          }}
+                          className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700"
+                        >
+                          <FileDown className="h-3.5 w-3.5" />
+                          Download {currentResultFormat.toUpperCase()}
+                          <span className="font-normal text-blue-200">· watermark</span>
+                        </button>
+                        <div className="flex items-center justify-center pt-1">
+                          <ProCheckoutLink
+                            source="subtitles_exports"
+                            tool="subtitles"
+                            className="text-xs font-medium text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-400"
+                          >
+                            Upgrade for VTT + translated exports →
+                          </ProCheckoutLink>
+                        </div>
+                      </ExportSection>
+                    ) : (
+                      <>
+                        <ExportSection title="Original">
+                          <div className="grid grid-cols-2 gap-2">
                             <button
-                              onClick={async () => {
-                                if (freeExportsUsed >= 2) {
-                                  toast("You've used your 2 free downloads. Upgrade for more.")
-                                  return
-                                }
-                                try {
-                                  const token = getAuthToken()
-                                  const res = await fetch(getDownloadUrl(), {
-                                    headers: token ? { Authorization: `Bearer ${token}` } : {},
-                                  })
-                                  const blob = await res.blob()
-                                  const a = document.createElement('a')
-                                  a.href = URL.createObjectURL(blob)
-                                  a.download = result?.fileName || fallbackSubtitleName
-                                  a.click()
-                                  URL.revokeObjectURL(a.href)
-                                  trackAppEvent('export_clicked', { toolId: 'video-to-subtitles' })
-                                  try { trackEvent('result_downloaded', { tool: 'video-to-subtitles', format, plan: 'free' }) } catch { /* non-blocking */ }
-                                  setFreeExportsUsed((prev) => prev + 1)
-                                  toast.success('Download started (with watermark)')
-                                } catch {
-                                  toast.error('Download failed')
-                                }
-                              }}
-                              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors"
+                              onClick={() => handleDownloadSubtitles(
+                                subtitleRows,
+                                'srt',
+                                `original_${langCodeForFile(language || undefined)}`
+                              )}
+                              className="rounded-lg border border-gray-200 px-2 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
                             >
-                              <FileDown className="h-3.5 w-3.5" />
-                              Download {currentResultFormat.toUpperCase()}
-                              <span className="text-blue-200 font-normal">· watermark</span>
+                              SRT
                             </button>
-                            <div className="flex items-center justify-center gap-1 pt-1">
-                              <Link to="/pricing" className="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors">
-                                Upgrade for VTT + translated exports →
-                              </Link>
-                            </div>
+                            <button
+                              onClick={() => handleDownloadSubtitles(
+                                subtitleRows,
+                                'vtt',
+                                `original_${langCodeForFile(language || undefined)}`
+                              )}
+                              className="rounded-lg border border-gray-200 px-2 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                            >
+                              VTT
+                            </button>
                           </div>
-                        ) : (
-                          /* Paid plan: SRT + VTT for original and translated */
-                          <>
-                            {/* Original */}
-                            <div>
-                              <p className="text-xs font-semibold uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400 mb-2">Original</p>
+                        </ExportSection>
+
+                        {translationLanguage && (
+                          <ExportSection title={translationLanguage}>
+                            {isTranslating ? (
+                              <div className="flex items-center gap-2 px-2 py-2 text-xs text-blue-500">
+                                <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                                Translating…
+                              </div>
+                            ) : translatedSubtitleRows.length > 0 ? (
                               <div className="grid grid-cols-2 gap-2">
                                 <button
                                   onClick={() => handleDownloadSubtitles(
-                                    subtitleRows,
+                                    translatedSubtitleRows,
                                     'srt',
-                                    `original_${langCodeForFile(language || undefined)}`
+                                    targetLangFileSlug(translationLanguage)
                                   )}
-                                  className="rounded-lg border border-gray-200 dark:border-gray-700 px-2 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                  className="rounded-lg border border-gray-200 px-2 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
                                 >
                                   SRT
                                 </button>
                                 <button
                                   onClick={() => handleDownloadSubtitles(
-                                    subtitleRows,
+                                    translatedSubtitleRows,
                                     'vtt',
-                                    `original_${langCodeForFile(language || undefined)}`
+                                    targetLangFileSlug(translationLanguage)
                                   )}
-                                  className="rounded-lg border border-gray-200 dark:border-gray-700 px-2 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                  className="rounded-lg border border-gray-200 px-2 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
                                 >
                                   VTT
                                 </button>
                               </div>
-                            </div>
-
-                            {/* Translated — shown when ready or loading */}
-                            {translationLanguage && (
-                              <div>
-                                <p className="text-xs font-semibold uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400 mb-2">
-                                  {translationLanguage}
-                                </p>
-                                {isTranslating ? (
-                                  <div className="flex items-center gap-2 px-2 py-2 text-xs text-blue-500">
-                                    <span className="w-3 h-3 rounded-full border-2 border-blue-500 border-t-transparent animate-spin shrink-0" />
-                                    Translating…
-                                  </div>
-                                ) : translatedSubtitleRows.length > 0 ? (
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <button
-                                      onClick={() => handleDownloadSubtitles(
-                                        translatedSubtitleRows,
-                                        'srt',
-                                        targetLangFileSlug(translationLanguage)
-                                      )}
-                                      className="rounded-lg border border-gray-200 dark:border-gray-700 px-2 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                                    >
-                                      SRT
-                                    </button>
-                                    <button
-                                      onClick={() => handleDownloadSubtitles(
-                                        translatedSubtitleRows,
-                                        'vtt',
-                                        targetLangFileSlug(translationLanguage)
-                                      )}
-                                      className="rounded-lg border border-gray-200 dark:border-gray-700 px-2 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                                    >
-                                      VTT
-                                    </button>
-                                  </div>
-                                ) : null}
-                              </div>
-                            )}
-
-                            {/* TXT conversion for paid plans */}
-                            <div className="pt-3 border-t border-gray-100 dark:border-gray-800">
-                              <p className="text-xs font-semibold uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400 mb-2">Convert format</p>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <select
-                                  value={convertTargetFormat}
-                                  onChange={(e) => setConvertTargetFormat(e.target.value as 'srt' | 'vtt' | 'txt')}
-                                  className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                                >
-                                  <option value="srt">SRT</option>
-                                  <option value="vtt">VTT</option>
-                                  <option value="txt">TXT (plain text)</option>
-                                </select>
-                                <button
-                                  onClick={handleConvertFormat}
-                                  disabled={convertProgress}
-                                  className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-xs font-medium text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                >
-                                  {convertProgress ? 'Converting…' : 'Convert'}
-                                </button>
-                              </div>
-                              {convertPreview !== null && (
-                                <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg max-h-32 overflow-y-auto border border-gray-100 dark:border-gray-800">
-                                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-1">Preview</p>
-                                  <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono">{convertPreview}</pre>
-                                </div>
-                              )}
-                            </div>
-                          </>
+                            ) : null}
+                          </ExportSection>
                         )}
-                      </div>
-                    </div>
+
+                        <ExportSection title="Convert format">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <select
+                              value={convertTargetFormat}
+                              onChange={(e) => setConvertTargetFormat(e.target.value as 'srt' | 'vtt' | 'txt')}
+                              className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                            >
+                              <option value="srt">SRT</option>
+                              <option value="vtt">VTT</option>
+                              <option value="txt">TXT (plain text)</option>
+                            </select>
+                            <button
+                              onClick={handleConvertFormat}
+                              disabled={convertProgress}
+                              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                            >
+                              {convertProgress ? 'Converting…' : 'Convert'}
+                            </button>
+                          </div>
+                          {convertPreview !== null && (
+                            <div className="mt-2 max-h-32 overflow-y-auto rounded-lg border border-gray-100 bg-gray-50 p-2 dark:border-gray-800 dark:bg-gray-800/50">
+                              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-400">Preview</p>
+                              <pre className="whitespace-pre-wrap font-mono text-xs text-gray-700 dark:text-gray-300">{convertPreview}</pre>
+                            </div>
+                          )}
+                        </ExportSection>
+                      </>
+                    )}
+                  </ExportsPanel>
 
                   {(() => {
                     const jid = currentJobId || getPersistedJobId(location.pathname)
@@ -1418,7 +1400,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
                       />
                     )
                   })()}
-                  </aside>
+                  </div>
                 </div>
               </div>
             )}
@@ -1497,7 +1479,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
           {seoTutorial?.commonMistakes?.length && (
             <div>
               <h2 className="text-2xl font-medium text-gray-800 dark:text-gray-100 mb-3">Common SRT mistakes to avoid</h2>
-              <ul className="list-disc pl-5 space-y-2 text-gray-600 dark:text-gray-400">
+              <ul className="list-disc pl-5 space-y-micro text-gray-600 dark:text-gray-400">
                 {seoTutorial.commonMistakes.map((mistake, i) => (
                   <li key={i}>{mistake}</li>
                 ))}
