@@ -29,11 +29,8 @@ export const BATCH_ZIP_PATTERN = /^batch-(.+)\.zip$/
  * owning job/user without needing Bull, matching the same ownership model
  * `GET /api/job/:jobId` already uses.
  *
- * Authenticated requests are strictly ownership-bound. A job token cannot
- * override authenticated user ownership.
- *
- * Anonymous/guest requests may access an output only with the matching
- * jobToken, preserving the existing guest-download workflow.
+ * Authenticated requests are strictly ownership-bound. Signup is required
+ * to download any export — job tokens are used for status polling and claim only.
  *
  * A filename with no matching Job or BatchJobRecord (e.g. output from
  * before this authorization model existed) is treated as not found rather
@@ -44,8 +41,6 @@ async function authorizeDownload(
   filename: string
 ): Promise<{ allowed: true } | { allowed: false; status: 404 | 401 | 403; message: string }> {
   const requestingUserId = getEffectiveUserId(req)
-  const clientJobToken = (req.query.jobToken as string | undefined)?.trim() || (req.headers['x-job-token'] as string | undefined)?.trim()
-
   const batchMatch = filename.match(BATCH_ZIP_PATTERN)
   if (batchMatch) {
     const batch = await getBatchById(batchMatch[1])
@@ -69,22 +64,11 @@ async function authorizeDownload(
     return { allowed: true }
   }
 
-  // Preserve existing anonymous/guest download behavior.
-  // Anonymous callers must possess the exact job token.
-  const allowedByToken =
-    !!clientJobToken &&
-    !!job.jobToken &&
-    clientJobToken === job.jobToken
-
-  if (!allowedByToken) {
-    return {
-      allowed: false,
-      status: clientJobToken ? 403 : 401,
-      message: clientJobToken ? 'Access denied' : 'Authentication required.',
-    }
+  return {
+    allowed: false,
+    status: 401,
+    message: 'Authentication required.',
   }
-
-  return { allowed: true }
 }
 
 /** Watermark when requester is free, or guest token for a free-plan job owner. */

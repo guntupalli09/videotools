@@ -24,10 +24,14 @@ async function getQueuePosition(job: import('bull').Job): Promise<number> {
 }
 
 /** Build the same payload shape as GET /:jobId for SSE or JSON. */
-async function buildJobStatusPayload(job: import('bull').Job): Promise<{
+async function buildJobStatusPayload(
+  job: import('bull').Job,
+  options?: { revealResults?: boolean }
+): Promise<{
   status: string
   progress: number
   result?: unknown
+  requiresAuth?: boolean
   queuePosition?: number
   jobToken?: string
   youtubeStage?: YoutubeJobStage
@@ -35,6 +39,7 @@ async function buildJobStatusPayload(job: import('bull').Job): Promise<{
   partialSegments?: { start: number; end: number; text: string; speaker?: string }[]
   partialTranscript?: string
 }> {
+  const revealResults = options?.revealResults !== false
   const state = await job.getState()
   const progress = job.progress() || 0
   let status: 'queued' | 'processing' | 'completed' | 'failed' = 'queued'
@@ -63,16 +68,24 @@ async function buildJobStatusPayload(job: import('bull').Job): Promise<{
     status: string
     progress: number
     result?: unknown
+    requiresAuth?: boolean
     queuePosition?: number
     jobToken?: string
     youtubeStage?: YoutubeJobStage
     partialVersion?: number
     partialSegments?: { start: number; end: number; text: string; speaker?: string }[]
     partialTranscript?: string
-  } = { status, progress, result, queuePosition }
+  } = revealResults
+    ? { status, progress, result, queuePosition }
+    : {
+        status,
+        progress,
+        queuePosition,
+        ...(status === 'completed' ? { requiresAuth: true } : {}),
+      }
   if (jobToken) payload.jobToken = jobToken
 
-  if (state === 'active') {
+  if (revealResults && state === 'active') {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- undocumented Bull internals
       const redis = (job as any).queue?.client
@@ -111,6 +124,10 @@ router.get('/:jobId/summary', async (req: Request, res: Response) => {
     const allowedByToken = clientJobToken && jobToken && clientJobToken === jobToken
     if (!allowedByUser && !allowedByToken) {
       return res.status(403).json({ message: 'Access denied. Provide Authorization, API key, or jobToken (query or x-job-token header).' })
+    }
+    if (!allowedByUser) {
+      res.set({ 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache', 'Expires': '0' })
+      return res.status(200).json({ requiresAuth: true })
     }
     const redis = (job as any).queue?.client
     if (!redis) {
@@ -169,7 +186,9 @@ router.get('/:jobId/stream', async (req: Request, res: Response) => {
         send({ status: 'failed', progress: 0 })
         return true
       }
-      const payload = await buildJobStatusPayload(jobCurrent)
+      const payload = await buildJobStatusPayload(jobCurrent, {
+        revealResults: allowedByUser,
+      })
       send(payload)
       if (payload.status === 'completed' || payload.status === 'failed') {
         return true
@@ -234,7 +253,9 @@ router.get('/:jobId', async (req: Request, res: Response) => {
       return res.status(403).json({ message: 'Access denied. Provide Authorization, API key, or jobToken (query or x-job-token header).' })
     }
 
-    const payload = await buildJobStatusPayload(job)
+    const payload = await buildJobStatusPayload(job, {
+      revealResults: allowedByUser,
+    })
 
     res.set({
       'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',

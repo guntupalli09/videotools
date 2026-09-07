@@ -999,7 +999,12 @@ export default function VideoToTranscript(
           terminalRef.current = true;
           setPartialSegments([]);
           setStatus("completed");
-          setResult(jobStatus.result ?? null);
+          if (isLoggedIn() && !jobStatus.requiresAuth) {
+            setResult(jobStatus.result ?? null);
+          } else {
+            setShowAuthGate(true);
+            setResult({ downloadUrl: "" });
+          }
           trackAppEvent("transcription_completed", {
             toolId: "video-to-transcript",
           });
@@ -1049,6 +1054,7 @@ export default function VideoToTranscript(
           return;
         }
         if (
+          isLoggedIn() &&
           jobStatus.status === "processing" &&
           jobStatus.partialSegments?.length
         ) {
@@ -1089,7 +1095,12 @@ export default function VideoToTranscript(
               rehydratePollRef.current = null;
               setPartialSegments([]);
               setStatus("completed");
-              setResult(s.result ?? null);
+              if (isLoggedIn() && !s.requiresAuth) {
+                setResult(s.result ?? null);
+              } else {
+                setShowAuthGate(true);
+                setResult({ downloadUrl: "" });
+              }
               trackAppEvent("transcription_completed", {
                 toolId: "video-to-transcript",
               });
@@ -1134,7 +1145,7 @@ export default function VideoToTranscript(
               setStatus("failed");
               toast.error("Processing failed. Please try again.");
               clearPersistedJobId(pathname, navigate);
-            } else if (s.status === "processing" && s.partialSegments?.length) {
+            } else if (isLoggedIn() && s.status === "processing" && s.partialSegments?.length) {
               const version = s.partialVersion ?? 0;
               if (
                 version > lastPartialVersionRef.current ||
@@ -1659,7 +1670,12 @@ export default function VideoToTranscript(
             minStreamDelayTimeoutRef.current = null;
             setPartialSegments([]);
             setStatus("completed");
-            setResult(jobStatus.result ?? null);
+            if (isLoggedIn() && !jobStatus.requiresAuth) {
+              setResult(jobStatus.result ?? null);
+            } else {
+              setShowAuthGate(true);
+              setResult({ downloadUrl: "" });
+            }
             trackAppEvent("transcription_completed", {
               toolId: "video-to-transcript",
             });
@@ -1784,6 +1800,7 @@ export default function VideoToTranscript(
           }
           toast.error("Processing failed. Please try again.");
         } else if (
+          isLoggedIn() &&
           jobStatus.status === "processing" &&
           jobStatus.partialVersion != null &&
           jobStatus.partialVersion > lastPartialVersionRef.current
@@ -2074,7 +2091,12 @@ export default function VideoToTranscript(
             minStreamDelayTimeoutRef.current = null;
             setPartialSegments([]);
             setStatus("completed");
-            setResult(jobStatus.result ?? null);
+            if (isLoggedIn() && !jobStatus.requiresAuth) {
+              setResult(jobStatus.result ?? null);
+            } else {
+              setShowAuthGate(true);
+              setResult({ downloadUrl: "" });
+            }
             trackAppEvent("transcription_completed", {
               toolId: "video-to-transcript",
             });
@@ -2179,6 +2201,7 @@ export default function VideoToTranscript(
               : "Processing failed. Please try again.",
           );
         } else if (
+          isLoggedIn() &&
           jobStatus.status === "processing" &&
           jobStatus.partialVersion != null &&
           jobStatus.partialVersion > lastPartialVersionRef.current
@@ -4574,7 +4597,11 @@ export default function VideoToTranscript(
                   ? `${queuePosition} jobs ahead of you`
                   : undefined
               }
-              liveTranscript={partialSegments.map((s) => s.text).join("\n")}
+              liveTranscript={
+                isLoggedIn()
+                  ? partialSegments.map((s) => s.text).join("\n")
+                  : undefined
+              }
               onCancel={handleCancelUpload}
             />
             <ResultSkeleton variant="transcript" />
@@ -4586,25 +4613,8 @@ export default function VideoToTranscript(
             {/* ── Teaser preview card (non-logged-in) — first 10% of real content ── */}
             {showAuthGate &&
               !isLoggedIn() &&
-              (() => {
-                const fullText =
-                  displayTranscript ||
-                  fullTranscript ||
-                  transcriptPreview ||
-                  "";
-                const previewSegs = result.segments?.length
-                  ? result.segments.slice(
-                      0,
-                      Math.max(3, Math.ceil(result.segments.length * 0.25)),
-                    )
-                  : null;
-                const previewText = fullText.slice(
-                  0,
-                  Math.max(400, Math.ceil(fullText.length * 0.25)),
-                );
-                return (
+              (
                   <div className="rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 overflow-hidden select-none mb-2">
-                    {/* preview banner */}
                     <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-emerald-50/80 via-cyan-50/70 to-blue-50/70 dark:from-emerald-950/30 dark:via-cyan-950/20 dark:to-blue-950/20">
                       <div className="flex items-center gap-2">
                         <span
@@ -4612,7 +4622,7 @@ export default function VideoToTranscript(
                           aria-hidden
                         />
                         <span className="text-sm font-semibold text-gray-800 dark:text-white">
-                          Transcript preview
+                          Transcript ready
                         </span>
                         {lastProcessingMs != null && (
                           <span className="text-xs text-gray-400">
@@ -4620,57 +4630,12 @@ export default function VideoToTranscript(
                           </span>
                         )}
                       </div>
-                      <span className="text-xs text-gray-400">
-                        {[
-                          result.segments?.length
-                            ? `${result.segments.length} segments`
-                            : "",
-                          fullText
-                            ? `~${Math.round(fullText.trim().split(/\s+/).length)} words`
-                            : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </span>
                     </div>
 
-                    {/* 10% preview — real segments or text, fades out at bottom */}
-                    <div
-                      className="relative overflow-hidden"
-                      style={{ maxHeight: "18rem" }}
-                    >
-                      <div className="px-5 py-4 space-y-2">
-                        {previewSegs ? (
-                          previewSegs.map((seg, i) => {
-                            const mins = Math.floor(seg.start / 60);
-                            const secs = Math.floor(seg.start % 60);
-                            const ts = `${mins}:${String(secs).padStart(2, "0")}`;
-                            return (
-                              <div key={i} className="flex gap-3 items-start">
-                                <span className="shrink-0 text-[11px] text-gray-400 dark:text-gray-500 font-mono mt-0.5 w-8">
-                                  {ts}
-                                </span>
-                                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                                  {seg.text}
-                                </p>
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                            {previewText}
-                          </p>
-                        )}
-                      </div>
-                      {/* strong gradient fade — covers bottom ~55% to make it feel "cut off" */}
-                      <div
-                        className="absolute bottom-0 left-0 right-0 h-40 pointer-events-none bg-gradient-to-t from-white dark:from-gray-900 via-white/60 dark:via-gray-900/60 to-transparent"
-                        aria-hidden
-                      />
-                    </div>
-
-                    {/* locked features + CTA */}
-                    <div className="px-5 pb-5 pt-2 pointer-events-auto">
+                    <div className="px-5 pb-5 pt-4 pointer-events-auto">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        Create a free account to view, copy, and download your full transcript.
+                      </p>
                       <p className="text-[11px] text-gray-400 mb-2 font-medium">
                         Sign up to unlock:
                       </p>
@@ -4717,8 +4682,7 @@ export default function VideoToTranscript(
                       </div>
                     </div>
                   </div>
-                );
-              })()}
+                )}
 
             <div
               className={`space-y-6 ${audioObjectUrl ? "pb-24 sm:pb-28" : ""}`}

@@ -355,10 +355,15 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
           const transition = getJobLifecycleTransition(jobStatus)
           if (transition === 'completed') {
             clearInterval(pollIntervalRef.current)
-            setResult(jobStatus.result ?? null)
-            setIssues(jobStatus.result?.issues ?? [])
-            setWarnings(jobStatus.result?.warnings ?? [])
-            setShowIssues(true)
+            if (isLoggedIn() && !jobStatus.requiresAuth) {
+              setResult(jobStatus.result ?? null)
+              setIssues(jobStatus.result?.issues ?? [])
+              setWarnings(jobStatus.result?.warnings ?? [])
+              setShowIssues(true)
+            } else {
+              setShowAuthModal(true)
+              setResult({ downloadUrl: '' })
+            }
             setStatus('idle')
             trackAppEvent('transcription_completed', { toolId: 'fix-subtitles' })
             // texJobCompleted(Date.now() - processingStartedAtRef.current, 'fix-subtitles')
@@ -430,14 +435,18 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
             const processingMs = Date.now() - started
             setLastProcessingMs(processingMs)
             setStatus('completed')
-            setResult(jobStatus.result ?? null)
-            setIssues(jobStatus.result?.issues ?? [])
-            trackAppEvent('transcription_completed', { toolId: 'fix-subtitles' })
-            // emitToolCompleted({ toolId: 'fix-subtitles', pathname: '/fix-subtitles', processingMs })
-            setWarnings(jobStatus.result?.warnings ?? [])
+            if (isLoggedIn() && !jobStatus.requiresAuth) {
+              setResult(jobStatus.result ?? null)
+            } else {
+              setShowAuthModal(true)
+              setResult({ downloadUrl: '' })
+            }
+            setIssues(isLoggedIn() && !jobStatus.requiresAuth ? (jobStatus.result?.issues ?? []) : [])
+            setWarnings(isLoggedIn() && !jobStatus.requiresAuth ? (jobStatus.result?.warnings ?? []) : [])
+            setShowIssues(isLoggedIn() && !jobStatus.requiresAuth)
             incrementUsage('fix-subtitles')
-            // texJobCompleted(processingMs, 'fix-subtitles')
-            if (jobStatus.result?.downloadUrl) {
+            trackAppEvent('transcription_completed', { toolId: 'fix-subtitles' })
+            if (isLoggedIn() && jobStatus.result?.downloadUrl) {
               try {
                 const token = getAuthToken()
                 const res = await fetch(getAbsoluteDownloadUrl(jobStatus.result.downloadUrl), {

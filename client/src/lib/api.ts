@@ -98,6 +98,8 @@ export type YoutubeJobStage = 'fetching_captions' | 'downloading_audio' | 'trans
 export interface JobStatus {
   status: 'queued' | 'processing' | 'completed' | 'failed'
   progress: number
+  /** Set when job finished but caller must sign in to view/download results. */
+  requiresAuth?: boolean
   /** Phase 2.5: jobs ahead in queue for "Processing… {N} jobs ahead of you." */
   queuePosition?: number
   /** YouTube pipeline stage — present when status === 'processing' for YouTube jobs. */
