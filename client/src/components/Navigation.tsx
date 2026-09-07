@@ -2,24 +2,16 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import UserMenu from "./UserMenu";
+import MobileSiteNav from "./MobileSiteNav";
 import { prefetchRoute } from "../lib/prefetch";
 import { isLoggedIn } from "../lib/auth";
 import { useFounderStatus } from "../hooks/useFounderStatus";
 import { trackEvent } from "../lib/analytics";
-import { CORE_AI_TOOLS_NAV } from "../config/coreAiToolsNav";
+import { CORE_AI_TOOLS, FREE_TOOLS_NAV } from "../config/siteNavLinks";
 import { getBlogOutboundUrl } from "../lib/blogOutbound";
 
-const AI_TOOLS = [...CORE_AI_TOOLS_NAV];
-
-const FREE_TOOLS = [
-  { name: "SRT → VTT Converter", path: "/tools/srt-to-vtt" },
-  { name: "VTT → SRT Converter", path: "/tools/vtt-to-srt" },
-  { name: "Shift Subtitle Timing", path: "/tools/shift-subtitle-timing" },
-  { name: "Merge SRT Files", path: "/tools/merge-srt-files" },
-  { name: "Subtitle Validator", path: "/tools/subtitle-validator" },
-  { name: "Reading Speed Checker", path: "/tools/subtitle-reading-speed" },
-  { name: "→ All free tools", path: "/tools" },
-];
+const AI_TOOLS = CORE_AI_TOOLS;
+const FREE_TOOLS = FREE_TOOLS_NAV;
 
 export default function Navigation() {
   const { isFounder, loading } = useFounderStatus();
@@ -59,22 +51,26 @@ export default function Navigation() {
         <div
           className={`flex items-center justify-between w-full ${toolMode ? "h-11" : "h-14"}`}
         >
-          {/* Logo */}
+          {/* Logo (+ tool name on mobile tool pages) */}
           <Link
             to="/"
-            className="flex items-center gap-2 shrink-0"
+            className="flex min-w-0 max-w-[58%] items-center gap-2 shrink md:max-w-none"
             onMouseEnter={() => prefetchRoute("/")}
           >
             <img
               src="/logo.svg"
               alt="VideoText"
-              width={toolMode ? 14 : 28}
-              height={toolMode ? 14 : 28}
-              className={toolMode ? "h-3.5 w-3.5" : "h-7 w-7"}
+              width={28}
+              height={28}
+              className="h-6 w-6 shrink-0 md:h-7 md:w-7"
             />
-            {!toolMode && (
+            {!toolMode ? (
               <span className="text-[17px] font-display font-semibold text-white">
                 VideoText
+              </span>
+            ) : (
+              <span className="truncate text-sm font-medium text-white/80 md:hidden">
+                {toolLabel || "Tool"}
               </span>
             )}
           </Link>
@@ -153,7 +149,7 @@ export default function Navigation() {
 
                         {/* Free Tools column */}
                         <div className="px-4">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 mb-2 px-1">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400/80 mb-2 px-1">
                             Free Tools
                           </p>
                           {FREE_TOOLS.map((t) => (
@@ -240,12 +236,12 @@ export default function Navigation() {
             )}
           </div>
 
-          {/* Mobile */}
-          <div className="md:hidden flex items-center gap-2">
+          {/* Mobile: site nav (hamburger) + account, separate from billing drawer */}
+          <div className="flex shrink-0 items-center gap-0.5 md:hidden">
             {showAuthLinks && (
               <Link
                 to="/signup"
-                className="text-xs font-bold text-white bg-blue-600 hover:bg-blue-600 rounded-lg px-3 py-1.5 transition-colors"
+                className="mr-1 rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-bold text-white transition-colors hover:bg-blue-700"
                 onClick={() => {
                   try {
                     trackEvent("nav_cta_clicked", {
@@ -261,6 +257,7 @@ export default function Navigation() {
                 Start free →
               </Link>
             )}
+            <MobileSiteNav />
             <UserMenu />
           </div>
         </div>
