@@ -1,39 +1,26 @@
-import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Upload, Cpu, Download, Shield, Zap, ArrowRight } from "lucide-react";
 
 const steps = [
   {
-    step: "01",
     icon: Upload,
     title: "Drop your file",
     description:
       "Any video or audio — MP4, MOV, MKV, MP3, WAV, and more. Drag and drop or click to browse.",
-    color: "from-blue-600 to-blue-700",
-    shadowColor: "shadow-blue-500/30",
-    glow: "bg-blue-600/10",
     detail: "All formats supported",
   },
   {
-    step: "02",
     icon: Cpu,
     title: "AI transcribes",
     description:
       "Whisper AI processes your audio — timestamps, speaker detection, and 99 language support included.",
-    color: "from-blue-600 to-blue-700",
-    shadowColor: "shadow-blue-500/30",
-    glow: "bg-blue-600/10",
     detail: "98.5% accuracy",
   },
   {
-    step: "03",
     icon: Download,
     title: "Download & use",
     description:
       "Your transcript, SRT, or subtitle file is ready. Export as TXT, JSON, DOCX, PDF, or VTT.",
-    color: "from-blue-600 to-blue-800",
-    shadowColor: "shadow-blue-500/30",
-    glow: "bg-blue-600/10",
     detail: "10+ export formats",
   },
 ];
@@ -48,173 +35,89 @@ const BENCHMARKS = [
 
 export function HowItWorks() {
   return (
-    <section
-      id="how-it-works"
-      className="relative px-6 py-section bg-gray-950 transition-colors duration-500 overflow-hidden"
-    >
-      {/* Restrained indigo ambient glow */}
-      <div className="absolute inset-0 z-[1] pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-1/4 w-[500px] h-[400px] bg-blue-600/[0.06] rounded-full blur-[120px]" />
+    <section id="how-it-works" className="relative overflow-hidden bg-gray-950 px-6 py-section">
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/4 h-[400px] w-[500px] rounded-full bg-blue-600/[0.06] blur-[120px]" />
       </div>
 
-      <div className="relative z-10 mx-auto max-w-5xl">
-        {/* Section header */}
-        <motion.div
-          initial={{ opacity: 0, y: 22 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-section"
-        >
-          <p className="text-sm font-bold text-blue-400 uppercase tracking-widest mb-3">
-            How it works
-          </p>
-          <h2 className="text-4xl md:text-5xl font-medium text-white mb-4 font-display leading-tight">
-            Three steps.{" "}
-            <span className="bg-gradient-to-r from-blue-400 to-blue-400 bg-clip-text text-transparent">
-              Seconds to transcript.
-            </span>
+      <div className="relative mx-auto max-w-5xl">
+        <div className="mb-section text-center">
+          <p className="mb-3 text-sm font-bold uppercase tracking-widest text-blue-400">How it works</p>
+          <h2 className="mb-4 font-display text-4xl font-medium leading-tight text-white md:text-5xl">
+            Three steps. <span className="text-blue-300">Seconds to transcript.</span>
           </h2>
-          <p className="text-lg text-white/45 max-w-lg mx-auto">
-            No editor to learn. No complex settings. Just upload and get your
-            transcript.
+          <p className="mx-auto max-w-lg text-lg text-white/45">
+            No editor to learn. No complex settings. Just upload and get your transcript.
           </p>
-        </motion.div>
+        </div>
 
-        {/* Steps */}
-        <div className="relative mb-10 grid grid-cols-1 gap-6 md:grid-cols-3 md:gap-8">
-          {/* Connecting line on desktop */}
-          <div className="hidden md:block absolute top-[2.75rem] left-[calc(16.66%+3rem)] right-[calc(16.66%+3rem)] h-px bg-gradient-to-r from-blue-600/30 via-blue-500/30 to-emerald-500/30" />
-
+        <div className="relative mb-10 grid grid-cols-1 gap-8 md:grid-cols-3">
+          <div className="absolute top-11 hidden h-px bg-blue-600/25 md:block md:left-[16%] md:right-[16%]" />
           {steps.map((step, index) => {
             const Icon = step.icon;
             return (
-              <motion.div
-                key={step.title}
-                initial={{ opacity: 0, y: 32 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-40px" }}
-                transition={{ duration: 0.65, delay: index * 0.15 }}
-                className="relative flex flex-col items-center text-center"
-              >
-                {/* Icon container */}
-                <div className="relative z-10 mb-6">
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    transition={{ duration: 0.2 }}
-                    className={`relative w-11 h-11 rounded-xl bg-gradient-to-br ${step.color} flex items-center justify-center shadow-xl ${step.shadowColor}`}
-                  >
-                    <Icon className="h-5 w-5 text-white" />
-                    {/* Glow behind icon */}
-                    <div
-                      className={`absolute inset-0 rounded-xl ${step.glow} blur-xl scale-150 opacity-0 group-hover:opacity-100`}
-                    />
-                  </motion.div>
-                  {/* Step number */}
-                  <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-gray-950 border border-gray-700 flex items-center justify-center">
-                    <span className="text-xs font-bold text-white/60">
-                      {index + 1}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Detail badge */}
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.06] border border-white/[0.08] mb-3">
-                  <span className="text-xs font-semibold text-white/50">
-                    {step.detail}
+              <div key={step.title} className="relative flex flex-col items-center text-center">
+                <div className="relative z-10 mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-white">
+                  <Icon className="h-5 w-5" />
+                  <span className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border border-gray-700 bg-gray-950 text-xs font-bold text-white/60">
+                    {index + 1}
                   </span>
                 </div>
-
-                <h3 className="mb-2.5 text-base font-medium text-white">
-                  {step.title}
-                </h3>
-                <p className="text-sm text-white/45 max-w-[220px] leading-relaxed">
-                  {step.description}
-                </p>
-              </motion.div>
+                <div className="mb-3 inline-flex rounded-full border border-white/[0.08] bg-white/[0.06] px-2.5 py-1">
+                  <span className="text-xs font-semibold text-white/50">{step.detail}</span>
+                </div>
+                <h3 className="mb-2 text-base font-medium text-white">{step.title}</h3>
+                <p className="max-w-[220px] text-sm leading-relaxed text-white/45">{step.description}</p>
+              </div>
             );
           })}
         </div>
 
-        {/* Bottom: Speed + Privacy cards */}
-        <motion.div
-          initial={{ opacity: 0, y: 18 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="grid grid-cols-1 lg:grid-cols-2 gap-6"
-        >
-          {/* Speed benchmark */}
-          <div className="p-6 sm:p-8 rounded-xl bg-white/[0.03] border border-white/[0.07]">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-9 h-9 rounded-xl bg-blue-600/15 flex items-center justify-center flex-shrink-0">
-                <Zap className="w-4.5 h-4.5 text-blue-400" />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] p-6 sm:p-8">
+            <div className="mb-6 flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600/15">
+                <Zap className="h-4 w-4 text-blue-400" />
               </div>
               <div>
-                <h3 className="text-base font-medium text-white font-display">
-                  Processing speed
-                </h3>
-                <p className="text-xs text-white/30">
-                  Measured on real jobs · Whisper AI
-                </p>
+                <h3 className="font-display text-base font-medium text-white">Processing speed</h3>
+                <p className="text-xs text-white/30">Measured on real jobs · Whisper AI</p>
               </div>
             </div>
-            <div className="space-y-component-sm">
+            <div className="space-y-3">
               {BENCHMARKS.map((b) => (
                 <div key={b.length} className="flex items-center gap-3">
-                  <span className="text-sm text-white/40 w-20 flex-shrink-0 tabular-nums">
-                    {b.length}
-                  </span>
-                  <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full bg-gradient-to-r from-blue-600 to-blue-400"
-                      initial={{ width: 0 }}
-                      whileInView={{ width: `${b.pct}%` }}
-                      viewport={{ once: true }}
-                      transition={{
-                        duration: 0.75,
-                        delay: 0.1 * BENCHMARKS.indexOf(b),
-                        ease: [0.16, 1, 0.3, 1],
-                      }}
+                  <span className="w-20 shrink-0 tabular-nums text-sm text-white/40">{b.length}</span>
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
+                    <div
+                      className="h-full rounded-full bg-blue-600"
+                      style={{ width: `${b.pct}%` }}
                     />
                   </div>
-                  <span className="text-sm font-bold text-white/60 w-16 text-right tabular-nums">
-                    {b.time}
-                  </span>
+                  <span className="w-16 text-right tabular-nums text-sm font-bold text-white/60">{b.time}</span>
                 </div>
               ))}
             </div>
-
-            {/* Speed callout */}
-            <div className="mt-6 pt-5 border-t border-white/[0.06] flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
-                <Zap className="w-4 h-4 text-emerald-400" />
+            <div className="mt-6 flex items-center gap-3 border-t border-white/[0.06] pt-5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600/15">
+                <Zap className="h-4 w-4 text-blue-400" />
               </div>
               <div>
-                <p className="text-sm font-bold text-white">
-                  6× faster than Descript
-                </p>
-                <p className="text-xs text-white/35">
-                  2hr video in ~5 min vs 15–20 min
-                </p>
+                <p className="text-sm font-bold text-white">6× faster than Descript</p>
+                <p className="text-xs text-white/35">2hr video in ~5 min vs 15–20 min</p>
               </div>
             </div>
           </div>
 
-          {/* What you get + privacy */}
           <div className="flex flex-col gap-4">
-            <div className="flex-1 p-6 sm:p-8 rounded-xl bg-white/[0.03] border border-white/[0.07]">
-              <div className="flex items-center gap-3 mb-component-sm">
-                <div className="w-9 h-9 rounded-xl bg-blue-600/15 flex items-center justify-center flex-shrink-0">
-                  <Download className="w-4.5 h-4.5 text-blue-400" />
+            <div className="flex-1 rounded-xl border border-white/[0.07] bg-white/[0.03] p-6 sm:p-8">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600/15">
+                  <Download className="h-4 w-4 text-blue-400" />
                 </div>
                 <div>
-                  <h3 className="text-base font-medium text-white font-display">
-                    What you get from one upload
-                  </h3>
-                  <p className="text-xs text-white/30">
-                    Everything. No extra steps.
-                  </p>
+                  <h3 className="font-display text-base font-medium text-white">What you get from one upload</h3>
+                  <p className="text-xs text-white/30">Everything. No extra steps.</p>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -233,7 +136,7 @@ export function HowItWorks() {
                 ].map((item) => (
                   <span
                     key={item}
-                    className="px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/[0.06] text-xs font-medium text-white/55"
+                    className="rounded-lg border border-white/[0.06] bg-white/[0.05] px-2.5 py-1 text-xs font-medium text-white/55"
                   >
                     {item}
                   </span>
@@ -241,32 +144,26 @@ export function HowItWorks() {
               </div>
               <Link
                 to="/guide"
-                className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-blue-400 hover:text-blue-300 transition-colors"
+                className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-blue-400 transition-colors hover:text-blue-300"
               >
-                See full guide <ArrowRight className="w-3.5 h-3.5" />
+                See full guide <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
 
-            {/* Privacy card */}
-            <div className="p-5 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/[0.15] flex items-start gap-4">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Shield className="w-5 h-5 text-emerald-400" />
+            <div className="flex items-start gap-4 rounded-xl border border-blue-500/20 bg-blue-600/[0.06] p-5">
+              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600/15">
+                <Shield className="h-5 w-5 text-blue-400" />
               </div>
               <div>
-                <p className="text-sm font-bold text-white mb-1">
-                  Zero data retention
-                </p>
-                <p className="text-sm text-white/45 leading-relaxed">
+                <p className="mb-1 text-sm font-bold text-white">Zero data retention</p>
+                <p className="text-sm leading-relaxed text-white/45">
                   Your videos are processed and{" "}
-                  <span className="text-white/70 font-medium">
-                    immediately deleted
-                  </span>
-                  . We never store copies. No cloud backup, no training data.
+                  <span className="font-medium text-white/70">immediately deleted</span>. We never store copies.
                 </p>
               </div>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
     </section>
   );
