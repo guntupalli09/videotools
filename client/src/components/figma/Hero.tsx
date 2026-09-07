@@ -107,7 +107,7 @@ export function Hero() {
         </h1>
 
         {/* Sub-headline */}
-        <p className="mx-auto mb-6 max-w-2xl text-center text-[15px] leading-relaxed text-white/60 sm:text-[17px]">
+        <p className="mx-auto mb-6 max-w-2xl text-center text-base leading-relaxed text-white/60 sm:text-lg">
           Upload a video or YouTube URL. Get a transcript, SRT/VTT, summary, and chapters. Files deleted after processing. Start free — 3 imports/mo.
         </p>
 
@@ -128,10 +128,10 @@ export function Hero() {
               ] as const
             ).map(({ stat, label }) => (
               <div key={stat} className="flex flex-col gap-0.5">
-                <span className="text-[13px] font-bold text-white leading-tight">
+                <span className="text-sm font-bold text-white leading-tight">
                   {stat}
                 </span>
-                <span className="text-[11px] text-white/35 leading-tight">
+                <span className="text-xs text-white/35 leading-tight">
                   {label}
                 </span>
               </div>
@@ -143,7 +143,7 @@ export function Hero() {
 
           {/* Social proof + friction line */}
           <div className="flex flex-col items-center gap-1.5">
-            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-[12px] text-white/35">
+            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-sm text-white/35">
               {/* Stars */}
               <span
                 className="flex items-center gap-1.5"
@@ -191,7 +191,7 @@ export function Hero() {
                     />
                   ))}
                   <span className="w-[22px] h-[22px] rounded-full border-2 border-gray-950 bg-blue-600/25 flex items-center justify-center">
-                    <span className="text-[7px] font-bold text-blue-300">
+                    <span className="text-xs font-bold text-blue-300">
                       12K+
                     </span>
                   </span>
@@ -204,7 +204,7 @@ export function Hero() {
                 </span>
               </span>
             </div>
-            <p className="text-[11px] text-white/20">
+            <p className="text-xs text-white/20">
               3 free imports · No card required
             </p>
           </div>

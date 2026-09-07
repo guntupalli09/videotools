@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { ChevronDown } from 'lucide-react';
 import { isLoggedIn } from '../lib/auth';
 import { Hero } from '../components/figma/Hero';
 import { Features } from '../components/figma/Features';
@@ -9,62 +11,119 @@ import { UseCases } from '../components/landing/UseCases';
 import { FAQ } from '../components/landing/FAQ';
 import { FinalCTA } from '../components/landing/FinalCTA';
 import { FoundingTeamCTA } from '../components/landing/FoundingTeamCTA';
+import { CompetitorSection } from '../components/landing/CompetitorSection';
+import { useProPricing } from '../contexts/PricingContext';
+import { startCheckout } from '../lib/startCheckout';
+import { trackEvent } from '../lib/analytics';
 import { ArrowRight } from 'lucide-react';
 
-// Conversion order (psychologically optimised):
-// 1. Hero — 3-second clarity + CTA
-// 2. Features — full toolkit showcase
-// 3. Use Cases — ICP targeting
-// 4. How It Works — dark, de-risk the signup
-// 5. Testimonials — social proof
-// 6. Pricing — frictionless plans
-// 7. FAQ — objection handling
-// 8. Free Tools — non-converter catchment
-// 9. Final CTA — dark, bold close
+const HIGH_INTENT_GUIDES = [
+  { label: 'Video to Transcript (Primary)', path: '/video-to-transcript', desc: 'Main page for broad video-to-text and transcript intent' },
+  { label: 'Best Transcription Tool', path: '/best-transcription-tool', desc: 'Decision support by speed, outputs, and workflow fit' },
+  { label: 'YouTube Transcript Generator (Primary)', path: '/youtube-transcript-generator', desc: 'Paste a YouTube link and generate transcript-ready output in minutes' },
+  { label: 'Podcast Transcription Tool', path: '/podcast-transcription-tool', desc: 'Create show notes, clips, and searchable transcript assets' },
+  { label: 'Meeting Transcription Tool', path: '/meeting-transcription-tool', desc: 'Turn calls into summaries, transcripts, and follow-ups' },
+  { label: 'Google Meet Transcript', path: '/google-meet-transcript', desc: 'Download the Meet recording, upload, and get transcript outputs fast' },
+  { label: 'Zoom Meeting Transcript', path: '/zoom-meeting-transcript', desc: 'Download Zoom recording, upload once, and get structured transcript output' },
+  { label: 'Meeting Recording to Transcript', path: '/meeting-recording-to-transcript', desc: 'Hub workflow for Zoom, Meet, Teams, and webinar recordings' },
+  { label: 'Interview Transcription Tool', path: '/interview-transcription-tool', desc: 'Speaker-structured transcripts for newsroom and research' },
+  { label: 'Client transcription style guide formatter', path: '/guideline-format', desc: 'Prep transcript text against Rev-, GoTranscript-, and related marketplace rule cards before QA' },
+];
 
+const MORE_GUIDES = [
+  { label: 'Fastest transcription software', path: '/fastest-transcription-software' },
+  { label: 'Fastest transcription tool', path: '/fastest-transcription-tool' },
+  { label: 'Otter vs VideoText', path: '/otter-vs-videotext' },
+  { label: 'Descript vs VideoText', path: '/descript-vs-videotext' },
+  { label: 'AI transcription tools', path: '/ai-transcription-tools' },
+  { label: 'VideoText vs TurboScribe', path: '/videotext-vs-turboscribe' },
+  { label: 'VideoText vs Rev', path: '/videotext-vs-rev' },
+  { label: 'Best Otter alternatives', path: '/best-otter-alternatives' },
+  { label: 'Best Descript alternatives', path: '/best-descript-alternatives' },
+  { label: 'AI transcription workflow', path: '/ai-transcription-workflow' },
+  { label: 'YouTube video to transcript', path: '/youtube-video-to-transcript' },
+  { label: 'Transcription benchmark', path: '/transcription-benchmark' },
+];
 
-const PLANS = [
-  {
-    name: 'Free',
-    price: '$0',
-    detail: '3 imports per month · files up to 30 minutes',
-    cta: null,
-    note: 'No card needed',
-    highlight: false,
-  },
-  {
-    name: 'Pro',
-    price: '$49',
-    period: '/mo',
-    detail: '1,200 min · full transcription and delivery workflows',
-    cta: 'Unlock Pro — $49/mo',
-    highlight: true,
-    badge: 'Most Popular',
-  },
+const ALL_FEATURES = [
+  { label: 'Video to Transcript', path: '/video-to-transcript' },
+  { label: 'Video to Subtitles', path: '/video-to-subtitles' },
+  { label: 'SRT File Generator', path: '/srt-generator' },
+  { label: 'Video to SRT', path: '/video-to-srt' },
+  { label: 'Translate Subtitles', path: '/translate-subtitles' },
+  { label: 'Subtitle Tools', path: '/subtitle-tools' },
+  { label: 'Fix Subtitles', path: '/fix-subtitles' },
+  { label: 'Burn Subtitles', path: '/burn-subtitles' },
+  { label: 'Compress Video', path: '/compress-video' },
+  { label: 'Voice Recorder', path: '/voice-recorder' },
+  { label: 'YouTube Transcripts', path: '/youtube-transcript-generator' },
+];
+
+const FREE_TOOLS = [
+  { label: 'SRT → VTT Converter', path: '/tools/srt-to-vtt', desc: 'For HTML5 video players & web apps', icon: '⇄' },
+  { label: 'Subtitle Validator', path: '/tools/subtitle-validator', desc: 'Catch timing overlaps & format errors', icon: '✓' },
+  { label: 'Reading Speed Checker', path: '/tools/subtitle-reading-speed', desc: 'Verify Netflix & EBU CPS limits', icon: '⏱' },
+  { label: 'Shift Subtitle Timing', path: '/tools/shift-subtitle-timing', desc: 'Fix out-of-sync subtitles instantly', icon: '↔' },
+  { label: 'Character Limit Checker', path: '/tools/subtitle-character-checker', desc: 'Check 42-char Netflix line limits', icon: '≤' },
+  { label: 'Merge SRT Files', path: '/tools/merge-srt-files', desc: 'Combine multiple subtitle files', icon: '⊕' },
 ];
 
 function PricingSection() {
+  const { pricing } = useProPricing();
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+
+  useEffect(() => {
+    try {
+      trackEvent('pricing_page_view', { source: 'home_pricing_section' });
+    } catch {
+      /* non-blocking */
+    }
+  }, []);
+
+  async function handleProCheckout() {
+    try {
+      trackEvent('pro_cta_clicked', { source: 'home_pricing_section', billing_interval: 'monthly' });
+    } catch {
+      /* non-blocking */
+    }
+    setCheckoutLoading(true);
+    try {
+      await startCheckout({
+        plan: 'pro',
+        billingInterval: 'monthly',
+        returnToPath: '/',
+        attribution: {
+          source: 'home_pricing_section',
+          tool: 'home',
+          plan: 'free',
+          billing_interval: 'monthly',
+        },
+      });
+    } catch {
+      setCheckoutLoading(false);
+    }
+  }
+
   return (
-    <section id="pricing" className="relative py-12 bg-gray-950 transition-colors duration-500 overflow-hidden">
-      {/* Background glow */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-blue-600/[0.08] rounded-full blur-[140px]" />
+    <section id="pricing" className="relative overflow-hidden bg-gray-950 py-section transition-colors duration-500">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-1/2 top-1/4 h-[400px] w-[700px] -translate-x-1/2 rounded-full bg-blue-600/[0.08] blur-[140px]" />
       </div>
 
-      <div className="relative max-w-5xl mx-auto px-6">
+      <div className="relative mx-auto max-w-5xl px-6">
         <motion.div
           initial={{ opacity: 0, y: 22 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-6"
+          className="mb-component text-center"
         >
-          <p className="text-sm font-bold text-blue-400 uppercase tracking-widest mb-3">Pricing</p>
-          <h2 className="text-4xl md:text-5xl font-medium text-white mb-3 font-display">
+          <p className="mb-3 text-sm font-bold uppercase tracking-widest text-blue-400">Pricing</p>
+          <h2 className="tool-title mb-3 text-4xl md:text-5xl text-white">
             Start free. Scale when ready.
           </h2>
           {!isLoggedIn() && (
-            <p className="text-white/50 text-[15px]">No credit card required to try.</p>
+            <p className="text-base text-white/50">No credit card required to try.</p>
           )}
         </motion.div>
 
@@ -73,57 +132,46 @@ function PricingSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.1, duration: 0.6 }}
-          className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto"
+          className="mx-auto grid max-w-3xl grid-cols-1 gap-4 md:grid-cols-2"
         >
-          {PLANS.map((plan) => (
-            <Link
-              key={plan.name}
-              to="/pricing"
-              className={`group relative rounded-xl p-6 text-left transition-all duration-200 ${
-                plan.highlight
-                  ? 'bg-gray-900 text-white shadow-2xl shadow-blue-500/20 ring-2 ring-blue-400/60'
-                  : 'bg-white/[0.04] text-white hover:bg-white/[0.07] border border-white/[0.08] hover:border-white/[0.15]'
-              }`}
+          <Link
+            to="/video-to-transcript"
+            className="group relative rounded-xl border border-white/[0.08] bg-white/[0.04] p-6 text-left text-white transition-all duration-200 hover:border-white/[0.15] hover:bg-white/[0.07]"
+          >
+            <p className="mb-1 text-lg font-bold">Free</p>
+            <p className="mb-1 text-3xl font-extrabold">$0</p>
+            <p className="mb-4 text-sm text-white/45">3 imports per month · files up to 30 minutes</p>
+            <p className="text-xs font-medium opacity-50">No card needed</p>
+          </Link>
+
+          <div className="relative rounded-xl bg-gray-900 p-6 text-left text-white shadow-2xl shadow-blue-500/20 ring-2 ring-blue-400/60">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+              <span className="rounded-full bg-blue-600 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white shadow-lg">
+                Most Popular
+              </span>
+            </div>
+            <p className="mb-1 text-lg font-bold">Pro</p>
+            <p className="mb-1 text-3xl font-extrabold">
+              {pricing.monthly.displayAmount}
+              <span className="text-sm font-normal opacity-60">/mo</span>
+            </p>
+            <p className="mb-4 text-sm text-blue-100/80">1,200 min · full transcription and delivery workflows</p>
+            <button
+              type="button"
+              onClick={() => void handleProCheckout()}
+              disabled={checkoutLoading}
+              className="inline-flex items-center gap-1.5 text-sm font-bold text-blue-300 transition-all hover:gap-2.5 disabled:opacity-60"
             >
-              {plan.highlight && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="text-[10px] font-bold text-white bg-blue-600 px-3 py-1 rounded-full shadow-lg uppercase tracking-wide">
-                    {plan.badge}
-                  </span>
-                </div>
-              )}
-
-              <p className="font-bold text-lg mb-1">{plan.name}</p>
-              <p className="text-3xl font-extrabold mb-1">
-                {plan.price}
-                {plan.period && (
-                  <span className="text-sm font-normal opacity-60">{plan.period}</span>
-                )}
-              </p>
-              <p className={`text-[13px] mb-4 ${plan.highlight ? 'text-blue-100/80' : 'text-white/45'}`}>
-                {plan.detail}
-              </p>
-
-              {plan.cta ? (
-                <div
-                  className={`inline-flex items-center gap-1.5 text-sm font-bold group-hover:gap-2.5 transition-all ${
-                    plan.highlight ? 'text-blue-300' : 'text-blue-400 group-hover:text-blue-300'
-                  }`}
-                >
-                  {plan.cta}
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </div>
-              ) : (
-                <p className="text-[11px] opacity-50 font-medium">{plan.note}</p>
-              )}
-            </Link>
-          ))}
+              {checkoutLoading ? 'Opening checkout…' : `Unlock Pro — ${pricing.priceLabel}`}
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </motion.div>
 
-        <p className="text-center mt-8">
+        <p className="mt-8 text-center">
           <Link
             to="/pricing"
-            className="text-white/50 hover:text-white/80 font-medium underline underline-offset-2 text-sm transition-colors"
+            className="text-sm font-medium text-white/50 underline underline-offset-2 transition-colors hover:text-white/80"
           >
             See full pricing & feature comparison →
           </Link>
@@ -133,131 +181,110 @@ function PricingSection() {
   );
 }
 
+function LinkGrid({ items, compact = false }: { items: { label: string; path: string; desc?: string }[]; compact?: boolean }) {
+  return (
+    <div className={`grid gap-3 ${compact ? 'sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'}`}>
+      {items.map((item) => (
+        <Link
+          key={item.path}
+          to={item.path}
+          className={
+            compact
+              ? 'rounded-lg border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-800 transition-colors hover:border-blue-300 hover:text-blue-700 dark:border-gray-700 dark:text-gray-200 dark:hover:text-blue-400'
+              : 'group rounded-xl border border-gray-200 bg-gray-50 p-4 transition-all duration-200 hover:border-blue-300 hover:shadow-md dark:border-gray-700 dark:bg-gray-900 dark:hover:border-blue-600'
+          }
+        >
+          <p className={`font-bold ${compact ? '' : 'text-sm text-gray-900 transition-colors group-hover:text-blue-700 dark:text-white dark:group-hover:text-blue-400'}`}>
+            {item.label}{compact ? ' →' : ''}
+          </p>
+          {item.desc && (
+            <p className="mt-1 text-xs leading-snug text-gray-500 dark:text-gray-400">{item.desc}</p>
+          )}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 export default function Home() {
   return (
     <div className="min-h-screen">
-      {/* 1 — Hero */}
       <Hero />
-
-      {/* 2 — Features / toolkit */}
       <Features />
-
-      {/* 3 — Use cases / ICP targeting */}
       <UseCases />
-
-      {/* 4 — How it works (dark) */}
       <HowItWorks />
-
-      {/* 5 — Testimonials */}
       <Testimonials />
-
-      {/* 6 — Pricing (dark) */}
+      <CompetitorSection />
       <PricingSection />
-
-      {/* 8 — FAQ */}
       <FAQ />
 
-      {/* 8.5 — High-intent transcription hub links */}
-      <section className="bg-white dark:bg-gray-950 py-10 border-t border-gray-100 dark:border-gray-800 transition-colors duration-500">
-        <div className="max-w-5xl mx-auto px-6">
-          <div className="mb-5">
-            <p className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-2">
+      <section className="border-t border-gray-100 bg-white py-section transition-colors duration-500 dark:border-gray-800 dark:bg-gray-950">
+        <div className="mx-auto max-w-5xl px-6">
+          <div className="mb-component-sm">
+            <p className="mb-2 text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">
               High-intent guides
             </p>
-            <h2 className="text-2xl md:text-3xl font-medium text-gray-900 dark:text-white font-display transition-colors duration-500">
-              Choose your workflow path (without competing with the core tool page)
+            <h2 className="tool-title text-2xl text-gray-900 md:text-3xl dark:text-white">
+              Choose your workflow path
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 max-w-3xl transition-colors duration-500">
-              Core entry points are <span className="font-semibold text-gray-700 dark:text-gray-200">Video to Transcript</span>, <span className="font-semibold text-gray-700 dark:text-gray-200">Voice to Text</span>, and <span className="font-semibold text-gray-700 dark:text-gray-200">YouTube Transcript Generator</span>. These supporting pages handle specific contexts like comparisons and meeting workflows.
+            <p className="mt-2 max-w-3xl text-sm text-gray-500 dark:text-gray-400">
+              Core entry points are Video to Transcript, Voice to Text, and YouTube Transcript Generator. These pages handle specific contexts like comparisons and meeting workflows.
             </p>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {[
-              { label: 'Video to Transcript (Primary)', path: '/video-to-transcript', desc: 'Main page for broad video-to-text and transcript intent' },
-              { label: 'Best Transcription Tool', path: '/best-transcription-tool', desc: 'Decision support by speed, outputs, and workflow fit' },
-              { label: 'YouTube Transcript Generator (Primary)', path: '/youtube-transcript-generator', desc: 'Paste a YouTube link and generate transcript-ready output in minutes' },
-              { label: 'Podcast Transcription Tool', path: '/podcast-transcription-tool', desc: 'Create show notes, clips, and searchable transcript assets' },
-              { label: 'Meeting Transcription Tool', path: '/meeting-transcription-tool', desc: 'Turn calls into summaries, transcripts, and follow-ups' },
-              { label: 'Google Meet Transcript', path: '/google-meet-transcript', desc: 'Download the Meet recording, upload, and get transcript outputs fast' },
-              { label: 'Zoom Meeting Transcript', path: '/zoom-meeting-transcript', desc: 'Download Zoom recording, upload once, and get structured transcript output' },
-              { label: 'Meeting Recording to Transcript', path: '/meeting-recording-to-transcript', desc: 'Hub workflow for Zoom, Meet, Teams, and webinar recordings' },
-              { label: 'Interview Transcription Tool', path: '/interview-transcription-tool', desc: 'Speaker-structured transcripts for newsroom and research' },
-              { label: 'Client transcription style guide formatter', path: '/guideline-format', desc: 'Prep transcript text against Rev-, GoTranscript-, and related marketplace rule cards before QA' },
-            ].map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className="group rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-4 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-md transition-all duration-200"
-              >
-                <p className="font-bold text-sm text-gray-900 dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">
-                  {item.label}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-snug">{item.desc}</p>
-              </Link>
-            ))}
-          </div>
+          <LinkGrid items={HIGH_INTENT_GUIDES} />
         </div>
       </section>
 
-      {/* 9 — Free Tools cluster */}
-      <section className="bg-gray-50 dark:bg-gray-900/60 border-y border-gray-100 dark:border-gray-800 py-8 transition-colors duration-500">
-        <div className="max-w-5xl mx-auto px-6">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-5">
+      <section className="border-y border-gray-100 bg-gray-50 py-section transition-colors duration-500 dark:border-gray-800 dark:bg-gray-900/60">
+        <div className="mx-auto max-w-5xl px-6">
+          <div className="mb-component-sm flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-2">
+              <p className="mb-2 text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">
                 Free — no account needed
               </p>
-              <h2 className="text-2xl md:text-3xl font-medium text-gray-900 dark:text-white font-display transition-colors duration-500">
+              <h2 className="tool-title text-2xl text-gray-900 md:text-3xl dark:text-white">
                 Free subtitle &amp; video tools
               </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-md transition-colors duration-500">
+              <p className="mt-1 max-w-md text-sm text-gray-500 dark:text-gray-400">
                 Convert, validate, fix, and analyse subtitle files instantly in your browser. Nothing uploaded, nothing stored.
               </p>
             </div>
             <Link
               to="/subtitle-tools"
-              className="text-sm font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 whitespace-nowrap transition-colors hidden sm:flex items-center gap-1"
+              className="hidden items-center gap-1 whitespace-nowrap text-sm font-bold text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 sm:flex"
             >
-              View all 19 tools <ArrowRight className="w-3.5 h-3.5" />
+              View all 19 tools <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {[
-              { label: 'SRT → VTT Converter', path: '/tools/srt-to-vtt', desc: 'For HTML5 video players & web apps', icon: '⇄' },
-              { label: 'Subtitle Validator', path: '/tools/subtitle-validator', desc: 'Catch timing overlaps & format errors', icon: '✓' },
-              { label: 'Reading Speed Checker', path: '/tools/subtitle-reading-speed', desc: 'Verify Netflix & EBU CPS limits', icon: '⏱' },
-              { label: 'Shift Subtitle Timing', path: '/tools/shift-subtitle-timing', desc: 'Fix out-of-sync subtitles instantly', icon: '↔' },
-              { label: 'Character Limit Checker', path: '/tools/subtitle-character-checker', desc: 'Check 42-char Netflix line limits', icon: '≤' },
-              { label: 'Merge SRT Files', path: '/tools/merge-srt-files', desc: 'Combine multiple subtitle files', icon: '⊕' },
-            ].map((tool) => (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {FREE_TOOLS.map((tool) => (
               <Link
                 key={tool.path}
                 to={tool.path}
-                className="group flex items-start gap-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-md transition-all duration-200"
+                className="group flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:border-blue-300 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-600"
               >
-                <span className="text-xl leading-none mt-0.5 select-none">{tool.icon}</span>
+                <span className="mt-0.5 select-none text-xl leading-none">{tool.icon}</span>
                 <div>
-                  <p className="font-bold text-sm text-gray-900 dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">
+                  <p className="text-sm font-bold text-gray-900 transition-colors group-hover:text-blue-700 dark:text-white dark:group-hover:text-blue-400">
                     {tool.label}
                   </p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 leading-snug">{tool.desc}</p>
+                  <p className="mt-0.5 text-xs leading-snug text-gray-400 dark:text-gray-500">{tool.desc}</p>
                 </div>
               </Link>
             ))}
           </div>
 
-          <div className="mt-5 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="mt-component-sm flex flex-col items-center justify-between gap-3 sm:flex-row">
             <Link
               to="/subtitle-tools"
-              className="sm:hidden text-sm font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center gap-1"
+              className="flex items-center gap-1 text-sm font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 sm:hidden"
             >
-              View all 19 free tools <ArrowRight className="w-3.5 h-3.5" />
+              View all 19 free tools <ArrowRight className="h-3.5 w-3.5" />
             </Link>
-            <p className="text-xs text-gray-400 dark:text-gray-500 transition-colors duration-500">
+            <p className="text-xs text-gray-400 dark:text-gray-500">
               Need AI-powered subtitles?{' '}
-              <Link to="/video-to-subtitles" className="text-blue-600 dark:text-blue-400 hover:underline font-bold">
+              <Link to="/video-to-subtitles" className="font-bold text-blue-600 hover:underline dark:text-blue-400">
                 Generate them automatically →
               </Link>
             </p>
@@ -265,76 +292,35 @@ export default function Home() {
         </div>
       </section>
 
-
-      <section className="py-10 border-t border-gray-100 dark:border-gray-800">
-        <div className="max-w-5xl mx-auto px-6">
-          <p className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-2">Answer hubs</p>
-          <h2 className="text-2xl font-medium text-gray-900 dark:text-white">Comparison and benchmark pages (secondary to the core tool)</h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              { label: 'Video to transcript (core tool)', path: '/video-to-transcript' },
-              { label: 'Best transcription tool', path: '/best-transcription-tool' },
-              { label: 'Fastest transcription software', path: '/fastest-transcription-software' },
-              { label: 'Fastest transcription tool', path: '/fastest-transcription-tool' },
-              { label: 'Otter vs VideoText', path: '/otter-vs-videotext' },
-              { label: 'Descript vs VideoText', path: '/descript-vs-videotext' },
-              { label: 'AI transcription tools', path: '/ai-transcription-tools' },
-              { label: 'VideoText vs TurboScribe', path: '/videotext-vs-turboscribe' },
-              { label: 'VideoText vs Rev', path: '/videotext-vs-rev' },
-              { label: 'Best Otter alternatives', path: '/best-otter-alternatives' },
-              { label: 'Best Descript alternatives', path: '/best-descript-alternatives' },
-              { label: 'AI transcription workflow', path: '/ai-transcription-workflow' },
-              { label: 'Podcast transcription tool', path: '/podcast-transcription-tool' },
-              { label: 'Interview transcription tool', path: '/interview-transcription-tool' },
-              { label: 'YouTube video to transcript', path: '/youtube-video-to-transcript' },
-              { label: 'Transcription benchmark', path: '/transcription-benchmark' },
-            ].map((item) => (
-              <Link key={item.path} to={item.path} className="rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-3 text-sm font-semibold text-gray-800 dark:text-gray-200 hover:text-blue-700 dark:hover:text-blue-400 hover:border-blue-300">
-                {item.label} →
-              </Link>
-            ))}
-          </div>
+      <section className="border-t border-gray-100 py-section dark:border-gray-800">
+        <div className="mx-auto max-w-5xl px-6">
+          <details className="group">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 marker:content-none [&::-webkit-details-marker]:hidden">
+              <div>
+                <p className="mb-2 text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">Explore more</p>
+                <h2 className="tool-title text-2xl text-gray-900 dark:text-white">Comparisons, benchmarks &amp; all features</h2>
+              </div>
+              <span className="inline-flex shrink-0 items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+                <span className="group-open:hidden">Show more</span>
+                <span className="hidden group-open:inline">Show less</span>
+                <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+              </span>
+            </summary>
+            <div className="mt-component space-y-section">
+              <div>
+                <h3 className="tool-label mb-component-sm">Answer hubs</h3>
+                <LinkGrid items={MORE_GUIDES} compact />
+              </div>
+              <div>
+                <h3 className="tool-label mb-component-sm">All VideoText features</h3>
+                <LinkGrid items={ALL_FEATURES} compact />
+              </div>
+            </div>
+          </details>
         </div>
       </section>
 
-      {/* 9.5 — Core Tools Grid */}
-      <section className="bg-white dark:bg-gray-950 border-t border-gray-100 dark:border-gray-800 py-12 transition-colors duration-500">
-        <div className="max-w-5xl mx-auto px-6">
-          <div className="mb-8">
-            <h2 className="text-2xl md:text-3xl font-medium text-gray-900 dark:text-white mb-2">All VideoText features</h2>
-            <p className="text-gray-600 dark:text-gray-300">Master transcription, subtitles, translation, and more with integrated tools.</p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {[
-              { label: 'Video to Transcript', path: '/video-to-transcript' },
-              { label: 'Video to Subtitles', path: '/video-to-subtitles' },
-              { label: 'SRT File Generator', path: '/srt-generator' },
-              { label: 'Video to SRT', path: '/video-to-srt' },
-              { label: 'Translate Subtitles', path: '/translate-subtitles' },
-              { label: 'Subtitle Tools', path: '/subtitle-tools' },
-              { label: 'Fix Subtitles', path: '/fix-subtitles' },
-              { label: 'Burn Subtitles', path: '/burn-subtitles' },
-              { label: 'Compress Video', path: '/compress-video' },
-              { label: 'Batch Process', path: '/batch-process' },
-              { label: 'YouTube Transcripts', path: '/youtube-transcript-generator' },
-            ].map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className="group rounded-lg border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-transparent to-blue-50/20 dark:to-blue-900/10 px-4 py-3 text-sm font-semibold text-gray-900 dark:text-white hover:text-blue-700 dark:hover:text-blue-400 hover:border-blue-300 dark:hover:border-blue-600 transition-all"
-              >
-                {item.label} →
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 10 — Founding Team */}
       <FoundingTeamCTA />
-
-      {/* 11 — Final CTA */}
       <FinalCTA />
     </div>
   );

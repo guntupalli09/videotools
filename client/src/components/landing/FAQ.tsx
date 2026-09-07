@@ -70,7 +70,7 @@ function FAQItem({ q, a, index }: { q: string; a: string; index: number }) {
         aria-expanded={open}
       >
         <div className="flex items-center justify-between gap-4 py-5 border-b border-gray-100 dark:border-white/[0.06] transition-colors duration-500">
-          <span className="text-[15px] font-semibold text-gray-800 dark:text-white/85 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors leading-snug">
+          <span className="text-base font-semibold leading-snug text-gray-800 transition-colors group-hover:text-blue-600 dark:text-white/85 dark:group-hover:text-blue-400">
             {q}
           </span>
           <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-100 dark:bg-white/[0.05] flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-600/15 transition-colors duration-200">
@@ -91,7 +91,7 @@ function FAQItem({ q, a, index }: { q: string; a: string; index: number }) {
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             className="overflow-hidden"
           >
-            <p className="pt-3 pb-5 text-[14px] text-gray-500 dark:text-white/45 leading-relaxed transition-colors duration-500">
+            <p className="pb-5 pt-3 text-sm leading-relaxed text-gray-500 transition-colors duration-500 dark:text-white/45">
               {a}
             </p>
           </motion.div>
@@ -116,7 +116,7 @@ export function FAQ() {
           <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-3 transition-colors duration-500">
             Questions
           </p>
-          <h2 className="text-4xl md:text-5xl font-medium text-gray-900 dark:text-white mb-4 transition-colors duration-500">
+          <h2 className="tool-title mb-4 text-4xl text-gray-900 transition-colors duration-500 md:text-5xl dark:text-white">
             Everything you want to know.
           </h2>
           <p className="text-lg text-gray-500 dark:text-white/40 transition-colors duration-500">

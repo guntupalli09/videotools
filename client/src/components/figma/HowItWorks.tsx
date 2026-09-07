@@ -50,7 +50,7 @@ export function HowItWorks() {
   return (
     <section
       id="how-it-works"
-      className="relative py-12 px-6 bg-gray-950 transition-colors duration-500 overflow-hidden"
+      className="relative px-6 py-section bg-gray-950 transition-colors duration-500 overflow-hidden"
     >
       {/* Background dot grid */}
       <div
@@ -68,14 +68,14 @@ export function HowItWorks() {
         <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-blue-700/[0.07] rounded-full blur-[100px]" />
       </div>
 
-      <div className="relative z-10 max-w-6xl mx-auto">
+      <div className="relative z-10 mx-auto max-w-5xl">
         {/* Section header */}
         <motion.div
           initial={{ opacity: 0, y: 22 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-section"
         >
           <p className="text-sm font-bold text-blue-400 uppercase tracking-widest mb-3">
             How it works
@@ -123,7 +123,7 @@ export function HowItWorks() {
                   </motion.div>
                   {/* Step number */}
                   <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-gray-950 border border-gray-700 flex items-center justify-center">
-                    <span className="text-[10px] font-bold text-white/60">
+                    <span className="text-xs font-bold text-white/60">
                       {index + 1}
                     </span>
                   </div>
@@ -131,12 +131,12 @@ export function HowItWorks() {
 
                 {/* Detail badge */}
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.06] border border-white/[0.08] mb-3">
-                  <span className="text-[10px] font-semibold text-white/50">
+                  <span className="text-xs font-semibold text-white/50">
                     {step.detail}
                   </span>
                 </div>
 
-                <h3 className="mb-2.5 text-[15px] font-medium text-white">
+                <h3 className="mb-2.5 text-base font-medium text-white">
                   {step.title}
                 </h3>
                 <p className="text-sm text-white/45 max-w-[220px] leading-relaxed">
@@ -170,10 +170,10 @@ export function HowItWorks() {
                 </p>
               </div>
             </div>
-            <div className="space-y-3.5">
+            <div className="space-y-component-sm">
               {BENCHMARKS.map((b) => (
                 <div key={b.length} className="flex items-center gap-3">
-                  <span className="text-[12px] text-white/40 w-20 flex-shrink-0 tabular-nums">
+                  <span className="text-sm text-white/40 w-20 flex-shrink-0 tabular-nums">
                     {b.length}
                   </span>
                   <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
@@ -189,7 +189,7 @@ export function HowItWorks() {
                       }}
                     />
                   </div>
-                  <span className="text-[12px] font-bold text-white/60 w-16 text-right tabular-nums">
+                  <span className="text-sm font-bold text-white/60 w-16 text-right tabular-nums">
                     {b.time}
                   </span>
                 </div>
@@ -205,7 +205,7 @@ export function HowItWorks() {
                 <p className="text-sm font-bold text-white">
                   6× faster than Descript
                 </p>
-                <p className="text-[11px] text-white/35">
+                <p className="text-xs text-white/35">
                   2hr video in ~5 min vs 15–20 min
                 </p>
               </div>
@@ -215,7 +215,7 @@ export function HowItWorks() {
           {/* What you get + privacy */}
           <div className="flex flex-col gap-4">
             <div className="flex-1 p-6 sm:p-8 rounded-xl bg-white/[0.03] border border-white/[0.07]">
-              <div className="flex items-center gap-3 mb-5">
+              <div className="flex items-center gap-3 mb-component-sm">
                 <div className="w-9 h-9 rounded-xl bg-blue-600/15 flex items-center justify-center flex-shrink-0">
                   <Download className="w-4.5 h-4.5 text-blue-400" />
                 </div>
@@ -244,7 +244,7 @@ export function HowItWorks() {
                 ].map((item) => (
                   <span
                     key={item}
-                    className="px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/[0.06] text-[11px] font-medium text-white/55"
+                    className="px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/[0.06] text-xs font-medium text-white/55"
                   >
                     {item}
                   </span>
@@ -267,7 +267,7 @@ export function HowItWorks() {
                 <p className="text-sm font-bold text-white mb-1">
                   Zero data retention
                 </p>
-                <p className="text-[13px] text-white/45 leading-relaxed">
+                <p className="text-sm text-white/45 leading-relaxed">
                   Your videos are processed and{" "}
                   <span className="text-white/70 font-medium">
                     immediately deleted
