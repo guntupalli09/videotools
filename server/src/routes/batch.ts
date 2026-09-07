@@ -16,6 +16,7 @@ import {
   getMaxDailyImports,
   sumBatchVideoDurationsSeconds,
 } from '../utils/limits'
+import { assertCanImport } from '../utils/importQuota'
 import { resetDailyImportIfNeeded, resetDailyMinutesIfNeeded, resetUserUsageIfNeeded } from '../utils/usageReset'
 import { addJobToQueue, getTotalQueueCount } from '../workers/videoProcessor'
 import { insertJobRecord } from '../lib/jobAnalytics'
@@ -233,16 +234,20 @@ router.post(
       }
 
       // Free plan: 3 imports per day (resets midnight UTC; batch not available for free anyway)
+      const batchImportGate = assertCanImport(user)
+      if (!batchImportGate.ok) {
+        for (const v of videoMeta) fs.unlinkSync(v.path)
+        return res.status(403).json({ message: batchImportGate.message })
+      }
+      const importCountToday = user.usageThisMonth.importCountToday ?? 0
       const batchDailyCap = getMaxDailyImports(user.plan)
+      const bonus = user.bonusImportCredits ?? 0
       if (batchDailyCap !== null) {
-        const importCountToday = user.usageThisMonth.importCountToday ?? 0
-        if (importCountToday >= batchDailyCap) {
+        const dailySlots = Math.max(0, batchDailyCap - importCountToday)
+        const totalSlots = dailySlots + bonus
+        if (videoMeta.length > totalSlots) {
           for (const v of videoMeta) fs.unlinkSync(v.path)
-          return res.status(403).json({ message: "You've used today's 3 free imports. They reset at midnight — or upgrade to Pro." })
-        }
-        if (importCountToday + videoMeta.length > batchDailyCap) {
-          for (const v of videoMeta) fs.unlinkSync(v.path)
-          return res.status(403).json({ message: "You've used today's 3 free imports. They reset at midnight — or upgrade to Pro." })
+          return res.status(403).json({ message: batchImportGate.message })
         }
       }
 

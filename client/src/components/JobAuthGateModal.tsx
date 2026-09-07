@@ -17,6 +17,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Download, CheckCircle2, ChevronRight, Lock, Zap } from 'lucide-react'
 import { sendOtp, verifyOtp, loginWithGoogle } from '../lib/api'
 import { completeSignup, login, storeLoginResult } from '../lib/auth'
+import { getStoredReferralCode, clearStoredReferralCode } from '../lib/referral'
 import { identifyUser } from '../lib/analytics'
 import GoogleSignInButton, { GOOGLE_CLIENT_ID } from './GoogleSignInButton'
 
@@ -57,8 +58,9 @@ export default function JobAuthGateModal({
     setGoogleLoading(true)
     setError(null)
     try {
-      const result = await loginWithGoogle(credential)
+      const result = await loginWithGoogle(credential, getStoredReferralCode())
       storeLoginResult(result)
+      if (result.isNewUser) clearStoredReferralCode()
       try { localStorage.setItem('videotext:guestJobUsed', '1') } catch { /* ignore */ }
       try { identifyUser(result.userId, { plan: result.plan, email: result.email }) } catch { /* ignore */ }
       window.dispatchEvent(new CustomEvent('videotext:plan-updated'))
@@ -105,8 +107,9 @@ export default function JobAuthGateModal({
     setLoading(true)
     try {
       const { token } = await verifyOtp(email.trim().toLowerCase(), otp)
-      const result = await completeSignup(token, password)
+      const result = await completeSignup(token, password, getStoredReferralCode())
       storeLoginResult(result)
+      if (result.referralApplied) clearStoredReferralCode()
       try { localStorage.setItem('videotext:guestJobUsed', '1') } catch { /* ignore */ }
       try { identifyUser(result.userId, { plan: result.plan, email: result.email }) } catch { /* ignore */ }
       window.dispatchEvent(new CustomEvent('videotext:plan-updated'))

@@ -20,6 +20,7 @@ import OfflineBanner from './components/OfflineBanner'
 import FeedbackOrchestrator from './components/feedbackSystem/FeedbackOrchestrator'
 import { trackAppEvent } from './lib/feedbackEvents'
 import { getLifetimeSessionCount, getSessionId, isNewSession, clearNewSessionFlag } from './lib/sessionTracking'
+import { captureReferralFromUrl } from './lib/referral'
 import { incrementSessionsSinceFeedback } from './hooks/useFeedbackFrequency'
 
 // Lazy-load pages for fast initial load on any device; each route loads only when visited.
@@ -99,6 +100,7 @@ const JoinFoundingTeam = lazy(() => import('./pages/JoinFoundingTeam'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 const Status = lazy(() => import('./pages/Status'))
 const ShareTranscript = lazy(() => import('./pages/ShareTranscript'))
+const EmbedTranscript = lazy(() => import('./pages/EmbedTranscript'))
 // Free tools — client-side only, zero server dependency
 const FreeToolsIndex = lazy(() => import('./pages/tools/FreeToolsIndex'))
 const SrtToVtt = lazy(() => import('./pages/tools/SrtToVtt'))
@@ -469,6 +471,14 @@ function ImpersonationHandler() {
   return null
 }
 
+function ReferralCapture() {
+  const { search } = useLocation()
+  useEffect(() => {
+    captureReferralFromUrl(search)
+  }, [search])
+  return null
+}
+
 function SessionTracker() {
   useEffect(() => {
     // Initialise session (may resume via grace period or create fresh)
@@ -496,6 +506,7 @@ function App() {
       {/* <WorkflowProvider> */}
       <LowercaseRedirect />
       <AppSeo />
+      <ReferralCapture />
       <SessionTracker />
       <PostCheckoutHandler />
       <ImpersonationHandler />
@@ -595,6 +606,7 @@ function App() {
             <Route path="/status" element={<Status />} />
             <Route path="/voice-recorder" element={<VoiceRecorder />} />
             <Route path="/s/:slug" element={<ShareTranscript />} />
+            <Route path="/embed/:slug" element={<EmbedTranscript />} />
             <Route path="/guideline-format" element={<GuidelineFormat />} />
             <Route path="/video-to-transcript" element={<VideoToTranscript
               seoH1="Video to Transcript — Free AI Transcription, 98.5% Accurate"

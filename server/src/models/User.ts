@@ -72,6 +72,10 @@ export interface User {
   firstReferrer?: string | null
   firstSeenAt?: Date | null
   lastActiveAt?: Date | null
+  referralCode?: string | null
+  referredByUserId?: string | null
+  bonusImportCredits?: number
+  referralSignupCount?: number
   createdAt: Date
   updatedAt: Date
 }
@@ -129,6 +133,10 @@ function rowToUser(row: DbUser): User {
     firstReferrer: (row as { firstReferrer?: string | null }).firstReferrer ?? undefined,
     firstSeenAt: (row as { firstSeenAt?: Date | null }).firstSeenAt ?? undefined,
     lastActiveAt: (row as { lastActiveAt?: Date | null }).lastActiveAt ?? undefined,
+    referralCode: (row as { referralCode?: string | null }).referralCode ?? undefined,
+    referredByUserId: (row as { referredByUserId?: string | null }).referredByUserId ?? undefined,
+    bonusImportCredits: Number((row as { bonusImportCredits?: number | null }).bonusImportCredits ?? 0),
+    referralSignupCount: Number((row as { referralSignupCount?: number | null }).referralSignupCount ?? 0),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   }
@@ -179,6 +187,10 @@ function userToDb(user: User) {
     firstReferrer: user.firstReferrer ?? null,
     firstSeenAt: user.firstSeenAt ?? null,
     lastActiveAt: user.lastActiveAt ?? null,
+    referralCode: user.referralCode ?? null,
+    referredByUserId: user.referredByUserId ?? null,
+    bonusImportCredits: user.bonusImportCredits ?? 0,
+    referralSignupCount: user.referralSignupCount ?? 0,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   }

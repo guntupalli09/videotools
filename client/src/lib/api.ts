@@ -1569,16 +1569,21 @@ export async function verifyOtp(email: string, code: string): Promise<{ token: s
 }
 
 /** Complete signup after OTP verification. Returns same shape as login. */
-export async function completeSignup(verificationToken: string, password: string): Promise<{
+export async function completeSignup(verificationToken: string, password: string, referralCode?: string | null): Promise<{
   token: string
   userId: string
   plan: string
   email: string
+  referralApplied?: boolean
 }> {
   const response = await api('/api/auth/complete-signup', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ verificationToken, password }),
+    body: JSON.stringify({
+      verificationToken,
+      password,
+      ...(referralCode ? { referralCode } : {}),
+    }),
   })
   if (!response.ok) {
     const err = await response.json().catch(() => ({ message: 'Signup failed' }))
@@ -1598,7 +1603,7 @@ export async function completeSignup(verificationToken: string, password: string
 
 
 /** Sign in (or up) with a Google ID token from Google Identity Services. */
-export async function loginWithGoogle(credential: string): Promise<{
+export async function loginWithGoogle(credential: string, referralCode?: string | null): Promise<{
   token: string
   userId: string
   plan: string
@@ -1608,7 +1613,10 @@ export async function loginWithGoogle(credential: string): Promise<{
   const response = await api('/api/auth/google', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ credential }),
+    body: JSON.stringify({
+      credential,
+      ...(referralCode ? { referralCode } : {}),
+    }),
   })
   if (!response.ok) {
     const err = await response.json().catch(() => ({ message: 'Google login failed' }))
@@ -1898,7 +1906,13 @@ export type CreateTranscriptShareBody = {
   payload: TranscriptSharePayload
 }
 
-export type CreateTranscriptShareResponse = { slug: string; path: string; url: string }
+export type CreateTranscriptShareResponse = {
+  slug: string
+  path: string
+  url: string
+  embedPath?: string
+  showProminentBranding?: boolean
+}
 
 export async function createTranscriptShare(body: CreateTranscriptShareBody): Promise<CreateTranscriptShareResponse> {
   const response = await api('/api/shares', {
@@ -1924,6 +1938,27 @@ export type PublicTranscriptShareResponse = {
   targetLanguage: string | null
   payload: TranscriptSharePayload
   createdAt: string
+  ownerPlan?: string
+  showProminentBranding?: boolean
+  signupUrl?: string
+  embedPath?: string
+  sharePath?: string
+}
+
+export type ReferralStatsResponse = {
+  referralCode: string
+  referralLink: string
+  bonusImportCredits: number
+  referralSignupCount: number
+  bonusPerSignup: number
+}
+
+export async function fetchReferralStats(): Promise<ReferralStatsResponse> {
+  const response = await api('/api/referral/me', { timeout: 15000 })
+  const data = (await response.json().catch(() => ({}))) as { message?: string } & Partial<ReferralStatsResponse>
+  if (!response.ok) throw new Error(data.message || 'Could not load referral info.')
+  if (!data.referralCode || !data.referralLink) throw new Error('Invalid referral response.')
+  return data as ReferralStatsResponse
 }
 
 export async function fetchPublicTranscriptShare(slug: string): Promise<PublicTranscriptShareResponse> {

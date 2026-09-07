@@ -15,7 +15,7 @@ const tools = [...CORE_AI_TOOLS_NAV]
 
 const SUPPORT_EMAIL = 'support@videotext.io'
 /** Set to true to re-enable referral program */
-const SHOW_REFERRAL = false
+const SHOW_REFERRAL = true
 
 export default function UserMenu() {
   const [open, setOpen] = useState(false)
