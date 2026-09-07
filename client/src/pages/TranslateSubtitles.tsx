@@ -1315,7 +1315,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
         tool="translate-subtitles"
       />
 
-      {faq.length > 0 && (
+      {faq.length > 0 && location.pathname !== '/translate-subtitles' && (
         <CollapsibleFaqSection items={faq} />
       )}
     </>
