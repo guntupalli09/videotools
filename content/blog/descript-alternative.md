@@ -53,7 +53,7 @@ Descript loses when:
 
 | | Descript | VideoText.io |
 |---|----------|--------------|
-| Free tier | ⚠️ Limited trial | **3 uploads/day**, no card |
+| Free tier | ⚠️ Limited trial | **3 imports/month**, no card |
 | Cheapest paid | **$24/mo** (Creator) | **$7.99/mo Pro** |
 | 60-min processing | ~18 min | **~3 min** |
 | Full workflow (SRT + chapters + summary + translation) | ⚠️ Partial | ✅ One upload |

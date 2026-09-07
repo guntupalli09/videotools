@@ -537,7 +537,8 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
               ]}
             />
             <FreePlanNudge tool="burn-subtitles" resultKey={result.downloadUrl} />
-            <SecondJobUpgradeNudge tool="burn-subtitles" resultKey={result.downloadUrl} />
+            <SecondJobUpgradeNudge tool="burn-subtitles" resultKey={result.downloadUrl} milestone={2} />
+            <SecondJobUpgradeNudge tool="burn-subtitles" resultKey={result.downloadUrl} milestone={3} />
 
             <CrossToolSuggestions
               workflowHint="Your last file is pre-filled on the next tool."

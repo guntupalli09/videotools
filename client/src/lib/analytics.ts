@@ -184,6 +184,7 @@ export type AnalyticsEvent =
   | 'stripe_redirect'
   | 'checkout_abandoned'
   | 'second_job_upgrade_nudge_seen'
+  | 'third_job_upgrade_nudge_seen'
   | 'cancellation_reason_submitted'
   | 'cancellation_reason_skipped'
   | 'pro_onboarding_nudge_seen'

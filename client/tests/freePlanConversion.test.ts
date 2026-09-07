@@ -20,11 +20,18 @@ test('shared inline conversion surfaces route checkout through startCheckout', (
   }
 })
 
+test('TranslateSubtitles Pro links route checkout through ProCheckoutLink', () => {
+  const source = readFileSync(resolve(process.cwd(), 'src/pages/TranslateSubtitles.tsx'), 'utf8')
+  assert.match(source, /ProCheckoutLink/)
+  assert.doesNotMatch(source, /Link to="\/pricing"[^>]*>Unlock Pro/)
+})
+
 test('all quota-consuming core result pages mount shared conversion nudges', () => {
   for (const file of ['VideoToTranscript.tsx', 'VideoToSubtitles.tsx', 'TranslateSubtitles.tsx', 'FixSubtitles.tsx', 'BurnSubtitles.tsx', 'CompressVideo.tsx', 'VoiceRecorder.tsx']) {
     const source = readFileSync(resolve(process.cwd(), 'src/pages', file), 'utf8')
     assert.match(source, /<FreePlanNudge\b/, file)
     assert.match(source, /<SecondJobUpgradeNudge\b/, file)
+    assert.match(source, /milestone=\{3\}/, file)
   }
   const transcript = readFileSync(resolve(process.cwd(), 'src/pages/VideoToTranscript.tsx'), 'utf8')
   assert.match(transcript, /<ResultUpgradeCard\b/)

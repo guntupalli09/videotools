@@ -1177,7 +1177,8 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
               relatedTools={[]}
             />
             <FreePlanNudge tool="fix-srt" resultKey={result.downloadUrl} />
-            <SecondJobUpgradeNudge tool="fix-srt" resultKey={result.downloadUrl} />
+            <SecondJobUpgradeNudge tool="fix-srt" resultKey={result.downloadUrl} milestone={2} />
+            <SecondJobUpgradeNudge tool="fix-srt" resultKey={result.downloadUrl} milestone={3} />
 
             {changedCues.length > 0 && (
               <motion.div

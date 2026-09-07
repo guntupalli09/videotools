@@ -14,7 +14,7 @@ tags:
 
 **Transcript cleanup** (also searched as **clean up transcript**, **transcript cleaner**, and **clean transcription**) is the step between raw AI output and a deliverable clients accept. This is the real workflow professional transcriptionists use — not the idealized training-doc version.
 
-> **Skip the manual grind:** [Generate a clean AI transcript →](https://videotext.io/video-to-transcript) then [apply client style rules in one pass →](https://videotext.io/guideline-format). Free tier includes 3 uploads/day.
+> **Skip the manual grind:** [Generate a clean AI transcript →](https://videotext.io/video-to-transcript) then [apply client style rules in one pass →](https://videotext.io/guideline-format). Free tier includes 3 imports/month.
 
 ---
 

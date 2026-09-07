@@ -88,7 +88,7 @@ CapCut looks free until you price the **extra tools and time** required to finis
 
 | | CapCut | VideoText.io |
 |---|--------|--------------|
-| **Free tier** | ✅ In-app captions | ✅ 3 uploads/day, no card |
+| **Free tier** | ✅ In-app captions | ✅ 3 uploads/month, no card |
 | **Paid plan** | $9.99/mo (CapCut Pro) | **$7.99/mo Pro** (flat, no per-minute) |
 | **SRT/VTT export** | ❌ Not available | ✅ Included |
 | **Chapters + summary** | ❌ | ✅ Included |
@@ -146,7 +146,7 @@ CapCut stops at styled overlays. VideoText.io runs the **entire publish pipeline
 | Speaker labels | ⚠️ Limited | ✅ |
 | [Burn captions into video](https://videotext.io/burn-subtitles) | ✅ | ✅ |
 | Zero data retention | ❌ | ✅ |
-| Free tier (no credit card) | ✅ | ✅ 3 uploads/day |
+| Free tier (no credit card) | ✅ | ✅ 3 uploads/month |
 | **Pro pricing** | $9.99/mo | **$7.99/mo flat** |
 
 Deep comparison: [CapCut captions to SRT →](https://videotext.io/capcut-captions)
@@ -188,7 +188,7 @@ YouTube-specific: [YouTube transcript generator →](https://videotext.io/youtub
 ## FAQ: CapCut alternative
 
 **What is the best CapCut alternative for SRT export?**  
-VideoText.io — built for downloadable SRT/VTT, not locked overlays. Free tier: 3 uploads/day.
+VideoText.io — built for downloadable SRT/VTT, not locked overlays. Free tier: 3 uploads/month.
 
 **Can I get an SRT file from CapCut?**  
 No. Export video without captions, then upload to VideoText.io for a proper SRT in 2–5 minutes.

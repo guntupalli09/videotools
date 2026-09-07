@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, Suspense, lazy } from 'react'
-import { useLocation, useNavigate, useSearchParams, Link } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import TranslateLangCluster from '../components/TranslateLangCluster'
 import { Languages, Copy, Check, Download, ArrowRight, Bold, Italic, AlignLeft, AlignCenter, AlignRight } from 'lucide-react'
 import FailedState from '../components/FailedState'
@@ -11,6 +11,7 @@ import JobAuthGateModal from '../components/JobAuthGateModal'
 import UpgradeBanner from '../components/UpgradeBanner'
 import FreePlanNudge from '../components/FreePlanNudge'
 import SecondJobUpgradeNudge from '../components/SecondJobUpgradeNudge'
+import ProCheckoutLink from '../components/ProCheckoutLink'
 import { ToolLayout } from '../components/figma/ToolLayout'
 import { UploadZone } from '../components/figma/UploadZone'
 import { ProcessingInterface } from '../components/figma/ProcessingInterface'
@@ -846,7 +847,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                   {!isPaidPlan && (
                     <p className="text-xs text-gray-400 dark:text-gray-500">
                       Free plan: 3 translations per month ·{' '}
-                      <Link to="/pricing" className="text-blue-600 hover:underline">Unlock Pro — $7.99/mo</Link>
+                      <ProCheckoutLink source="translate_subtitles_upload" />
                     </p>
                   )}
                 </div>
@@ -866,7 +867,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                 {!isPaidPlan && (
                   <p className="text-xs text-gray-400 dark:text-gray-500">
                     Free plan: 3 translations per month ·{' '}
-                    <Link to="/pricing" className="text-blue-600 hover:underline">Unlock Pro — $7.99/mo</Link>
+                    <ProCheckoutLink source="translate_subtitles_paste" />
                   </p>
                 )}
                 <button
@@ -979,7 +980,12 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                   ]}
                 />
                 {inputKind === 'subtitles' && <FreePlanNudge tool="translation" resultKey={result.downloadUrl} />}
-                {inputKind === 'subtitles' && <SecondJobUpgradeNudge tool="translation" resultKey={result.downloadUrl} />}
+                {inputKind === 'subtitles' && (
+                  <>
+                    <SecondJobUpgradeNudge tool="translation" resultKey={result.downloadUrl} milestone={2} />
+                    <SecondJobUpgradeNudge tool="translation" resultKey={result.downloadUrl} milestone={3} />
+                  </>
+                )}
 
                 {/* Plain text result */}
                 {plainTextResult && (
@@ -1097,7 +1103,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                 {!isPaidPlan && (
                   <p className="text-xs text-gray-400 dark:text-gray-500">
                     Free plan: 3 translations per month ·{' '}
-                    <Link to="/pricing" className="text-blue-600 hover:underline">Unlock Pro — $7.99/mo</Link>
+                    <ProCheckoutLink source="translate_documents_upload" />
                   </p>
                 )}
                 <button
@@ -1124,7 +1130,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                 {!isPaidPlan && (
                   <p className="text-xs text-gray-400 dark:text-gray-500">
                     Free plan: 3 translations per month ·{' '}
-                    <Link to="/pricing" className="text-blue-600 hover:underline">Unlock Pro — $7.99/mo</Link>
+                    <ProCheckoutLink source="translate_documents_paste" />
                   </p>
                 )}
                 <button

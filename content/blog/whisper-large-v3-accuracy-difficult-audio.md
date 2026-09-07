@@ -14,7 +14,7 @@ tags:
 
 **Whisper large v3 accuracy** on benchmark sets looks exceptional — often under 3% word error rate. That number is measured on curated audio. Most real jobs are not curated.
 
-> **Test Whisper large-v3 on your file:** [Upload or paste a URL →](https://videotext.io/video-to-transcript) — VideoText runs Whisper large-v3 with chunk assembly, speaker labels, and export-ready timestamps. 3 free uploads/day.
+> **Test Whisper large-v3 on your file:** [Upload or paste a URL →](https://videotext.io/video-to-transcript) — VideoText runs Whisper large-v3 with chunk assembly, speaker labels, and export-ready timestamps. 3 free imports/month.
 
 This post covers **whisper large v3 accuracy** when audio is not studio-clean: background noise, accents, cross-talk, technical vocabulary, phone compression, and recordings over 90 minutes.
 

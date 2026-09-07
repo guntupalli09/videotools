@@ -1374,7 +1374,12 @@ export default function VoiceRecorder() {
 
                 </>)}{/* end gate-hidden result */}
                 {voiceJobId && <FreePlanNudge tool="voice" resultKey={voiceJobId} />}
-                {voiceJobId && <SecondJobUpgradeNudge tool="voice" resultKey={voiceJobId} />}
+                {voiceJobId && (
+                  <>
+                    <SecondJobUpgradeNudge tool="voice" resultKey={voiceJobId} milestone={2} />
+                    <SecondJobUpgradeNudge tool="voice" resultKey={voiceJobId} milestone={3} />
+                  </>
+                )}
 
                 {/* Record again */}
                 <button
