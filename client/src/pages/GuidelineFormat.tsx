@@ -19,7 +19,8 @@ import {
   cuesToVtt,
 } from "../lib/subtitleUtils";
 import JobAuthGateModal from "../components/JobAuthGateModal";
-import ProResultNudge from "../components/ProResultNudge";
+import ResultUpgradeCard from "../components/ResultUpgradeCard";
+import ResultHeader from "../components/ResultHeader";
 import { isLoggedIn } from "../lib/auth";
 import { isPaidPlan as hasPaidPlan } from "../lib/plans";
 import {
@@ -1222,11 +1223,13 @@ export default function GuidelineFormat() {
         compactToolHeader
         coreToolPath="/guideline-format"
         currentStepLabel={
-          selectedPreset === "custom"
-            ? "Custom guide active"
-            : selectedPreset
-              ? `${PRESET_DATA[selectedPreset].label} active`
-              : "Rev style guide active"
+          jobStatus?.status === "completed"
+            ? "Format ready"
+            : selectedPreset === "custom"
+              ? "Custom guide active"
+              : selectedPreset
+                ? `${PRESET_DATA[selectedPreset].label} active`
+                : "Rev style guide active"
         }
       >
         <div className="max-w-6xl mx-auto space-y-5">
@@ -1848,12 +1851,12 @@ export default function GuidelineFormat() {
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    <ProResultNudge
-                      tool="guideline-format"
-                      resultKey={jobId}
-                      title="Make every transcript client-ready"
-                      body="Unlock Pro for continued guideline formatting, QA, and professional delivery workflows."
+                    <ResultHeader
+                      title="Format ready"
+                      onAction={resetJobUi}
+                      actionLabel="Format another"
                     />
+                    <ResultUpgradeCard tool="guideline" resultKey={jobId} />
                     {jobStatus.validationReport?.summary && (
                       <div className="rounded-xl border border-gray-200 bg-white/80 p-2.5 shadow-sm dark:border-gray-700 dark:bg-gray-900/50">
                         <div className="flex flex-wrap items-start justify-between gap-2.5">

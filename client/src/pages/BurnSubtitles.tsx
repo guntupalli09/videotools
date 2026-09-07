@@ -17,6 +17,7 @@ import { ProcessingInterface } from '../components/figma/ProcessingInterface'
 import { ProcessingProgress } from '../components/figma/ProcessingProgress'
 import { ResultSkeleton } from '../components/figma/ResultSkeleton'
 import { TranslateResult } from '../components/figma/TranslateResult'
+import ResultUpgradeCard from '../components/ResultUpgradeCard'
 import { Select } from '../components/figma/FormControls'
 import { getFilePreview, formatDuration, type FilePreviewData } from '../lib/filePreview'
 import { incrementUsage } from '../lib/usage'
@@ -307,10 +308,17 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
     breadcrumbs,
     title: seoH1 ?? 'Burn Subtitles into Video',
     subtitle: seoIntro ?? 'Hardcode SRT or VTT into your video. Upload video + captions, download one file. Files deleted after processing. 3 free imports/mo.',
-    icon: <Film className="w-8 h-8 text-blue-600 dark:text-blue-400" />,
+    icon: <Film className="w-4 h-4 text-blue-600 dark:text-blue-400" />,
     tags: ['Hardcode', 'Burn-in', 'Permanent', 'Styling', 'Position'],
     sidebar: null,
+    compactToolHeader: true,
     coreToolPath: '/burn-subtitles',
+    currentStepLabel:
+      status === 'completed'
+        ? 'Video ready'
+        : videoFile
+          ? 'Upload configured'
+          : 'Ready to upload',
   }
 
   return (
@@ -536,6 +544,7 @@ export default function BurnSubtitles(props: BurnSubtitlesSeoProps = {}) {
                 { path: '/video-to-subtitles', name: 'Video → Subtitles', description: 'Generate SRT/VTT' },
               ]}
             />
+            <ResultUpgradeCard tool="burn" resultKey={result.downloadUrl} />
             <FreePlanNudge tool="burn-subtitles" resultKey={result.downloadUrl} />
             <SecondJobUpgradeNudge tool="burn-subtitles" resultKey={result.downloadUrl} milestone={2} />
             <SecondJobUpgradeNudge tool="burn-subtitles" resultKey={result.downloadUrl} milestone={3} />

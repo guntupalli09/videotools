@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Download, ChevronRight } from 'lucide-react';
+import { Download, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import ResultHeader from '../ResultHeader';
 
 interface TranslateResultProps {
   /** Content rendered immediately after the primary download button. */
@@ -14,6 +15,7 @@ interface TranslateResultProps {
   downloadLabel?: string;
   onDownload?: () => void;
   onProcessAnother?: () => void;
+  processAnotherLabel?: string;
   relatedTools?: Array<{ path: string; name: string; description: string }>;
 }
 
@@ -32,29 +34,18 @@ export function TranslateResult({
   onDownload,
   afterDownloadContent,
   onProcessAnother,
+  processAnotherLabel = 'Process another file',
   relatedTools = defaultRelatedTools,
 }: TranslateResultProps) {
   return (
     <div className="space-y-6">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="text-center py-8"
-      >
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-          className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 mb-4"
-        >
-          <Check className="w-8 h-8 text-green-600 dark:text-green-400" />
-        </motion.div>
-        <h2 className="text-2xl font-medium text-gray-900 dark:text-white mb-2">{title}</h2>
-        <p className="text-gray-600 dark:text-gray-400 mb-1">{fileName}</p>
-        <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-          Processed in {processingTime} ⚡
-        </p>
-      </motion.div>
+      <ResultHeader
+        title={title.replace(/!$/, '')}
+        processingTime={processingTime}
+        fileName={fileName}
+        actionLabel={processAnotherLabel}
+        onAction={onProcessAnother}
+      />
 
       {fileSize != null && (
         <motion.div
@@ -82,18 +73,6 @@ export function TranslateResult({
       )}
 
       {afterDownloadContent}
-
-      {onProcessAnother && (
-        <div className="text-center">
-          <button
-            type="button"
-            onClick={onProcessAnother}
-            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium transition-colors"
-          >
-            Process another file
-          </button>
-        </div>
-      )}
 
       {relatedTools.length > 0 && (
         <div>

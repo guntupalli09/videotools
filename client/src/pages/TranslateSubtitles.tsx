@@ -12,6 +12,8 @@ import UpgradeBanner from '../components/UpgradeBanner'
 import FreePlanNudge from '../components/FreePlanNudge'
 import SecondJobUpgradeNudge from '../components/SecondJobUpgradeNudge'
 import ProCheckoutLink from '../components/ProCheckoutLink'
+import ResultUpgradeCard from '../components/ResultUpgradeCard'
+import ResultHeader from '../components/ResultHeader'
 import { ToolLayout } from '../components/figma/ToolLayout'
 import { UploadZone } from '../components/figma/UploadZone'
 import { ProcessingInterface } from '../components/figma/ProcessingInterface'
@@ -628,10 +630,17 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
     breadcrumbs,
     title: seoH1 ?? 'Translate Subtitles to Any Language',
     subtitle: seoIntro ?? 'Upload SRT or VTT, pick a target language, download a timed file. 70+ languages. Timestamps stay in sync. Try it free.',
-    icon: <Languages className="w-8 h-8 text-blue-600 dark:text-blue-400" />,
+    icon: <Languages className="w-4 h-4 text-blue-600 dark:text-blue-400" />,
     tags: ['SRT', 'VTT', 'TXT', 'DOCX', 'JSON', '70+ Languages'],
     sidebar: null,
+    compactToolHeader: true,
     coreToolPath: location.pathname === '/translate-subtitles' ? '/translate-subtitles' : undefined,
+    currentStepLabel:
+      status === 'completed'
+        ? 'Translation ready'
+        : selectedFile || pastedText.trim()
+          ? 'Upload configured'
+          : 'Ready to upload',
   }
 
   // ── Shared tab bar (used in both modes) ────────────────────────────────────
@@ -906,15 +915,15 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
             {/* Completed — guests see signup only */}
             {status === 'completed' && result && !isLoggedIn() && (
               <div className="rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 overflow-hidden select-none">
-                <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                    <span className="text-sm font-semibold text-gray-800 dark:text-white">Translation complete!</span>
-                    {lastProcessingMs != null && (
-                      <span className="text-xs text-gray-400">· {(lastProcessingMs / 1000).toFixed(1)}s</span>
-                    )}
-                  </div>
-                </div>
+                <ResultHeader
+                  embedded
+                  title="Translation complete"
+                  processingTime={
+                    lastProcessingMs != null
+                      ? `${(lastProcessingMs / 1000).toFixed(1)}s`
+                      : null
+                  }
+                />
                 <div className="px-5 py-4">
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                     Create a free account to view, copy, and download your translation.
@@ -980,6 +989,9 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                   ]}
                 />
                 {inputKind === 'subtitles' && <FreePlanNudge tool="translation" resultKey={result.downloadUrl} />}
+                {inputKind === 'subtitles' && (
+                  <ResultUpgradeCard tool="translation" resultKey={result.downloadUrl} />
+                )}
                 {inputKind === 'subtitles' && (
                   <>
                     <SecondJobUpgradeNudge tool="translation" resultKey={result.downloadUrl} milestone={2} />

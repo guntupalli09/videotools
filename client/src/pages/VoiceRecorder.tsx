@@ -1,10 +1,13 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import { Link } from 'react-router-dom'
 import UpgradeBanner from '../components/UpgradeBanner'
 import FreePlanNudge from '../components/FreePlanNudge'
 import SecondJobUpgradeNudge from '../components/SecondJobUpgradeNudge'
+import ResultUpgradeCard from '../components/ResultUpgradeCard'
+import ResultHeader from '../components/ResultHeader'
 import PaywallModal, { type PaywallReason } from '../components/PaywallModal'
 import { isPaidPlan as hasPaidPlan } from '../lib/plans'
+import { startCheckout } from '../lib/startCheckout'
+import { useProPricing } from '../contexts/PricingContext'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Mic,
@@ -22,6 +25,7 @@ import {
   Users,
   FileText,
   Languages,
+  Loader2,
 } from 'lucide-react'
 import { ToolLayout } from '../components/figma/ToolLayout'
 import CoreToolSeoDepth from '../components/CoreToolSeoDepth'
@@ -823,6 +827,27 @@ export default function VoiceRecorder() {
     typeof window !== 'undefined' &&
     hasPaidPlan(localStorage.getItem('plan'))
 
+  const { pricing } = useProPricing()
+  const [proCheckoutLoading, setProCheckoutLoading] = useState(false)
+
+  async function handleProCheckout(source: string) {
+    if (proCheckoutLoading) return
+    setProCheckoutLoading(true)
+    try {
+      await startCheckout({
+        returnToPath: window.location.pathname,
+        attribution: {
+          source,
+          tool: 'voice',
+          plan: 'free',
+          billing_interval: 'monthly',
+        },
+      })
+    } catch {
+      setProCheckoutLoading(false)
+    }
+  }
+
   const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length
   const showCanvas = phase === 'idle' || phase === 'requesting' || phase === 'recording'
 
@@ -832,9 +857,19 @@ export default function VoiceRecorder() {
       breadcrumbs={[{ label: 'Voice Recorder', href: '/voice-recorder' }]}
       title="Voice to Text — In-Browser Recorder"
       subtitle="Speak in the browser and get text. No video upload to start. Files deleted after processing. 3 free imports/mo."
-      icon={<Mic className="w-5 h-5 text-blue-600" />}
+      icon={<Mic className="w-4 h-4 text-blue-600" />}
       tags={['Free', '99 Languages', 'Live Transcription', 'Translation']}
       coreToolPath="/voice-recorder"
+      compactToolHeader
+      currentStepLabel={
+        phase === 'result'
+          ? 'Transcript ready'
+          : phase === 'recording'
+            ? 'Recording…'
+            : phase === 'uploading' || phase === 'processing'
+              ? 'Processing…'
+              : 'Ready to record'
+      }
     >
       <div className={`max-w-2xl mx-auto space-y-5 ${audioObjectUrl ? 'pb-24 sm:pb-28' : 'pb-16'}`}>
         <UpgradeBanner variant="voice" tool="voice-recorder" />
@@ -1102,13 +1137,11 @@ export default function VoiceRecorder() {
                 {/* Teaser card for guests */}
                 {showAuthGate && !isLoggedIn() && (
                   <div className="rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 overflow-hidden select-none">
-                    <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                        <span className="text-sm font-semibold text-gray-800 dark:text-white">Voice transcript ready!</span>
-                      </div>
-                      <span className="text-xs text-gray-400">{wordCount.toLocaleString()} words · {formatTime(recSecs)} recorded</span>
-                    </div>
+                    <ResultHeader
+                      embedded
+                      title="Voice transcript ready"
+                      meta={`${wordCount.toLocaleString()} words · ${formatTime(recSecs)} recorded`}
+                    />
                     <div className="px-5 py-4">
                       <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                         Create a free account to view, copy, and download your transcript.
@@ -1144,22 +1177,14 @@ export default function VoiceRecorder() {
 
                 {/* Full result — hidden until signed in */}
                 {(!showAuthGate || isLoggedIn()) && (<>
-                {/* Result header */}
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
-                      <Check className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" strokeWidth={2.5} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                        Transcript ready
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {wordCount.toLocaleString()} {wordCount === 1 ? 'word' : 'words'} · {formatTime(recSecs)} recorded
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
+                <ResultHeader
+                  title="Transcript ready"
+                  meta={`${wordCount.toLocaleString()} ${wordCount === 1 ? 'word' : 'words'} · ${formatTime(recSecs)} recorded`}
+                  actionLabel="Record another"
+                  actionIcon={RefreshCw}
+                  onAction={reset}
+                />
+                <div className="flex items-center gap-2 flex-wrap">
                     <button
                       onClick={copyTranscript}
                       className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -1189,7 +1214,6 @@ export default function VoiceRecorder() {
                       </button>
                     )}
                   </div>
-                </div>
 
                 {/* Translation sub-tabs — shown when translation is available */}
                 {isPaidPlan && translatedText && (
@@ -1345,10 +1369,12 @@ export default function VoiceRecorder() {
                         { Icon: Languages, label: 'Translation',    desc: '70+ languages' },
                         { Icon: FileText,  label: 'SRT Export',     desc: 'Subtitle-ready format' },
                       ] as const).map(({ Icon, label, desc }) => (
-                        <Link
-                          to="/pricing"
+                        <button
+                          type="button"
                           key={label}
-                          className="flex flex-col items-center gap-1.5 rounded-lg bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700/60 p-3 text-center hover:border-blue-400 dark:hover:border-blue-500 transition-colors"
+                          disabled={proCheckoutLoading}
+                          onClick={() => handleProCheckout('voice_pro_grid')}
+                          className="flex flex-col items-center gap-1.5 rounded-lg bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700/60 p-3 text-center hover:border-blue-400 dark:hover:border-blue-500 transition-colors disabled:cursor-wait disabled:opacity-70"
                         >
                           <div className="relative">
                             <Icon className="w-5 h-5 text-gray-300 dark:text-gray-600" />
@@ -1360,19 +1386,31 @@ export default function VoiceRecorder() {
                           <span className="text-[11px] text-gray-400 dark:text-gray-500 leading-tight">
                             {desc}
                           </span>
-                        </Link>
+                        </button>
                       ))}
                     </div>
-                    <Link
-                      to="/pricing"
-                      className="block text-center text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                    <button
+                      type="button"
+                      disabled={proCheckoutLoading}
+                      onClick={() => handleProCheckout('voice_pro_footer')}
+                      className="block w-full text-center text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline disabled:cursor-wait disabled:opacity-70"
                     >
-                      Unlock Pro — $7.99/mo →
-                    </Link>
+                      {proCheckoutLoading ? (
+                        <span className="inline-flex items-center justify-center gap-1.5">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                          Opening checkout…
+                        </span>
+                      ) : (
+                        `Unlock Pro — ${pricing.priceLabel} →`
+                      )}
+                    </button>
                   </div>
                 )}
 
                 </>)}{/* end gate-hidden result */}
+                {voiceJobId && (
+                  <ResultUpgradeCard tool="voice" resultKey={voiceJobId} wordCount={wordCount} />
+                )}
                 {voiceJobId && <FreePlanNudge tool="voice" resultKey={voiceJobId} />}
                 {voiceJobId && (
                   <>
@@ -1381,7 +1419,7 @@ export default function VoiceRecorder() {
                   </>
                 )}
 
-                {/* Record again */}
+                {/* Record again — mobile fallback when header action is off-screen */}
                 <button
                   onClick={reset}
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-gray-200 dark:border-gray-600 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"

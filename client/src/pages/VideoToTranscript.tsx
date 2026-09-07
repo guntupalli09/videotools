@@ -30,6 +30,7 @@ import UpgradeBanner from "../components/UpgradeBanner";
 import FreePlanNudge from "../components/FreePlanNudge";
 import SecondJobUpgradeNudge from "../components/SecondJobUpgradeNudge";
 import ResultUpgradeCard from "../components/ResultUpgradeCard";
+import ResultHeader from "../components/ResultHeader";
 import { incrementJobCompletedCount } from "../lib/jobCount";
 import JobAuthGateModal from "../components/JobAuthGateModal";
 import { isLoggedIn } from "../lib/auth";
@@ -4606,23 +4607,15 @@ export default function VideoToTranscript(
               !isLoggedIn() &&
               (
                   <div className="rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 overflow-hidden select-none mb-2">
-                    <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-emerald-50/80 via-cyan-50/70 to-blue-50/70 dark:from-emerald-950/30 dark:via-cyan-950/20 dark:to-blue-950/20">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="w-2 h-2 rounded-full bg-emerald-500 inline-block"
-                          aria-hidden
-                        />
-                        <span className="text-sm font-semibold text-gray-800 dark:text-white">
-                          Transcript ready
-                        </span>
-                        {lastProcessingMs != null && (
-                          <span className="text-xs text-gray-400">
-                            · {(lastProcessingMs / 1000).toFixed(1)}s
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
+                    <ResultHeader
+                      embedded
+                      title="Transcript ready"
+                      processingTime={
+                        lastProcessingMs != null
+                          ? `${(lastProcessingMs / 1000).toFixed(1)}s`
+                          : null
+                      }
+                    />
                     <div className="px-5 pb-5 pt-4 pointer-events-auto">
                       <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                         Create a free account to view, copy, and download your full transcript.
@@ -4679,6 +4672,16 @@ export default function VideoToTranscript(
               className={`space-y-6 ${audioObjectUrl ? "pb-24 sm:pb-28" : ""}`}
               hidden={showAuthGate && !isLoggedIn()}
             >
+              <ResultHeader
+                title="Transcript ready"
+                processingTime={
+                  lastProcessingMs != null
+                    ? `${(lastProcessingMs / 1000).toFixed(1)}s`
+                    : null
+                }
+                fileName={result.fileName ?? selectedFile?.name}
+                onAction={handleProcessAnother}
+              />
               <ResultUpgradeCard
                 tool="transcript"
                 resultKey={currentJobId || result.downloadUrl}
@@ -4735,17 +4738,6 @@ export default function VideoToTranscript(
                   </div>
                 );
               })()}
-
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={handleProcessAnother}
-                  className="inline-flex items-center gap-2 rounded-xl border border-blue-300 dark:border-blue-700 bg-blue-600 px-3 py-2 text-[13px] font-medium text-white hover:bg-blue-700 transition-colors shadow-sm"
-                >
-                  <Upload className="h-4 w-4" aria-hidden />
-                  Upload new file
-                </button>
-              </div>
 
               {/* Main workspace: transcript / speakers (left) + insight rail (right) */}
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(380px,500px)] xl:grid-cols-[minmax(0,1fr)_540px] items-start">
