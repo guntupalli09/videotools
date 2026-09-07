@@ -10,7 +10,10 @@ import { trackEvent } from '../lib/analytics'
 import { trackAppEvent } from '../lib/feedbackEvents'
 import { useProPricing } from '../contexts/PricingContext'
 
-const DISMISS_KEY = 'vt:second-job-nudge-shown'
+const DISMISS_KEYS: Record<2 | 3, string> = {
+  2: 'vt:second-job-nudge-shown',
+  3: 'vt:third-job-nudge-shown',
+}
 
 export type SecondJobNudgeTool =
   | 'transcript'
@@ -24,13 +27,27 @@ export type SecondJobNudgeTool =
 interface Props {
   tool: SecondJobNudgeTool
   resultKey?: string | number | null
+  /** Job milestone that triggers this nudge (2 or 3 completed jobs). */
+  milestone?: 2 | 3
 }
 
-export default function SecondJobUpgradeNudge({ tool, resultKey }: Props) {
+const COPY: Record<2 | 3, { title: string; body: string }> = {
+  2: {
+    title: "You're on a roll — unlock unlimited processing",
+    body: "You've completed two jobs on the free plan. Pro removes the monthly import cap, supports longer videos, and unlocks batch processing and professional exports.",
+  },
+  3: {
+    title: 'Three jobs in — time to go Pro?',
+    body: "You're clearly getting value from VideoText. Pro removes the monthly cap, unlocks watermark-free exports, and supports longer files plus batch workflows.",
+  },
+}
+
+export default function SecondJobUpgradeNudge({ tool, resultKey, milestone = 2 }: Props) {
   const { pricing } = useProPricing()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const copy = COPY[milestone]
 
   useEffect(() => {
     if (!isLoggedIn() || resultKey == null) return
@@ -40,17 +57,28 @@ export default function SecondJobUpgradeNudge({ tool, resultKey }: Props) {
       .then((data) => {
         if (cancelled || isPaidPlan(data.plan)) return
         const jobCount = getJobCompletedCount()
-        if (jobCount !== 2) return
-        if (sessionStorage.getItem(DISMISS_KEY) === '1') return
+        if (jobCount !== milestone) return
+        if (sessionStorage.getItem(DISMISS_KEYS[milestone]) === '1') return
 
-        sessionStorage.setItem(DISMISS_KEY, '1')
+        sessionStorage.setItem(DISMISS_KEYS[milestone], '1')
         setOpen(true)
-        const payload = { trigger: 'second_job', tool, job_count: jobCount, plan: 'free' }
+        const payload = {
+          trigger: milestone === 2 ? 'second_job' : 'third_job',
+          tool,
+          job_count: jobCount,
+          plan: 'free',
+        }
         try {
           trackEvent('upgrade_prompt_seen', payload)
-          trackEvent('second_job_upgrade_nudge_seen', payload)
-          trackAppEvent('upgrade_prompt_seen', payload)
-          trackAppEvent('second_job_upgrade_nudge_seen', payload)
+          if (milestone === 2) {
+            trackEvent('second_job_upgrade_nudge_seen', payload)
+            trackAppEvent('upgrade_prompt_seen', payload)
+            trackAppEvent('second_job_upgrade_nudge_seen', payload)
+          } else {
+            trackEvent('third_job_upgrade_nudge_seen', payload)
+            trackAppEvent('upgrade_prompt_seen', payload)
+            trackAppEvent('third_job_upgrade_nudge_seen', payload)
+          }
         } catch {
           /* non-blocking */
         }
@@ -60,7 +88,7 @@ export default function SecondJobUpgradeNudge({ tool, resultKey }: Props) {
     return () => {
       cancelled = true
     }
-  }, [resultKey, tool])
+  }, [milestone, resultKey, tool])
 
   async function handleUpgrade() {
     if (loading) return
@@ -70,7 +98,7 @@ export default function SecondJobUpgradeNudge({ tool, resultKey }: Props) {
       await startCheckout({
         returnToPath: window.location.pathname,
         attribution: {
-          source: 'second_job_nudge',
+          source: milestone === 2 ? 'second_job_nudge' : 'third_job_nudge',
           tool,
           job_count: getJobCompletedCount(),
           plan: 'free',
@@ -101,7 +129,7 @@ export default function SecondJobUpgradeNudge({ tool, resultKey }: Props) {
             className="relative w-full max-w-md rounded-xl bg-white p-7 shadow-xl dark:bg-gray-800"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="second-job-nudge-title"
+            aria-labelledby={`job-nudge-title-${milestone}`}
           >
             <button
               type="button"
@@ -115,13 +143,10 @@ export default function SecondJobUpgradeNudge({ tool, resultKey }: Props) {
             <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40">
               <Zap className="h-5 w-5 text-blue-600 dark:text-blue-400" aria-hidden />
             </div>
-            <h2 id="second-job-nudge-title" className="text-lg font-semibold text-gray-900 dark:text-white">
-              You're on a roll — unlock unlimited processing
+            <h2 id={`job-nudge-title-${milestone}`} className="text-lg font-semibold text-gray-900 dark:text-white">
+              {copy.title}
             </h2>
-            <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-              You've completed two jobs on the free plan. Pro removes the monthly import cap, supports
-              longer videos, and unlocks batch processing and professional exports.
-            </p>
+            <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">{copy.body}</p>
 
             <button
               type="button"

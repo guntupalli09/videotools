@@ -68,7 +68,7 @@ Deep dive: [Best Otter alternatives on VideoText →](https://videotext.io/best-
 
 | | Otter.ai | VideoText.io |
 |---|----------|--------------|
-| Free tier | 300 min/mo (meetings) | **3 uploads/day**, full workflow |
+| Free tier | 300 min/mo (meetings) | **3 imports/month**, full workflow |
 | Pro plan | $16.99/mo | **$7.99/mo Pro** flat |
 | SRT + chapters + translation | ⚠️ Partial / missing | ✅ One upload |
 | Speaker mapping + share links | ⚠️ Basic | ✅ Full diarization + read-only links |
@@ -113,7 +113,7 @@ Blog comparison: [Otter vs Descript vs TurboScribe →](https://videotext.io/blo
 ## FAQ: Otter.ai alternative
 
 **What is the best free Otter.ai alternative?**  
-VideoText free tier: 3 uploads/day, transcript + subtitle exports. TurboScribe: 3 transcriptions/day (30 min each).
+VideoText free tier: 3 imports/month, transcript + subtitle exports. TurboScribe: 3 transcriptions/day (30 min each).
 
 **Is VideoText better than Otter for YouTube?**  
 Yes for file-based YouTube workflows — URL paste, SRT upload, chapters. [YouTube transcript generator →](https://videotext.io/youtube-transcript-generator)

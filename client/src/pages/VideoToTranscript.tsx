@@ -4690,7 +4690,8 @@ export default function VideoToTranscript(
                 }
               />
               <FreePlanNudge tool="transcript" resultKey={currentJobId || result.downloadUrl} />
-              <SecondJobUpgradeNudge tool="transcript" resultKey={currentJobId || result.downloadUrl} />
+              <SecondJobUpgradeNudge tool="transcript" resultKey={currentJobId || result.downloadUrl} milestone={2} />
+              <SecondJobUpgradeNudge tool="transcript" resultKey={currentJobId || result.downloadUrl} milestone={3} />
               {/* ── Transcript stats pills ── */}
               {(() => {
                 const text =

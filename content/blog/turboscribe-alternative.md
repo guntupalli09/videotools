@@ -61,7 +61,7 @@ TurboScribe wins on **sticker price**. VideoText.io wins on **total cost to publ
 
 | | TurboScribe | VideoText.io |
 |---|-------------|--------------|
-| **Free tier** | 3 files/day (30 min each) | **3 uploads/day**, no card |
+| **Free tier** | 3 files/day (30 min each) | **3 imports/month**, no card |
 | **Paid plan** | $10/mo (Unlimited) / $20/mo (Turbo) | **$7.99/mo Pro** flat |
 | **SRT/VTT export** | ❌ | ✅ |
 | **Chapters + AI summary** | ❌ | ✅ |

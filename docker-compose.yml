@@ -75,6 +75,7 @@ services:
       TEMP_FILE_PATH: /tmp
       STREAM_UPLOAD_ASSEMBLY: "true"
       DISABLE_WORKER: "true"
+      PRO_ONBOARDING_EMAILS_ENABLED: "true"
       FFMPEG_PATH: /usr/bin/ffmpeg
       FFPROBE_PATH: /usr/bin/ffprobe
       # Must match worker — API routes YouTube jobs to captionQueue when true

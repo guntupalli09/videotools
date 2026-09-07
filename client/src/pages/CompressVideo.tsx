@@ -485,7 +485,8 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
             />
             )}{/* end gate-hidden result */}
             <FreePlanNudge tool="compress-video" resultKey={result.downloadUrl} />
-            <SecondJobUpgradeNudge tool="compress-video" resultKey={result.downloadUrl} />
+            <SecondJobUpgradeNudge tool="compress-video" resultKey={result.downloadUrl} milestone={2} />
+            <SecondJobUpgradeNudge tool="compress-video" resultKey={result.downloadUrl} milestone={3} />
             <div className="mt-2 min-h-[2.75rem]">
             {/* <WorkflowChainSuggestion
               pathname={location.pathname}

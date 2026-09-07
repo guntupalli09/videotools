@@ -1424,7 +1424,8 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
             )}
             <ResultUpgradeCard tool="subtitles" resultKey={result.downloadUrl} />
             <FreePlanNudge tool="subtitles" resultKey={result.downloadUrl} />
-            <SecondJobUpgradeNudge tool="subtitles" resultKey={result.downloadUrl} />
+            <SecondJobUpgradeNudge tool="subtitles" resultKey={result.downloadUrl} milestone={2} />
+            <SecondJobUpgradeNudge tool="subtitles" resultKey={result.downloadUrl} milestone={3} />
           </div>
         )}
 

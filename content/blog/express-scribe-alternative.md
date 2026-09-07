@@ -95,7 +95,7 @@ Typical Rev-style clean-verbatim job, single speaker, 60-minute WAV, client requ
 | Client style guide presets | ❌ Manual | ✅ [Guideline format](https://videotext.io/guideline-format) |
 | Batch queue (podcast backlog) | ⚠️ One file at a time | ✅ [Batch process](https://videotext.io/batch-process) |
 | Zero data retention | ❌ | ✅ |
-| Free tier | ⚠️ Limited | ✅ 3 uploads/day |
+| Free tier | ⚠️ Limited | ✅ 3 imports/month |
 | **Pro pricing** | ~$40–80 (player + optional AI) | **$7.99/mo flat** |
 | Speaker name mapping UI | ❌ Manual tags | ✅ "Who said what" + diarization |
 | 3-column export (Speaker · Timecode · Dialogue) | ❌ | ✅ PDF/DOCX |
