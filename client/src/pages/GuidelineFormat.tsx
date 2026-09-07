@@ -21,6 +21,16 @@ import {
 import JobAuthGateModal from "../components/JobAuthGateModal";
 import ProResultNudge from "../components/ProResultNudge";
 import { isLoggedIn } from "../lib/auth";
+import { isPaidPlan as hasPaidPlan } from "../lib/plans";
+import {
+  drawPdfFreePlanWatermark,
+  WATERMARK_DOC_FOOTER,
+  WATERMARK_DOC_HEADER,
+  WATERMARK_LINE1,
+  WATERMARK_LINE2,
+  watermarkTextExport,
+  type WatermarkTextFormat,
+} from "../lib/watermark";
 import {
   PRESET_DATA,
   type GuidelinePresetKey,
@@ -527,6 +537,21 @@ export default function GuidelineFormat() {
     return applyReviewEditsToOutputText(base, flaggedList, reviewEdits);
   };
 
+  const plan =
+    (typeof window !== "undefined"
+      ? localStorage.getItem("plan")
+      : null) || "free";
+  const isPaidPlan = hasPaidPlan(plan);
+
+  const watermarkExport = (content: string, format: WatermarkTextFormat) =>
+    isPaidPlan ? content : watermarkTextExport(content, format);
+
+  const exportDownloadToast = () => {
+    toast.success(
+      isPaidPlan ? "Download started" : "Download started (with watermark)",
+    );
+  };
+
   const downloadFormattedTxt = () => {
     const { text, warnings } = getExportText();
     if (!text) return;
@@ -536,13 +561,15 @@ export default function GuidelineFormat() {
         "Some review edits could not be applied. Exporting best-effort output.",
       );
     }
-    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const payload = watermarkExport(text, "txt");
+    const blob = new Blob([payload], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = "formatted_transcript.txt";
     a.click();
     URL.revokeObjectURL(url);
+    exportDownloadToast();
   };
 
   const downloadFormattedSrt = () => {
@@ -566,13 +593,14 @@ export default function GuidelineFormat() {
       );
       return;
     }
-    const content = cuesToSrt(formattedCues);
+    const content = watermarkExport(cuesToSrt(formattedCues), "srt");
     const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "formatted_transcript.srt";
     a.click();
     URL.revokeObjectURL(a.href);
+    exportDownloadToast();
   };
 
   const downloadFormattedVtt = () => {
@@ -595,13 +623,14 @@ export default function GuidelineFormat() {
       );
       return;
     }
-    const content = cuesToVtt(formattedCues);
+    const content = watermarkExport(cuesToVtt(formattedCues), "vtt");
     const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "formatted_transcript.vtt";
     a.click();
     URL.revokeObjectURL(a.href);
+    exportDownloadToast();
   };
 
   const downloadFormattedJson = () => {
@@ -614,7 +643,8 @@ export default function GuidelineFormat() {
       outputText: text || jobStatus.outputText,
       reviewWarnings: warnings.length ? warnings : undefined,
     };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    const json = watermarkExport(JSON.stringify(payload, null, 2), "json");
+    const blob = new Blob([json], {
       type: "application/json;charset=utf-8",
     });
     const a = document.createElement("a");
@@ -622,6 +652,7 @@ export default function GuidelineFormat() {
     a.download = "formatted_transcript.json";
     a.click();
     URL.revokeObjectURL(a.href);
+    exportDownloadToast();
   };
 
   const downloadFlaggedCsv = () => {
@@ -641,13 +672,14 @@ export default function GuidelineFormat() {
         .map(escape)
         .join(","),
     );
-    const csv = [header.join(","), ...rows].join("\n");
+    const csv = watermarkExport([header.join(","), ...rows].join("\n"), "csv");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "flagged_segments.csv";
     a.click();
     URL.revokeObjectURL(a.href);
+    exportDownloadToast();
   };
 
   const downloadFormattedRtf = () => {
@@ -659,7 +691,10 @@ export default function GuidelineFormat() {
         "Some review edits could not be applied. Exporting best-effort output.",
       );
     }
-    const rtfEscaped = text
+    const wmPrefix = isPaidPlan
+      ? ""
+      : `${WATERMARK_LINE1.replace(/\\/g, "\\\\")}\\par ${WATERMARK_LINE2.replace(/\\/g, "\\\\")}\\par\\par `;
+    const rtfEscaped = (wmPrefix + text)
       .replace(/\\/g, "\\\\")
       .replace(/{/g, "\\{")
       .replace(/}/g, "\\}")
@@ -671,6 +706,7 @@ export default function GuidelineFormat() {
     a.download = "formatted_transcript.rtf";
     a.click();
     URL.revokeObjectURL(a.href);
+    exportDownloadToast();
   };
 
   const downloadFormattedDocx = async () => {
@@ -689,17 +725,46 @@ export default function GuidelineFormat() {
         TextRun: T,
         Packer,
       } = await import("docx");
-      const paras = text
-        .split("\n")
-        .map((line) => new P({ children: [new T({ text: line })] }));
-      const doc = new D({ sections: [{ children: paras }] });
+      const children = [];
+      if (!isPaidPlan) {
+        children.push(
+          new P({
+            children: [
+              new T({
+                text: WATERMARK_DOC_HEADER,
+                bold: true,
+                color: "666666",
+                size: 20,
+              }),
+            ],
+            spacing: { after: 80 },
+          }),
+          new P({
+            children: [
+              new T({
+                text: WATERMARK_DOC_FOOTER,
+                italics: true,
+                color: "888888",
+                size: 18,
+              }),
+            ],
+            spacing: { after: 200 },
+          }),
+        );
+      }
+      children.push(
+        ...text
+          .split("\n")
+          .map((line) => new P({ children: [new T({ text: line })] })),
+      );
+      const doc = new D({ sections: [{ children }] });
       const blob = await Packer.toBlob(doc);
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
       a.download = "formatted_transcript.docx";
       a.click();
       URL.revokeObjectURL(a.href);
-      toast.success("DOCX downloaded");
+      exportDownloadToast();
     } catch {
       toast.error("DOCX export failed");
     }
@@ -723,6 +788,16 @@ export default function GuidelineFormat() {
       const lineH = 6;
       let y = margin;
       doc.setFontSize(11);
+      if (!isPaidPlan) {
+        doc.setFontSize(9);
+        doc.setTextColor(120);
+        doc.text(WATERMARK_DOC_HEADER, margin, y);
+        y += lineH;
+        doc.text(WATERMARK_DOC_FOOTER, margin, y);
+        y += lineH * 2;
+        doc.setTextColor(0);
+        doc.setFontSize(11);
+      }
       const allLines = doc.splitTextToSize(text, textWidth) as string[];
       for (const line of allLines) {
         if (y + lineH > pageH - margin) {
@@ -732,8 +807,9 @@ export default function GuidelineFormat() {
         doc.text(line, margin, y);
         y += lineH;
       }
+      if (!isPaidPlan) drawPdfFreePlanWatermark(doc);
       doc.save("formatted_transcript.pdf");
-      toast.success("PDF downloaded");
+      exportDownloadToast();
     } catch {
       toast.error("PDF export failed");
     }

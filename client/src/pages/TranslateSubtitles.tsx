@@ -22,7 +22,7 @@ import { incrementUsage } from '../lib/usage'
 import { uploadFileWithProgress, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError, getAuthToken } from '../lib/api'
 import { isLoggedIn } from '../lib/auth'
 import { isPaidPlan as hasPaidPlan } from '../lib/plans'
-import { watermarkTextExport, watermarkClipboardText } from '../lib/watermark'
+import { watermarkTextExport, watermarkClipboardText, applyWatermarkToVtt, applyWatermarkToAss, drawPdfFreePlanWatermark, WATERMARK_DOC_FOOTER, WATERMARK_DOC_HEADER } from '../lib/watermark'
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl, getApiBase } from '../lib/apiBase'
 import { persistJobId, clearPersistedJobId, getPersistedJobId, getPersistedJobToken } from '../lib/jobSession'
@@ -78,7 +78,7 @@ function srtTimeToAss(t: string): string {
   return stripped.replace(/(\.\d{2})\d*$/, '$1')
 }
 
-function generateStyledVtt(rows: SubtitleRow[], styles: SubStyles, baseFilename: string): void {
+function generateStyledVtt(rows: SubtitleRow[], styles: SubStyles, baseFilename: string, isPaidPlan: boolean): void {
   const { fontFamily, fontSize, color, bgColor, bgOpacity, bold, italic, position } = styles
   const linePos = position === 'top' ? ' line:5%' : position === 'center' ? ' line:50%' : ' line:90%'
   let vtt = `WEBVTT\n\nSTYLE\n::cue {\n`
@@ -92,10 +92,11 @@ function generateStyledVtt(rows: SubtitleRow[], styles: SubStyles, baseFilename:
   for (let i = 0; i < rows.length; i++) {
     vtt += `${i + 1}\n${rows[i].startTime} --> ${rows[i].endTime}${linePos}\n${rows[i].text}\n\n`
   }
+  if (!isPaidPlan) vtt = applyWatermarkToVtt(vtt)
   downloadBlob(vtt, 'text/vtt', `${baseFilename}_styled.vtt`)
 }
 
-function generateAssFile(rows: SubtitleRow[], styles: SubStyles, baseFilename: string): void {
+function generateAssFile(rows: SubtitleRow[], styles: SubStyles, baseFilename: string, isPaidPlan: boolean): void {
   const { fontFamily, fontSize, color, bgColor, bgOpacity, bold, italic, position } = styles
   const alignment = position === 'top' ? 6 : position === 'center' ? 10 : 2
   const primaryColor = hexToAssColor(color)
@@ -112,6 +113,7 @@ function generateAssFile(rows: SubtitleRow[], styles: SubStyles, baseFilename: s
     const text = row.text.replace(/\n/g, '\\N')
     ass += `Dialogue: 0,${start},${end},Default,,0,0,0,,${text}\n`
   }
+  if (!isPaidPlan) ass = applyWatermarkToAss(ass)
   downloadBlob(ass, 'text/plain', `${baseFilename}.ass`)
 }
 
@@ -390,12 +392,27 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
     }
   }
 
-  const downloadDocAsDocx = async (text: string, filename: string) => {
+  const downloadDocAsDocx = async (text: string, filename: string, isPaid: boolean) => {
     const { Document, Paragraph, TextRun, Packer } = await import('docx')
-    const paragraphs = text.split('\n').map((line) =>
-      new Paragraph({ children: [new TextRun({ text: line || ' ' })] })
+    const children = []
+    if (!isPaid) {
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: WATERMARK_DOC_HEADER, bold: true, color: '666666', size: 20 })],
+          spacing: { after: 80 },
+        }),
+        new Paragraph({
+          children: [new TextRun({ text: WATERMARK_DOC_FOOTER, italics: true, color: '888888', size: 18 })],
+          spacing: { after: 200 },
+        }),
+      )
+    }
+    children.push(
+      ...text.split('\n').map((line) =>
+        new Paragraph({ children: [new TextRun({ text: line || ' ' })] }),
+      ),
     )
-    const doc = new Document({ sections: [{ children: paragraphs }] })
+    const doc = new Document({ sections: [{ children }] })
     const blob = await Packer.toBlob(doc)
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -405,16 +422,27 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
     URL.revokeObjectURL(url)
   }
 
-  const downloadDocAsPdf = async (text: string, filename: string) => {
+  const downloadDocAsPdf = async (text: string, filename: string, isPaid: boolean) => {
     const { default: jsPDF } = await import('jspdf')
     const doc = new jsPDF()
-    const lines = doc.splitTextToSize(text, 180) as string[]
     let y = 15
+    if (!isPaid) {
+      doc.setFontSize(9)
+      doc.setTextColor(120)
+      doc.text(WATERMARK_DOC_HEADER, 15, y)
+      y += 6
+      doc.text(WATERMARK_DOC_FOOTER, 15, y)
+      y += 12
+      doc.setTextColor(0)
+      doc.setFontSize(11)
+    }
+    const lines = doc.splitTextToSize(text, 180) as string[]
     for (const line of lines) {
       if (y > 280) { doc.addPage(); y = 15 }
       doc.text(line, 15, y)
       y += 6
     }
+    if (!isPaid) drawPdfFreePlanWatermark(doc)
     doc.save(filename)
   }
 
@@ -717,13 +745,13 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
       {/* Export buttons */}
       <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
         <button
-          onClick={() => requireAuthForDownload(() => generateStyledVtt(subtitleRows, subStyles, subtitleBaseName))}
+          onClick={() => requireAuthForDownload(() => generateStyledVtt(subtitleRows, subStyles, subtitleBaseName, isPaidPlan))}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
         >
           <Download className="w-3.5 h-3.5" /> Styled VTT
         </button>
         <button
-          onClick={() => requireAuthForDownload(() => generateAssFile(subtitleRows, subStyles, subtitleBaseName))}
+          onClick={() => requireAuthForDownload(() => generateAssFile(subtitleRows, subStyles, subtitleBaseName, isPaidPlan))}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
         >
           <Download className="w-3.5 h-3.5" /> ASS / SSA
@@ -1142,19 +1170,23 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => requireAuthForDownload(() => downloadBlob(docTranslated, 'text/plain', `${docBaseName}.txt`))}
+                    onClick={() => requireAuthForDownload(() => downloadBlob(
+                      isPaidPlan ? docTranslated : watermarkTextExport(docTranslated, 'txt'),
+                      'text/plain',
+                      `${docBaseName}.txt`,
+                    ))}
                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                   >
                     <Download className="w-3.5 h-3.5" /> Download TXT
                   </button>
                   <button
-                    onClick={() => requireAuthForDownload(() => downloadDocAsDocx(docTranslated, `${docBaseName}.docx`))}
+                    onClick={() => requireAuthForDownload(() => downloadDocAsDocx(docTranslated, `${docBaseName}.docx`, isPaidPlan))}
                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                   >
                     <Download className="w-3.5 h-3.5" /> Download DOCX
                   </button>
                   <button
-                    onClick={() => requireAuthForDownload(() => downloadDocAsPdf(docTranslated, `${docBaseName}.pdf`))}
+                    onClick={() => requireAuthForDownload(() => downloadDocAsPdf(docTranslated, `${docBaseName}.pdf`, isPaidPlan))}
                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                   >
                     <Download className="w-3.5 h-3.5" /> Download PDF

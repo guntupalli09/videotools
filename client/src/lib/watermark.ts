@@ -173,7 +173,20 @@ export function applyWatermarkToJson(content: string): string {
   return applyWatermarkToTxt(content)
 }
 
-export type WatermarkTextFormat = 'txt' | 'csv' | 'json' | 'notion' | 'srt' | 'vtt'
+/** ASS/SSA: comment header + opening dialogue cue with upgrade message. */
+export function applyWatermarkToAss(content: string): string {
+  const header = `; ${WATERMARK_LINE1}\n; ${WATERMARK_LINE2}\n`
+  const cue = `Dialogue: 0,0:00:00.00,0:00:08.00,Default,,0,0,0,,${WATERMARK_LINE1}\\N${WATERMARK_LINE2}\n`
+  const trimmed = content.trimStart()
+  if (trimmed.startsWith('[Script Info]')) {
+    const scriptEnd = trimmed.indexOf('\n\n', trimmed.indexOf('[Script Info]'))
+    const insertAt = scriptEnd >= 0 ? scriptEnd + 2 : trimmed.indexOf('\n') + 1
+    return trimmed.slice(0, insertAt) + header + trimmed.slice(insertAt) + '\n' + cue
+  }
+  return header + trimmed + '\n' + cue
+}
+
+export type WatermarkTextFormat = 'txt' | 'csv' | 'json' | 'notion' | 'srt' | 'vtt' | 'ass'
 
 export function watermarkTextExport(content: string, format: WatermarkTextFormat): string {
   switch (format) {
@@ -181,6 +194,8 @@ export function watermarkTextExport(content: string, format: WatermarkTextFormat
       return applyWatermarkToSrt(content)
     case 'vtt':
       return applyWatermarkToVtt(content)
+    case 'ass':
+      return applyWatermarkToAss(content)
     case 'json':
     case 'notion':
       return applyWatermarkToJson(content)
