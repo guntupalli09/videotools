@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Link2, Loader2, Check, Crown } from 'lucide-react'
+import { Link2, Loader2, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { isLoggedIn } from '../lib/auth'
-import { planIncludesTranscriptShare } from '../lib/planShare'
 import {
   createTranscriptShare,
   ensureGuestJobClaimed,
@@ -117,34 +116,7 @@ export default function TranscriptSharePanel({
     )
   }
 
-  if (!planIncludesTranscriptShare()) {
-    return (
-      <div className="rounded-xl border border-blue-200/80 dark:border-blue-800/50 bg-gradient-to-br from-blue-50/90 to-white dark:from-blue-950/30 dark:to-gray-900/60 p-5">
-        <div className="flex items-start gap-3">
-          <div className="shrink-0 w-10 h-10 rounded-xl bg-blue-600/15 flex items-center justify-center">
-            <Crown className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-          </div>
-          <div className="min-w-0 space-y-1">
-            <p className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              Share read-only transcript pages
-              <span className="text-[10px] font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/50 px-2 py-0.5 rounded-full">
-                Pro
-              </span>
-            </p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Create a link to the original or translated transcript — perfect for clients, classmates, or your team. No login required for viewers.
-            </p>
-            <Link
-              to="/pricing"
-              className="inline-flex mt-2 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline"
-            >
-              Upgrade to Pro →
-            </Link>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const isFreePlan = (localStorage.getItem('plan') || 'free').toLowerCase() === 'free'
 
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 shadow-sm p-5 space-y-4">
@@ -156,8 +128,9 @@ export default function TranscriptSharePanel({
           <p className="text-sm font-semibold text-gray-900 dark:text-white">Share with a link</p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
             {sourceTool === 'video-to-subtitles'
-              ? 'Read-only page — no VideoText account needed for viewers. Share the original subtitles or a translation separately.'
-              : 'Read-only page — no VideoText account needed for viewers. You can share the original or a translation separately.'}
+              ? 'Read-only page — no account needed for viewers. Share original or translated subtitles separately.'
+              : 'Read-only page — no account needed for viewers. Share original or a translation separately.'}
+            {isFreePlan ? ' Free shares include a Powered by VideoText backlink (helps you earn referral traffic).' : ''}
           </p>
         </div>
       </div>

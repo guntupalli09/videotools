@@ -19,6 +19,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { fileQueue, addJobToQueue, getTotalQueueCount as getQueueCountFromWorker, JobData } from '../workers/videoProcessor'
 import { validateFileType, validateSubtitleFile } from '../utils/fileValidation'
 import { enforceLanguageLimits, enforceUsageLimits, getDailySoftCapConcurrency, getMaxDailyImports, getPlanLimits, applySystemLoadGuard } from '../utils/limits'
+import { assertCanImport } from '../utils/importQuota'
 import { resetDailyImportIfNeeded, resetDailyMinutesIfNeeded, resetUserUsageIfNeeded } from '../utils/usageReset'
 import { getUser, saveUser, PlanType, User, atomicResetDailyImportIfNeeded, atomicResetDailyMinutesIfNeeded } from '../models/User'
 import { hashFile, checkDuplicateProcessing } from './duplicate'
@@ -197,12 +198,12 @@ export async function runTranscriptionIntake(
     }
 
     // Free plan: 3 imports per day (resets at midnight UTC)
-    const dailyCap = getMaxDailyImports(user.plan)
-    if (dailyCap !== null && (user.usageThisMonth.importCountToday ?? 0) >= dailyCap) {
+    const importGate = assertCanImport(user)
+    if (!importGate.ok) {
       if (req.file) {
         try { fs.unlinkSync(req.file.path) } catch { /* ignore */ }
       }
-      return err(403, 'QUOTA_EXCEEDED', "You've used today's 3 free imports. They reset at midnight — or upgrade to Pro.")
+      return err(403, 'QUOTA_EXCEEDED', importGate.message)
     }
 
     const activeJobs = await fileQueue.getJobs(['active', 'waiting', 'delayed'])

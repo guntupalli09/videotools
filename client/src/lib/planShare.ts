@@ -1,6 +1,5 @@
-/** Match server `planAllowsTranscriptShare` in server/src/routes/share.ts */
+/** Logged-in users can create transcript share links (free tier includes VideoText branding). */
 export function planIncludesTranscriptShare(): boolean {
   if (typeof window === 'undefined') return false
-  const p = (localStorage.getItem('plan') || 'free').toLowerCase()
-  return p === 'pro' || p === 'agency' || p === 'business' || p === 'founding_workflow'
+  return Boolean(localStorage.getItem('authToken'))
 }

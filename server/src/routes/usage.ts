@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express'
 import { getUser, saveUser, User, atomicResetDailyImportIfNeeded, atomicResetDailyMinutesIfNeeded } from '../models/User'
-import { getPlanLimits, getJobPriority, isProSoftCapActive } from '../utils/limits'
+import { getMaxDailyImports, getPlanLimits, getJobPriority, isProSoftCapActive } from '../utils/limits'
 import { getAuthFromRequest, getEffectiveUserId } from '../utils/auth'
 import { resetDailyImportIfNeeded, resetDailyMinutesIfNeeded, resetUserUsageIfNeeded } from '../utils/usageReset'
 import { getPlanAndEmailForStripeCustomer, getSubscriptionPeriodEnd } from '../services/stripe'
@@ -150,13 +150,17 @@ router.get('/current', async (req: Request, res: Response) => {
   if (plan === 'free') {
     const importCountToday = usage.importCountToday ?? 0
     const limit = 3
+    const bonusImportCredits = user?.bonusImportCredits ?? 0
     const todayResetDate = usage.importCountTodayResetDate ?? new Date(now.getTime() + 24 * 60 * 60 * 1000)
+    const dailyRemaining = Math.max(0, limit - importCountToday)
     res.json({
       plan: 'free',
       quotaType: 'imports',
       used: importCountToday,
       limit,
-      remaining: Math.max(0, limit - importCountToday),
+      remaining: dailyRemaining + bonusImportCredits,
+      bonusImportCredits,
+      dailyRemaining,
       resetDate: todayResetDate.toISOString(),
       email: displayEmail,
       limits: {

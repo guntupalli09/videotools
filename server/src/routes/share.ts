@@ -5,17 +5,13 @@ import { getAuthFromRequest } from '../utils/auth'
 import { getUser } from '../models/User'
 import { getJobById, type JobData } from '../workers/videoProcessor'
 import { getLogger } from '../lib/logger'
+import { buildShareSignupUrl, planShowsProminentShareBranding } from '../utils/shareBranding'
 
 const log = getLogger('api')
 const router = express.Router()
 
 const MAX_FULLTEXT = 1_200_000
 const MAX_SEGMENTS = 50_000
-
-function planAllowsTranscriptShare(plan: string): boolean {
-  const p = (plan || 'free').toLowerCase()
-  return p === 'pro' || p === 'agency' || p === 'business' || p === 'founding_workflow'
-}
 
 function newShareSlug(): string {
   return crypto.randomBytes(18).toString('base64url')
@@ -60,7 +56,34 @@ function sanitizePayload(raw: unknown): SharePayload | null {
   return { fullText, ...(segments?.length ? { segments } : {}), ...(summary && Object.keys(summary).length ? { summary } : {}) }
 }
 
-/** Pro+: create a read-only public link with snapshot payload (original or translated). */
+function publicShareFields(row: {
+  slug: string
+  variant: string
+  sourceTool: string
+  title: string
+  targetLanguage: string | null
+  payload: unknown
+  createdAt: Date
+  ownerPlan: string
+}) {
+  const prominentBranding = planShowsProminentShareBranding(row.ownerPlan)
+  return {
+    slug: row.slug,
+    variant: row.variant,
+    sourceTool: row.sourceTool,
+    title: row.title,
+    targetLanguage: row.targetLanguage,
+    payload: row.payload,
+    createdAt: row.createdAt.toISOString(),
+    ownerPlan: row.ownerPlan,
+    showProminentBranding: prominentBranding,
+    signupUrl: buildShareSignupUrl(row.slug, row.ownerPlan),
+    embedPath: `/embed/${row.slug}`,
+    sharePath: `/s/${row.slug}`,
+  }
+}
+
+/** All logged-in users: create a read-only public link (free shares include VideoText branding). */
 router.post('/', express.json({ limit: '4mb' }), async (req: Request, res: Response) => {
   try {
     const auth = getAuthFromRequest(req)
@@ -68,8 +91,8 @@ router.post('/', express.json({ limit: '4mb' }), async (req: Request, res: Respo
       return res.status(401).json({ message: 'Sign in required to create a share link.' })
     }
     const user = await getUser(auth.userId)
-    if (!user || !planAllowsTranscriptShare(user.plan)) {
-      return res.status(403).json({ message: 'Share links are a Pro feature. Upgrade to create shareable transcript pages.' })
+    if (!user) {
+      return res.status(401).json({ message: 'Sign in required to create a share link.' })
     }
 
     const jobId = String(req.body?.jobId || '').trim()
@@ -111,6 +134,7 @@ router.post('/', express.json({ limit: '4mb' }), async (req: Request, res: Respo
     }
 
     const slug = newShareSlug()
+    const ownerPlan = (user.plan || 'free').toLowerCase()
     const row = await prisma.transcriptShare.create({
       data: {
         slug,
@@ -121,15 +145,18 @@ router.post('/', express.json({ limit: '4mb' }), async (req: Request, res: Respo
         title: title || (sourceTool === 'voice-to-text' ? 'Voice recording' : sourceTool === 'video-to-subtitles' ? 'Subtitles' : 'Transcript'),
         targetLanguage: variant === 'translated' ? targetLanguage : null,
         payload: payload as object,
+        ownerPlan,
       },
     })
 
     const publicPath = `/s/${row.slug}`
-    log.info({ msg: 'transcript_share_created', userId: auth.userId, jobId, variant, slug: row.slug })
+    log.info({ msg: 'transcript_share_created', userId: auth.userId, jobId, variant, slug: row.slug, ownerPlan })
     return res.status(201).json({
       slug: row.slug,
       path: publicPath,
       url: publicPath,
+      embedPath: `/embed/${row.slug}`,
+      showProminentBranding: planShowsProminentShareBranding(ownerPlan),
     })
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error)
@@ -156,15 +183,7 @@ router.get('/public/:slug', async (req: Request, res: Response) => {
     res.set({
       'Cache-Control': 'public, max-age=120',
     })
-    return res.json({
-      slug: row.slug,
-      variant: row.variant,
-      sourceTool: row.sourceTool,
-      title: row.title,
-      targetLanguage: row.targetLanguage,
-      payload: row.payload,
-      createdAt: row.createdAt.toISOString(),
-    })
+    return res.json(publicShareFields(row))
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error)
     log.error({ msg: 'transcript_share_public_error', error: msg })
