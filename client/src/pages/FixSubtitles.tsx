@@ -9,6 +9,7 @@ import {
 import FailedState from '../components/FailedState'
 import CoreToolSeoDepth from '../components/CoreToolSeoDepth'
 import FreePlanNudge from '../components/FreePlanNudge'
+import SecondJobUpgradeNudge from '../components/SecondJobUpgradeNudge'
 import PaywallModal, { type PaywallReason } from '../components/PaywallModal'
 import { isPaidPlan } from '../lib/plans'
 import SamplesModule from '../components/SamplesModule'
@@ -22,6 +23,7 @@ import { Checkbox } from '../components/figma/FormControls'
 import type { SubtitleRow } from '../components/SubtitleEditor'
 const SubtitleQAReview = lazy(() => import('../components/SubtitleQAReview'))
 import { incrementUsage } from '../lib/usage'
+import { incrementJobCompletedCount } from '../lib/jobCount'
 import { uploadFileWithProgress, uploadFixSubtitlesDual, getJobStatus, getCurrentUsage, BACKEND_TOOL_TYPES, SessionExpiredError, getAuthToken, claimGuestJob } from '../lib/api'
 import { getJobLifecycleTransition, JOB_POLL_INTERVAL_MS } from '../lib/jobPolling'
 import { getAbsoluteDownloadUrl } from '../lib/apiBase'
@@ -303,7 +305,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
     if (!isLoggedIn()) return true
     try {
       const usage = await getCurrentUsage({ skipCache: true })
-      const remaining = usage.remaining ?? (usage.limit ?? 3) - (usage.used ?? usage.usage.importCountToday ?? 0)
+      const remaining = usage.remaining ?? (usage.limit ?? 3) - (usage.used ?? usage.usage.importCount ?? 0)
       if (usage.plan === 'free' && usage.quotaType === 'imports' && remaining <= 0) {
         setProPaywallReason('FREE_DAILY_LIMIT_REACHED'); setShowProPaywall(true); return false
       }
@@ -427,7 +429,17 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
             // emitToolCompleted({ toolId: 'fix-subtitles', pathname: '/fix-subtitles', processingMs })
             setWarnings(jobStatus.result?.warnings ?? [])
             incrementUsage('fix-subtitles')
-            // texJobCompleted(processingMs, 'fix-subtitles')
+            try {
+              const nextJobCount = incrementJobCompletedCount()
+              trackEvent('job_completed', {
+                job_id: response.jobId,
+                tool_type: BACKEND_TOOL_TYPES.FIX_SUBTITLES,
+                processing_time_ms: processingMs,
+                job_count: nextJobCount,
+              })
+            } catch {
+              /* non-blocking */
+            }
             if (jobStatus.result?.downloadUrl) {
               try {
                 const token = getAuthToken()
@@ -1146,6 +1158,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
               relatedTools={[]}
             />
             <FreePlanNudge tool="fix-srt" resultKey={result.downloadUrl} />
+            <SecondJobUpgradeNudge tool="fix-srt" resultKey={result.downloadUrl} />
 
             {changedCues.length > 0 && (
               <motion.div

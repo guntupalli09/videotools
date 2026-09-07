@@ -6,7 +6,7 @@ import fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
 import { fileQueue, addJobToQueue, getJobById, getTotalQueueCount as getQueueCountFromWorker, JobData } from '../workers/videoProcessor'
 import { validateFileType, validateFileSize, validateSubtitleFile } from '../utils/fileValidation'
-import { enforceLanguageLimits, enforceUsageLimits, getDailySoftCapConcurrency, getJobPriority, getMaxDailyImports, getPlanLimits, applySystemLoadGuard } from '../utils/limits'
+import { enforceLanguageLimits, enforceUsageLimits, getDailySoftCapConcurrency, getJobPriority, getMaxMonthlyImports, getPlanLimits, applySystemLoadGuard, FREE_MONTHLY_IMPORT_QUOTA_MESSAGE, GUEST_DAILY_IMPORT_QUOTA_MESSAGE } from '../utils/limits'
 import { resetDailyImportIfNeeded, resetDailyMinutesIfNeeded, resetUserUsageIfNeeded } from '../utils/usageReset'
 import { getUser, saveUser, PlanType, User, atomicResetDailyImportIfNeeded, atomicResetDailyMinutesIfNeeded } from '../models/User'
 import { hashFile, checkDuplicateProcessing } from '../services/duplicate'
@@ -204,7 +204,7 @@ router.post('/init', async (req: Request, res: Response) => {
     if (userId.startsWith('guest_')) {
       const clientIp = extractClientIp(req)
       if (!await checkAndRecordGuestIpImport(clientIp)) {
-        return res.status(403).json({ message: "You've used today's 3 free imports. They reset at midnight — or upgrade to Pro." })
+        return res.status(403).json({ message: GUEST_DAILY_IMPORT_QUOTA_MESSAGE })
       }
     }
 
@@ -450,9 +450,9 @@ router.post('/complete', async (req: Request, res: Response) => {
         const dailyMinutesReset = resetDailyMinutesIfNeeded(user, now)
         if (dailyImportReset && !meta.userId!.startsWith('guest_')) await atomicResetDailyImportIfNeeded(user.id, now, user.usageThisMonth.importCountTodayResetDate!)
         if (dailyMinutesReset && !meta.userId!.startsWith('guest_')) await atomicResetDailyMinutesIfNeeded(user.id, now, user.usageThisMonth.dailyMinutesTodayResetDate!)
-        const chunkDailyCap = getMaxDailyImports(user.plan)
-        if (chunkDailyCap !== null && (user.usageThisMonth.importCountToday ?? 0) >= chunkDailyCap) {
-          throw Object.assign(new Error("You've used today's 3 free imports. They reset at midnight — or upgrade to Pro."), { statusCode: 403 })
+        const chunkMonthlyCap = getMaxMonthlyImports(user.plan)
+        if (chunkMonthlyCap !== null && (user.usageThisMonth.importCount ?? 0) >= chunkMonthlyCap) {
+          throw Object.assign(new Error(FREE_MONTHLY_IMPORT_QUOTA_MESSAGE), { statusCode: 403 })
         }
       }
       const fileSize = fs.statSync(outPath).size
@@ -782,10 +782,10 @@ router.post('/youtube', async (req: Request, res: Response) => {
       if (dailyMinutesReset) await atomicResetDailyMinutesIfNeeded(user.id, now, user.usageThisMonth.dailyMinutesTodayResetDate!)
     }
 
-    // ── Import count check (free plan: 3 imports/day, resets at midnight UTC) ─
-    const ytDailyCap = getMaxDailyImports(user.plan)
-    if (ytDailyCap !== null && (user.usageThisMonth.importCountToday ?? 0) >= ytDailyCap) {
-      return res.status(403).json({ message: "You've used today's 3 free imports. They reset at midnight — or upgrade to Pro." })
+    // ── Import count check (free plan: 3 imports/month, resets on the 1st UTC) ─
+    const ytMonthlyCap = getMaxMonthlyImports(user.plan)
+    if (ytMonthlyCap !== null && (user.usageThisMonth.importCount ?? 0) >= ytMonthlyCap) {
+      return res.status(403).json({ message: FREE_MONTHLY_IMPORT_QUOTA_MESSAGE })
     }
 
     // ── Concurrent job cap ────────────────────────────────────────────────────

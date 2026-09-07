@@ -20,6 +20,9 @@ export type AppEventName =
   | 'session_returned'
   | 'first_output_seen'
   | 'upgrade_clicked'
+  | 'upgrade_prompt_seen'
+  | 'checkout_started'
+  | 'checkout_abandoned'
   | 'activation_wizard_completed'
   // Conversion Intent (server EventLog attribution; authenticated-only —
   // callers must gate with isLoggedIn() before calling trackAppEvent for
@@ -29,6 +32,7 @@ export type AppEventName =
   | 'stripe_redirect'
   | 'paywall_shown'
   | 'free_plan_nudge_seen'
+  | 'second_job_upgrade_nudge_seen'
 
 export type TriggerType = 'result' | 'export' | 'dropoff' | 'pmf' | 'competitor'
 

@@ -42,7 +42,7 @@ const FAQS = [
   },
   {
     q: "What's included in the free plan?",
-    a: 'Sign up for free to get 3 uploads per day. No credit card required. Each upload can be a video or audio file. Perfect for trying the tool before committing to a paid plan.',
+    a: 'Sign up for free to get 3 uploads per month. No credit card required. Each upload can be a video or audio file. Perfect for trying the tool before committing to a paid plan.',
   },
   {
     q: 'Can I export to different formats?',

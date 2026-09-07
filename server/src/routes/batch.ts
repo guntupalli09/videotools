@@ -13,7 +13,8 @@ import {
   enforceUsageLimits,
   getDailySoftCapConcurrency,
   getJobPriority,
-  getMaxDailyImports,
+  getMaxMonthlyImports,
+  FREE_MONTHLY_IMPORT_QUOTA_MESSAGE,
   sumBatchVideoDurationsSeconds,
 } from '../utils/limits'
 import { resetDailyImportIfNeeded, resetDailyMinutesIfNeeded, resetUserUsageIfNeeded } from '../utils/usageReset'
@@ -232,17 +233,17 @@ router.post(
         return res.status(statusCode).json({ message: batchCheck.reason })
       }
 
-      // Free plan: 3 imports per day (resets midnight UTC; batch not available for free anyway)
-      const batchDailyCap = getMaxDailyImports(user.plan)
-      if (batchDailyCap !== null) {
-        const importCountToday = user.usageThisMonth.importCountToday ?? 0
-        if (importCountToday >= batchDailyCap) {
+      // Free plan: 3 imports per calendar month (batch not available for free anyway)
+      const batchMonthlyCap = getMaxMonthlyImports(user.plan)
+      if (batchMonthlyCap !== null) {
+        const importCount = user.usageThisMonth.importCount ?? 0
+        if (importCount >= batchMonthlyCap) {
           for (const v of videoMeta) fs.unlinkSync(v.path)
-          return res.status(403).json({ message: "You've used today's 3 free imports. They reset at midnight — or upgrade to Pro." })
+          return res.status(403).json({ message: FREE_MONTHLY_IMPORT_QUOTA_MESSAGE })
         }
-        if (importCountToday + videoMeta.length > batchDailyCap) {
+        if (importCount + videoMeta.length > batchMonthlyCap) {
           for (const v of videoMeta) fs.unlinkSync(v.path)
-          return res.status(403).json({ message: "You've used today's 3 free imports. They reset at midnight — or upgrade to Pro." })
+          return res.status(403).json({ message: FREE_MONTHLY_IMPORT_QUOTA_MESSAGE })
         }
       }
 

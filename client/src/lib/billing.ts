@@ -27,7 +27,7 @@ function isNetworkError(e: unknown): boolean {
   return false
 }
 
-export async function createCheckoutSession(params: CheckoutParams): Promise<{ url: string }> {
+export async function createCheckoutSession(params: CheckoutParams): Promise<{ url: string; sessionId?: string }> {
   let response: Response
   try {
     response = await api('/api/billing/checkout', {

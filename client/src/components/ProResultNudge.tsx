@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Loader2, Sparkles } from 'lucide-react'
 import { getCurrentUsage } from '../lib/api'
-import { createCheckoutSession, rememberCheckoutAttribution } from '../lib/billing'
 import { isLoggedIn } from '../lib/auth'
-import { trackEvent } from '../lib/analytics'
+import { startCheckout } from '../lib/startCheckout'
 
-/** Result-stage Pro CTA for tools whose quota is not the shared daily import allowance. */
+/** Result-stage Pro CTA for tools whose quota is not the shared monthly import allowance. */
 export default function ProResultNudge({ tool, resultKey, title, body }: { tool: string; resultKey?: string | number | null; title: string; body: string }) {
   const [plan, setPlan] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -20,12 +19,18 @@ export default function ProResultNudge({ tool, resultKey, title, body }: { tool:
   async function upgrade() {
     if (loading) return
     setLoading(true)
-    const attribution = { source: 'pro_result_nudge', tool, placement: 'result', plan, billing_interval: 'monthly', displayed_price: 7.99 }
     try {
-      try { trackEvent('upgrade_clicked', attribution) } catch { /* non-blocking */ }
-      const { url } = await createCheckoutSession({ mode: 'subscription', plan: 'pro', billingInterval: 'monthly', returnToPath: window.location.pathname, frontendOrigin: window.location.origin })
-      rememberCheckoutAttribution(attribution)
-      window.location.assign(url)
+      await startCheckout({
+        returnToPath: window.location.pathname,
+        attribution: {
+          source: 'pro_result_nudge',
+          tool,
+          placement: 'result',
+          plan: 'free',
+          billing_interval: 'monthly',
+          displayed_price: 7.99,
+        },
+      })
     } catch {
       setLoading(false)
     }

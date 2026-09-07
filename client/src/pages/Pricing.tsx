@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { Youtube, Mic, Building2 } from 'lucide-react'
-import { createCheckoutSession, createBillingPortalSession, rememberCheckoutAttribution } from '../lib/billing'
+import { createBillingPortalSession } from '../lib/billing'
+import { startCheckout } from '../lib/startCheckout'
 import { trackEvent } from '../lib/analytics'
 import type { BillingPlan } from '../lib/billing'
 import type { BillingInterval } from '../lib/billing'
 import { getCurrentUsage } from '../lib/api'
 import { logout, isLoggedIn } from '../lib/auth'
 import { trackAppEvent } from '../lib/feedbackEvents'
+import { getJobCompletedCount } from '../lib/jobCount'
 
 function Check() {
   return (
@@ -70,9 +72,7 @@ export default function Pricing() {
     try { return localStorage.getItem('videotext:signup_started_at') } catch { return null }
   })()
   const hoursSinceSignup = signupStartedAt ? Math.max(0, Math.round((Date.now() - new Date(signupStartedAt).getTime()) / 36e5)) : null
-  const jobCount = (() => {
-    try { return Number(localStorage.getItem('videotext:job_completed_count') || '0') || 0 } catch { return 0 }
-  })()
+  const jobCount = getJobCompletedCount()
 
   async function handleManageSubscription() {
     if (!isPaidPlan) return
@@ -100,45 +100,18 @@ export default function Pricing() {
 
     setCheckoutLoading(plan)
     try {
-      trackEvent('upgrade_clicked', {
-        plan,
-        source: 'pricing_page',
-        billing_interval: billingInterval,
-        job_count: jobCount,
-        ...(hoursSinceSignup != null ? { hours_since_signup: hoursSinceSignup, cohort_date: signupStartedAt?.slice(0, 10) } : {}),
-      })
-      trackEvent('checkout_started', {
-        plan,
-        source: 'pricing_page',
-        billing_interval: billingInterval,
-        job_count: jobCount,
-        ...(hoursSinceSignup != null ? { hours_since_signup: hoursSinceSignup, cohort_date: signupStartedAt?.slice(0, 10) } : {}),
-      })
-      const { url } = await createCheckoutSession({
-        mode: 'subscription', plan, billingInterval,
-        returnToPath: '/pricing', frontendOrigin: window.location.origin,
-      })
-      trackEvent('checkout_session_created', {
-        plan,
-        source: 'pricing_page',
-        billing_interval: billingInterval,
-        job_count: jobCount,
-        ...(hoursSinceSignup != null ? { hours_since_signup: hoursSinceSignup, cohort_date: signupStartedAt?.slice(0, 10) } : {}),
-      })
-      trackEvent('stripe_redirect', {
-        plan,
-        source: 'pricing_page',
-        billing_interval: billingInterval,
-      })
-      try {
-        if (isLoggedIn()) {
-          trackAppEvent('checkout_session_created', { plan, source: 'pricing_page', billing_interval: billingInterval, job_count: jobCount })
-          trackAppEvent('stripe_redirect', { plan, source: 'pricing_page', billing_interval: billingInterval })
-        }
-      } catch { /* non-blocking */ }
       try { localStorage.setItem('videotext:checkout_billing_interval', billingInterval) } catch { /* non-blocking */ }
-      rememberCheckoutAttribution({ source: 'pricing_page', billing_interval: billingInterval })
-      window.location.href = url
+      await startCheckout({
+        plan,
+        billingInterval,
+        returnToPath: '/pricing',
+        attribution: {
+          source: 'pricing_page',
+          job_count: jobCount,
+          ...(hoursSinceSignup != null ? { hours_since_signup: hoursSinceSignup, cohort_date: signupStartedAt?.slice(0, 10) } : {}),
+          displayed_price: billingInterval === 'annual' ? 5.83 : 7.99,
+        },
+      })
     } catch (e: any) {
       const msg: string = e.message || ''
       if (msg.includes('session has expired') || msg.includes('log out and log back in')) {
@@ -235,7 +208,7 @@ export default function Pricing() {
 
             <ul className="space-y-3 flex-1 mb-8">
               {[
-                { label: '3 uploads per day', ok: true },
+                { label: '3 uploads per month', ok: true },
                 { label: 'Files up to 30 minutes', ok: true },
                 { label: 'Transcript & subtitle exports', ok: true },
                 { label: 'AI summaries & chapters', ok: true },

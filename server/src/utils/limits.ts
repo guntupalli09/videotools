@@ -137,13 +137,27 @@ export function applySystemLoadGuard(planConcurrency: number, systemMultiplier: 
   return Math.max(1, Math.floor(planConcurrency * systemMultiplier))
 }
 
+/** Free plan: 3 successful imports per calendar month (resets on the 1st UTC). */
+export const FREE_MONTHLY_IMPORT_LIMIT = 3
+
+export const FREE_MONTHLY_IMPORT_QUOTA_MESSAGE =
+  "You've used all 3 free imports this month. They reset on the 1st — or upgrade to Pro for unlimited processing."
+
+export const GUEST_DAILY_IMPORT_QUOTA_MESSAGE =
+  "You've used today's 3 free imports. They reset at midnight — or upgrade to Pro."
+
 /**
- * Returns the max daily imports for a plan.
- * Free = 3. All paid plans = null (no hard cap).
+ * Returns the max monthly imports for a plan.
+ * Free = 3/month. All paid plans = null (no hard cap).
  */
-export function getMaxDailyImports(plan: PlanType): number | null {
-  if (plan === 'free') return 3
+export function getMaxMonthlyImports(plan: PlanType): number | null {
+  if (plan === 'free') return FREE_MONTHLY_IMPORT_LIMIT
   return null
+}
+
+/** @deprecated Use getMaxMonthlyImports — alias kept for call-site migration. */
+export function getMaxDailyImports(plan: PlanType): number | null {
+  return getMaxMonthlyImports(plan)
 }
 
 export async function enforceUsageLimits(

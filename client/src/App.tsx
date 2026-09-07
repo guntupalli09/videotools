@@ -4,6 +4,8 @@ import { trackEvent, identifyUser, capturePageview, startAdBlockProbe } from './
 import { Toaster, toast } from 'react-hot-toast'
 import Navigation from './components/Navigation'
 import { getSessionDetails, getSessionStatus, setupPassword } from './lib/billing'
+import { clearPendingCheckout } from './lib/startCheckout'
+import CheckoutCancelledHandler from './components/CheckoutCancelledHandler'
 import { invalidateUsageCache } from './lib/api'
 import Footer from './components/Footer'
 import Seo from './components/Seo'
@@ -299,6 +301,7 @@ function PostCheckoutHandler() {
         if (data.token) localStorage.setItem('authToken', data.token)
         try { invalidateUsageCache() } catch { /* non-blocking */ }
         handled.current = true
+        clearPendingCheckout()
         window.dispatchEvent(new CustomEvent('videotext:plan-updated'))
         try {
           const checkoutBillingInterval = localStorage.getItem('videotext:checkout_billing_interval')
@@ -498,6 +501,7 @@ function App() {
       <AppSeo />
       <SessionTracker />
       <PostCheckoutHandler />
+      <CheckoutCancelledHandler />
       <ImpersonationHandler />
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-lg">
         Skip to main content

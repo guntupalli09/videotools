@@ -32,7 +32,7 @@ function useUsage(refreshTrigger?: string | number) {
             used: 0,
           })
         } else if (quotaType === 'imports') {
-          const used = data.used ?? data.usage?.importCountToday ?? data.usage?.importCount ?? 0
+          const used = data.used ?? data.usage?.importCount ?? 0
           const limit = data.limit ?? 3
           const remaining = Math.max(0, (data.remaining ?? limit - used))
           const usedPercent = limit === 0 ? 0 : Math.min(100, Math.round((used / limit) * 100))
@@ -67,7 +67,7 @@ function useUsage(refreshTrigger?: string | number) {
 
 /**
  * Usage bar for the tool page header.
- * - Free: shows "X of 3 daily imports used" with progress dots and View plans CTA.
+ * - Free: shows "X of 3 monthly imports used" with progress dots and View plans CTA.
  * - Pro (not degraded): returns null (no bar).
  * - Pro (soft cap active): shows quiet inline upgrade banner.
  * - Business: returns null.
@@ -92,7 +92,7 @@ export default function UsageCounter({ refreshTrigger }: { refreshTrigger?: stri
 
   useEffect(() => {
     if (usage?.quotaType === 'imports' && usage.remaining === 0) {
-      trackEvent('daily_cap_hit')
+      trackEvent('monthly_cap_hit')
     }
   }, [usage?.quotaType, usage?.remaining])
 
@@ -156,12 +156,12 @@ export default function UsageCounter({ refreshTrigger }: { refreshTrigger?: stri
     )
   }
 
-  // Free tier — daily imports bar
+  // Free tier — monthly imports bar
   const isExhausted = remaining === 0
   const filledDots = Math.min(used, limit)
   const resetLabel = usage.resetDate
-    ? new Date(usage.resetDate).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
-    : 'midnight'
+    ? new Date(usage.resetDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : 'the 1st'
 
   return (
     <div className={`rounded-xl border transition-colors overflow-hidden ${
@@ -175,8 +175,8 @@ export default function UsageCounter({ refreshTrigger }: { refreshTrigger?: stri
             isExhausted ? 'text-red-700 dark:text-red-400' : 'text-gray-300'
           }`}>
             {isExhausted
-              ? `All 3 free imports used today — resets at ${resetLabel}`
-              : `${used} of ${limit} daily imports used`}
+              ? `All 3 free imports used this month — resets ${resetLabel}`
+              : `${used} of ${limit} monthly imports used`}
           </p>
           <div className="flex gap-1.5">
             {Array.from({ length: limit }).map((_, i) => (

@@ -3,12 +3,13 @@ import { Loader2, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { trackEvent } from '../lib/analytics'
 import { trackAppEvent } from '../lib/feedbackEvents'
-import { createCheckoutSession, rememberCheckoutAttribution } from '../lib/billing'
+import { startCheckout } from '../lib/startCheckout'
 import { isLoggedIn } from '../lib/auth'
 import { Link } from 'react-router-dom'
 
 export type PaywallReason =
   | 'FREE_DAILY_LIMIT_REACHED'
+  | 'FREE_MONTHLY_LIMIT_REACHED'
   | 'VIDEO_TOO_LONG'
   | 'BATCH_NOT_AVAILABLE'
   | 'MULTI_LANGUAGE_NOT_AVAILABLE'
@@ -28,7 +29,7 @@ interface PaywallModalProps {
   reason?: PaywallReason
   tool?: string
   remainingImports?: number
-  /** ISO string for midnight UTC reset (free plan) */
+  /** ISO string for monthly reset (free plan) */
   resetDate?: string
 }
 
@@ -86,11 +87,12 @@ function getContent(reason?: PaywallReason) {
       return { title: 'Unlock this professional workflow', body: 'Keep your result and unlock this Pro delivery option.', cta: 'Unlock Pro — $7.99/mo', secondaryLabel: null, secondary: null }
     case 'DOCUMENT_TRANSLATION_LIMIT':
       return { title: "Today's 3 free document translations are used", body: 'This separate translation allowance resets daily, or continue with Pro.', cta: 'Continue with Pro — $7.99/mo', secondaryLabel: null, secondary: null }
+    case 'FREE_MONTHLY_LIMIT_REACHED':
     case 'FREE_DAILY_LIMIT_REACHED':
     default:
       return {
-        title: "Today's 3 free imports are used",
-        body: 'They reset at midnight UTC, or keep processing now with Pro.',
+        title: "This month's 3 free imports are used",
+        body: 'They reset on the 1st of each month, or keep processing now with Pro.',
         cta: 'Continue with Pro — $7.99/mo',
         secondaryLabel: null,
         secondary: null,
@@ -119,22 +121,17 @@ export default function PaywallModal({ isOpen, onClose, reason, tool, remainingI
     setError(null)
     setLoading(true)
     try {
-      const attribution = { source: 'paywall_modal', tool, reason, plan: 'free', billing_interval: 'monthly', displayed_price: 7.99 }
-      try { trackEvent('upgrade_clicked', attribution) } catch { /* non-blocking */ }
-      try { trackAppEvent('upgrade_clicked', attribution) } catch { /* non-blocking */ }
-      const { url } = await createCheckoutSession({
-        mode: 'subscription',
-        plan: 'pro',
-        billingInterval: 'monthly',
-        returnToPath: '/pricing',
-        frontendOrigin: window.location.origin,
+      await startCheckout({
+        returnToPath: window.location.pathname,
+        attribution: {
+          source: 'paywall_modal',
+          tool,
+          reason,
+          plan: 'free',
+          billing_interval: 'monthly',
+          displayed_price: 7.99,
+        },
       })
-      rememberCheckoutAttribution(attribution)
-      try {
-        trackEvent('checkout_session_created', attribution); trackEvent('stripe_redirect', attribution)
-        if (isLoggedIn()) { trackAppEvent('checkout_session_created', attribution); trackAppEvent('stripe_redirect', attribution) }
-      } catch { /* non-blocking */ }
-      window.location.assign(url)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to start checkout. Please try again.'
       setError(message)

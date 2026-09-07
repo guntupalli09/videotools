@@ -120,6 +120,7 @@ export type AnalyticsEvent =
   | 'payment_completed'
   | 'soft_cap_shown'
   | 'daily_cap_hit'
+  | 'monthly_cap_hit'
   // Monetization tracking
   | 'transcript_copied'            // copy succeeded; props: { plan }
   | 'copy_gate_auth'               // copy blocked — user not logged in; shown auth modal
@@ -181,6 +182,8 @@ export type AnalyticsEvent =
   | 'checkout_started'
   | 'checkout_session_created'
   | 'stripe_redirect'
+  | 'checkout_abandoned'
+  | 'second_job_upgrade_nudge_seen'
 
 
 
