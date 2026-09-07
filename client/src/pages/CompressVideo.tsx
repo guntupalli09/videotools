@@ -5,6 +5,7 @@ import { isLoggedIn } from '../lib/auth'
 // import { useWorkflow } from '../contexts/WorkflowContext'
 import FailedState from '../components/FailedState'
 import CoreToolSeoDepth from '../components/CoreToolSeoDepth'
+import CollapsibleFaqSection from '../components/CollapsibleFaqSection'
 import SamplesModule from '../components/SamplesModule'
 import CrossToolSuggestions from '../components/CrossToolSuggestions'
 // import WorkflowChainSuggestion from '../components/WorkflowChainSuggestion'
@@ -559,21 +560,11 @@ export default function CompressVideo(props: CompressVideoSeoProps = {}) {
 
 
       {location.pathname === '/compress-video' && (
-        <CoreToolSeoDepth path="/compress-video" defaultCollapsed={status === 'completed'} />
+        <CoreToolSeoDepth path="/compress-video" />
       )}
 
       {faq.length > 0 && location.pathname !== '/compress-video' && (
-        <section className="mt-12 pt-8 border-t border-gray-100/70 max-w-4xl mx-auto px-4" aria-label="FAQ">
-          <h2 className="text-2xl font-medium text-gray-800 mb-component-sm">Frequently asked questions</h2>
-          <dl className="space-y-component-sm">
-            {faq.map((item, i) => (
-              <div key={i}>
-                <dt className="font-medium text-gray-800">{item.q}</dt>
-                <dd className="mt-1 text-gray-600">{item.a}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
+        <CollapsibleFaqSection items={faq} />
       )}
     </>
   )

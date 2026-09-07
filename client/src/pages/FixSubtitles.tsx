@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import FailedState from '../components/FailedState'
 import CoreToolSeoDepth from '../components/CoreToolSeoDepth'
+import CollapsibleFaqSection from '../components/CollapsibleFaqSection'
 import FreePlanNudge from '../components/FreePlanNudge'
 import SecondJobUpgradeNudge from '../components/SecondJobUpgradeNudge'
 import PaywallModal, { type PaywallReason } from '../components/PaywallModal'
@@ -1352,21 +1353,11 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
       </ToolLayout>
 
       {location.pathname === '/fix-subtitles' && (
-        <CoreToolSeoDepth path="/fix-subtitles" defaultCollapsed={status === 'completed'} />
+        <CoreToolSeoDepth path="/fix-subtitles" />
       )}
 
       {faq.length > 0 && location.pathname !== '/fix-subtitles' && (
-        <section className="mt-12 pt-8 border-t border-gray-100/70 max-w-4xl mx-auto px-4" aria-label="FAQ">
-          <h2 className="text-2xl font-medium text-gray-800 mb-component-sm">Frequently asked questions</h2>
-          <dl className="space-y-component-sm">
-            {faq.map((item, i) => (
-              <div key={i}>
-                <dt className="font-medium text-gray-800">{item.q}</dt>
-                <dd className="mt-1 text-gray-600">{item.a}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
+        <CollapsibleFaqSection items={faq} />
       )}
 
       <JobAuthGateModal
