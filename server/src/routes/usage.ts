@@ -204,6 +204,7 @@ router.get('/current', async (req: Request, res: Response) => {
       overages: { minutes: 0, charge: 0 },
       resetDate: resetDate.toISOString(),
       billingPeriodEnd: billingPeriodEnd?.toISOString() ?? null,
+      billingPeriodStart: user!.billingPeriodStart?.toISOString() ?? null,
       queuePriority: getJobPriority(plan),
     })
     return

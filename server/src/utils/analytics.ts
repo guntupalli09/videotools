@@ -216,6 +216,20 @@ export function trackSubscriptionDeleted(params: {
   })
 }
 
+export function trackCancellationReasonSubmitted(params: {
+  user_id: string
+  reason: string
+  timing: string
+  plan: string
+}): void {
+  capture('cancellation_reason_submitted', params.user_id, {
+    user_id: params.user_id,
+    reason: params.reason,
+    timing: params.timing,
+    plan: params.plan,
+  })
+}
+
 export function trackSubscriptionRenewed(params: {
   user_id: string
   plan: string

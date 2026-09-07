@@ -1653,6 +1653,9 @@ export interface UsageData {
   resetDate: string
   /** Per-user billing period end (paid only); when their plan resets. */
   billingPeriodEnd?: string | null
+  cancelAtPeriodEnd?: boolean
+  /** When the current paid billing period started (Pro onboarding timing). */
+  billingPeriodStart?: string | null
 }
 
 let usageCache: { data: unknown; at: number } | null = null

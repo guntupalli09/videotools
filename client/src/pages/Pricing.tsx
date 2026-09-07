@@ -10,6 +10,8 @@ import { getCurrentUsage } from '../lib/api'
 import { logout, isLoggedIn } from '../lib/auth'
 import { trackAppEvent } from '../lib/feedbackEvents'
 import { getJobCompletedCount } from '../lib/jobCount'
+import CancellationReasonModal from '../components/CancellationReasonModal'
+import { hasSubmittedCancellationReason } from '../lib/cancellationFeedback'
 
 function Check() {
   return (
@@ -33,17 +35,19 @@ function X() {
 export default function Pricing() {
   const [currentPlan, setCurrentPlan] = useState<string | null>(null)
   const [usageResetDate, setUsageResetDate] = useState<string | null>(null)
-  const [subscriptionCancelingAt, setSubscriptionCancelingAt] = useState<string | null>(null)
+  const [cancelAtPeriodEnd, setCancelAtPeriodEnd] = useState(false)
   const [portalLoading, setPortalLoading] = useState(false)
   const [checkoutLoading, setCheckoutLoading] = useState<BillingPlan | null>(null)
   const [billingInterval, setBillingInterval] = useState<BillingInterval>('monthly')
+  const [cancelReasonOpen, setCancelReasonOpen] = useState(false)
+  const [pendingPortalRedirect, setPendingPortalRedirect] = useState(false)
 
   const refreshCurrentPlan = useCallback(() => {
     getCurrentUsage({ skipCache: true })
       .then((data) => {
         setCurrentPlan((data.plan || 'free').toLowerCase())
         setUsageResetDate(data.resetDate ?? data.billingPeriodEnd ?? null)
-        setSubscriptionCancelingAt((data as { subscriptionCancelingAt?: string | null }).subscriptionCancelingAt ?? null)
+        setCancelAtPeriodEnd(Boolean(data.cancelAtPeriodEnd && data.billingPeriodEnd))
       })
       .catch(() => {
         setCurrentPlan((localStorage.getItem('plan') || 'free').toLowerCase())
@@ -74,16 +78,32 @@ export default function Pricing() {
   const hoursSinceSignup = signupStartedAt ? Math.max(0, Math.round((Date.now() - new Date(signupStartedAt).getTime()) / 36e5)) : null
   const jobCount = getJobCompletedCount()
 
-  async function handleManageSubscription() {
-    if (!isPaidPlan) return
+  async function openBillingPortal() {
     setPortalLoading(true)
     try {
       const { url } = await createBillingPortalSession(window.location.origin + '/pricing')
       window.location.href = url
     } catch (err: any) {
       alert(err.message || 'Failed to open billing')
-    } finally {
       setPortalLoading(false)
+    }
+  }
+
+  async function handleManageSubscription() {
+    if (!isPaidPlan) return
+    if (hasSubmittedCancellationReason('pre_portal')) {
+      await openBillingPortal()
+      return
+    }
+    setPendingPortalRedirect(true)
+    setCancelReasonOpen(true)
+  }
+
+  async function finishManageSubscriptionFlow() {
+    setCancelReasonOpen(false)
+    if (pendingPortalRedirect) {
+      setPendingPortalRedirect(false)
+      await openBillingPortal()
     }
   }
 
@@ -139,14 +159,14 @@ export default function Pricing() {
 
           {isPaidPlan && (
             <div className="mt-8 flex flex-col items-center gap-2">
-              {subscriptionCancelingAt && (
+              {cancelAtPeriodEnd && usageResetDate && (
                 <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 px-4 py-3 text-sm text-amber-800 dark:text-amber-300 max-w-sm text-center">
                   Canceling on{' '}
-                  <strong>{new Date(subscriptionCancelingAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</strong>.
+                  <strong>{new Date(usageResetDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</strong>.
                   Reactivate below to keep your plan.
                 </div>
               )}
-              {!subscriptionCancelingAt && usageResetDate && (
+              {!cancelAtPeriodEnd && usageResetDate && (
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   Renews {new Date(usageResetDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                 </p>
@@ -384,6 +404,17 @@ export default function Pricing() {
           </p>
         )}
       </div>
+
+      <CancellationReasonModal
+        open={cancelReasonOpen}
+        timing="pre_portal"
+        plan={currentPlan ?? 'pro'}
+        onClose={() => {
+          setCancelReasonOpen(false)
+          setPendingPortalRedirect(false)
+        }}
+        onComplete={finishManageSubscriptionFlow}
+      />
     </div>
   )
 }
