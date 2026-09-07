@@ -1276,14 +1276,14 @@ export default function GuidelineFormat() {
             )}
           </div>
           {prefillBanner && (
-            <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/90 dark:bg-emerald-950/30 px-4 py-3 text-sm text-emerald-900 dark:text-emerald-100">
+            <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/90 dark:bg-blue-950/30 px-4 py-3 text-sm text-blue-900 dark:text-blue-100">
               <p>
                 Transcript loaded from your VideoText job — ready to format.
               </p>
               <button
                 type="button"
                 onClick={() => setPrefillBanner(false)}
-                className="text-emerald-800 dark:text-emerald-200 underline text-sm font-medium shrink-0"
+                className="text-blue-800 dark:text-blue-200 underline text-sm font-medium shrink-0"
               >
                 Dismiss
               </button>
@@ -1367,7 +1367,7 @@ export default function GuidelineFormat() {
                   </label>
                   {transcriptLoadedFromFile && (
                     <span
-                      className="text-xs font-medium text-emerald-700 dark:text-emerald-300"
+                      className="text-xs font-medium text-blue-700 dark:text-blue-300"
                       title="You can edit this text before formatting"
                     >
                       From file: {transcriptLoadedFromFile}
@@ -1559,7 +1559,7 @@ export default function GuidelineFormat() {
                                       <span
                                         className={`text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${
                                           rule.extractionConfidence === "high"
-                                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200"
+                                            ? "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-200"
                                             : rule.extractionConfidence ===
                                                 "medium"
                                               ? "bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100"
@@ -1916,7 +1916,7 @@ export default function GuidelineFormat() {
                                 <span
                                   className={`shrink-0 text-xs font-semibold ${
                                     row.passed
-                                      ? "text-emerald-700 dark:text-emerald-300"
+                                      ? "text-blue-700 dark:text-blue-300"
                                       : "text-red-700 dark:text-red-300"
                                   }`}
                                 >
@@ -1997,7 +1997,7 @@ export default function GuidelineFormat() {
                                   const tone =
                                     c.bucket === "verified"
                                       ? c.passed
-                                        ? "text-emerald-700 dark:text-emerald-300"
+                                        ? "text-blue-700 dark:text-blue-300"
                                         : "text-red-700 dark:text-red-300"
                                       : c.bucket === "likely_compliant"
                                         ? "text-amber-800 dark:text-amber-200"
@@ -2167,7 +2167,7 @@ export default function GuidelineFormat() {
                               const c = (seg?.confidence || "").toLowerCase();
                               const badgeClass =
                                 c === "high"
-                                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200"
+                                  ? "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-200"
                                   : c === "low"
                                     ? "bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-200"
                                     : "bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100";
@@ -2460,7 +2460,7 @@ export default function GuidelineFormat() {
                                 const c = (seg.confidence || "").toLowerCase();
                                 const badgeClass =
                                   c === "high"
-                                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200"
+                                    ? "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-200"
                                     : c === "low"
                                       ? "bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-200"
                                       : "bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100";
@@ -2660,7 +2660,7 @@ export default function GuidelineFormat() {
                                         return (
                                           <span
                                             key={key}
-                                            className="bg-emerald-200/60 dark:bg-emerald-900/40 px-0.5 rounded-sm"
+                                            className="bg-blue-200/60 dark:bg-blue-900/40 px-0.5 rounded-sm"
                                           >
                                             {seg.text}
                                           </span>
@@ -2944,14 +2944,14 @@ spk_1: yeah yeah and and the second run was i think more more compelling right`}
 
 [Speaker 2]: Yeah, and the second run was more compelling, right?`}</pre>
               </div>
-              <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 p-2.5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-500 dark:text-emerald-400 mb-2">
+              <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 p-2.5">
+                <p className="text-xs font-semibold uppercase tracking-wider text-blue-500 dark:text-blue-400 mb-2">
                   Client-ready (Rev spec)
                 </p>
                 <pre className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap font-mono">{`[Speaker 1]: The thing we found was that the results were really quite significant. We ran it three times.
 
 [Speaker 2]: Yeah, and the second run was more compelling, right?`}</pre>
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2">
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
                   ✓ Fillers removed ✓ Labels formatted ✓ False starts cleaned
                 </p>
               </div>
@@ -2984,8 +2984,8 @@ Speaker 1: the first 30 days we had 4,000 signups which is uh which is above pro
 
 Speaker 1: The first 30 days we had 4,000 signups, which is above projections.`}</pre>
               </div>
-              <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 p-2.5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-500 dark:text-emerald-400 mb-2">
+              <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 p-2.5">
+                <p className="text-xs font-semibold uppercase tracking-wider text-blue-500 dark:text-blue-400 mb-2">
                   Client-ready (GoTranscript spec)
                 </p>
                 <pre className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap font-mono">{`Speaker 1: We launched in Q3 and the response was better than we thought.
@@ -2993,7 +2993,7 @@ Speaker 1: The first 30 days we had 4,000 signups, which is above projections.`}
 [00:02:14]
 
 Speaker 1: The first 30 days we had 4,000 signups, which is above projections.`}</pre>
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2">
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
                   ✓ Fillers removed ✓ Timestamps validated ✓ Numerals correct
                 </p>
               </div>
@@ -3012,12 +3012,12 @@ Speaker 1: The first 30 days we had 4,000 signups, which is above projections.`}
                 </p>
                 <pre className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap font-mono">{`spk_0: I- I wasn't at the location on that date. I mean, uh, I was definitely not there.`}</pre>
               </div>
-              <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 p-2.5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-500 dark:text-emerald-400 mb-2">
+              <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 p-2.5">
+                <p className="text-xs font-semibold uppercase tracking-wider text-blue-500 dark:text-blue-400 mb-2">
                   Full verbatim output
                 </p>
                 <pre className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap font-mono">{`WITNESS: I-- I wasn't at the location on that date. I mean, uh, I was definitely not there.`}</pre>
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2">
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
                   ✓ Fillers retained ✓ False starts formatted ✓ Label normalized
                 </p>
               </div>
@@ -3053,7 +3053,7 @@ Speaker 1: The first 30 days we had 4,000 signups, which is above projections.`}
                 <th className="py-3 px-4 text-left font-semibold text-blue-700 dark:text-blue-300 whitespace-nowrap">
                   GoTranscript
                 </th>
-                <th className="py-3 px-4 text-left font-semibold text-emerald-700 dark:text-emerald-300 whitespace-nowrap">
+                <th className="py-3 px-4 text-left font-semibold text-blue-700 dark:text-blue-300 whitespace-nowrap">
                   TranscribeMe
                 </th>
                 <th className="py-3 px-4 text-left font-semibold text-amber-700 dark:text-amber-300 whitespace-nowrap">
@@ -3486,7 +3486,7 @@ Speaker 1: The first 30 days we had 4,000 signups, which is above projections.`}
           },
           {
             brand: "GMR Transcription",
-            color: "emerald",
+            color: "blue",
             links: [
               {
                 label: "GMR Transcription Guidelines",

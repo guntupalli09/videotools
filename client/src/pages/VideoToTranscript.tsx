@@ -3384,7 +3384,7 @@ export default function VideoToTranscript(
               <div className="space-y-component-sm sm:space-y-component-sm">
                 {batchUploadEligible() && (
                   <div
-                    className="rounded-xl sm:rounded-xl border-2 border-blue-400/55 dark:border-blue-500/45 bg-gradient-to-br from-blue-600/[0.12] via-blue-600/[0.08] to-blue-600/[0.06] dark:from-blue-950/60 dark:via-blue-950/40 dark:to-blue-950/25 px-4 py-3.5 sm:px-5 sm:py-4 shadow-sm shadow-blue-500/10"
+                    className="rounded-xl border border-blue-200/80 bg-blue-50/80 px-4 py-3.5 dark:border-blue-800/50 dark:bg-blue-950/25 sm:px-5 sm:py-4"
                     role="status"
                     aria-live="polite"
                   >
@@ -4325,10 +4325,10 @@ export default function VideoToTranscript(
 
         {/* Batch processing progress */}
         {isBatchMode && status === "processing" && batchInfo && (
-          <div className="rounded-xl border border-blue-200/80 dark:border-blue-800/50 bg-gradient-to-br from-blue-50/90 via-white to-blue-50/50 dark:from-blue-950/40 dark:via-gray-900/80 dark:to-blue-950/20 p-6 sm:p-8 space-y-component shadow-lg shadow-blue-500/10">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-component-sm">
+          <div className="space-y-component rounded-xl border border-gray-200 bg-white p-6 dark:border-white/[0.08] dark:bg-gray-900 sm:p-8">
+            <div className="flex flex-col gap-component-sm sm:flex-row sm:items-start sm:justify-between">
               <div className="flex gap-component-sm">
-                <div className="shrink-0 flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-md">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white sm:h-12 sm:w-12">
                   <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" aria-hidden />
                 </div>
                 <div>
@@ -4358,7 +4358,7 @@ export default function VideoToTranscript(
               </div>
               <div className="w-full bg-gray-200/90 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-blue-600 to-blue-500 h-2.5 rounded-full transition-all duration-200 ease-out"
+                  className="h-2.5 rounded-full bg-blue-600 transition-all duration-200 ease-out"
                   style={{
                     width: `${Math.min(100, batchInfo.progress.percentage)}%`,
                   }}
@@ -4386,9 +4386,9 @@ export default function VideoToTranscript(
 
         {/* Batch completed results */}
         {isBatchMode && status === "completed" && batchInfo && (
-          <div className="rounded-xl border border-blue-200/80 dark:border-blue-900/40 bg-gradient-to-br from-blue-50/95 via-white to-blue-50/60 dark:from-blue-950/35 dark:via-gray-900/90 dark:to-blue-950/25 p-6 sm:p-8 space-y-component shadow-lg shadow-blue-500/10">
-            <div className="flex flex-col sm:flex-row sm:items-start gap-component-sm">
-              <div className="shrink-0 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-md">
+          <div className="space-y-component rounded-xl border border-gray-200 bg-white p-6 dark:border-white/[0.08] dark:bg-gray-900 sm:p-8">
+            <div className="flex flex-col gap-component-sm sm:flex-row sm:items-start">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
                 <Download className="w-6 h-6" aria-hidden />
               </div>
               <div className="flex-1 min-w-0">
@@ -4434,7 +4434,7 @@ export default function VideoToTranscript(
             <a
               href={getBatchDownloadUrl(batchInfo.batchId)}
               download
-              className="flex items-center justify-center gap-2 w-full py-3.5 px-6 rounded-xl font-semibold text-sm bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-700 text-white transition-colors shadow-md"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
             >
               <Download className="w-4 h-4" />
               Download all as ZIP
@@ -5200,7 +5200,7 @@ export default function VideoToTranscript(
                           </div>
                         )}
                       </div>
-                      <div className="mt-6 rounded-xl border border-blue-200/80 dark:border-blue-800/70 bg-gradient-to-r from-blue-50 via-blue-50 to-blue-50 dark:from-blue-950/30 dark:via-blue-950/20 dark:to-blue-950/20 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="mt-6 flex flex-col gap-3 rounded-xl border border-blue-200/80 bg-blue-50/80 px-4 py-3 dark:border-blue-800/70 dark:bg-blue-950/25 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
                             Need a download?
