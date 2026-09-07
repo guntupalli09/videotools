@@ -18,6 +18,7 @@ import { ToolLayout } from '../components/figma/ToolLayout'
 import { UploadZone } from '../components/figma/UploadZone'
 import { ProcessingInterface } from '../components/figma/ProcessingInterface'
 import { ProcessingProgress } from '../components/figma/ProcessingProgress'
+import { ProcessingStateShell } from '../components/figma/ProcessingStateShell'
 import { ResultSkeleton } from '../components/figma/ResultSkeleton'
 import { RadioGroup, Select } from '../components/figma/FormControls'
 import type { SubtitleRow } from '../components/SubtitleEditor'
@@ -1012,7 +1013,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
         )}
 
         {status === 'processing' && (
-          <div className="rounded-xl bg-blue-50 dark:bg-blue-950/30 p-6 sm:p-8">
+          <ProcessingStateShell>
             <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
               {selectedFile?.name} • {filePreview?.durationSeconds != null ? formatDuration(filePreview.durationSeconds) : '—'}
             </div>
@@ -1055,7 +1056,7 @@ export default function VideoToSubtitles(props: VideoToSubtitlesSeoProps = {}) {
               onCancel={handleCancelUpload}
             />
             <ResultSkeleton variant="subtitle" />
-          </div>
+          </ProcessingStateShell>
         )}
 
         {status === 'completed' && result && (

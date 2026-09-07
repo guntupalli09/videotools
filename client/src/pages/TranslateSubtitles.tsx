@@ -18,6 +18,8 @@ import { ToolLayout } from '../components/figma/ToolLayout'
 import { UploadZone } from '../components/figma/UploadZone'
 import { ProcessingInterface } from '../components/figma/ProcessingInterface'
 import { ProcessingProgress } from '../components/figma/ProcessingProgress'
+import { ProcessingStateShell } from '../components/figma/ProcessingStateShell'
+import { ExportsPanel, ExportSection } from '../components/figma/ExportsPanel'
 import { TranslateResult } from '../components/figma/TranslateResult'
 import { Select } from '../components/figma/FormControls'
 import type { SubtitleRow } from '../components/SubtitleEditor'
@@ -278,6 +280,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
   const [docText, setDocText] = useState<string | null>(null)
   const [docTranslated, setDocTranslated] = useState<string | null>(null)
   const [docLoading, setDocLoading] = useState(false)
+  const [docProgress, setDocProgress] = useState(0)
 
   useEffect(() => {
     if (status === 'completed' && !isLoggedIn()) {
@@ -369,6 +372,18 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
   }
 
   // ── Document translate ─────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!docLoading) {
+      setDocProgress(0)
+      return
+    }
+    setDocProgress(12)
+    const id = window.setInterval(() => {
+      setDocProgress((p) => Math.min(92, p + 4))
+    }, 450)
+    return () => window.clearInterval(id)
+  }, [docLoading])
+
   const handleDocTranslate = async () => {
     const src = tab === 'paste' ? pastedText : docText
     if (!src?.trim()) { toast.error('No text to translate'); return }
@@ -765,22 +780,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
           </div>
         </div>
       </div>
-      {/* Export buttons */}
-      <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
-        <button
-          onClick={() => requireAuthForDownload(() => generateStyledVtt(subtitleRows, subStyles, subtitleBaseName, isPaidPlan))}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-        >
-          <Download className="w-3.5 h-3.5" /> Styled VTT
-        </button>
-        <button
-          onClick={() => requireAuthForDownload(() => generateAssFile(subtitleRows, subStyles, subtitleBaseName, isPaidPlan))}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-        >
-          <Download className="w-3.5 h-3.5" /> ASS / SSA
-        </button>
-        <p className="text-xs text-gray-400 dark:text-gray-500 self-center ml-1">Import into Premiere, DaVinci, Aegisub, or any player that supports styled subtitles</p>
-      </div>
+      {/* Export buttons moved to right-rail ExportsPanel on result view */}
     </div>
   )
 
@@ -893,7 +893,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
 
             {/* Processing */}
             {status === 'processing' && (
-              <div className="rounded-xl bg-blue-50 dark:bg-blue-950/30 p-6 sm:p-8">
+              <ProcessingStateShell>
                 <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
                   {selectedFile?.name ?? 'Pasted text'} · Translating to {targetLanguage}
                 </div>
@@ -909,7 +909,7 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                   statusSubtext={uploadPhase === 'processing' && queuePosition !== undefined && queuePosition > 0 ? `Queue position: ${queuePosition}` : undefined}
                   onCancel={handleProcessAnother}
                 />
-              </div>
+              </ProcessingStateShell>
             )}
 
             {/* Completed — guests see signup only */}
@@ -948,45 +948,9 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                   title="Translation complete!"
                   fileName={result.fileName ?? fallbackTranslatedName(translateFallbackExt)}
                   processingTime={lastProcessingMs != null ? `${(lastProcessingMs / 1000).toFixed(1)}s` : '—'}
-                  downloadLabel={isPaidPlan ? 'Download translated file' : (freeExportsUsed >= 2 ? '2/2 free downloads used' : 'Download with watermark')}
-                  onDownload={
-                    !isPaidPlan
-                      ? () => requireAuthForDownload(async () => {
-                          if (freeExportsUsed >= 2) { toast('You\'ve used your 2 free downloads. Upgrade for more.'); return }
-                          try {
-                            const token = getAuthToken()
-                            const res = await fetch(getDownloadUrl(), { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-                            const blob = await res.blob()
-                            const a = document.createElement('a')
-                            a.href = URL.createObjectURL(blob)
-                            a.download = result?.fileName || fallbackTranslatedName(translateFallbackExt)
-                            a.click()
-                            URL.revokeObjectURL(a.href)
-                            try { trackEvent('result_downloaded', { tool: 'translate-subtitles', plan: 'free' }) } catch { /* non-blocking */ }
-                            setFreeExportsUsed((prev) => prev + 1)
-                            toast.success('Download started')
-                          } catch { toast.error('Download failed') }
-                        })
-                      : () => requireAuthForDownload(async () => {
-                          try {
-                            const token = getAuthToken()
-                            const res = await fetch(getDownloadUrl(), { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-                            const blob = await res.blob()
-                            const a = document.createElement('a')
-                            a.href = URL.createObjectURL(blob)
-                            a.download = result?.fileName || fallbackTranslatedName(translateFallbackExt)
-                            a.click()
-                            URL.revokeObjectURL(a.href)
-                            try { trackEvent('result_downloaded', { tool: 'translate-subtitles', plan: 'paid' }) } catch { /* non-blocking */ }
-                          } catch { toast.error('Download failed') }
-                        })
-                  }
+                  hideDownload
                   onProcessAnother={handleProcessAnother}
-                  relatedTools={[
-                    { path: '/fix-subtitles', name: 'Fix Subtitles', description: 'Auto-correct timing' },
-                    { path: '/burn-subtitles', name: 'Burn Subtitles', description: 'Hardcode into video' },
-                    { path: '/video-to-subtitles', name: 'Video → Subtitles', description: 'Generate SRT/VTT from video' },
-                  ]}
+                  relatedTools={[]}
                 />
                 {inputKind === 'subtitles' && <FreePlanNudge tool="translation" resultKey={result.downloadUrl} />}
                 {inputKind === 'subtitles' && (
@@ -999,72 +963,135 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
                   </>
                 )}
 
-                {/* Plain text result */}
-                {plainTextResult && (
-                  <div className="surface-card rounded-xl p-6 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Translated text</p>
+                <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+                  <div className="min-w-0 space-y-6">
+                    {plainTextResult && (
+                      <div className="surface-card space-y-3 rounded-xl p-6">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Translated text</p>
+                          <button
+                            onClick={() => copyToClipboard(plainTextResult)}
+                            className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+                          >
+                            {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+                            {copied ? 'Copied!' : 'Copy'}
+                          </button>
+                        </div>
+                        <div className="max-h-72 overflow-y-auto rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/60">
+                          <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-gray-700 dark:text-gray-300">{plainTextResult}</pre>
+                        </div>
+                      </div>
+                    )}
+
+                    {result.consistencyIssues && result.consistencyIssues.length > 0 && (
+                      <div className="shadow-card rounded-xl border border-amber-100 bg-amber-50 p-6">
+                        <p className="mb-2 font-medium text-amber-800">Some lines may not be translated.</p>
+                        <ul className="space-y-1 text-sm text-amber-900">
+                          {result.consistencyIssues.slice(0, 8).map((issue, i) => (
+                            <li key={i}>Line {issue.line}: {issue.issueType === 'untranslated' ? 'possibly untranslated' : 'mixed language'}</li>
+                          ))}
+                          {result.consistencyIssues.length > 8 && <li>… and {result.consistencyIssues.length - 8} more</li>}
+                        </ul>
+                      </div>
+                    )}
+
+                    {subtitleStylePanel}
+
+                    {subtitleRows.length > 0 && (
+                      <div className="surface-card rounded-xl p-6">
+                        <Suspense fallback={null}>
+                          <SubtitleEditor entries={subtitleRows} editable={canEdit} onChange={setSubtitleRows} />
+                        </Suspense>
+                        {!canEdit && (
+                          <p className="mt-3 text-xs text-gray-500">Upgrade to edit translated subtitles inline.</p>
+                        )}
+                      </div>
+                    )}
+
+                    <CrossToolSuggestions
+                      workflowHint="Burn into video or fix timing on another file."
+                      suggestions={[
+                        { icon: Film, title: 'Burn Subtitles', path: '/burn-subtitles', description: 'Burn translated captions into video' },
+                        { icon: Wrench, title: 'Fix Subtitles', path: '/fix-subtitles', description: 'Fix timing, grammar, line breaks' },
+                        { icon: MessageSquare, title: 'Video → Subtitles', path: '/video-to-subtitles', description: 'Generate SRT/VTT from another video' },
+                      ]}
+                    />
+                  </div>
+
+                  <ExportsPanel freeExportsUsed={!isPaidPlan ? freeExportsUsed : undefined}>
+                    <ExportSection title="Primary">
                       <button
-                        onClick={() => copyToClipboard(plainTextResult)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                        type="button"
+                        onClick={() => requireAuthForDownload(async () => {
+                          if (!isPaidPlan && freeExportsUsed >= 2) {
+                            toast('You\'ve used your 2 free downloads. Upgrade for more.')
+                            return
+                          }
+                          try {
+                            const token = getAuthToken()
+                            const res = await fetch(getDownloadUrl(), { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+                            const blob = await res.blob()
+                            const a = document.createElement('a')
+                            a.href = URL.createObjectURL(blob)
+                            a.download = result?.fileName || fallbackTranslatedName(translateFallbackExt)
+                            a.click()
+                            URL.revokeObjectURL(a.href)
+                            try { trackEvent('result_downloaded', { tool: 'translate-subtitles', plan: isPaidPlan ? 'paid' : 'free' }) } catch { /* non-blocking */ }
+                            if (!isPaidPlan) setFreeExportsUsed((prev) => prev + 1)
+                            toast.success('Download started')
+                          } catch {
+                            toast.error('Download failed')
+                          }
+                        })}
+                        disabled={!isPaidPlan && freeExportsUsed >= 2}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
-                        {copied ? 'Copied!' : 'Copy'}
+                        {!isPaidPlan && freeExportsUsed >= 2
+                          ? '2/2 free downloads used'
+                          : isPaidPlan
+                            ? 'Download translated file'
+                            : 'Download with watermark'}
                       </button>
-                    </div>
-                    <div className="bg-gray-50 dark:bg-gray-900/60 border border-gray-100 dark:border-gray-700 rounded-lg p-4 max-h-72 overflow-y-auto">
-                      <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">{plainTextResult}</pre>
-                    </div>
-                  </div>
-                )}
-
-                {/* Consistency issues */}
-                {result.consistencyIssues && result.consistencyIssues.length > 0 && (
-                  <div className="bg-amber-50 rounded-xl p-6 shadow-card border border-amber-100">
-                    <p className="text-amber-800 font-medium mb-2">Some lines may not be translated.</p>
-                    <ul className="text-sm text-amber-900 space-y-1">
-                      {result.consistencyIssues.slice(0, 8).map((issue, i) => (
-                        <li key={i}>Line {issue.line}: {issue.issueType === 'untranslated' ? 'possibly untranslated' : 'mixed language'}</li>
-                      ))}
-                      {result.consistencyIssues.length > 8 && <li>… and {result.consistencyIssues.length - 8} more</li>}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Subtitle style panel */}
-                {subtitleStylePanel}
-
-                {/* SRT/VTT inline editor */}
-                {subtitleRows.length > 0 && (
-                  <div className="surface-card rounded-xl p-6">
-                    <Suspense fallback={null}>
-                      <SubtitleEditor entries={subtitleRows} editable={canEdit} onChange={setSubtitleRows} />
-                    </Suspense>
-                    <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                      <button
-                        disabled={!canEdit}
-                        onClick={() => {
-                          let content = rowsToSrt(subtitleRows)
-                          if (!isPaidPlan) content = watermarkTextExport(content, 'srt')
-                          downloadBlob(content, 'text/plain', (result.fileName || fallbackTranslatedName('.srt')).replace(/\.vtt$/i, '.srt'))
-                        }}
-                        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
-                      >
-                        Download Edited Subtitles
-                      </button>
-                      {!canEdit && <div className="text-xs text-gray-500">Upgrade to edit translated subtitles inline.</div>}
-                    </div>
-                  </div>
-                )}
-
-                <CrossToolSuggestions
-                  workflowHint="Burn into video or fix timing on another file."
-                  suggestions={[
-                    { icon: Film, title: 'Burn Subtitles', path: '/burn-subtitles', description: 'Burn translated captions into video' },
-                    { icon: Wrench, title: 'Fix Subtitles', path: '/fix-subtitles', description: 'Fix timing, grammar, line breaks' },
-                    { icon: MessageSquare, title: 'Video → Subtitles', path: '/video-to-subtitles', description: 'Generate SRT/VTT from another video' },
-                  ]}
-                />
+                    </ExportSection>
+                    {subtitleRows.length > 0 && (
+                      <>
+                        <ExportSection title="Edited subtitles">
+                          <button
+                            type="button"
+                            disabled={!canEdit}
+                            onClick={() => {
+                              let content = rowsToSrt(subtitleRows)
+                              if (!isPaidPlan) content = watermarkTextExport(content, 'srt')
+                              downloadBlob(content, 'text/plain', (result.fileName || fallbackTranslatedName('.srt')).replace(/\.vtt$/i, '.srt'))
+                            }}
+                            className="w-full rounded-lg border border-gray-200 px-2 py-2 text-[11px] font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                          >
+                            Download edited SRT
+                          </button>
+                        </ExportSection>
+                        <ExportSection title="Styled exports">
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => requireAuthForDownload(() => generateStyledVtt(subtitleRows, subStyles, subtitleBaseName, isPaidPlan))}
+                              className="rounded-lg border border-gray-200 px-2 py-2 text-[11px] font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                            >
+                              Styled VTT
+                            </button>
+                            <button
+                              onClick={() => requireAuthForDownload(() => generateAssFile(subtitleRows, subStyles, subtitleBaseName, isPaidPlan))}
+                              className="rounded-lg border border-gray-200 px-2 py-2 text-[11px] font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                            >
+                              ASS / SSA
+                            </button>
+                          </div>
+                          <p className="mt-2 text-[10px] text-gray-400 dark:text-gray-500">
+                            For Premiere, DaVinci, Aegisub, and styled players
+                          </p>
+                        </ExportSection>
+                      </>
+                    )}
+                  </ExportsPanel>
+                </div>
               </div>
             )}
 
@@ -1157,12 +1184,19 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
               </div>
             )}
 
-            {/* Translating spinner */}
+            {/* Translating */}
             {docLoading && (
-              <div className="rounded-xl bg-blue-50 dark:bg-blue-950/30 p-8 flex flex-col items-center gap-4">
-                <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                <p className="text-sm text-gray-600 dark:text-gray-400">Translating to {targetLanguage}…</p>
-              </div>
+              <ProcessingStateShell>
+                <ProcessingProgress
+                  steps={[
+                    { label: 'Preparing', status: 'completed' },
+                    { label: 'Translating', status: 'active' },
+                  ]}
+                  currentMessage={`Translating to ${targetLanguage}…`}
+                  progress={docProgress}
+                  estimatedTime="10–30 seconds"
+                />
+              </ProcessingStateShell>
             )}
 
             {/* Result — signed-in only */}
@@ -1184,52 +1218,58 @@ export default function TranslateSubtitles(props: TranslateSubtitlesSeoProps = {
 
             {docTranslated && isLoggedIn() && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-                    <Check className="w-4 h-4" />
-                    <span className="text-sm font-semibold">Translated to {targetLanguage}</span>
+                <ResultHeader
+                  title="Translation complete"
+                  meta={`Translated to ${targetLanguage}`}
+                  actionLabel="Translate another"
+                  onAction={() => { setDocTranslated(null); setDocText(null); setSelectedFile(null); setPastedText('') }}
+                />
+
+                <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+                  <div className="min-w-0 space-y-3">
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => copyToClipboard(docTranslated)}
+                        className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                      >
+                        {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copied ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto rounded-xl border border-gray-100 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-900/60">
+                      <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-gray-700 dark:text-gray-300">{docTranslated}</pre>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => copyToClipboard(docTranslated)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                  >
-                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                    {copied ? 'Copied!' : 'Copy'}
-                  </button>
+
+                  <ExportsPanel>
+                    <ExportSection title="Documents">
+                      <div className="grid grid-cols-1 gap-2">
+                        <button
+                          onClick={() => requireAuthForDownload(() => downloadBlob(
+                            isPaidPlan ? docTranslated : watermarkTextExport(docTranslated, 'txt'),
+                            'text/plain',
+                            `${docBaseName}.txt`,
+                          ))}
+                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-2 py-2 text-[11px] font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                        >
+                          <Download className="h-3.5 w-3.5" /> Download TXT
+                        </button>
+                        <button
+                          onClick={() => requireAuthForDownload(() => downloadDocAsDocx(docTranslated, `${docBaseName}.docx`, isPaidPlan))}
+                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-2 py-2 text-[11px] font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                        >
+                          <Download className="h-3.5 w-3.5" /> Download DOCX
+                        </button>
+                        <button
+                          onClick={() => requireAuthForDownload(() => downloadDocAsPdf(docTranslated, `${docBaseName}.pdf`, isPaidPlan))}
+                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-2 py-2 text-[11px] font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                        >
+                          <Download className="h-3.5 w-3.5" /> Download PDF
+                        </button>
+                      </div>
+                    </ExportSection>
+                  </ExportsPanel>
                 </div>
-                <div className="bg-gray-50 dark:bg-gray-900/60 border border-gray-100 dark:border-gray-700 rounded-xl p-5 max-h-80 overflow-y-auto">
-                  <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">{docTranslated}</pre>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => requireAuthForDownload(() => downloadBlob(
-                      isPaidPlan ? docTranslated : watermarkTextExport(docTranslated, 'txt'),
-                      'text/plain',
-                      `${docBaseName}.txt`,
-                    ))}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                  >
-                    <Download className="w-3.5 h-3.5" /> Download TXT
-                  </button>
-                  <button
-                    onClick={() => requireAuthForDownload(() => downloadDocAsDocx(docTranslated, `${docBaseName}.docx`, isPaidPlan))}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                  >
-                    <Download className="w-3.5 h-3.5" /> Download DOCX
-                  </button>
-                  <button
-                    onClick={() => requireAuthForDownload(() => downloadDocAsPdf(docTranslated, `${docBaseName}.pdf`, isPaidPlan))}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                  >
-                    <Download className="w-3.5 h-3.5" /> Download PDF
-                  </button>
-                </div>
-                <button
-                  onClick={() => { setDocTranslated(null); setDocText(null); setSelectedFile(null); setPastedText('') }}
-                  className="w-full py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                >
-                  Translate another
-                </button>
               </div>
             )}
           </>
