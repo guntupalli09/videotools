@@ -3384,7 +3384,7 @@ export default function VideoToTranscript(
               <div className="space-y-component-sm sm:space-y-component-sm">
                 {batchUploadEligible() && (
                   <div
-                    className="rounded-xl sm:rounded-xl border-2 border-blue-400/55 dark:border-blue-500/45 bg-gradient-to-br from-blue-600/[0.12] via-blue-600/[0.08] to-fuchsia-600/[0.06] dark:from-blue-950/60 dark:via-blue-950/40 dark:to-fuchsia-950/25 px-4 py-3.5 sm:px-5 sm:py-4 shadow-sm shadow-blue-500/10"
+                    className="rounded-xl sm:rounded-xl border-2 border-blue-400/55 dark:border-blue-500/45 bg-gradient-to-br from-blue-600/[0.12] via-blue-600/[0.08] to-blue-600/[0.06] dark:from-blue-950/60 dark:via-blue-950/40 dark:to-blue-950/25 px-4 py-3.5 sm:px-5 sm:py-4 shadow-sm shadow-blue-500/10"
                     role="status"
                     aria-live="polite"
                   >
@@ -4325,10 +4325,10 @@ export default function VideoToTranscript(
 
         {/* Batch processing progress */}
         {isBatchMode && status === "processing" && batchInfo && (
-          <div className="rounded-xl border border-blue-200/80 dark:border-blue-800/50 bg-gradient-to-br from-blue-50/90 via-white to-fuchsia-50/50 dark:from-blue-950/40 dark:via-gray-900/80 dark:to-fuchsia-950/20 p-6 sm:p-8 space-y-component shadow-lg shadow-blue-500/10">
+          <div className="rounded-xl border border-blue-200/80 dark:border-blue-800/50 bg-gradient-to-br from-blue-50/90 via-white to-blue-50/50 dark:from-blue-950/40 dark:via-gray-900/80 dark:to-blue-950/20 p-6 sm:p-8 space-y-component shadow-lg shadow-blue-500/10">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-component-sm">
               <div className="flex gap-component-sm">
-                <div className="shrink-0 flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-fuchsia-600 text-white shadow-md">
+                <div className="shrink-0 flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-md">
                   <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" aria-hidden />
                 </div>
                 <div>
@@ -4358,7 +4358,7 @@ export default function VideoToTranscript(
               </div>
               <div className="w-full bg-gray-200/90 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-blue-600 to-fuchsia-500 h-2.5 rounded-full transition-all duration-200 ease-out"
+                  className="bg-gradient-to-r from-blue-600 to-blue-500 h-2.5 rounded-full transition-all duration-200 ease-out"
                   style={{
                     width: `${Math.min(100, batchInfo.progress.percentage)}%`,
                   }}
@@ -5200,7 +5200,7 @@ export default function VideoToTranscript(
                           </div>
                         )}
                       </div>
-                      <div className="mt-6 rounded-xl border border-blue-200/80 dark:border-blue-800/70 bg-gradient-to-r from-blue-50 via-blue-50 to-fuchsia-50 dark:from-blue-950/30 dark:via-blue-950/20 dark:to-fuchsia-950/20 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="mt-6 rounded-xl border border-blue-200/80 dark:border-blue-800/70 bg-gradient-to-r from-blue-50 via-blue-50 to-blue-50 dark:from-blue-950/30 dark:via-blue-950/20 dark:to-blue-950/20 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
                             Need a download?

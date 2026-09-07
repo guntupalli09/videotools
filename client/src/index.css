@@ -17,6 +17,12 @@
   ::selection {
     @apply bg-blue-600/20 text-gray-900 dark:text-gray-100;
   }
+
+  /* Studio Pro brand moment — indigo accent on key phrases (e.g. "Client-ready.") */
+  .brand-moment {
+    @apply text-blue-300 font-medium;
+    text-shadow: 0 0 40px rgba(99, 102, 241, 0.35);
+  }
 }
 
 @layer components {
@@ -134,9 +140,9 @@
   animation: success-glow-pulse 0.25s cubic-bezier(0.4, 0, 0.2, 1) 1;
 }
 @keyframes success-glow-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.35); }
-  50% { box-shadow: 0 0 12px 4px rgba(37, 99, 235, 0.2); }
-  100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.35); }
+  50% { box-shadow: 0 0 12px 4px rgba(99, 102, 241, 0.2); }
+  100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
 }
 
 /* Success container: stable min-height to avoid layout shift; one-time glow */
@@ -145,19 +151,19 @@
   animation: success-container-glow 0.3s cubic-bezier(0.4, 0, 0.2, 1) 1;
 }
 @keyframes success-container-glow {
-  0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
-  40% { box-shadow: 0 0 40px 16px rgba(37, 99, 235, 0.08); }
-  100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+  40% { box-shadow: 0 0 40px 16px rgba(99, 102, 241, 0.08); }
+  100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
 }
 
 /* Processing block: subtle animated gradient background */
 .processing-gradient-bg {
-  background: linear-gradient(110deg, #eff6ff 0%, #dbeafe 25%, #eff6ff 50%, #dbeafe 75%, #eff6ff 100%);
+  background: linear-gradient(110deg, #eef2ff 0%, #e0e7ff 25%, #eef2ff 50%, #e0e7ff 75%, #eef2ff 100%);
   background-size: 200% 100%;
   animation: processing-shimmer 8s ease-in-out infinite;
 }
 .dark .processing-gradient-bg {
-  background: linear-gradient(110deg, #0c1929 0%, #172554 25%, #0c1929 50%, #172554 75%, #0c1929 100%);
+  background: linear-gradient(110deg, #0A0A0B 0%, #1E1B4B 25%, #0A0A0B 50%, #1E1B4B 75%, #0A0A0B 100%);
   background-size: 200% 100%;
 }
 @keyframes processing-shimmer {
@@ -208,10 +214,10 @@
 }
 html.dark [data-user-menu-panel],
 html.dark [data-user-menu-panel] [data-user-menu-body] {
-  background-color: #1f2937 !important;
+  background-color: #18181B !important;
 }
 
-/* Pinned transcript audio bar — dark bar, blue progress, lavender thumb */
+/* Pinned transcript audio bar — dark bar, indigo progress */
 .vtt-pinned-audio input[type='range'].vtt-rail {
   --fill: 0%;
   -webkit-appearance: none;
@@ -225,10 +231,10 @@ html.dark [data-user-menu-panel] [data-user-menu-body] {
   border-radius: 9999px;
   background: linear-gradient(
     to right,
-    #2563EB 0%,
-    #2563EB var(--fill),
-    #1e3a5f var(--fill),
-    #1e3a5f 100%
+    #6366F1 0%,
+    #6366F1 var(--fill),
+    #27272A var(--fill),
+    #27272A 100%
   );
 }
 .vtt-pinned-audio input[type='range'].vtt-rail::-webkit-slider-thumb {
@@ -237,26 +243,26 @@ html.dark [data-user-menu-panel] [data-user-menu-body] {
   width: 14px;
   height: 14px;
   border-radius: 9999px;
-  background: #93C5FD;
-  border: 2px solid #0c1a2e;
+  background: #A5B4FC;
+  border: 2px solid #0A0A0B;
   margin-top: -4px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 .vtt-pinned-audio input[type='range'].vtt-rail::-moz-range-track {
   height: 6px;
   border-radius: 9999px;
-  background: #1e3a5f;
+  background: #27272A;
 }
 .vtt-pinned-audio input[type='range'].vtt-rail::-moz-range-progress {
   height: 6px;
   border-radius: 9999px;
-  background: #2563EB;
+  background: #6366F1;
 }
 .vtt-pinned-audio input[type='range'].vtt-rail::-moz-range-thumb {
   width: 14px;
   height: 14px;
   border-radius: 9999px;
-  background: #93C5FD;
-  border: 2px solid #0c1a2e;
+  background: #A5B4FC;
+  border: 2px solid #0A0A0B;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }

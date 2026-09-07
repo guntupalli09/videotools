@@ -626,7 +626,7 @@ function Err({ children }: { children: React.ReactNode }) {
 }
 function Garbled({ children }: { children: React.ReactNode }) {
   return (
-    <span className="bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400 italic px-0.5 rounded-sm">
+    <span className="bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 italic px-0.5 rounded-sm">
       {children}
     </span>
   );
@@ -658,7 +658,7 @@ function DifficultAudioTest() {
       <div className="flex flex-wrap items-center gap-4 mb-5 text-[12px] text-gray-500 dark:text-white/40">
         <span className="font-semibold uppercase tracking-wide">Legend:</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-red-200 dark:bg-red-500/30 rounded inline-block" /> Missed / wrong word</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-orange-200 dark:bg-orange-500/30 rounded inline-block" /> Garbled / inaudible</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-rose-200 dark:bg-rose-500/30 rounded inline-block" /> Garbled / inaudible</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-yellow-200 dark:bg-yellow-500/30 rounded inline-block" /> Wrong speaker</span>
       </div>
 
@@ -731,8 +731,8 @@ function DifficultAudioTest() {
         <div className="rounded-xl border border-gray-200 dark:border-white/[0.07] bg-gray-50 dark:bg-gray-900/50 p-5">
           <div className="flex items-center gap-2 mb-4">
             <span className="font-bold text-gray-700 dark:text-white/70 text-sm">Sonix</span>
-            <span className="text-[11px] bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400 px-2 py-0.5 rounded-full font-semibold">~79% accurate</span>
-            <span className="text-[11px] bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400 px-2 py-0.5 rounded-full font-semibold">5 errors</span>
+            <span className="text-[11px] bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 px-2 py-0.5 rounded-full font-semibold">~79% accurate</span>
+            <span className="text-[11px] bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 px-2 py-0.5 rounded-full font-semibold">5 errors</span>
           </div>
           <div className="space-y-3 text-[13px] leading-relaxed font-mono text-gray-700 dark:text-white/60">
             <p>
@@ -753,8 +753,8 @@ function DifficultAudioTest() {
             </p>
           </div>
           <div className="mt-4 pt-3 border-t border-gray-200 dark:border-white/[0.06] flex items-start gap-1.5">
-            <XCircle className="w-4 h-4 text-orange-400 flex-shrink-0 mt-0.5" />
-            <span className="text-[12px] text-orange-500 dark:text-orange-400 font-semibold">1 wrong speaker · missed "HVAC" · punctuation errors · altered meaning</span>
+            <XCircle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
+            <span className="text-[12px] text-rose-500 dark:text-rose-400 font-semibold">1 wrong speaker · missed "HVAC" · punctuation errors · altered meaning</span>
           </div>
         </div>
       </div>

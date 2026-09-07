@@ -211,7 +211,7 @@ export default function TemiVsVideoText() {
                   model: 'Pay-per-minute',
                   rate: '$0.25/min AI · $1.50+/min Human',
                   monthly: '$120 AI · $720 Human for 8 hrs/mo',
-                  badge: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
+                  badge: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 dark:bg-gray-900/40 dark:text-gray-400',
                 },
                 {
                   tool: 'VideoText Pro',
@@ -244,7 +244,7 @@ export default function TemiVsVideoText() {
                   <tr className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
                     <th scope="col" className="px-5 py-3 text-left font-semibold text-gray-700 dark:text-gray-300 w-64">Feature</th>
                     <th scope="col" className="px-5 py-3 text-center font-semibold text-red-600 w-36">Temi</th>
-                    <th scope="col" className="px-5 py-3 text-center font-semibold text-orange-600 w-36">Rev AI</th>
+                    <th scope="col" className="px-5 py-3 text-center font-semibold text-gray-500 dark:text-gray-400 w-36">Rev AI</th>
                     <th scope="col" className="px-5 py-3 text-center font-semibold text-blue-700 dark:text-blue-400 w-36">VideoText</th>
                   </tr>
                 </thead>
@@ -260,12 +260,12 @@ export default function TemiVsVideoText() {
                     ['Chapter markers with timestamps', CROSS, CROSS, CHECK],
                     ['YouTube URL direct processing', CROSS, CROSS, CHECK],
                     ['Batch processing (multiple files)', CROSS, PARTIAL, CHECK],
-                    ['Language support', <span key="t-lang" className="text-red-600 font-semibold text-xs">English only</span>, <span key="r-lang" className="text-orange-600 font-semibold text-xs">36 languages</span>, <span key="v-lang" className="text-emerald-700 dark:text-emerald-400 font-bold text-xs">90+ languages</span>],
+                    ['Language support', <span key="t-lang" className="text-red-600 font-semibold text-xs">English only</span>, <span key="r-lang" className="text-gray-500 dark:text-gray-400 font-semibold text-xs">36 languages</span>, <span key="v-lang" className="text-emerald-700 dark:text-emerald-400 font-bold text-xs">90+ languages</span>],
                     ['Zero data retention (files deleted instantly)', CROSS, CROSS, CHECK],
                     ['Free tier (no credit card required)', CROSS, CROSS, CHECK],
-                    ['Pricing model', <span key="t-price" className="text-red-600 text-xs">$0.25/min always</span>, <span key="r-price" className="text-orange-600 text-xs">$0.25/min AI</span>, <span key="v-price" className="text-emerald-700 dark:text-emerald-400 font-bold text-xs">~$0.042/min flat</span>],
+                    ['Pricing model', <span key="t-price" className="text-red-600 text-xs">$0.25/min always</span>, <span key="r-price" className="text-gray-500 dark:text-gray-400 text-xs">$0.25/min AI</span>, <span key="v-price" className="text-emerald-700 dark:text-emerald-400 font-bold text-xs">~$0.042/min flat</span>],
                     ['Export formats', <span key="t-exp" className="text-gray-500 text-xs">TXT, DOCX, PDF, SRT</span>, <span key="r-exp" className="text-gray-500 text-xs">TXT, DOCX, SRT, VTT</span>, <span key="v-exp" className="text-blue-700 dark:text-blue-400 font-semibold text-xs">TXT, PDF, DOCX, JSON, CSV, SRT, VTT, Notion</span>],
-                    ['Processing speed (1-hr video)', <span key="t-spd" className="text-orange-600 text-xs">~60 min (near real-time)</span>, <span key="r-spd" className="text-orange-500 text-xs">~5–10 min</span>, <span key="v-spd" className="text-emerald-700 dark:text-emerald-400 font-bold text-xs">3–5 min</span>],
+                    ['Processing speed (1-hr video)', <span key="t-spd" className="text-gray-500 dark:text-gray-400 text-xs">~60 min (near real-time)</span>, <span key="r-spd" className="text-gray-500 dark:text-gray-400 text-xs">~5–10 min</span>, <span key="v-spd" className="text-emerald-700 dark:text-emerald-400 font-bold text-xs">3–5 min</span>],
                     ['Long video support (2+ hours)', PARTIAL, CHECK, CHECK],
                     ['Burn subtitles into video', CROSS, CROSS, CHECK],
                     ['Transcript style guide formatter', CROSS, CROSS, CHECK],
@@ -319,7 +319,7 @@ export default function TemiVsVideoText() {
                 <div className="space-y-3 text-sm" data-speakable>
                   {[
                     { tool: 'Temi', time: '~60 min (near real-time)', pct: 15, color: 'bg-red-400' },
-                    { tool: 'Rev AI', time: '~5–10 min', pct: 55, color: 'bg-orange-400' },
+                    { tool: 'Rev AI', time: '~5–10 min', pct: 55, color: 'bg-gray-400' },
                     { tool: 'VideoText', time: '3–5 min (parallel async)', pct: 100, color: 'bg-blue-600' },
                   ].map(({ tool, time, pct, color }) => (
                     <div key={tool}>
@@ -389,8 +389,8 @@ export default function TemiVsVideoText() {
                 },
                 {
                   name: 'Rev AI',
-                  color: 'border-orange-200 dark:border-orange-900',
-                  headerColor: 'bg-orange-50 dark:bg-orange-950/40 text-orange-800 dark:text-orange-300',
+                  color: 'border-gray-200 dark:border-gray-700 dark:border-gray-800',
+                  headerColor: 'bg-gray-50 dark:bg-gray-900 dark:bg-gray-900/40 text-gray-600 dark:text-gray-300 dark:text-gray-400',
                   outputs: [
                     { label: 'Timestamped transcript', has: true },
                     { label: 'Speaker labels', has: true },
@@ -464,7 +464,7 @@ export default function TemiVsVideoText() {
                 {
                   name: 'Rev',
                   icon: '⚠️',
-                  color: 'border-orange-200 dark:border-orange-800',
+                  color: 'border-gray-200 dark:border-gray-700 dark:border-gray-700',
                   points: [
                     'Files retained for up to 30 days',
                     'Human transcriptionists hear your audio (Human tier)',
@@ -517,7 +517,7 @@ export default function TemiVsVideoText() {
                   <tr className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
                     <th scope="col" className="px-5 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Language</th>
                     <th scope="col" className="px-5 py-3 text-center font-semibold text-red-600">Temi</th>
-                    <th scope="col" className="px-5 py-3 text-center font-semibold text-orange-600">Rev AI</th>
+                    <th scope="col" className="px-5 py-3 text-center font-semibold text-gray-500 dark:text-gray-400">Rev AI</th>
                     <th scope="col" className="px-5 py-3 text-center font-semibold text-blue-700 dark:text-blue-400">VideoText</th>
                   </tr>
                 </thead>
@@ -636,7 +636,7 @@ export default function TemiVsVideoText() {
                   ].map(([useCase, winner, why, link]) => (
                     <tr key={useCase} className="hover:bg-gray-50 dark:hover:bg-gray-900/40">
                       <td className="px-5 py-3 text-gray-700 dark:text-gray-300 font-medium">{link ? <Link to={link} className="text-blue-600 hover:underline">{useCase}</Link> : useCase}</td>
-                      <td className={`px-5 py-3 text-center font-bold ${winner === 'VideoText' ? 'text-blue-600 dark:text-blue-400' : winner === 'Rev Human' ? 'text-orange-600' : 'text-gray-500'}`}>
+                      <td className={`px-5 py-3 text-center font-bold ${winner === 'VideoText' ? 'text-blue-600 dark:text-blue-400' : winner === 'Rev Human' ? 'text-gray-500 dark:text-gray-400' : 'text-gray-500'}`}>
                         {winner}
                       </td>
                       <td className="px-5 py-3 text-gray-500 dark:text-gray-400 text-xs">{why}</td>
@@ -710,7 +710,7 @@ export default function TemiVsVideoText() {
                 </ul>
               </div>
               <div>
-                <div className="font-bold text-orange-700 dark:text-orange-400 mb-3">Rev — 6 critical limitations</div>
+                <div className="font-bold text-gray-600 dark:text-gray-400 dark:text-gray-400 mb-3">Rev — 6 critical limitations</div>
                 <ul className="space-y-3">
                   {[
                     { issue: 'Same $0.25/min AI pricing as Temi', detail: 'Rev AI is priced identically to Temi. No flat subscription at competitive rates.' },
@@ -721,7 +721,7 @@ export default function TemiVsVideoText() {
                     { issue: 'Limited language support on AI tier', detail: 'Rev AI supports ~36 languages vs VideoText\'s 90+. Rev Human is primarily English.' },
                   ].map(({ issue, detail }) => (
                     <li key={issue} className="flex gap-3">
-                      <span className="text-orange-500 mt-0.5 flex-shrink-0">⚠</span>
+                      <span className="text-gray-500 dark:text-gray-400 mt-0.5 flex-shrink-0">⚠</span>
                       <div>
                         <span className="font-semibold text-gray-800 dark:text-gray-200">{issue}: </span>
                         <span className="text-gray-600 dark:text-gray-400">{detail}</span>

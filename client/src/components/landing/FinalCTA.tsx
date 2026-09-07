@@ -7,19 +7,9 @@ export function FinalCTA() {
     <section className="relative py-section-lg overflow-hidden bg-gray-950">
       {/* Background */}
       <div className="absolute inset-0 z-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-950/80 via-gray-950 to-blue-950/80" />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-blue-600/[0.18] rounded-full blur-[150px]" />
-        <div className="absolute bottom-0 right-1/4 w-[400px] h-[300px] bg-blue-700/[0.12] rounded-full blur-[120px]" />
+        <div className="absolute inset-0 bg-gray-950" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-blue-600/[0.1] rounded-full blur-[150px]" />
       </div>
-
-      {/* Dot grid */}
-      <div
-        className="absolute inset-0 z-[1] opacity-[0.035]"
-        style={{
-          backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
-          backgroundSize: '30px 30px',
-        }}
-      />
 
       <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
 
@@ -44,8 +34,8 @@ export function FinalCTA() {
           {/* Headline */}
           <h2 className="text-5xl sm:text-6xl md:text-7xl font-medium text-white leading-[1.05] mb-6 font-display">
             Start transcribing
-            <span className="block bg-gradient-to-r from-blue-400 via-blue-400 to-blue-400 bg-clip-text text-transparent">
-              right now.
+            <span className="block brand-moment">
+              client-ready.
             </span>
           </h2>
 
@@ -62,7 +52,7 @@ export function FinalCTA() {
           >
             <Link
               to="/video-to-transcript"
-              className="group inline-flex items-center gap-2.5 bg-white text-gray-900 px-10 py-4 rounded-xl font-extrabold text-base shadow-2xl shadow-white/10 hover:shadow-white/25 transition-all"
+              className="group inline-flex items-center gap-2.5 bg-blue-600 text-white px-10 py-4 rounded-xl font-extrabold text-base shadow-accent hover:bg-blue-700 hover:shadow-accent-hover transition-all"
             >
               Start Free — No Card Needed
               <ChevronRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
@@ -91,7 +81,7 @@ export function FinalCTA() {
             </div>
             <div className="w-px h-4 bg-white/10 hidden sm:block" />
             <div className="flex items-center gap-1.5">
-              <Zap className="w-3.5 h-3.5 text-yellow-400" />
+              <Zap className="w-3.5 h-3.5 text-blue-400" />
               3 free imports
             </div>
             <div className="w-px h-4 bg-white/10 hidden sm:block" />

@@ -2,12 +2,12 @@ import type { DashboardUtmEntry } from '../../lib/founderDashboard'
 
 const SOURCE_COLORS: Record<string, string> = {
   direct: '#52525b',
-  google: '#2563eb',
+  google: '#6366F1',
   twitter: '#0891b2',
   reddit: '#ea580c',
   youtube: '#dc2626',
   linkedin: '#1d4ed8',
-  facebook: '#3b82f6',
+  facebook: '#818CF8',
   product_hunt: '#f97316',
   organic: '#059669',
 }
@@ -17,7 +17,7 @@ function getColor(source: string): string {
   for (const [key, color] of Object.entries(SOURCE_COLORS)) {
     if (lower.includes(key)) return color
   }
-  return '#2563EB'
+  return '#6366F1'
 }
 
 export default function AcquisitionBreakdown({ utmBreakdown }: { utmBreakdown: DashboardUtmEntry[] }) {

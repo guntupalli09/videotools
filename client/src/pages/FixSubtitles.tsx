@@ -45,12 +45,12 @@ import { exportFileStem, joinExportFilename } from '../lib/exportFileNames'
 
 // ─── Finding type metadata ────────────────────────────────────────────────────
 const FINDING_META: Record<string, { icon: typeof Film; colorText: string; colorBg: string; colorBorder: string; label: string }> = {
-  overlap:       { icon: Layers,     colorText: 'text-orange-600 dark:text-orange-400',  colorBg: 'bg-orange-50 dark:bg-orange-950/20',    colorBorder: 'border-orange-200 dark:border-orange-800',   label: 'Overlapping cues' },
+  overlap:       { icon: Layers,     colorText: 'text-rose-600 dark:text-rose-400',  colorBg: 'bg-rose-50 dark:bg-rose-950/20',    colorBorder: 'border-rose-200 dark:border-rose-800',   label: 'Overlapping cues' },
   long_line:     { icon: AlignLeft,  colorText: 'text-blue-600 dark:text-blue-400',      colorBg: 'bg-blue-50 dark:bg-blue-950/20',         colorBorder: 'border-blue-200 dark:border-blue-800',       label: 'Line too long (CPL)' },
   fast_reading:  { icon: Zap,        colorText: 'text-amber-600 dark:text-amber-400',    colorBg: 'bg-amber-50 dark:bg-amber-950/20',       colorBorder: 'border-amber-200 dark:border-amber-800',     label: 'Reading speed (CPS)' },
   reading_speed: { icon: Zap,        colorText: 'text-amber-600 dark:text-amber-400',    colorBg: 'bg-amber-50 dark:bg-amber-950/20',       colorBorder: 'border-amber-200 dark:border-amber-800',     label: 'Reading speed (CPS)' },
   large_gap:     { icon: Clock,      colorText: 'text-gray-500 dark:text-gray-400',      colorBg: 'bg-gray-50 dark:bg-gray-900/60',         colorBorder: 'border-gray-200 dark:border-gray-700',       label: 'Large gap' },
-  scene_cut:     { icon: Scissors,   colorText: 'text-violet-600 dark:text-violet-400',  colorBg: 'bg-violet-50 dark:bg-violet-950/20',     colorBorder: 'border-violet-200 dark:border-violet-800',   label: 'Spans scene cut' },
+  scene_cut:     { icon: Scissors,   colorText: 'text-slate-600 dark:text-slate-400',  colorBg: 'bg-slate-50 dark:bg-slate-950/20',     colorBorder: 'border-slate-200 dark:border-slate-800',   label: 'Spans scene cut' },
   invalid_timing:{ icon: AlertTriangle, colorText: 'text-red-600 dark:text-red-400',     colorBg: 'bg-red-50 dark:bg-red-950/20',           colorBorder: 'border-red-200 dark:border-red-800',         label: 'Invalid timing' },
 }
 const DEFAULT_FINDING_META = { icon: AlertTriangle, colorText: 'text-gray-600 dark:text-gray-400', colorBg: 'bg-gray-50 dark:bg-gray-900', colorBorder: 'border-gray-200 dark:border-gray-700', label: 'Issue' }
@@ -675,7 +675,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
             </span>
           )}
           {sceneCuts.length > 0 && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-900/30 dark:text-slate-300">
               <Scissors className="h-3 w-3" />
               {sceneCuts.length} scene cut{sceneCuts.length !== 1 ? 's' : ''}
             </span>
@@ -684,17 +684,17 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
 
         {/* Scene cuts — manual review required */}
         {sceneCuts.length > 0 && (
-          <div className="rounded-xl border border-violet-200 bg-violet-50 p-4 dark:border-violet-800 dark:bg-violet-950/20">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/20">
             <div className="mb-3 flex items-center gap-2">
-              <Scissors className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-              <p className="text-sm font-semibold text-violet-800 dark:text-violet-200">Scene cuts — manual review required</p>
+              <Scissors className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Scene cuts — manual review required</p>
             </div>
             <ol className="space-y-2">
               {sceneCuts.map((w, i) => (
-                <li key={i} className="rounded-lg border border-violet-200 bg-white px-4 py-3 text-sm dark:border-violet-800 dark:bg-gray-900">
+                <li key={i} className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm dark:border-slate-800 dark:bg-gray-900">
                   <div className="flex items-baseline justify-between gap-2">
-                    <p className="font-medium text-violet-800 dark:text-violet-200">{w.message}</p>
-                    {w.line != null && <span className="shrink-0 font-mono text-xs text-violet-500">Cue {w.line}</span>}
+                    <p className="font-medium text-slate-800 dark:text-slate-200">{w.message}</p>
+                    {w.line != null && <span className="shrink-0 font-mono text-xs text-slate-500">Cue {w.line}</span>}
                   </div>
                 </li>
               ))}
@@ -808,7 +808,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
             {/* Optional video upload for scene cut detection */}
             <div>
               <div className="mb-3 flex items-center gap-2">
-                <Scissors className="h-4 w-4 text-violet-500" />
+                <Scissors className="h-4 w-4 text-slate-500" />
                 <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                   Scene cut detection
                   <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-500 dark:bg-gray-800 dark:text-gray-400">
@@ -823,13 +823,13 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.97 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="flex items-center gap-3 rounded-lg border border-violet-200 bg-violet-50 px-3.5 py-2.5 dark:border-violet-800 dark:bg-violet-950/20"
+                  className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 dark:border-slate-800 dark:bg-slate-950/20"
                 >
-                  <Film className="h-4 w-4 shrink-0 text-violet-500" />
-                  <span className="flex-1 truncate text-sm font-medium text-violet-800 dark:text-violet-200">{videoFile.name}</span>
+                  <Film className="h-4 w-4 shrink-0 text-slate-500" />
+                  <span className="flex-1 truncate text-sm font-medium text-slate-800 dark:text-slate-200">{videoFile.name}</span>
                   <button
                     onClick={() => setVideoFile(null)}
-                    className="shrink-0 rounded p-0.5 text-violet-400 transition-colors hover:bg-violet-200 hover:text-violet-700 dark:hover:bg-violet-900/40 dark:hover:text-violet-300"
+                    className="shrink-0 rounded p-0.5 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-900/40 dark:hover:text-slate-300"
                     aria-label="Remove video"
                   >
                     <X className="h-3.5 w-3.5" />
@@ -843,7 +843,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
                     className="sr-only"
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) setVideoFile(f) }}
                   />
-                  <span className="inline-flex items-center gap-2 rounded-lg border border-dashed border-gray-300 bg-white px-4 py-2 text-sm text-gray-600 transition-colors group-hover:border-violet-400 group-hover:bg-violet-50 group-hover:text-violet-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:group-hover:border-violet-700 dark:group-hover:bg-violet-950/20 dark:group-hover:text-violet-300">
+                  <span className="inline-flex items-center gap-2 rounded-lg border border-dashed border-gray-300 bg-white px-4 py-2 text-sm text-gray-600 transition-colors group-hover:border-slate-400 group-hover:bg-slate-50 group-hover:text-slate-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:group-hover:border-slate-700 dark:group-hover:bg-slate-950/20 dark:group-hover:text-slate-300">
                     <UploadCloud className="h-4 w-4" />
                     Add source video
                   </span>
@@ -857,7 +857,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
           <ProcessingStateShell>
             <div className="mb-component-sm text-sm text-gray-500 dark:text-gray-400">
               {selectedFile?.name}
-              {videoFile && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"><Scissors className="h-3 w-3" />scene detection enabled</span>}
+              {videoFile && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-900/30 dark:text-slate-300"><Scissors className="h-3 w-3" />scene detection enabled</span>}
             </div>
             <ProcessingProgress
               steps={[
@@ -913,7 +913,7 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
                         </span>
                       )}
                       {sceneCuts.length > 0 && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-1 text-xs font-semibold text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-900/30 dark:text-slate-300">
                           <Scissors className="h-3 w-3" />
                           {sceneCuts.length} scene cut{sceneCuts.length !== 1 ? 's' : ''}
                         </span>
@@ -934,22 +934,22 @@ export default function FixSubtitles(props: FixSubtitlesSeoProps = {}) {
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.05 }}
-                    className="rounded-xl border border-violet-200 bg-violet-50 p-5 dark:border-violet-800 dark:bg-violet-950/20"
+                    className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-950/20"
                   >
                     <div className="mb-3 flex items-center gap-2.5">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/40">
-                        <Scissors className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-900/40">
+                        <Scissors className="h-4 w-4 text-slate-600 dark:text-slate-400" />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-violet-900 dark:text-violet-100">Scene cuts detected — manual review needed</p>
-                        <p className="text-xs text-violet-600 dark:text-violet-400">These cues span a camera cut and cannot be auto-fixed.</p>
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Scene cuts detected — manual review needed</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-400">These cues span a camera cut and cannot be auto-fixed.</p>
                       </div>
                     </div>
                     <ol className="space-y-2">
                       {sceneCuts.map((w, i) => (
-                        <li key={i} className="flex items-start justify-between gap-3 rounded-lg border border-violet-200 bg-white px-4 py-3 text-sm dark:border-violet-800 dark:bg-gray-900">
-                          <p className="text-violet-800 dark:text-violet-200">{w.message}</p>
-                          {w.line != null && <span className="shrink-0 font-mono text-xs text-violet-400">Cue {w.line}</span>}
+                        <li key={i} className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm dark:border-slate-800 dark:bg-gray-900">
+                          <p className="text-slate-800 dark:text-slate-200">{w.message}</p>
+                          {w.line != null && <span className="shrink-0 font-mono text-xs text-slate-400">Cue {w.line}</span>}
                         </li>
                       ))}
                     </ol>

@@ -170,8 +170,8 @@ export default function UserMenu() {
 
                 {/* Quota left — hidden for demo sessions; imports for free, minutes for paid */}
                 {!isLoggedIn() || isDemo() ? null : usage ? (
-                  <div className="rounded-xl bg-violet-100 dark:bg-violet-900/40 border border-violet-200 dark:border-violet-800 p-4">
-                    <div className="flex items-center gap-2 text-violet-800 dark:text-violet-200 text-sm font-medium">
+                  <div className="rounded-xl bg-blue-100 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 p-4">
+                    <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200 text-sm font-medium">
                       {usage.quotaType === 'imports' ? 'Imports' : usage.quotaType === 'unlimited' ? 'Plan access' : 'Minutes'}
                     </div>
                     <p className="mt-2 text-base text-gray-900 dark:text-white">

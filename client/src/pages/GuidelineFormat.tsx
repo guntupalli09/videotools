@@ -3384,7 +3384,7 @@ Speaker 1: The first 30 days we had 4,000 signups, which is above projections.`}
           },
           {
             brand: "Scribie",
-            color: "orange",
+            color: "indigo",
             links: [
               {
                 label: "Scribie Guidelines",

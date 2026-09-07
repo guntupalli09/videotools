@@ -2,8 +2,8 @@ import type { DashboardPlanCount } from '../../lib/founderDashboard'
 
 const PLAN_CONFIG: Record<string, { color: string; label: string }> = {
   free: { color: '#52525b', label: 'Free' },
-  basic: { color: '#2563eb', label: 'Basic' },
-  pro: { color: '#2563EB', label: 'Pro' },
+  basic: { color: '#6366F1', label: 'Basic' },
+  pro: { color: '#6366F1', label: 'Pro' },
   agency: { color: '#d97706', label: 'Agency' },
   founding_workflow: { color: '#059669', label: 'Founding' },
 }

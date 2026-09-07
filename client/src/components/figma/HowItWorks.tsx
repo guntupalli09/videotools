@@ -20,9 +20,9 @@ const steps = [
     title: "AI transcribes",
     description:
       "Whisper AI processes your audio — timestamps, speaker detection, and 99 language support included.",
-    color: "from-blue-500 to-cyan-600",
+    color: "from-blue-600 to-blue-700",
     shadowColor: "shadow-blue-500/30",
-    glow: "bg-blue-500/10",
+    glow: "bg-blue-600/10",
     detail: "98.5% accuracy",
   },
   {
@@ -31,9 +31,9 @@ const steps = [
     title: "Download & use",
     description:
       "Your transcript, SRT, or subtitle file is ready. Export as TXT, JSON, DOCX, PDF, or VTT.",
-    color: "from-emerald-500 to-green-600",
-    shadowColor: "shadow-emerald-500/30",
-    glow: "bg-emerald-500/10",
+    color: "from-blue-600 to-blue-800",
+    shadowColor: "shadow-blue-500/30",
+    glow: "bg-blue-600/10",
     detail: "10+ export formats",
   },
 ];
@@ -52,20 +52,9 @@ export function HowItWorks() {
       id="how-it-works"
       className="relative px-6 py-section bg-gray-950 transition-colors duration-500 overflow-hidden"
     >
-      {/* Background dot grid */}
-      <div
-        className="absolute inset-0 z-0 opacity-30"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at 1px 1px, rgba(139,92,246,0.15) 1px, transparent 0)",
-          backgroundSize: "36px 36px",
-        }}
-      />
-
-      {/* Ambient blobs */}
+      {/* Restrained indigo ambient glow */}
       <div className="absolute inset-0 z-[1] pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-1/4 w-[500px] h-[400px] bg-blue-600/[0.08] rounded-full blur-[120px]" />
-        <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-blue-700/[0.07] rounded-full blur-[100px]" />
+        <div className="absolute top-0 left-1/4 w-[500px] h-[400px] bg-blue-600/[0.06] rounded-full blur-[120px]" />
       </div>
 
       <div className="relative z-10 mx-auto max-w-5xl">
