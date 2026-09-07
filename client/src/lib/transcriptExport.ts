@@ -13,6 +13,7 @@
 import type { Segment } from './srtExport'
 import { formatTimestamp } from './srtExport'
 import { addAnchorTimecode } from './smpteTimecode'
+import { drawPdfFreePlanWatermark, WATERMARK_DOC_FOOTER, WATERMARK_DOC_HEADER } from './watermark'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -658,17 +659,9 @@ export async function exportToPdf(
     }
   }
 
-  // Watermark footer on every page
+  // Watermark on every page (diagonal + footer)
   if (watermark) {
-    const totalPages = doc.getNumberOfPages()
-    for (let p = 1; p <= totalPages; p++) {
-      doc.setPage(p)
-      doc.setFontSize(8)
-      doc.setFont('helvetica', 'italic')
-      doc.setTextColor(160)
-      doc.text(watermark, margin, pageH - 8)
-      doc.setTextColor(0)
-    }
+    drawPdfFreePlanWatermark(doc)
   }
 
   doc.save(filename)
@@ -720,7 +713,13 @@ export async function exportToDocx(
   if (watermark) {
     children.push(
       new Paragraph({
-        children: [new TextRun({ text: watermark, italics: true, color: '888888', size: 18 })],
+        children: [
+          new TextRun({ text: WATERMARK_DOC_HEADER, bold: true, color: '666666', size: 20 }),
+        ],
+        spacing: { after: 80 },
+      }),
+      new Paragraph({
+        children: [new TextRun({ text: WATERMARK_DOC_FOOTER, italics: true, color: '888888', size: 18 })],
         spacing: { after: 240 },
       }),
     )
@@ -952,7 +951,11 @@ export async function exportToDocxThreeColumn(
   if (watermark) {
     docChildren.push(
       new Paragraph({
-        children: [new TextRun({ text: watermark, italics: true, color: '888888', size: 18 })],
+        children: [new TextRun({ text: WATERMARK_DOC_HEADER, bold: true, color: '666666', size: 20 })],
+        spacing: { after: 80 },
+      }),
+      new Paragraph({
+        children: [new TextRun({ text: WATERMARK_DOC_FOOTER, italics: true, color: '888888', size: 18 })],
         spacing: { after: 240 },
         alignment: AlignmentType.LEFT,
       }),
@@ -1041,9 +1044,13 @@ export async function exportToPdfThreeColumn(
 
   if (watermark) {
     doc.setFontSize(8)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(100)
+    doc.text(WATERMARK_DOC_HEADER, margin, y)
+    y += lineH * 0.9
     doc.setFont('helvetica', 'italic')
-    doc.setTextColor(160)
-    doc.text(watermark, margin, y)
+    doc.setTextColor(140)
+    doc.text(WATERMARK_DOC_FOOTER, margin, y)
     doc.setTextColor(0)
     y += lineH * 1.4
   }
@@ -1099,17 +1106,9 @@ export async function exportToPdfThreeColumn(
     doc.line(margin, y - lineH * 0.2, pageW - margin, y - lineH * 0.2)
   }
 
-  // Watermark footer on every page
+  // Watermark on every page (diagonal + footer)
   if (watermark) {
-    const totalPages = doc.getNumberOfPages()
-    for (let p = 1; p <= totalPages; p++) {
-      doc.setPage(p)
-      doc.setFontSize(8)
-      doc.setFont('helvetica', 'italic')
-      doc.setTextColor(160)
-      doc.text(watermark, margin, pageH - 8)
-      doc.setTextColor(0)
-    }
+    drawPdfFreePlanWatermark(doc)
   }
 
   doc.save(filename)

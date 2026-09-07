@@ -1,11 +1,13 @@
 import express, { Request, Response } from 'express'
 import path from 'path'
 import fs from 'fs'
-import { getEffectivePlan } from '../utils/subscriptionGuard'
+import { enforceSubscriptionState, getEffectivePlan, hasPaidAccess } from '../utils/subscriptionGuard'
 import { getEffectiveUserId } from '../utils/auth'
 import { findJobByResultFilename } from '../lib/jobAnalytics'
 import { getBatchById } from '../models/BatchJob'
+import { getUser } from '../models/User'
 import { getLogger } from '../lib/logger'
+import { applyWatermark, TEXT_EXTENSIONS } from '../utils/watermark'
 
 const log = getLogger('api')
 const router = express.Router()
@@ -13,64 +15,6 @@ const router = express.Router()
 const tempDir =
   process.env.TEMP_FILE_PATH ||
   (process.platform === 'win32' ? path.join(process.cwd(), 'temp') : '/tmp')
-
-// Strong, highly visible watermark strings
-const WATERMARK_LINE1 = 'Fast AI transcription by VideoText.io — Free Plan'
-const WATERMARK_LINE2 = '⚠  Remove this watermark: videotext.io/pricing  |  Upgrade to Pro'
-const WATERMARK_SEPARATOR = '=================================================================================='
-const TEXT_EXTENSIONS = new Set(['.srt', '.vtt', '.txt', '.json', '.csv'])
-
-/**
- * Apply a strong, highly visible watermark to free-plan exports.
- * - SRT/VTT: first 8-second cue at the very start, impossible to miss
- * - TXT/CSV: bold header + footer with separator lines
- * - JSON: _watermark field at the top
- */
-function applyWatermark(content: string, ext: string): string {
-  switch (ext) {
-    case '.srt': {
-      // Prominent 8-second two-line cue at the very start of the video
-      const cue = [
-        '0',
-        '00:00:00,000 --> 00:00:08,000',
-        WATERMARK_LINE1,
-        WATERMARK_LINE2,
-        '',
-        '',
-      ].join('\n')
-      return cue + content.trimStart()
-    }
-    case '.vtt': {
-      const lines = content.split('\n')
-      const headerIdx = lines.findIndex((l) => l.startsWith('WEBVTT'))
-      const cueLines = ['', '00:00:00.000 --> 00:00:08.000', WATERMARK_LINE1, WATERMARK_LINE2, '']
-      if (headerIdx >= 0) {
-        lines.splice(headerIdx + 1, 0, ...cueLines)
-      }
-      return lines.join('\n')
-    }
-    case '.json': {
-      try {
-        const obj = JSON.parse(content)
-        if (typeof obj === 'object' && obj !== null && !Array.isArray(obj)) {
-          const watermarked = {
-            _watermark: `${WATERMARK_LINE1} | ${WATERMARK_LINE2}`,
-            _upgrade: 'videotext.io/pricing',
-            ...obj,
-          }
-          return JSON.stringify(watermarked, null, 2)
-        }
-      } catch { /* fall through */ }
-      return `${WATERMARK_SEPARATOR}\n${WATERMARK_LINE1}\n${WATERMARK_LINE2}\n${WATERMARK_SEPARATOR}\n\n${content}\n\n${WATERMARK_SEPARATOR}\n${WATERMARK_LINE1}\n${WATERMARK_LINE2}\n${WATERMARK_SEPARATOR}\n`
-    }
-    default: {
-      // TXT, CSV, and any other text format
-      const header = `${WATERMARK_SEPARATOR}\n${WATERMARK_LINE1}\n${WATERMARK_LINE2}\n${WATERMARK_SEPARATOR}\n\n`
-      const footer = `\n\n${WATERMARK_SEPARATOR}\n${WATERMARK_LINE1}\n${WATERMARK_LINE2}\n${WATERMARK_SEPARATOR}\n`
-      return header + content + footer
-    }
-  }
-}
 
 /** Per-video batch zip, written by workers/videoProcessor.ts generateBatchZip() as `batch-<batchId>.zip`. */
 export const BATCH_ZIP_PATTERN = /^batch-(.+)\.zip$/
@@ -85,11 +29,8 @@ export const BATCH_ZIP_PATTERN = /^batch-(.+)\.zip$/
  * owning job/user without needing Bull, matching the same ownership model
  * `GET /api/job/:jobId` already uses.
  *
- * Authenticated requests are strictly ownership-bound. A job token cannot
- * override authenticated user ownership.
- *
- * Anonymous/guest requests may access an output only with the matching
- * jobToken, preserving the existing guest-download workflow.
+ * Authenticated requests are strictly ownership-bound. Signup is required
+ * to download any export — job tokens are used for status polling and claim only.
  *
  * A filename with no matching Job or BatchJobRecord (e.g. output from
  * before this authorization model existed) is treated as not found rather
@@ -100,8 +41,6 @@ async function authorizeDownload(
   filename: string
 ): Promise<{ allowed: true } | { allowed: false; status: 404 | 401 | 403; message: string }> {
   const requestingUserId = getEffectiveUserId(req)
-  const clientJobToken = (req.query.jobToken as string | undefined)?.trim() || (req.headers['x-job-token'] as string | undefined)?.trim()
-
   const batchMatch = filename.match(BATCH_ZIP_PATTERN)
   if (batchMatch) {
     const batch = await getBatchById(batchMatch[1])
@@ -125,22 +64,26 @@ async function authorizeDownload(
     return { allowed: true }
   }
 
-  // Preserve existing anonymous/guest download behavior.
-  // Anonymous callers must possess the exact job token.
-  const allowedByToken =
-    !!clientJobToken &&
-    !!job.jobToken &&
-    clientJobToken === job.jobToken
-
-  if (!allowedByToken) {
-    return {
-      allowed: false,
-      status: clientJobToken ? 403 : 401,
-      message: clientJobToken ? 'Access denied' : 'Authentication required.',
-    }
+  return {
+    allowed: false,
+    status: 401,
+    message: 'Authentication required.',
   }
+}
 
-  return { allowed: true }
+/** Watermark when requester is free, or guest token for a free-plan job owner. */
+async function shouldApplyFreeWatermark(req: Request, filename: string): Promise<boolean> {
+  const requestingUserId = getEffectiveUserId(req)
+  if (requestingUserId) {
+    const { plan } = await getEffectivePlan(req)
+    return plan === 'free'
+  }
+  const job = await findJobByResultFilename(filename)
+  if (!job?.userId) return true
+  const owner = await getUser(job.userId)
+  if (!owner) return true
+  await enforceSubscriptionState(owner)
+  return !hasPaidAccess(owner)
 }
 
 router.get('/:filename', async (req: Request, res: Response) => {
@@ -170,20 +113,14 @@ router.get('/:filename', async (req: Request, res: Response) => {
     const asciiSafe = safeForHeader.replace(/[^\x20-\x7E]/g, '_')
 
     const ext = path.extname(filename).toLowerCase()
-    const isDownloadRequest = req.query.wm === '1'
 
-    // Apply server-side watermark when ?wm=1 and user is on free plan (or unauthenticated)
-    if (isDownloadRequest && TEXT_EXTENSIONS.has(ext)) {
-      const { plan } = await getEffectivePlan(req)
-      const isPaid = plan !== 'free'
-
-      if (!isPaid) {
-        const content = fs.readFileSync(filePath, 'utf-8')
-        const watermarked = applyWatermark(content, ext)
-        res.setHeader('Content-Disposition', `attachment; filename="${asciiSafe}"`)
-        res.setHeader('Content-Type', 'text/plain; charset=utf-8')
-        return res.send(watermarked)
-      }
+    // Free plan (or guest of free owner): always watermark text exports — no bypass.
+    if (TEXT_EXTENSIONS.has(ext) && (await shouldApplyFreeWatermark(req, filename))) {
+      const content = fs.readFileSync(filePath, 'utf-8')
+      const watermarked = applyWatermark(content, ext)
+      res.setHeader('Content-Disposition', `attachment; filename="${asciiSafe}"`)
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+      return res.send(watermarked)
     }
 
     // Paid plan or non-text file: stream directly with optional Range support

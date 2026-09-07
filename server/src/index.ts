@@ -29,6 +29,7 @@ import healthRoutes from './routes/health'
 import feedbackRoutes from './routes/feedback'
 import eventsRoutes from './routes/events'
 import shareRoutes from './routes/share'
+import referralRoutes from './routes/referral'
 import feedbackSystemRoutes from './routes/feedbackSystem'
 import cancellationFeedbackRoutes from './routes/cancellationFeedback'
 import adminDashboardRoutes, { clearDashboardCache } from './routes/adminDashboard'
@@ -278,6 +279,7 @@ app.use('/api/translate-transcript', translateTranscriptRoutes)
 app.use('/api/translate-subtitles', translateSubtitlesRoutes)
 app.use('/api/guidelines', guidelinesRoutes)
 app.use('/api/shares', shareRoutes)
+app.use('/api/referral', referralRoutes)
 app.use('/api/feedback', feedbackRoutes)
 app.use('/api/events', eventsRoutes)
 app.use('/api/feedback', feedbackSystemRoutes)

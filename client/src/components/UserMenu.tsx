@@ -17,7 +17,7 @@ const tools = [...CORE_AI_TOOLS_NAV]
 
 const SUPPORT_EMAIL = 'support@videotext.io'
 /** Set to true to re-enable referral program */
-const SHOW_REFERRAL = false
+const SHOW_REFERRAL = true
 
 export default function UserMenu() {
   const [open, setOpen] = useState(false)
@@ -25,6 +25,9 @@ export default function UserMenu() {
     plan: string
     email?: string
     quotaType?: 'imports' | 'minutes' | 'unlimited'
+    dailyRemaining?: number
+    bonusImportCredits?: number
+    limit?: number
   } | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
   const [cancelReasonOpen, setCancelReasonOpen] = useState(false)
@@ -45,6 +48,9 @@ export default function UserMenu() {
           plan: (data.plan || 'free').toLowerCase(),
           email: data.email || (typeof localStorage !== 'undefined' ? localStorage.getItem('userEmail') || undefined : undefined),
           quotaType: isImports ? 'imports' : isUnlimited ? 'unlimited' : 'minutes',
+          dailyRemaining: isImports ? (data.dailyRemaining ?? Math.max(0, (data.limit ?? 3) - (data.used ?? 0))) : undefined,
+          bonusImportCredits: isImports ? (data.bonusImportCredits ?? 0) : undefined,
+          limit: isImports ? (data.limit ?? 3) : undefined,
         })
       })
       .catch(() => {
@@ -172,7 +178,14 @@ export default function UserMenu() {
                       {usage.quotaType === 'unlimited'
                         ? <span>No daily cap <span className="font-normal text-gray-600 dark:text-gray-300">on imports</span></span>
                         : usage.quotaType === 'imports'
-                        ? <span className="font-normal">3 free imports included. Upgrade for more.</span>
+                        ? (
+                          <span className="font-normal">
+                            {(usage.dailyRemaining ?? usage.limit ?? 3)} of {usage.limit ?? 3} daily imports
+                            {(usage.bonusImportCredits ?? 0) > 0 && (
+                              <> · <span className="text-emerald-700 dark:text-emerald-300">{usage.bonusImportCredits} bonus</span></>
+                            )}
+                          </span>
+                        )
                         : <span className="font-normal">Minutes-based plan active</span>}
                     </p>
                   </div>
@@ -293,7 +306,7 @@ export default function UserMenu() {
                   onFocus={() => prefetchRoute('/refer')}
                 >
                   <Gift className="w-5 h-5 shrink-0 text-gray-600 dark:text-gray-300" />
-                  <span>Refer and earn: 45 min free (Free, Basic, Pro)</span>
+                  <span>Refer and earn: 3 bonus uploads each</span>
                 </Link>
                 )}
 

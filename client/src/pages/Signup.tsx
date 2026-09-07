@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { sendOtp, verifyOtp, loginWithGoogle } from '../lib/api'
 import { completeSignup, storeLoginResult } from '../lib/auth'
 import { identifyUser, trackEvent } from '../lib/analytics'
 import { getSamplesModuleAttribution } from '../lib/samplesAttribution'
+import { captureReferralFromUrl, getStoredReferralCode, clearStoredReferralCode } from '../lib/referral'
+import { celebrateReferralReward } from '../lib/referralReward'
+import ReferralSignupBanner from '../components/ReferralSignupBanner'
 import { motion } from 'framer-motion'
 import { FileText, Youtube, Shield, ChevronRight, CheckCircle2 } from 'lucide-react'
 import GoogleSignInButton, { GOOGLE_CLIENT_ID } from '../components/GoogleSignInButton'
@@ -28,11 +31,15 @@ export default function Signup() {
   const fromGuestJob = params.get('guestJob') === '1'
   const samplesAttribution = getSamplesModuleAttribution()
 
+  useEffect(() => {
+    captureReferralFromUrl(location.search)
+  }, [location.search])
+
   async function handleGoogleCredential(credential: string) {
     setGoogleLoading(true)
     setError(null)
     try {
-      const result = await loginWithGoogle(credential)
+      const result = await loginWithGoogle(credential, getStoredReferralCode())
       storeLoginResult(result)
       if (fromGuestJob) {
         try { localStorage.setItem('videotext:guestJobUsed', '1') } catch { /* ignore */ }
@@ -41,7 +48,13 @@ export default function Signup() {
       try {
         const event = result.isNewUser ? 'google_signup_completed' : 'google_login_completed'
         trackEvent(event, { plan: result.plan })
-        if (result.isNewUser) {
+      if (result.isNewUser) {
+          if (result.referralApplied) {
+            clearStoredReferralCode()
+            celebrateReferralReward()
+          } else {
+            clearStoredReferralCode()
+          }
           const nowIso = new Date().toISOString()
           try { localStorage.setItem(SIGNUP_STARTED_AT_KEY, nowIso) } catch { /* non-blocking */ }
           trackEvent('signup_completed', {
@@ -114,8 +127,12 @@ export default function Signup() {
     setError(null)
     setLoading(true)
     try {
-      const result = await completeSignup(verificationToken, password)
+      const result = await completeSignup(verificationToken, password, getStoredReferralCode())
       storeLoginResult(result)
+      if (result.referralApplied) {
+        clearStoredReferralCode()
+        celebrateReferralReward()
+      }
       // If they came from a guest job, mark 1 import as "used" in localStorage for display purposes
       if (fromGuestJob) {
         try {
@@ -254,6 +271,7 @@ export default function Signup() {
           </div>
 
           {/* Step indicator */}
+          <ReferralSignupBanner search={location.search} />
           <div className="flex items-center gap-1.5 mb-6">
             {(['email', 'otp', 'password'] as Step[]).map((s, i) => (
               <div

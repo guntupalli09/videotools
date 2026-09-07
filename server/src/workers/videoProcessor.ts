@@ -41,6 +41,7 @@ import { trimVideoSegment } from '../services/trimming'
 import { LANGUAGE_NAMES, generateMultiLanguageSubtitles } from '../services/multiLanguage'
 import { BatchJob, appendBatchFailure, getBatchById, incrementBatchProcessedVideos, saveBatch } from '../models/BatchJob'
 import { getUser, saveUser, incrementUserUsage, PlanType } from '../models/User'
+import { recordFreePlanImport } from '../utils/importQuota'
 import { getPlanLimits, getJobPriority, getMaxJobRuntimeMinutes } from '../utils/limits'
 import { resetUserUsageIfNeeded } from '../utils/usageReset'
 import { calculateTranslationMinutes, secondsToMinutes } from '../utils/metering'
@@ -1690,7 +1691,7 @@ async function processJob(job: import('bull').Job<JobData>) {
             await maybeTrackFirstPaidJob(userId, plan, job.data.toolType ?? 'video-to-transcript', jobId)
             await job.update({ ...job.data, usageIncremented: true })
             if (plan === 'free') {
-              await incrementUserUsage(userId, { importCount: 1, importCountToday: 1 })
+              await recordFreePlanImport(userId)
             } else {
               await incrementUserUsage(userId, { totalMinutes: minutes, videoCount: 1, importCountToday: 1, dailyMinutesToday: minutes })
             }
@@ -1847,7 +1848,7 @@ async function processJob(job: import('bull').Job<JobData>) {
               await maybeTrackFirstPaidJob(userId, plan, job.data.toolType ?? 'subtitles', jobId)
               await job.update({ ...job.data, usageIncremented: true })
               if (plan === 'free') {
-                await incrementUserUsage(userId, { importCount: 1, importCountToday: 1 })
+                await recordFreePlanImport(userId)
               } else {
                 await incrementUserUsage(userId, {
                   totalMinutes: baseMinutes + translatedMinutes,
@@ -1931,7 +1932,7 @@ async function processJob(job: import('bull').Job<JobData>) {
               await maybeTrackFirstPaidJob(userId, plan, job.data.toolType ?? 'subtitles', jobId)
               await job.update({ ...job.data, usageIncremented: true })
               if (plan === 'free') {
-                await incrementUserUsage(userId, { importCount: 1, importCountToday: 1 })
+                await recordFreePlanImport(userId)
               } else {
                 await incrementUserUsage(userId, { totalMinutes: minutes, videoCount: 1, importCountToday: 1, dailyMinutesToday: minutes })
               }
@@ -2126,7 +2127,7 @@ async function processJob(job: import('bull').Job<JobData>) {
               await maybeTrackFirstPaidJob(userId, plan, job.data.toolType ?? 'batch', jobId)
               await job.update({ ...job.data, usageIncremented: true })
               if (plan === 'free') {
-                await incrementUserUsage(userId, { importCount: 1, importCountToday: 1 })
+                await recordFreePlanImport(userId)
               } else {
                 const translatedExtra =
                   additionalLangs.length > 0 ? calculateTranslationMinutes(processedSeconds, additionalLangs.length) : 0
@@ -2200,7 +2201,9 @@ async function processJob(job: import('bull').Job<JobData>) {
 
           if (userId && !job.data.usageIncremented) {
             await job.update({ ...job.data, usageIncremented: true })
-            await incrementUserUsage(userId, { importCount: 1, importCountToday: 1 })
+            const usagePlan = (data.plan || 'free') as PlanType
+            if (usagePlan === 'free') await recordFreePlanImport(userId)
+            else await incrementUserUsage(userId, { importCount: 1, importCountToday: 1 })
           }
           break
         }
@@ -2247,7 +2250,9 @@ async function processJob(job: import('bull').Job<JobData>) {
 
           if (userId && !job.data.usageIncremented) {
             await job.update({ ...job.data, usageIncremented: true })
-            await incrementUserUsage(userId, { importCount: 1, importCountToday: 1 })
+            const usagePlan = (data.plan || 'free') as PlanType
+            if (usagePlan === 'free') await recordFreePlanImport(userId)
+            else await incrementUserUsage(userId, { importCount: 1, importCountToday: 1 })
           }
 
           result = {
@@ -2273,7 +2278,9 @@ async function processJob(job: import('bull').Job<JobData>) {
 
           if (userId && !job.data.usageIncremented) {
             await job.update({ ...job.data, usageIncremented: true })
-            await incrementUserUsage(userId, { importCount: 1, importCountToday: 1 })
+            const usagePlan = (data.plan || 'free') as PlanType
+            if (usagePlan === 'free') await recordFreePlanImport(userId)
+            else await incrementUserUsage(userId, { importCount: 1, importCountToday: 1 })
           }
 
           result = {
@@ -2351,7 +2358,7 @@ async function processJob(job: import('bull').Job<JobData>) {
             await maybeTrackFirstPaidJob(userId, plan, job.data.toolType ?? 'video-tool', jobId)
             await job.update({ ...job.data, usageIncremented: true })
             if (plan === 'free') {
-              await incrementUserUsage(userId, { importCount: 1, importCountToday: 1 })
+              await recordFreePlanImport(userId)
             } else {
               await incrementUserUsage(userId, { totalMinutes: minutes, videoCount: 1, importCountToday: 1, dailyMinutesToday: minutes })
             }
@@ -2426,7 +2433,7 @@ async function processJob(job: import('bull').Job<JobData>) {
             await maybeTrackFirstPaidJob(userId, plan, job.data.toolType ?? 'video-tool', jobId)
             await job.update({ ...job.data, usageIncremented: true })
             if (plan === 'free') {
-              await incrementUserUsage(userId, { importCount: 1, importCountToday: 1 })
+              await recordFreePlanImport(userId)
             } else {
               await incrementUserUsage(userId, { totalMinutes: minutes, videoCount: 1, importCountToday: 1, dailyMinutesToday: minutes })
             }

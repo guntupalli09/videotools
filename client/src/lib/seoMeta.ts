@@ -74,7 +74,7 @@ const STATIC_ROUTE_SEO: Record<string, { title: string; description: string }> =
   '/voice-recorder': {
     title: 'Voice to Text — In-Browser Recorder | VideoText',
     description:
-      'Speak in the browser and get text. No video upload to start. Privacy-first: files deleted after processing. Free: 3 imports/mo, no card, no watermark.',
+      'Speak in the browser and get text. No video upload to start. Privacy-first: files deleted after processing. Free: 3 imports/mo, no card; watermark on free exports.',
   },
   '/video-to-transcript': {
     title: 'Video to Transcript — Free AI, 98.5% | VideoText',
@@ -1407,12 +1407,12 @@ const TOOL_SOFTWARE_SCHEMAS: Record<string, { name: string; description: string;
   },
   '/srt-generator': {
     name: 'Free SRT File Generator from Video',
-    description: 'Create a timed SRT file from any video. Upload or paste a YouTube URL, download SRT in seconds. Whisper AI. 3 free imports/mo, no card, no watermark.',
+    description: 'Create a timed SRT file from any video. Upload or paste a YouTube URL, download SRT in seconds. Whisper AI. 3 free imports/mo, no card; watermark on free exports.',
     featureList: 'SRT file generation, AI timing, YouTube URL input, Instant download, Files deleted after processing',
   },
   '/video-to-srt': {
     name: 'Video to SRT Converter — Free Online',
-    description: 'Convert video to a timed SRT subtitle file online. Upload MP4/MOV or a YouTube URL. AI timestamps, no watermark. Sign up free — 3 imports/mo.',
+    description: 'Convert video to a timed SRT subtitle file online. Upload MP4/MOV or a YouTube URL. AI timestamps. Sign up free — 3 imports/mo; watermark on free exports.',
     featureList: 'Video to SRT conversion, AI timing, YouTube URL input, Instant download, Files deleted after processing',
   },
 }

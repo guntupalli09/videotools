@@ -81,9 +81,9 @@ const STATIC_META: RouteMeta[] = [
       'VideoText is AI video-to-text software: transcript, SRT/VTT, summary, and chapters from a video or YouTube URL. Whisper large-v3. 3 free imports/mo.',
     h1: 'VideoText: Video to Text & Subtitle Tools',
     faq: [
-      { q: 'What is VideoText — is it the same as “video text”?', a: 'VideoText is one word: AI software that turns video into a transcript, SRT/VTT subtitles, a summary, and chapters. It is not a generic “video text” site. Upload a video or YouTube URL to try 3 free imports this month — no card, no watermark.' },
+      { q: 'What is VideoText — is it the same as “video text”?', a: 'VideoText is one word: AI software that turns video into a transcript, SRT/VTT subtitles, a summary, and chapters. It is not a generic “video text” site. Upload a video or YouTube URL to try 3 free imports this month — no card; watermark on free exports.' },
       { q: 'What do I get from one upload?', a: 'A transcript plus SRT/VTT subtitles, a summary, and chapters. Files are deleted after processing.' },
-      { q: 'Is VideoText free to try?', a: 'Yes. 3 imports per month, no credit card, no watermark. Paid plans start if you need more volume.' },
+      { q: 'Is VideoText free to try?', a: 'Yes. 3 imports per month, no credit card. Free exports include a watermark; upgrade for clean files. Paid plans start if you need more volume.' },
     ],
   },
   {
@@ -336,7 +336,7 @@ const STATIC_META: RouteMeta[] = [
     path: '/voice-recorder',
     title: `Voice to Text — In-Browser Recorder | ${SITE_NAME}`,
     description:
-      'Speak in the browser and get text. No video upload to start. Privacy-first: files deleted after processing. Free: 3 imports/mo, no card, no watermark.',
+      'Speak in the browser and get text. No video upload to start. Privacy-first: files deleted after processing. Free: 3 imports/mo, no card; watermark on free exports.',
     h1: 'Voice to Text — In-Browser Recorder',
     breadcrumbLabel: 'Voice Recorder',
   },

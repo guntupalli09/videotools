@@ -1188,7 +1188,7 @@ const MANUAL_REGISTRY: SeoRegistryEntry[] = [
     path: '/video-to-srt',
     title: 'Video to SRT Converter — Free Online | VideoText',
     description:
-      'Convert video to a timed SRT subtitle file online. Upload MP4/MOV or a YouTube URL. AI timestamps, no watermark. Sign up free — 3 imports/mo.',
+      'Convert video to a timed SRT subtitle file online. Upload MP4/MOV or a YouTube URL. AI timestamps. Sign up free — 3 imports/mo; watermark on free exports.',
     h1: 'Convert Video to an SRT File',
     intro:
       'Turn a video into a timed SRT subtitle file. Upload MP4, MOV, or a YouTube URL — VideoText transcribes the speech and writes the SRT. Need a file maker instead? Use the SRT file generator. For the full caption product (fix, translate, burn, transcript + summary), use Video to Subtitles. Files deleted after processing. Try 3 free imports this month.',
@@ -1199,7 +1199,7 @@ const MANUAL_REGISTRY: SeoRegistryEntry[] = [
     intentKey: 'video-to-srt',
     faq: [
       { q: 'How do I convert a video to an SRT file?', a: 'Upload an MP4 or MOV, or paste a YouTube URL. VideoText transcribes the audio and downloads a timed SRT you can add in YouTube Studio, Vimeo, or any editor. Sign up free to try — 3 imports per month, no card.' },
-      { q: 'Is this video to SRT converter free?', a: 'Yes. The free plan includes 3 imports per month with no credit card and no watermark on SRT downloads. Upgrade only if you need more imports.' },
+      { q: 'Is this video to SRT converter free?', a: 'Yes. The free plan includes 3 imports per month with no credit card. SRT downloads on the free tier include a watermark; upgrade for clean exports.' },
       { q: 'What is the difference between Video to SRT and the SRT file generator?', a: 'This page is the converter: video in, SRT out. The SRT file generator is the same workflow framed as creating a new subtitle file (maker/creator). Use this page if you searched “video to srt”; use /srt-generator if you searched “srt file generator”.' },
       { q: 'When should I use Video to Subtitles instead?', a: 'Use /video-to-subtitles when you want the full caption product hub — timed SRT/VTT plus next steps (fix, translate, burn) and a path to transcript + summary. This page stays a converter.' },
       { q: 'Can I translate the SRT after converting?', a: 'Yes. After you download the SRT, open Translate Subtitles to send it to 70+ languages with timestamps preserved. Free browser tools on /subtitle-tools can also convert SRT to VTT or check line limits.' },
@@ -1209,7 +1209,7 @@ const MANUAL_REGISTRY: SeoRegistryEntry[] = [
     path: '/srt-generator',
     title: 'Free SRT File Generator from Video | VideoText',
     description:
-      'Create a timed SRT file from any video. Upload or paste a YouTube URL, download SRT in seconds. Whisper AI. 3 free imports/mo, no card, no watermark.',
+      'Create a timed SRT file from any video. Upload or paste a YouTube URL, download SRT in seconds. Whisper AI. 3 free imports/mo, no card; watermark on free exports.',
     h1: 'Free SRT File Generator from Video',
     intro:
       'Make a timed SRT subtitle file from video — a file maker, not a caption-format converter. Upload a video or YouTube URL and download SRT. For the full caption product hub (fix, translate, burn, transcript + summary), use Video to Subtitles. Whisper large-v3. Files deleted after processing. Try 3 free imports this month.',
@@ -1220,7 +1220,7 @@ const MANUAL_REGISTRY: SeoRegistryEntry[] = [
     intentKey: 'srt-generator',
     faq: [
       { q: 'What is an SRT file generator?', a: 'An SRT file generator (also called an SRT file maker or creator) transcribes speech in a video and writes a timed .srt file. You upload video and download captions ready for YouTube, Vimeo, or an editor.' },
-      { q: 'Is the SRT file generator free?', a: 'Yes. Sign up free for 3 imports per month — no card and no watermark. Paid plans add more minutes if you outgrow the free tier.' },
+      { q: 'Is the SRT file generator free?', a: 'Yes. Sign up free for 3 imports per month — no card. Free exports include a watermark; paid plans remove it.' },
       { q: 'Does it support multiple languages?', a: 'Yes. Set the spoken language before processing for best accuracy. After you have an SRT, use Translate Subtitles to create versions in 70+ languages without losing timestamps.' },
       { q: 'SRT file generator vs video to SRT — which should I use?', a: 'Use this page to create a new SRT file from video (file generator/maker). If you want a video-to-SRT converter, use /video-to-srt. For the full caption product plus next steps, use /video-to-subtitles. To fix or convert an existing SRT, see the free tools on /subtitle-tools.' },
     ],
@@ -2022,7 +2022,7 @@ const MANUAL_REGISTRY: SeoRegistryEntry[] = [
       { q: 'Is VideoText better than Otter.ai?', a: 'For recorded video, yes. VideoText accepts video files and YouTube URLs; Otter.ai does not. For live meeting transcription, Otter.ai is better — it joins Zoom/Meet/Teams in real time. VideoText does not support live meetings.' },
       { q: 'Is VideoText better than Descript?', a: 'For pure transcription, yes — VideoText is 6× faster and starts at $0. For transcript-based video editing (cutting video by editing text), Descript is better. VideoText does not edit video.' },
       { q: 'Is VideoText better than TurboScribe?', a: 'Yes for most workflows. VideoText is 3× faster, produces structured output (summary + chapters + SRT), accepts YouTube URLs, and starts free. TurboScribe produces raw text only and charges $10/month.' },
-      { q: 'What is the best free transcription tool?', a: 'VideoText has the most capable free tier for video: 3 imports per month, all features enabled (SRT export, summary, chapters, translation), no credit card, no watermark. TurboScribe, HappyScribe, Sonix, and Trint have no free video tier.' },
+      { q: 'What is the best free transcription tool?', a: 'VideoText has the most capable free tier for video: 3 imports per month, all features enabled (SRT export, summary, chapters, translation), no credit card. Free exports are watermarked; paid plans remove the watermark. TurboScribe, HappyScribe, Sonix, and Trint have no free video tier.' },
     ],
   },
   {
@@ -2772,7 +2772,7 @@ const MANUAL_REGISTRY: SeoRegistryEntry[] = [
     faq: [
       { q: 'How does VideoText compare to Kapwing for subtitles?', a: 'Kapwing is a full video editor with subtitle features included. VideoText is purpose-built for transcription and subtitle generation — faster subtitle output, no editing overhead, and SRT/VTT export without requiring you to export a new video file.' },
       { q: 'Why do people look for Kapwing alternatives?', a: 'Common reasons: Kapwing adds a watermark on free tier exports, users only need subtitle files (not video editing), the editor is slower for simple subtitle tasks, or users want bulk subtitle processing rather than one-by-one video editing.' },
-      { q: 'Does VideoText add a watermark?', a: 'Transcript exports (TXT, SRT, VTT) are available without a watermark on the free tier. Subtitle-burned video exports include a watermark on the free tier — upgrade to remove it.' },
+      { q: 'Does VideoText add a watermark?', a: 'Yes on the free plan. Transcript and subtitle exports (TXT, SRT, VTT, PDF, JSON, CSV) include a watermark with an upgrade link. Upgrade to Pro for watermark-free exports.' },
       { q: 'Is VideoText free?', a: 'Yes. Free tier includes 3 imports per month. Sign up for free to try.' },
     ],
   },
@@ -4304,7 +4304,7 @@ const MANUAL_REGISTRY: SeoRegistryEntry[] = [
     intentKey: 'free-voice-to-text',
     faq: [
       { q: 'Is voice to text really free?', a: 'Yes. VideoText offers 3 imports per month with no credit card required. Create an account to track your usage. Pro plan is $49/month for continued processing.' },
-      { q: 'What is the best free voice to text tool?', a: 'VideoText offers high-accuracy Whisper AI transcription for free, with no watermarks, no forced login, and no usage spying. Alternatives like Otter.ai, Speechnotes, and SpeechTexter offer free tiers but with lower accuracy or intrusive prompts.' },
+      { q: 'What is the best free voice to text tool?', a: 'VideoText offers high-accuracy Whisper AI transcription for free. Free exports include a watermark; upgrade for clean files. Alternatives like Otter.ai, Speechnotes, and SpeechTexter offer free tiers but with lower accuracy or intrusive prompts.' },
       { q: 'Does free voice to text store my data?', a: 'VideoText processes and deletes your recordings. We do not store or sell your audio data.' },
     ],
   },
@@ -4572,7 +4572,7 @@ const MANUAL_REGISTRY: SeoRegistryEntry[] = [
     title: 'Online Subtitle Editor | VideoText',
     description: 'Edit subtitle files online. Fix timing, correct text, validate overlaps, and export SRT or VTT. Free browser-based subtitle editor. No account required.',
     h1: 'Online Subtitle Editor — Edit and Fix Subtitle Files in Your Browser',
-    intro: 'Edit subtitle files directly in your browser. VideoText provides a suite of free online subtitle editing tools — fix timing drift, validate overlaps, correct line lengths, and shift timestamps — plus an AI-powered tool that regenerates accurate SRT and VTT files from your original video. No desktop software, no watermarks, no account required for free tools.',
+    intro: 'Edit subtitle files directly in your browser. VideoText provides a suite of free online subtitle editing tools — fix timing drift, validate overlaps, correct line lengths, and shift timestamps — plus an AI-powered tool that regenerates accurate SRT and VTT files from your original video. No desktop software required.',
     breadcrumbLabel: 'Subtitle Editor',
     toolKey: 'fix-subtitles',
     relatedSlugs: ['/fix-subtitles', '/subtitle-timing-fixer', '/subtitle-validation', '/subtitle-grammar-fixer'],
@@ -5064,7 +5064,7 @@ const MANUAL_REGISTRY: SeoRegistryEntry[] = [
     intentKey: 'best-caption-generator',
     faq: [
       { q: 'What is the best caption generator for YouTube?', a: 'VideoText is the best caption generator for YouTube: it accepts YouTube URLs directly (no download), produces SRT files ready to upload to YouTube Studio, achieves 98.5%+ accuracy, and translates captions to 70+ languages. Starts free.' },
-      { q: 'What is the best free caption generator?', a: 'VideoText. Free tier includes 3 imports per month — no credit card required, no watermark, full features including SRT/VTT export and multilanguage transcription.' },
+      { q: 'What is the best free caption generator?', a: 'VideoText. Free tier includes 3 imports per month — no credit card required, watermark on free exports, full features including SRT/VTT export and multilanguage transcription.' },
       { q: 'Is VideoText the most accurate caption generator?', a: 'Yes — among online tools, VideoText uses Whisper large-v3 which achieves the lowest Word Error Rate of any publicly available model. At 98.5%+ accuracy on clear audio, it outperforms YouTube auto-captions, Otter.ai, and most other web-based caption generators.' },
     ],
   },

@@ -1,8 +1,11 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { getPopularFooterLinks } from '../lib/seoRegistry'
 import { getBlogOutboundUrl } from '../lib/blogOutbound'
 
 export default function Footer() {
+  const { pathname } = useLocation()
+  if (pathname.startsWith('/embed/')) return null
+
   const popularLinks = getPopularFooterLinks()
 
   return (
