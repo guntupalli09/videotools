@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import { ToolLayout } from "../components/figma/ToolLayout";
 import CoreToolSeoDepth from "../components/CoreToolSeoDepth";
 import CollapsibleToolSection from "../components/CollapsibleToolSection";
+import CollapsibleFaqSection from "../components/CollapsibleFaqSection";
 import { getCoreToolSeoDepth } from "../lib/coreToolSeoDepth";
 import { api } from "../lib/api";
 import {
@@ -2799,18 +2800,9 @@ export default function GuidelineFormat() {
 
       <CoreToolSeoDepth path="/guideline-format" hideFaq defaultCollapsed />
 
-      <CollapsibleToolSection id="tool-faq" title="Frequently asked questions">
-        {guidelineFaq.length > 0 && (
-          <dl className="mb-section max-w-4xl space-y-component-sm">
-            {guidelineFaq.map((item) => (
-              <div key={item.q}>
-                <dt className="font-medium text-gray-900 dark:text-white">{item.q}</dt>
-                <dd className="mt-1 text-gray-600 dark:text-gray-400">{item.a}</dd>
-              </div>
-            ))}
-          </dl>
-        )}
+      {guidelineFaq.length > 0 && <CollapsibleFaqSection items={guidelineFaq} />}
 
+      <CollapsibleToolSection id="guideline-style-reference" title="Style guide & QA reference">
       {/* ── QA Workflow Section ── */}
       <section
         className="mx-auto max-w-3xl px-4 sm:px-component lg:px-8 py-12 sm:py-16 border-t border-gray-100 dark:border-gray-800"
